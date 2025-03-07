@@ -4,6 +4,7 @@
  */
 
 using Stockshrimp_1.movegen;
+using System.Drawing;
 
 namespace Stockshrimp_1;
 
@@ -13,7 +14,7 @@ internal class Board {
     internal ulong[,] pieces = new ulong[2, 6];
 
 
-    internal byte enPassantSquare = 0;
+    internal byte enPassantSquare = 64;
 
     
     // 0 0 0 0 q k Q K
@@ -53,9 +54,9 @@ internal class Board {
     }
 
     // performs a move on the board
-    internal void PlayMove(Move move) {
+    internal void DoMove(Move move) {
 
-        enPassantSquare = 0;
+        enPassantSquare = 64;
 
         // start & end squares
         int start_32 = move.Start();
@@ -83,21 +84,20 @@ internal class Board {
 
         // castling
         else if (prom == 5) {
-            int r_s = 0;
-            int r_e = 0;
 
-            switch (end) {
-                case 0x0000000000000004: r_s = 0;  r_e = 3;  break;
-                case 0x0000000000000040: r_s = 7;  r_e = 5;  break;
-                case 0x0400000000000000: r_s = 56; r_e = 59; break;
-                case 0x4000000000000000: r_s = 63; r_e = 61; break;
-            }
+            ulong rook = end switch {
+                0x0000000000000004 => 0x0000000000000009,
+                0x0000000000000040 => 0x00000000000000A0,
+                0x0400000000000000 => 0x0900000000000000,
+                0x4000000000000000 => 0xA000000000000000,
+                _ => 0
+            };
 
             // king
             pieces[col, piece] ^= start | end;
 
             // rook
-            PlayMove(new(r_s, r_e, 3, 6, 6));
+            pieces[col, 3] ^= rook;
         }
 
         // promotion
@@ -126,38 +126,81 @@ internal class Board {
 
         if (castlingFlags != 0 && piece == 3) {
 
-            int mask = 0;
-            switch (start_32) {
-                case 63: mask &= 0xE; break;
-                case 56: mask &= 0xD; break;
-                case 7:  mask &= 0xB; break;
-                case 0:  mask &= 0x7; break;
-            }
+            int mask = start_32 switch {
+                63 => 0xE,
+                56 => 0xD,
+                7 => 0xB,
+                0 => 0x7,
+                _ => 0xF
+            };
 
             // remove castling rights after a rook moves
             castlingFlags &= (byte)mask;
         }
     }
 
-    internal Board[] GenerateChildren(int col) {
-        Move[] legal = Movegen.GetLegalMoves(this, col);
-        Board[] children = new Board[legal.Length];
+    internal void DoMoveReversible(Move move, int col) {
 
-        for (int i = 0; i < legal.Length; i++) {
+        // start & end squares
+        ulong s = Consts.SqMask[move.Start()];
+        ulong e = Consts.SqMask[move.End()];
+        ulong s_e = s | e;
+
+        // opposite color
+        int col_op = col == 0 ? 1 : 0;
+
+        // other stuff
+        int prom = move.Promotion();
+        int piece = move.Piece();
+        int capt = move.Capture();
+
+        ulong en_p_cap_sq;
+
+        // en passant
+        if (prom == 0) {
+            en_p_cap_sq = col == 0
+                ? e << 8
+                : e >> 8;
+
+            pieces[col_op, 0] ^= en_p_cap_sq;
+            pieces[col, 0] ^= s_e;
+        }
+
+        // promotion
+        else if (prom != 5 && prom != 6) {
+            pieces[col, piece] ^= s;
+            pieces[col, prom] ^= e;
+        }
+
+        // regular move
+        else pieces[col, piece] ^= s_e;
+
+        // capture
+        if (capt != 6) pieces[col_op, capt] ^= e;
+    }
+
+    internal Board[] GenerateChildren(int col) {
+
+        Move[] moves = Movegen.GetLegalMoves(this, col);
+        Board[] children = new Board[moves.Length];
+
+        for (int i = 0; i < children.Length; i++) {
             children[i] = Clone();
-            children[i].PlayMove(legal[i]);
+            children[i].DoMove(moves[i]);
         }
 
         return children;
     }
 
-    internal bool IsLegal(Move m) {
-        (int col, _) = PieceAt(m.Start());
+    internal bool IsMoveLegal(Move move, int col) {
 
-        Board clone = Clone();
-        clone.PlayMove(m);
+        DoMoveReversible(move, col);
 
-        return !Movegen.IsKingChecked(clone, col);
+        bool is_legal = !Movegen.IsKingInCheck(this, col);
+
+        DoMoveReversible(move, col);
+
+        return is_legal;
     }
 
     internal void Erase() {
@@ -171,17 +214,17 @@ internal class Board {
     }
 
     internal Board Clone() {
-        Board b = new() {
+        Board n = new() {
             castlingFlags = castlingFlags,
             enPassantSquare = enPassantSquare
         };
 
         for (int i = 0; i < 6; i++) {
-            b.pieces[0, i] = pieces[0, i];
-            b.pieces[1, i] = pieces[1, i];
+            n.pieces[0, i] = pieces[0, i];
+            n.pieces[1, i] = pieces[1, i];
         }
 
-        return b;
+        return n;
     }
 
     internal void Print() {

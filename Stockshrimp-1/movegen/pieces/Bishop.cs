@@ -6,7 +6,7 @@
 namespace Stockshrimp_1.movegen.pieces;
 
 internal static class Bishop {
-    internal static ulong GetBishopMoves(ulong bishop, Board b, int col, ulong free, ulong occupied) {
+    internal static ulong GetBishopMoves(ulong bishop, ulong free, ulong occupied) {
         ulong moves = 0;
 
         int sq = BB.LS1B(bishop);

@@ -21,11 +21,11 @@ internal static class Game {
     internal static void SearchBestMove() {
         Move[] moves = Movegen.GetLegalMoves(board, col_to_play);
 
-        foreach (Move move in moves) {
-            if (move.Promotion() == 0) {
-                Console.WriteLine($"bestmove {move}");
-            }
-        }
+        //foreach (Move move in moves) {
+        //    if (move.Promotion() == 0) {
+        //        Console.WriteLine($"bestmove {move}");
+        //    }
+        //}
 
         Console.WriteLine($"bestmove {moves[new Random().Next(0, moves.Length)]}");
     }
@@ -82,7 +82,7 @@ internal static class Game {
                 case 'k': board.castlingFlags |= 0x4; break;
                 case 'q': board.castlingFlags |= 0x8; break;
                 default:
-                    if (toks[2][i] != '-') {
+                    if (toks[4][i] != '-') {
                         Console.WriteLine($"invalid castling availiability: {toks[2][i]}");
                         return;
                     } else continue;
@@ -99,7 +99,7 @@ internal static class Game {
         if (toks[5].Length == 2 && char.IsDigit(toks[3][0]) && char.IsDigit(toks[3][1]))
             board.enPassantSquare = (byte)int.Parse(toks[3]);
         else if (toks[5].Length == 1 && toks[5][0] == '-')
-            board.enPassantSquare = 0;
+            board.enPassantSquare = 64;
         else {
             Console.WriteLine($"invalid en passant square: {toks[3]}");
             return;
@@ -123,7 +123,7 @@ internal static class Game {
 
             // play the moves
             for (int i = m_start + 1; i < toks.Length; i++) {
-                board.PlayMove(Move.FromString(board, toks[i]));
+                board.DoMove(Move.FromString(board, toks[i]));
                 col_to_play = col_to_play == 0 ? 1 : 0;
             }
         }

@@ -7,7 +7,7 @@ namespace Stockshrimp_1.movegen.pieces;
 
 internal static class Pawn {
     // returns a bitboard of possible move end squares
-    internal static ulong GetPawnPushes(ulong pawn, Board b, int col, ulong empty) {
+    internal static ulong GetPawnPushes(ulong pawn, int col, ulong empty) {
 
         // chess speaks for itself
         ulong singlePush = col == 0
@@ -23,7 +23,7 @@ internal static class Pawn {
     }
 
     // returns a bitboard of possible capture end squares
-    internal static ulong GetPawnCaptures(ulong pawn, Board b, int col, ulong occ_opp) {
+    internal static ulong GetPawnCaptures(ulong pawn, int en_p_sq, int col, ulong occ_opp) {
 
         // in both cases we ensure the pawn hasn't jumped to the other side of the board
 
@@ -36,8 +36,10 @@ internal static class Pawn {
             ? pawn >> 7 & 0xFEFEFEFEFEFEFEFE
             : pawn << 9 & 0xFEFEFEFEFEFEFEFE;
 
-        // & with occupied sqaures of opposite color
-        return (l | r) & (occ_opp | Consts.SqMask[b.enPassantSquare]);
+        ulong en_p_sq_mask = en_p_sq != 64 ? Consts.SqMask[en_p_sq] : 0;
+
+        // & with occupied sqaures of opposite color and en passant square
+        return (l | r) & (occ_opp | en_p_sq_mask);
     }
 
     // this method is only used to prevent nesting in a switch case

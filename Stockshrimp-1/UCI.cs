@@ -4,6 +4,7 @@
  */
 
 using Stockshrimp_1.movegen;
+using System.Diagnostics;
 
 namespace Stockshrimp_1;
 
@@ -22,8 +23,13 @@ internal static class UCI {
                 case "isready": CmdIsReady(); break;
                 case "position": CmdPosition(toks); break;
                 case "go": CmdGo(toks); break;
+                case "ischeck": CmdIsCheck(); break;
+                case "showallmoves": CmdShowAllMoves(); break;
+                case "print": CmdPrint(); break;
                 default: Console.WriteLine($"unknown command: {toks[0]}"); break;
             }
+
+            Console.WriteLine();
         }
     }
 
@@ -46,26 +52,53 @@ internal static class UCI {
     private static void CmdGo(string[] toks) {
         // TODO - OTHER ARGS
 
+        TT.Clear();
+
         if (toks.Length > 1 && toks[1] == "perft") {
 
-            int depth = 2;
+            int depth;
             try {
                 depth = int.Parse(toks[2]);
             } catch {
                 Console.WriteLine($"invalid perft command syntax");
                 return;
             }
-            
-            Console.WriteLine($"{Performace.Perft(Game.board, depth, Game.col_to_play)}");
+            Stopwatch sw = Stopwatch.StartNew();
+
+            Console.WriteLine($"nodes: {Performace.Perft(Game.board, depth, Game.col_to_play)}");
+
+            sw.Stop();
+            Console.WriteLine($"time spent: {sw.Elapsed}");
             return;
         }
 
         Game.SearchBestMove();
+
+        //byte cur_e = Game.board.enPassantSquare;
+        //byte cur_c = Game.board.castlingFlags;
+
+        //Game.board.DoMove(new(62, 47, 1, 6, 6));
+        //Game.board.UndoMove(new(62, 47, 1, 6, 6), cur_e, cur_c);
+        //Game.board.Print();
 
         //Move[] moves = Movegen.GetLegalMoves(Game.board, Game.col_to_play);
         //Console.WriteLine(moves.Length);
         //foreach (Move move in moves) {
         //    Console.WriteLine(move);
         //}
+    }
+
+    private static void CmdIsCheck() {
+        Console.WriteLine($"{Movegen.IsKingInCheck(Game.board, Game.col_to_play)}");
+    }
+
+    private static void CmdShowAllMoves() {
+        foreach (Move m in Movegen.GetLegalMoves(Game.board, Game.col_to_play)) {
+            Console.WriteLine(m.ToString());
+        }
+    }
+
+    private static void CmdPrint() {
+        Game.board.Print();
     }
 }

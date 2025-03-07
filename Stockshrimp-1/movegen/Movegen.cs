@@ -12,15 +12,13 @@ internal static class Movegen {
         List<Move> moves = [];
 
         // generate all pseudo-legal moves
-        AddAllMoves(b, col, moves);
+        GetPseudoLegalMoves(b, col, moves);
 
         // remove the illegal ones
         List<Move> legal = [];
         for (int i = 0; i < moves.Count; i++) {
 
-            bool l = b.IsLegal(moves[i]);
-
-            if (l) {
+            if (b.IsMoveLegal(moves[i], col)) {
                 legal.Add(moves[i]);
             }
         }
@@ -28,71 +26,64 @@ internal static class Movegen {
         return [.. legal];
     }
 
-    internal static bool IsKingChecked(Board b, int col) {
+    internal static void GetPseudoLegalMoves(Board b, int col, List<Move> moves) {
+
+        ulong occ_opp = b.Occupied(col == 0 ? 1 : 0);
+        ulong occ = occ_opp | b.Occupied(col);
+        ulong empty = ~occ;
+        ulong free = empty | occ_opp;
+
+        // loop through every piece type and add start the respective move search loop
+        for (int i = 0; i < 6; i++) {
+            LoopPiecesBB(b, b.pieces[col, i], i, col, moves, occ_opp, occ, empty, free);
+        }
+
+        ulong cast = King.GetCastlingMoves(b, col);
+        LoopMovesBB(cast, b, BB.LS1B(b.pieces[col, 5]), 7, col, moves);
+    }
+
+    internal static bool IsKingInCheck(Board b, int col) {
 
         int col_o = col == 0 ? 1 : 0;
 
-        ulong sq = b.pieces[col, 5];
+        ulong king_sq = b.pieces[col, 5];
 
-        ulong _p = GetMovesBB(sq, b, 0, col);
+        ulong occ_opp = b.Occupied(col_o);
+        ulong occ = occ_opp | b.Occupied(col);
+
+        ulong _p = Pawn.GetPawnCaptures(king_sq, b.enPassantSquare, col, occ_opp);
+        ulong _n = Knight.GetKnightMoves(king_sq, ulong.MaxValue);
+        ulong _b = Bishop.GetBishopMoves(king_sq, ulong.MaxValue, occ);
+        ulong _r = Rook.GetRookMoves(king_sq, ulong.MaxValue, occ);
+        ulong _k = King.GetKingMoves(king_sq, ulong.MaxValue);
+
         if ((_p & b.pieces[col_o, 0]) != 0) return true;
-
-        ulong _n = GetMovesBB(sq, b, 1, col);
         if ((_n & b.pieces[col_o, 1]) != 0) return true;
-
-        ulong _b = GetMovesBB(sq, b, 2, col);
         if ((_b & b.pieces[col_o, 2]) != 0) return true;
-
-        ulong _r = GetMovesBB(sq, b, 3, col);
         if ((_r & b.pieces[col_o, 3]) != 0) return true;
         if (((_b | _r) & b.pieces[col_o, 4]) != 0) return true;
-
-        ulong _k = GetMovesBB(sq, b, 5, col);
         if ((_k & b.pieces[col_o, 5]) != 0) return true;
 
         return false;
     }
 
-    private static void AddAllMoves(Board b, int col, List<Move> moves) {
-
-        // loop through every piece type and add start the respective move search loop
-        for (int i = 0; i < 6; i++) {
-            LoopPiecesBB(b, b.pieces[col, i], i, col, moves);
-        }
-
-        ulong cast = King.GetCastlingMoves(b.pieces[col, 5], b, col);
-        LoopMovesBB(cast, b, BB.LS1B(b.pieces[col, 5]), 7, col, moves);
-    }
-
-    private static ulong GetMovesBB(ulong sq, Board b, int p, int col) {
-
-        // occupied by opposite color
-        ulong o = b.Occupied(col == 0 ? 1 : 0);
-
-        // empty squares
-        ulong e = b.Empty();
-
-        // occupied by both
-        ulong oo = ~e;
-
-        // both combined
-        ulong free = o | e;
+    private static ulong GetMovesBB(ulong sq, Board b, int p, int col, ulong occ_opp, ulong occ, ulong empty, ulong free) {
 
         // return a bitboard of possible moves depending on the piece type
         return p switch {
-            0 => Pawn.GetPawnPushes(sq, b, col, e) | Pawn.GetPawnCaptures(sq, b, col, o),
-            1 => Knight.GetKnightMoves(sq, b, col, free),
-            2 => Bishop.GetBishopMoves(sq, b, col, free, oo),
-            3 => Rook.GetRookMoves(sq, b, col, free, oo),
+            0 => Pawn.GetPawnPushes(sq, col, empty) | Pawn.GetPawnCaptures(sq, b.enPassantSquare, col, occ_opp),
+            1 => Knight.GetKnightMoves(sq, free),
+            2 => Bishop.GetBishopMoves(sq, free, occ),
+            3 => Rook.GetRookMoves(sq, free, occ),
 
             // queen = bishop + rook
-            4 => Bishop.GetBishopMoves(sq, b, col, free, oo) | Rook.GetRookMoves(sq, b, col, free, oo),
-            5 => King.GetKingMoves(sq, b, col, free),
+            4 => Bishop.GetBishopMoves(sq, free, occ) | Rook.GetRookMoves(sq, free, occ),
+            5 => King.GetKingMoves(sq, free),
             _ => 0
         };
     }
 
-    private static void LoopPiecesBB(Board b, ulong pieces, int p, int col, List<Move> moves) {
+    private static void LoopPiecesBB(Board b, ulong pieces, int p, int col, List<Move> moves, ulong occ_opp, ulong occ, ulong empty, ulong free) {
         ulong moves_bb;
         int start;
 
@@ -104,7 +95,7 @@ internal static class Movegen {
             ulong sq = Consts.SqMask[start];
 
             // generate the moves
-            moves_bb = GetMovesBB(sq, b, p, col);
+            moves_bb = GetMovesBB(sq, b, p, col, occ_opp, occ, empty, free);
 
             // loop the found moves and add them
             LoopMovesBB(moves_bb, b, start, p, col, moves);
@@ -123,11 +114,11 @@ internal static class Movegen {
             if (p != 7) capt = b.PieceAt(end).Item2;
 
             // add the move
-            AddPieceMoves(p, col, start, end, capt, moves, b.enPassantSquare);
+            AddMovesToList(p, col, start, end, capt, moves, b.enPassantSquare);
         }
     }
 
-    private static void AddPieceMoves(int p, int col, int start, int end, int capt, List<Move> moves, int en_p_sq) {
+    private static void AddMovesToList(int p, int col, int start, int end, int capt, List<Move> moves, int en_p_sq) {
 
         // add the generated move to the list
         switch (p) {

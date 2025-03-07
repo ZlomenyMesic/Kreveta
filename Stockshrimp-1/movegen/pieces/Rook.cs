@@ -6,7 +6,7 @@
 namespace Stockshrimp_1.movegen.pieces;
 
 internal static class Rook {
-    internal static ulong GetRookMoves(ulong rook, Board b, int col, ulong free, ulong occupied) {
+    internal static ulong GetRookMoves(ulong rook, ulong free, ulong occupied) {
         ulong moves = 0;
 
         int sq = BB.LS1B(rook);
