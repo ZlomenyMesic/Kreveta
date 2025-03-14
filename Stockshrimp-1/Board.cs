@@ -14,11 +14,13 @@ internal class Board {
     internal ulong[,] pieces = new ulong[2, 6];
 
 
-    internal byte enPassantSquare = 64;
+    internal byte en_passant_sq = 64;
 
     
     // 0 0 0 0 q k Q K
-    internal byte castlingFlags = 0;
+    internal byte castling_flags = 0;
+
+    internal int side_to_move = 0;
 
     // returns all squares occupied by the color
     internal ulong Occupied(int col) {
@@ -56,12 +58,15 @@ internal class Board {
     // performs a move on the board
     internal void DoMove(Move move) {
 
-        enPassantSquare = 64;
+        en_passant_sq = 64;
+        side_to_move = side_to_move == 0 ? 1 : 0;
 
         // start & end squares
         int start_32 = move.Start();
+        int end_32 = move.End();
+
         ulong start = Consts.SqMask[start_32];
-        ulong end = Consts.SqMask[move.End()];
+        ulong end = Consts.SqMask[end_32];
 
         // color and opposite color
         int col = (Occupied(0) & start) == 0 ? 1 : 0;
@@ -111,7 +116,7 @@ internal class Board {
             pieces[col, piece] ^= start | end;
 
             if (piece == 0 && (col == 0 ? (start >> 16 == end) : (start << 16 == end)))
-                enPassantSquare = (byte)BB.LS1B(col == 0 ? start >> 8 : start << 8);
+                en_passant_sq = (byte)BB.LS1B(col == 0 ? start >> 8 : start << 8);
         }
 
         // capture
@@ -119,14 +124,20 @@ internal class Board {
             pieces[col_op, capt] ^= end;
         }
 
-        if (castlingFlags != 0 && piece == 5) {
+        if (castling_flags != 0 && piece == 5) {
             // remove castling rights after the king moves
-            castlingFlags = (byte)(castlingFlags & (col == 0 ? 0xC : 0x3));
+            castling_flags = (byte)(castling_flags & (col == 0 ? 0xC : 0x3));
         }
 
-        if (castlingFlags != 0 && piece == 3) {
+        if (castling_flags != 0 && (piece == 3 || capt == 3)) {
 
-            int mask = start_32 switch {
+            // if rook moved we check move starting square
+            // if rook was captured we check move ending square
+            int cause = piece == 3
+                ? start_32
+                : end_32;
+
+            int mask = cause switch {
                 63 => 0xE,
                 56 => 0xD,
                 7 => 0xB,
@@ -135,11 +146,13 @@ internal class Board {
             };
 
             // remove castling rights after a rook moves
-            castlingFlags &= (byte)mask;
+            castling_flags &= (byte)mask;
         }
     }
 
     internal void DoMoveReversible(Move move, int col) {
+
+        side_to_move = side_to_move == 0 ? 1 : 0;
 
         // start & end squares
         ulong s = Consts.SqMask[move.Start()];
@@ -179,17 +192,30 @@ internal class Board {
         if (capt != 6) pieces[col_op, capt] ^= e;
     }
 
-    internal Board[] GenerateChildren(int col) {
+    internal List<Board> GetChildren() {
 
-        Move[] moves = Movegen.GetLegalMoves(this, col);
-        Board[] children = new Board[moves.Length];
+        List<Move> moves = Movegen.GetLegalMoves(this);
 
-        for (int i = 0; i < children.Length; i++) {
-            children[i] = Clone();
-            children[i].DoMove(moves[i]);
+        List<Board> children = [];
+
+        for (int i = 0; i < moves.Count; i++) {
+
+            Board child = Clone();
+            child.DoMove(moves[i]);
+            children.Add(child);
         }
 
         return children;
+    }
+
+    // no move
+    internal Board GetNullChild() {
+        Board c = Clone();
+
+        c.en_passant_sq = 64;
+        c.side_to_move = c.side_to_move == 0 ? 1 : 0;
+
+        return c;
     }
 
     internal bool IsMoveLegal(Move move, int col) {
@@ -209,14 +235,15 @@ internal class Board {
             pieces[1, i] = 0;
         }
 
-        enPassantSquare = 0;
-        castlingFlags = 0;
+        en_passant_sq = 0;
+        castling_flags = 0;
     }
 
     internal Board Clone() {
         Board n = new() {
-            castlingFlags = castlingFlags,
-            enPassantSquare = enPassantSquare
+            castling_flags = castling_flags,
+            en_passant_sq = en_passant_sq,
+            side_to_move = side_to_move
         };
 
         for (int i = 0; i < 6; i++) {

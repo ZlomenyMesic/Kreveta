@@ -11,10 +11,10 @@ internal static class Rook {
 
         int sq = BB.LS1B(rook);
 
-        int occupancy = (int)((occupied & Consts.SixBitRankMask[sq >> 3]) >> (8 * (sq >> 3)));
+        int occupancy = (int)((occupied & Consts.RankMask[sq >> 3]) >> (8 * (sq >> 3)));
         moves |= LookupTables.RankMoves[sq][(occupancy >> 1) & 63];
 
-        occupancy = (int)((occupied & Consts.SixBitFileMask[sq & 7]) * Consts.FileMagic[sq & 7] >> 56);
+        occupancy = (int)((occupied & Consts.FileMask[sq & 7]) * Consts.FileMagic[sq & 7] >> 56);
         moves |= LookupTables.FileMoves[sq][(occupancy >> 1) & 63];
 
         return moves & free;

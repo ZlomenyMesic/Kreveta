@@ -3,9 +3,23 @@
  *  developed by ZlomenyMesic
  */
 
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
 namespace Stockshrimp_1.movegen;
 
+// Equals not implemented
+#pragma warning disable CS0660 
+
+// GetHashCode not implemented
+#pragma warning disable CS0661
+
+[StructLayout(LayoutKind.Explicit, Size = 16)]
 internal readonly struct Move {
+
+#pragma warning restore CS0660
+#pragma warning restore CS0661
+
     /*
     even though it is possible to encode a move into 16 bits, we are using 32 bits (int)
     this is the format:
@@ -14,7 +28,7 @@ internal readonly struct Move {
     0 0 0 0 0 0 0 0 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 0 0 0 | 0 0 0 0 0 0
 
     */
-    private readonly int _flags = 0;
+    [FieldOffset(0)] private readonly int _flags = 0;
 
     internal Move(int start, int end, int piece, int capture, int promotion) {
 
@@ -26,25 +40,37 @@ internal readonly struct Move {
         _flags |= promotion << 18;
     }
 
+    public static bool operator ==(Move a, Move b)
+        => a._flags == b._flags;
+
+    public static bool operator !=(Move a, Move b)
+        => !(a._flags == b._flags);
+
     // index of the starting sqaure
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int Start()
         => _flags & 0x0000003F;
 
     // index of the ending sqaure
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int End()
         => (_flags & 0x00000FC0) >> 6;
 
     // the moved piece type
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int Piece()
         => (_flags & 0x00007000) >> 12;
 
     // captured piece (6 if no capture)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int Capture()
         => (_flags & 0x00038000) >> 15;
 
     // piece promoted to (6 if no promotion)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int Promotion()
         => (_flags & 0x001C0000) >> 18;
+
 
     // taken from my previous engine
     internal static bool IsCorrectFormat(string str) {

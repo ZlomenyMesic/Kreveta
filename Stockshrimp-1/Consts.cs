@@ -10,13 +10,13 @@ internal static class Consts {
     internal const string PIECES = "pnbrqk";
     internal const string FILES = "abcdefgh";
 
-    internal static readonly ulong[] SixBitRankMask = [
+    internal static readonly ulong[] RankMask = [
             0x000000000000007E, 0x0000000000007E00, 0x00000000007E0000,
             0x000000007E000000, 0x0000007E00000000, 0x00007E0000000000,
             0x007E000000000000, 0x7E00000000000000
         ];
 
-    internal static readonly ulong[] SixBitFileMask = [
+    internal static readonly ulong[] FileMask = [
             0x0001010101010100, 0x0002020202020200, 0x0004040404040400,
             0x0008080808080800, 0x0010101010101000, 0x0020202020202000,
             0x0040404040404000, 0x0080808080808000

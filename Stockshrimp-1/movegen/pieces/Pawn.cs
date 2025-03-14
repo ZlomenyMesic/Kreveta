@@ -1,7 +1,4 @@
-﻿/*
- *  Stockshrimp chess engine 1.0
- *  developed by ZlomenyMesic
- */
+﻿
 
 namespace Stockshrimp_1.movegen.pieces;
 

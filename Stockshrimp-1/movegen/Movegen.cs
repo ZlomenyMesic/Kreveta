@@ -8,7 +8,10 @@ using Stockshrimp_1.movegen.pieces;
 namespace Stockshrimp_1.movegen;
 
 internal static class Movegen {
-    internal static Move[] GetLegalMoves(Board b, int col) {
+    internal static List<Move> GetLegalMoves(Board b) {
+
+        int col = b.side_to_move;
+
         List<Move> moves = [];
 
         // generate all pseudo-legal moves
@@ -23,7 +26,7 @@ internal static class Movegen {
             }
         }
 
-        return [.. legal];
+        return legal;
     }
 
     internal static void GetPseudoLegalMoves(Board b, int col, List<Move> moves) {
@@ -38,8 +41,10 @@ internal static class Movegen {
             LoopPiecesBB(b, b.pieces[col, i], i, col, moves, occ_opp, occ, empty, free);
         }
 
-        ulong cast = King.GetCastlingMoves(b, col);
-        LoopMovesBB(cast, b, BB.LS1B(b.pieces[col, 5]), 7, col, moves);
+        if (!IsKingInCheck(b, col)) {
+            ulong cast = King.GetCastlingMoves(b, col);
+            LoopMovesBB(cast, b, BB.LS1B(b.pieces[col, 5]), 7, col, moves);
+        }
     }
 
     internal static bool IsKingInCheck(Board b, int col) {
@@ -48,10 +53,13 @@ internal static class Movegen {
 
         ulong king_sq = b.pieces[col, 5];
 
+        // TODO - FIX
+        if (king_sq == 0) return true;
+
         ulong occ_opp = b.Occupied(col_o);
         ulong occ = occ_opp | b.Occupied(col);
 
-        ulong _p = Pawn.GetPawnCaptures(king_sq, b.enPassantSquare, col, occ_opp);
+        ulong _p = Pawn.GetPawnCaptures(king_sq, b.en_passant_sq, col, occ_opp);
         ulong _n = Knight.GetKnightMoves(king_sq, ulong.MaxValue);
         ulong _b = Bishop.GetBishopMoves(king_sq, ulong.MaxValue, occ);
         ulong _r = Rook.GetRookMoves(king_sq, ulong.MaxValue, occ);
@@ -71,7 +79,7 @@ internal static class Movegen {
 
         // return a bitboard of possible moves depending on the piece type
         return p switch {
-            0 => Pawn.GetPawnPushes(sq, col, empty) | Pawn.GetPawnCaptures(sq, b.enPassantSquare, col, occ_opp),
+            0 => Pawn.GetPawnPushes(sq, col, empty) | Pawn.GetPawnCaptures(sq, b.en_passant_sq, col, occ_opp),
             1 => Knight.GetKnightMoves(sq, free),
             2 => Bishop.GetBishopMoves(sq, free, occ),
             3 => Rook.GetRookMoves(sq, free, occ),
@@ -114,7 +122,7 @@ internal static class Movegen {
             if (p != 7) capt = b.PieceAt(end).Item2;
 
             // add the move
-            AddMovesToList(p, col, start, end, capt, moves, b.enPassantSquare);
+            AddMovesToList(p, col, start, end, capt, moves, b.en_passant_sq);
         }
     }
 

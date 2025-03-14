@@ -3,6 +3,8 @@
  *  developed by ZlomenyMesic
  */
 
+using System.Runtime.CompilerServices;
+
 namespace Stockshrimp_1;
 
 internal static class BB {
@@ -17,18 +19,29 @@ internal static class BB {
         13, 18, 8,  12, 7,  6,  5,  63 
     ];
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsBitSet(ulong bb, int index) {
         return (bb & ((ulong)1 << index)) != 0;
     }
 
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int LS1B(ulong bb) {
         if (bb == 0) return -1;
         return DeBruijnTable[((bb ^ (bb - 1)) * 0x03f79d71b4cb0a89) >> 58];
     }
 
-    public static (ulong, int) LS1BReset(ulong bb) {
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static (ulong, int) LS1BReset(ulong bb) {
         ulong new_bb = bb;
         bb &= new_bb - 1;
         return (bb, LS1B(new_bb));
+    }
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int Popcount(ulong bb) {
+        return (int)ulong.PopCount(bb);
     }
 }

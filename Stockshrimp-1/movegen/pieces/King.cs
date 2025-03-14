@@ -16,8 +16,8 @@ internal static class King {
     internal static ulong GetCastlingMoves(Board b, int col) {
         ulong occ = b.Occupied();
 
-        bool kingside =  (b.castlingFlags & (col == 0 ? 0x1 : 0x4)) != 0;
-        bool queenside = (b.castlingFlags & (col == 0 ? 0x2 : 0x8)) != 0;
+        bool kingside =  (b.castling_flags & (col == 0 ? 0x1 : 0x4)) != 0;
+        bool queenside = (b.castling_flags & (col == 0 ? 0x2 : 0x8)) != 0;
 
         if (kingside) kingside &= (occ & CASTLING_MASK[col][0]) == 0;
         if (queenside) queenside &= (occ & CASTLING_MASK[col][1]) == 0;

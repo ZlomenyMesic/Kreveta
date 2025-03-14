@@ -1,4 +1,6 @@
 ﻿using System.Drawing;
+using Stockshrimp_1.evaluation;
+
 
 /*
  *  Stockshrimp chess engine 1.0
@@ -17,18 +19,6 @@ internal static class Game {
 
     // to let the engine know which side it plays on
     internal static int col_to_play = 0;
-
-    internal static void SearchBestMove() {
-        Move[] moves = Movegen.GetLegalMoves(board, col_to_play);
-
-        //foreach (Move move in moves) {
-        //    if (move.Promotion() == 0) {
-        //        Console.WriteLine($"bestmove {move}");
-        //    }
-        //}
-
-        Console.WriteLine($"bestmove {moves[new Random().Next(0, moves.Length)]}");
-    }
 
     internal static void SetPosFEN(string[] toks) {
         board.Erase();
@@ -68,19 +58,20 @@ internal static class Game {
             case "b": col_to_play = 1; break;
             default: Console.WriteLine($"invalid side to move: {toks[3]}"); return;
         }
+        board.side_to_move = col_to_play;
 
         // 3. CASTLING RIGHTS
         // If neither side can castle, this is "-". Otherwise, this has one or more letters: "K" (White can castle kingside),
         // "Q"(White can castle queenside), "k"(Black can castle kingside), and / or "q"(Black can castle queenside).
 
-        board.castlingFlags = 0;
+        board.castling_flags = 0;
 
         for (int i = 0; i < toks[4].Length; i++) {
             switch (toks[4][i]) {
-                case 'K': board.castlingFlags |= 0x1; break;
-                case 'Q': board.castlingFlags |= 0x2; break;
-                case 'k': board.castlingFlags |= 0x4; break;
-                case 'q': board.castlingFlags |= 0x8; break;
+                case 'K': board.castling_flags |= 0x1; break;
+                case 'Q': board.castling_flags |= 0x2; break;
+                case 'k': board.castling_flags |= 0x4; break;
+                case 'q': board.castling_flags |= 0x8; break;
                 default:
                     if (toks[4][i] != '-') {
                         Console.WriteLine($"invalid castling availiability: {toks[2][i]}");
@@ -97,9 +88,9 @@ internal static class Game {
         // the old version of the standard is the one most commonly used.
 
         if (toks[5].Length == 2 && char.IsDigit(toks[3][0]) && char.IsDigit(toks[3][1]))
-            board.enPassantSquare = (byte)int.Parse(toks[3]);
+            board.en_passant_sq = (byte)int.Parse(toks[3]);
         else if (toks[5].Length == 1 && toks[5][0] == '-')
-            board.enPassantSquare = 64;
+            board.en_passant_sq = 64;
         else {
             Console.WriteLine($"invalid en passant square: {toks[3]}");
             return;
@@ -132,6 +123,6 @@ internal static class Game {
     }
 
     internal static void TestingFunction() {
-        
+
     }
 }
