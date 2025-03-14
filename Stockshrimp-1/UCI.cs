@@ -23,7 +23,7 @@ internal static class UCI {
 
         Game.TestingFunction();
 
-        //CmdPosition(["position", "startpos"]);
+        Console.WriteLine("Stockshrimp-INDEV by ZlomenyMesic");
 
         while (true) {
             string cmd = Console.ReadLine() ?? string.Empty;
@@ -35,7 +35,6 @@ internal static class UCI {
                 case "position": CmdPosition(toks); break;
                 case "go": CmdGo(toks); break;
                 case "perft": CmdPerft(toks); break;
-                case "ischeck": CmdIsCheck(); break;
                 case "showallmoves": CmdShowAllMoves(); break;
                 case "print": CmdPrint(); break;
 
@@ -88,17 +87,6 @@ internal static class UCI {
 
     private static void CmdGo(string[] toks) {
 
-        List<string> toks_list = [.. toks];
-
-        int iwtime     = toks_list.IndexOf("wtime");
-        int ibtime     = toks_list.IndexOf("btime");
-        int imovestogo = toks_list.IndexOf("movestogo");
-
-        // very unsafe, needs incorrect syntax checks
-        int wtime     = iwtime != -1 ? int.Parse(toks_list[iwtime + 1]) : 800_000;
-        int btime     = ibtime != -1 ? int.Parse(toks_list[ibtime + 1]) : 800_000;
-        int movestogo = imovestogo != -1 ? int.Parse(toks_list[imovestogo + 1]) : 40;
-
         // TODO - OTHER ARGS
 
         // PROBLEMATIC POSITIONS:
@@ -110,15 +98,10 @@ internal static class UCI {
 
         // position startpos moves e2e4 b8c6 g1f3 e7e5 f1b5 g8f6 b1c3 f8d6 b5c6 d7c6 e1g1 e8g8 d2d4 c8g4 d4e5 g4f3 g2f3 d6e5 c1g5 d8e8 d1e2 e8e6 e2e3 e6h3 g5f4 e5f4 e3f4 a8c8 f4e3 f6d7 e3d4
 
-        int time_budget_ms = (Game.col_to_play == 0
-            ? wtime : btime) / (3 * movestogo);
+        TimeMan.ProcessTime(toks);
 
-        Console.WriteLine($"ideal time budget: {time_budget_ms} ms");
-        PVSControl.StartSearch(35, time_budget_ms);
-    }
-
-    private static void CmdIsCheck() {
-        Console.WriteLine($"{Movegen.IsKingInCheck(Game.board, Game.col_to_play)}");
+        Console.WriteLine($"ideal time budget: {TimeMan.time_budget_ms} ms");
+        PVSControl.StartSearch(35, TimeMan.time_budget_ms);
     }
 
     private static void CmdShowAllMoves() {

@@ -68,6 +68,8 @@ internal class Board {
         ulong start = Consts.SqMask[start_32];
         ulong end = Consts.SqMask[end_32];
 
+        // TODO - TRY TO GET COLOR FROM SIDETOMOVE
+
         // color and opposite color
         int col = (Occupied(0) & start) == 0 ? 1 : 0;
         int col_op = col == 0 ? 1 : 0;

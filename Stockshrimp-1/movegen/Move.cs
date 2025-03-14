@@ -14,7 +14,7 @@ namespace Stockshrimp_1.movegen;
 // GetHashCode not implemented
 #pragma warning disable CS0661
 
-[StructLayout(LayoutKind.Explicit, Size = 16)]
+[StructLayout(LayoutKind.Explicit, Size = 4)]
 internal readonly struct Move {
 
 #pragma warning restore CS0660
