@@ -1,7 +1,7 @@
 ﻿/*
- *  Stockshrimp chess engine 1.0
- *  developed by ZlomenyMesic
- */
+*  Stockshrimp chess engine 1.0
+*  developed by ZlomenyMesic
+*/
 
 namespace Stockshrimp_1.evaluation;
 
@@ -11,7 +11,7 @@ internal static class Eval {
     const int MATE_SCORE = 9999;
 
     const int DOUBLED_PAWN_PENALTY = 15;
-        
+
     private static readonly Random r = new();
 
     internal static short GetMateScore(int col, int ply)
@@ -56,16 +56,8 @@ internal static class Eval {
         pos = col == 0 ? 63 - pos : pos;
         int mg_value = EvalTables.Midgame[(p * 64) + pos];
         int eg_value = EvalTables.Endgame[(p * 64) + pos];
-        //int egValue = EvalTables.Endgame[((p + 1) * 64) - pos];
 
-        // TODO: Gradual evaluation
-
-        return (int)(float)(mg_value * piece_count / 32 + eg_value * (32 - piece_count) / 32);
-
-        //float eval = (mg_value * piece_count / 32) 
-        //    + (eg_value * (32 - piece_count) / 32);
-
-        //return mg_value;
+        return (short)(mg_value * piece_count / 32 + eg_value * (32 - piece_count) / 32);
     }
 
     private static int GetPawnStructureEval(ulong p) {

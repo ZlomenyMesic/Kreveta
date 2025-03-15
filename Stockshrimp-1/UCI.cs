@@ -98,10 +98,13 @@ internal static class UCI {
 
         // position startpos moves e2e4 b8c6 g1f3 e7e5 f1b5 g8f6 b1c3 f8d6 b5c6 d7c6 e1g1 e8g8 d2d4 c8g4 d4e5 g4f3 g2f3 d6e5 c1g5 d8e8 d1e2 e8e6 e2e3 e6h3 g5f4 e5f4 e3f4 a8c8 f4e3 f6d7 e3d4
 
+        // e2e4 c7c5 b1c3 b8c6 g1f3 e7e6 f1b5 c6d4 e1g1 a7a6 b5c4 g7g6 d2d3 g8e7 c1f4 e7c6 a1c1 b7b5 c4b3 b5b4 c3a4 a6a5 f1e1 d7d6 f3d4 c5d4 c2c3 b4c3 b2c3 f8g7 c3d4 c6d4 b3c4 e8g8 a4c3 c8b7 c1b1 b7c6 c3e2 a8b8 b1b8 d8b8 e2d4 g7d4 f4h6 b8b2 e1e2 b2b7 h6f8 g8f8 c4b3 f8g7 e2e1 b7b6 e1f1 e6e5 d1c2 c6d7 b3c4 b6d8 f1c1 d4c5 c2d1 d8f6 d1e1 f6g5 c1b1 c5d4 b1b8 h7h5 b8a8 d4c5
+
         TimeMan.ProcessTime(toks);
 
         Console.WriteLine($"ideal time budget: {TimeMan.time_budget_ms} ms");
         PVSControl.StartSearch(35, TimeMan.time_budget_ms);
+        //ParallelSearch.StartSearch(2, 8, 10000);
     }
 
     private static void CmdShowAllMoves() {
