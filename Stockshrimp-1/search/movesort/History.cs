@@ -27,12 +27,16 @@ internal static class History {
     internal static void Shrink() {
         for (int i = 0; i < 64; i++) {
             for (int j = 0; j < 12; j++) {
-                
+
                 // history reputation is straightforward
-                hh_scores[i, j] /= 2;
+                lock (hh_scores) {
+                    hh_scores[i, j] /= 2;
+                }
 
                 // this just turns out to be kinda right
-                bf_scores[i, j] = Math.Min(1, bf_scores[i, j]);
+                lock (bf_scores) {
+                    bf_scores[i, j] = Math.Min(1, bf_scores[i, j]);
+                }
             }
         }
     }
@@ -51,23 +55,34 @@ internal static class History {
         int i = GetPieceIndex(b, m);
         int end = m.End();
 
-        hh_scores[end, i] += depth * depth;
-        bf_scores[end, i] -= BF_INC;
+        lock (hh_scores) {
+            hh_scores[end, i] += depth * depth;
+        }
+
+        lock (bf_scores) {
+            bf_scores[end, i] -= BF_INC;
+        }
     }
 
     internal static void DecreaseRep(Board b, Move m, int depth) {
         int i = GetPieceIndex(b, m);
         int end = m.End();
 
-        hh_scores[end, i] -= depth * depth;
-        bf_scores[end, i] += BF_INC;
+        lock (hh_scores) {
+            hh_scores[end, i] -= depth * depth;
+        }
+        lock (bf_scores) {
+            bf_scores[end, i] += BF_INC;
+        }
     }
 
     internal static void AddVisited(Board b, Move m) {
         int i = GetPieceIndex(b, m);
         int end = m.End();
 
-        bf_scores[end, i] += BF_INC;
+        lock (bf_scores) {
+            bf_scores[end, i] += BF_INC;
+        }
     }
 
     internal static int GetRep(Board b, Move m) {

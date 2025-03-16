@@ -4,10 +4,13 @@
  */
 
 using Stockshrimp_1.movegen.pieces;
+using System.Runtime.CompilerServices;
 
 namespace Stockshrimp_1.movegen;
 
 internal static class Movegen {
+
+    [MethodImpl(MethodImplOptions.Synchronized)]
     internal static List<Move> GetLegalMoves(Board b) {
 
         int col = b.side_to_move;

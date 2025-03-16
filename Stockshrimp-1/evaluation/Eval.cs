@@ -10,7 +10,8 @@ internal static class Eval {
     const int MATE_BASE = 9000;
     const int MATE_SCORE = 9999;
 
-    const int DOUBLED_PAWN_PENALTY = 15;
+    const int DOUBLED_PAWN_PENALTY = -15;
+    const int ISOLATED_PAWN_PENALTY = -22;
 
     private static readonly Random r = new();
 
@@ -21,30 +22,40 @@ internal static class Eval {
 
     internal static short StaticEval(Board b) {
 
-        int eval = 0;
-
         int piece_count = BB.Popcount(b.Occupied());
+
+        int base_eval = 0;
 
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 6; j++) {
+                //int c = BB.Popcount(b.pieces[i, j]);
+                //int p_val = j switch {
+                //    0 => 100,
+                //    1 => 290,
+                //    2 => 310,
+                //    3 => 500,
+                //    4 => 900,
+                //    _ => 0
+                //};
 
-                if (j == 0) {
-                    //eval += GetPawnStructureEval(b.pieces[i, j]) * (i == 0 ? 1 : -1);
-                }
+                //base_eval += c * p_val * (i == 0 ? 1 : -1);
 
                 ulong copy = b.pieces[i, j];
 
                 while (copy != 0) {
                     (copy, int sq) = BB.LS1BReset(copy);
 
-                    eval += GetTableValue(j, i, sq, piece_count) * (i == 0 ? 1 : -1);
+                    base_eval += GetTableValue(j, i, sq, piece_count) * (i == 0 ? 1 : -1);
                 }
             }
         }
 
-        //eval += b.side_to_move == 0 ? 15 : -15;
+        base_eval += PawnStructureEval(b.pieces[0, 0]);
+        base_eval -= PawnStructureEval(b.pieces[1, 0]);
 
-        return (short)eval;// + r.Next(-3, 3);
+        base_eval += b.side_to_move == 0 ? 12 : -12;
+
+        return (short)(base_eval + r.Next(-12, 12));
     }
 
     internal static int GetTableValue(int p, int col, int pos, int piece_count) {
@@ -60,14 +71,57 @@ internal static class Eval {
         return (short)(mg_value * piece_count / 32 + eg_value * (32 - piece_count) / 32);
     }
 
-    private static int GetPawnStructureEval(ulong p) {
+    private static int PawnStructureEval(ulong p) {
+
+        // no pawns left on the board
+        if (p == 0) return 0;
 
         int eval = 0;
 
         for (int i = 0; i < 8; i++) {
-            int file_occ = BB.Popcount(Consts.FileMask[i] & p);
-            eval += (file_occ - 1) * -DOUBLED_PAWN_PENALTY;
+            ulong file = Consts.FileMask[i];
+
+            // count the number of pawns on the file
+            // and maybe penalize doubled pawns
+            int file_occ = BB.Popcount(file & p);
+            eval += (file_occ - 1) * DOUBLED_PAWN_PENALTY;
+
+            // current file + files on the sides
+            ulong sides = Consts.FileMask[i] 
+                | (i != 0 ? Consts.FileMask[i - 1] : 0)
+                | (i != 7 ? Consts.FileMask[i + 1] : 0);
+
+            int sides_occ = BB.Popcount(sides & p);
+            eval += file_occ != sides_occ ? 0 : ISOLATED_PAWN_PENALTY;
         }
+
+        // center of the board bonus
+        int imm_center = BB.Popcount(p & 103481868288UL);
+        eval += imm_center switch {
+            0 => -10,
+            1 => -3,
+            2 => 12,
+            _ => 5,
+        };
+
+        // center + something around the center bonus
+        int wide_center = BB.Popcount(p & 66229406269440UL);
+        eval += wide_center switch {
+            0 => -8,
+            1 => -4,
+            2 => 0,
+            3 or 4 => 3,
+            _ => 5,
+        };
+
+        // pawns on the sides of the board penalty
+        int edges = BB.Popcount(p & 142393223479296UL);
+        eval += edges switch {
+            0 => 3,
+            1 => 0,
+            2 => -2,
+            _ => -4,
+        };
 
         return eval;
     }

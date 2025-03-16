@@ -70,13 +70,16 @@ namespace Stockshrimp_1.search {
                 entry.score = score;
             }
 
-            // we try to add the entry
-            // if it already exists, we overwrite it
-            if (!table.TryAdd(hash, entry)) {
+            lock (table) {
 
-                // we have to make sure we are not overwriting a higher depth search result
-                if (entry.depth >= table[hash].depth)
-                    table[hash] = entry;
+                // we try to add the entry
+                // if it already exists, we overwrite it
+                if (!table.TryAdd(hash, entry)) {
+
+                    // we have to make sure we are not overwriting a higher depth search result
+                    if (entry.depth >= table[hash].depth)
+                        table[hash] = entry;
+                }
             }
         }
 
@@ -84,9 +87,13 @@ namespace Stockshrimp_1.search {
             ulong hash = Zobrist.GetHash(b);
             best_move = default;
 
-            // the position has not yet been stored in tt
-            if (!table.TryGetValue(hash, out Entry entry))
-                return false;
+            Entry entry;
+
+            lock (table) {
+                // the position has not yet been stored in tt
+                if (!table.TryGetValue(hash, out entry))
+                    return false;
+            }
 
             best_move = entry.best_move;
             return best_move != default;
@@ -96,9 +103,13 @@ namespace Stockshrimp_1.search {
             ulong hash = Zobrist.GetHash(b);
             score = 0;
 
-            // once again position has not yet been saved
-            if (!table.TryGetValue(hash, out Entry entry))
-                return false;
+            Entry entry;
+
+            lock (table) {
+                // once again position has not yet been saved
+                if (!table.TryGetValue(hash, out entry))
+                    return false;
+            }
 
             // the position is saved, but it's depth is shallower than ours
             if (entry.depth < depth)
