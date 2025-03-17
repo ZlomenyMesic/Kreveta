@@ -4,21 +4,29 @@
  */
 
 using Stockshrimp_1.movegen;
-using System.Drawing;
 
 namespace Stockshrimp_1;
 
 internal class Board {
+
+    [Flags]
+    internal enum CastlingRights : byte {
+        NONE = 0,
+        K = 1, // white kingside
+        Q = 2, // white queenside
+        k = 4, // black kingside
+        q = 8  // black queenside
+    }
+
     // [color, piece_type]
     // all pieces are saved here
     internal ulong[,] pieces = new ulong[2, 6];
 
-
+    // square over which a double pushing pawn has passed one move ago
     internal byte en_passant_sq = 64;
 
-    
     // 0 0 0 0 q k Q K
-    internal byte castling_flags = 0;
+    internal CastlingRights castling = 0;
 
     internal int side_to_move = 0;
 
@@ -93,10 +101,10 @@ internal class Board {
         else if (prom == 5) {
 
             ulong rook = end switch {
-                0x0000000000000004 => 0x0000000000000009,
-                0x0000000000000040 => 0x00000000000000A0,
-                0x0400000000000000 => 0x0900000000000000,
-                0x4000000000000000 => 0xA000000000000000,
+                0x0000000000000004 => 0x0000000000000009, // q
+                0x0000000000000040 => 0x00000000000000A0, // k
+                0x0400000000000000 => 0x0900000000000000, // Q
+                0x4000000000000000 => 0xA000000000000000, // K
                 _ => 0
             };
 
@@ -126,12 +134,15 @@ internal class Board {
             pieces[col_op, capt] ^= end;
         }
 
-        if (castling_flags != 0 && piece == 5) {
-            // remove castling rights after the king moves
-            castling_flags = (byte)(castling_flags & (col == 0 ? 0xC : 0x3));
+        if (castling != 0 && piece == 5) {
+
+            // remove castling rights after a king moves
+            castling &= (CastlingRights)(col == 0 
+                ? 0xC   // all except KQ
+                : 0x3); // all except kq
         }
 
-        if (castling_flags != 0 && (piece == 3 || capt == 3)) {
+        if (castling != 0 && (piece == 3 || capt == 3)) {
 
             // if rook moved we check move starting square
             // if rook was captured we check move ending square
@@ -140,15 +151,15 @@ internal class Board {
                 : end_32;
 
             int mask = cause switch {
-                63 => 0xE,
-                56 => 0xD,
-                7 => 0xB,
-                0 => 0x7,
-                _ => 0xF
+                63 => 0xE, // all except K
+                56 => 0xD, // all except Q
+                7  => 0xB, // all except k
+                0  => 0x7, // all except q
+                _  => 0xF
             };
 
             // remove castling rights after a rook moves
-            castling_flags &= (byte)mask;
+            castling &= (CastlingRights)mask;
         }
     }
 
@@ -238,12 +249,12 @@ internal class Board {
         }
 
         en_passant_sq = 0;
-        castling_flags = 0;
+        castling = 0;
     }
 
     internal Board Clone() {
         Board n = new() {
-            castling_flags = castling_flags,
+            castling = castling,
             en_passant_sq = en_passant_sq,
             side_to_move = side_to_move
         };

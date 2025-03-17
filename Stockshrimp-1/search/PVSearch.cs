@@ -194,7 +194,7 @@ internal static class PVSearch {
                 // however, a lower margin increases the search speed and thus our futility margin stays low
                 //
                 // TODO - BETTER FUTILITY MARGIN
-                int fm = FP.GetMargin(depth, col);
+                int fm = FP.GetMargin(depth, col, false);
 
                 // if we fail low (don't cross alpha), we can skip this move
                 if (window.FailsLow((short)(Eval.StaticEval(child) + fm), col))

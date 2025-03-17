@@ -73,7 +73,7 @@ internal static class PVSControl {
         best_move = search.PV[0];
 
         int col_score = search.pv_score;
-        int eng_score = col_score * (Game.col_to_play == 0 ? 1 : -1);
+        int eng_score = col_score * (Game.engine_col == 0 ? 1 : -1);
 
         Console.Write($"info depth {search.cur_depth} seldepth {search.achieved_depth} nodes {search.total_nodes} score cp {eng_score} pv ");
 

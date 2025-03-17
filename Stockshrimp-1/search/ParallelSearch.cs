@@ -67,11 +67,10 @@ internal static class ParallelSearch {
         ParallelSearch.time_budget_ms = time_budget_ms;
 
         // start the actual search loop
-        //thread = new(DeepeningSearchLoop) {
-        //    Priority = ThreadPriority.Highest
-        //};
-        //thread.Start();
-        DeepeningSearchLoop();
+        thread = new(DeepeningSearchLoop) {
+            Priority = ThreadPriority.Highest
+        };
+        thread.Start();
     }
 
 
@@ -131,7 +130,7 @@ internal static class ParallelSearch {
             int eng_score = workers[worker].pv_score;
 
             // pv score relative to color (this is printed to the gui)
-            int col_score = eng_score * (Game.col_to_play == 0 ? 1 : -1);
+            int col_score = eng_score * (Game.engine_col == 0 ? 1 : -1);
 
             Console.Write($"info depth {workers[worker].cur_depth} seldepth {workers[worker].achieved_depth} nodes {total_nodes} score cp {col_score} pv ");
 

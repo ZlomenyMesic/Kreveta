@@ -16,7 +16,7 @@ internal static class NMP {
     internal const int DROP_INTO_QS = 2;
 
     // depth reduce within nullmp
-    internal const int R = 3;
+    internal const int R = 2;
 }
 
 // FUTILITY PRUNING
@@ -27,11 +27,17 @@ internal static class FP {
     internal const int MAX_DEPTH = 5;
 
     // magical constant - DON'T MODIFY
+    // higher margin => fewer reductions
     internal const int FUTILITY_MARGIN_BASE = 58;
 
+    // if not improving we make the margin smaller
+    internal const int IMPROVING_PENALTY = -10;
+
     // returns the margin which could potentialy raise alpha when added to the score
-    internal static int GetMargin(int depth, int col) {
-        int margin = FUTILITY_MARGIN_BASE * depth;
+    internal static int GetMargin(int depth, int col, bool improving) {
+        int margin = FUTILITY_MARGIN_BASE * depth 
+            + (improving ? 0 : IMPROVING_PENALTY);
+
         return margin * (col == 0 ? 1 : -1);
     }
 }
@@ -48,5 +54,5 @@ internal static class LMR {
     internal const int MIN_EXP_NODES = 3;
 
     // depth reduce
-    internal const int R = 3;
+    internal const int R = 2;
 }

@@ -16,16 +16,15 @@ internal static class King {
     internal static ulong GetCastlingMoves(Board b, int col) {
         ulong occ = b.Occupied();
 
-        bool kingside =  (b.castling_flags & (col == 0 ? 0x1 : 0x4)) != 0;
-        bool queenside = (b.castling_flags & (col == 0 ? 0x2 : 0x8)) != 0;
+        bool kingside =  ((byte)b.castling & (col == 0 ? 0x1 : 0x4)) != 0; // K : k
+        bool queenside = ((byte)b.castling & (col == 0 ? 0x2 : 0x8)) != 0; // Q : q
 
         if (kingside) kingside &= (occ & CASTLING_MASK[col][0]) == 0;
         if (queenside) queenside &= (occ & CASTLING_MASK[col][1]) == 0;
 
         int start = col == 0 ? 60 : 4;
 
-        // check for check in square passed
-        
+        // check for check on square passed
         if (kingside)  kingside  &= b.IsMoveLegal(new(start, col == 0 ? 61 : 5, 5, 6, 6), col);
         if (queenside) queenside &= b.IsMoveLegal(new(start, col == 0 ? 59 : 3, 5, 6, 6), col);
 

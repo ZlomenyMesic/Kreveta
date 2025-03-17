@@ -40,7 +40,7 @@ internal static class Zobrist {
     internal static ulong GetHash(Board b) {
         ulong hash = side_to_move[b.side_to_move];
 
-        hash ^= castling[b.castling_flags];
+        hash ^= castling[(byte)b.castling];
 
         if (b.en_passant_sq != 64)
             hash ^= en_passant[b.en_passant_sq];

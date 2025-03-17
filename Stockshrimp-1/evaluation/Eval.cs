@@ -10,8 +10,8 @@ internal static class Eval {
     const int MATE_BASE = 9000;
     const int MATE_SCORE = 9999;
 
-    const int DOUBLED_PAWN_PENALTY = -15;
-    const int ISOLATED_PAWN_PENALTY = -22;
+    const int DOUBLED_PAWN_PENALTY = -9;
+    const int ISOLATED_PAWN_PENALTY = -12;
 
     private static readonly Random r = new();
 
@@ -28,17 +28,6 @@ internal static class Eval {
 
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 6; j++) {
-                //int c = BB.Popcount(b.pieces[i, j]);
-                //int p_val = j switch {
-                //    0 => 100,
-                //    1 => 290,
-                //    2 => 310,
-                //    3 => 500,
-                //    4 => 900,
-                //    _ => 0
-                //};
-
-                //base_eval += c * p_val * (i == 0 ? 1 : -1);
 
                 ulong copy = b.pieces[i, j];
 
@@ -50,12 +39,12 @@ internal static class Eval {
             }
         }
 
-        base_eval += PawnStructureEval(b.pieces[0, 0]);
-        base_eval -= PawnStructureEval(b.pieces[1, 0]);
+        //base_eval += PawnStructureEval(b.pieces[0, 0]);
+        //base_eval -= PawnStructureEval(b.pieces[1, 0]);
 
-        base_eval += b.side_to_move == 0 ? 12 : -12;
+        base_eval += b.side_to_move == 0 ? 5 : -5;
 
-        return (short)(base_eval + r.Next(-12, 12));
+        return (short)(base_eval/* + r.Next(-12, 12)*/);
     }
 
     internal static int GetTableValue(int p, int col, int pos, int piece_count) {
@@ -94,34 +83,6 @@ internal static class Eval {
             int sides_occ = BB.Popcount(sides & p);
             eval += file_occ != sides_occ ? 0 : ISOLATED_PAWN_PENALTY;
         }
-
-        // center of the board bonus
-        int imm_center = BB.Popcount(p & 103481868288UL);
-        eval += imm_center switch {
-            0 => -10,
-            1 => -3,
-            2 => 12,
-            _ => 5,
-        };
-
-        // center + something around the center bonus
-        int wide_center = BB.Popcount(p & 66229406269440UL);
-        eval += wide_center switch {
-            0 => -8,
-            1 => -4,
-            2 => 0,
-            3 or 4 => 3,
-            _ => 5,
-        };
-
-        // pawns on the sides of the board penalty
-        int edges = BB.Popcount(p & 142393223479296UL);
-        eval += edges switch {
-            0 => 3,
-            1 => 0,
-            2 => -2,
-            _ => -4,
-        };
 
         return eval;
     }

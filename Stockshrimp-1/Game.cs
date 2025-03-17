@@ -18,7 +18,7 @@ internal static class Game {
     internal static Board board = new();
 
     // to let the engine know which side it plays on
-    internal static int col_to_play = 0;
+    internal static int engine_col = 0;
 
     internal static void SetPosFEN(string[] toks) {
         board.Erase();
@@ -54,24 +54,24 @@ internal static class Game {
         // "w" means white to move, "b" means black.
 
         switch (toks[3]) {
-            case "w": col_to_play = 0; break;
-            case "b": col_to_play = 1; break;
+            case "w": engine_col = 0; break;
+            case "b": engine_col = 1; break;
             default: Console.WriteLine($"invalid side to move: {toks[3]}"); return;
         }
-        board.side_to_move = col_to_play;
+        board.side_to_move = engine_col;
 
         // 3. CASTLING RIGHTS
         // If neither side can castle, this is "-". Otherwise, this has one or more letters: "K" (White can castle kingside),
         // "Q"(White can castle queenside), "k"(Black can castle kingside), and / or "q"(Black can castle queenside).
 
-        board.castling_flags = 0;
+        board.castling = 0;
 
         for (int i = 0; i < toks[4].Length; i++) {
             switch (toks[4][i]) {
-                case 'K': board.castling_flags |= 0x1; break;
-                case 'Q': board.castling_flags |= 0x2; break;
-                case 'k': board.castling_flags |= 0x4; break;
-                case 'q': board.castling_flags |= 0x8; break;
+                case 'K': board.castling |= Board.CastlingRights.K; break;
+                case 'Q': board.castling |= Board.CastlingRights.Q; break;
+                case 'k': board.castling |= Board.CastlingRights.k; break;
+                case 'q': board.castling |= Board.CastlingRights.q; break;
                 default:
                     if (toks[4][i] != '-') {
                         Console.WriteLine($"invalid castling availiability: {toks[2][i]}");
@@ -115,7 +115,7 @@ internal static class Game {
             // play the moves
             for (int i = m_start + 1; i < toks.Length; i++) {
                 board.DoMove(Move.FromString(board, toks[i]));
-                col_to_play = col_to_play == 0 ? 1 : 0;
+                engine_col = engine_col == 0 ? 1 : 0;
             }
         }
 

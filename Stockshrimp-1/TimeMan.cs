@@ -74,6 +74,6 @@ internal static class TimeMan {
     }
 
     internal static void CalculateTimeBudget() {
-        time_budget_ms = (Game.col_to_play == 0 ? wtime : btime) / (movestogo * 2);
+        time_budget_ms = (Game.engine_col == 0 ? wtime : btime) / (movestogo * 2);
     }
 }

@@ -38,6 +38,10 @@ internal class SearchThread {
     // should end the search?
     internal bool Abort => total_nodes >= max_nodes;
 
+    // evaluation of the root/starting node
+    // used to indicate whether we actually improved
+    private short root_eval = 0;
+
     internal void StartSearching(int depth) {
         while (cur_depth <= depth)
             SearchDeeper();
@@ -47,6 +51,8 @@ internal class SearchThread {
         cur_depth++;
         cur_max_qsearch_depth = cur_depth + MAX_QSEARCH_DEPTH;
         total_nodes = 0;
+
+        root_eval = Eval.StaticEval(Game.board);
 
         Killers.Expand(cur_depth);
         History.Shrink();
@@ -66,6 +72,7 @@ internal class SearchThread {
 
         pv_score = 0;
         PV = [];
+        root_eval = 0;
 
         Killers.Clear();
         History.Clear();
@@ -111,6 +118,17 @@ internal class SearchThread {
     // the main recursive function for the search
     private (short Score, Move[] PV) Search(Board b, int ply, int depth, Window window) {
 
+        //short cur_eval = Eval.StaticEval(b);
+        //bool improved = false;
+
+        //if (b.side_to_move == 0 && cur_eval > root_eval - 15)
+        //    improved = true;
+
+        //else if (b.side_to_move == 1 && cur_eval < root_eval + 15)
+        //    improved = true;
+
+        bool improved = true;
+
         // go to qsearch after reaching depth of 0
         if (depth <= 0) {
             //return (Eval.StaticEval(position), []);
@@ -144,9 +162,12 @@ internal class SearchThread {
             // skip making a move - only switch colors and erase en passant square
             Board nullChild = b.GetNullChild();
 
+            // additional depth reduce if position is not improving
+            //int add_R = (improved || ply < 6) ? 0 : 1;
+            int next_depth = depth - NMP.R - 1;
+
             // evaluate the null child at a reduced depth
-            short score = SearchTT(nullChild, ply + 1, depth - NMP.R - 1, beta).Score;
-            //int score = QSearch(nullChild, ply, window);
+            short score = SearchTT(nullChild, ply + 1, next_depth, beta).Score;
 
             // is the evaluation "too good" despite null-move? then don't waste time on a branch that is likely going to fail-high
             if (window.FailsHigh(score, col))
@@ -193,10 +214,11 @@ internal class SearchThread {
                 // however, a lower margin increases the search speed and thus our futility margin stays low
                 //
                 // TODO - BETTER FUTILITY MARGIN
-                int fm = FP.GetMargin(depth, col);
+                int margin = FP.GetMargin(depth, col, improved);
+                short child_eval = Eval.StaticEval(child);
 
                 // if we fail low (don't cross alpha), we can skip this move
-                if (window.FailsLow((short)(Eval.StaticEval(child) + fm), col))
+                if (window.FailsLow((short)(child_eval + margin), col))
                     continue;
             }
 
@@ -211,7 +233,8 @@ internal class SearchThread {
                 // interesting or early moves are searched at full depth
                 // not interesting and late moves with a reduced depth
                 // R is a common name standing for depth reduction??
-                int R = interesting ? 0 : LMR.R;
+                int R = (interesting ? 0 : LMR.R) 
+                    + (ply > 5 && improved ? 0 : 1);
 
                 // do the reduced search
                 short score = SearchTT(child, ply + 1, depth - R - 1, window.GetLowerBound(col)).Score;
