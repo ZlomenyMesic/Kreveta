@@ -16,7 +16,12 @@ internal static class NMP {
     internal const int DROP_INTO_QS = 2;
 
     // depth reduce within nullmp
-    internal const int R = 2;
+    private const int R = 3;
+    internal static int GetR(int ply) {
+        if (ply <= 4) return R - 1;
+        //if (ply >= 8) return R + 1;
+        return R;
+    }
 }
 
 // FUTILITY PRUNING

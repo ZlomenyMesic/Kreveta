@@ -11,7 +11,7 @@ namespace Stockshrimp_1.search {
     internal static class TT {
 
         // minimum ply needed to use tt
-        internal const int MIN_PLY = 4;
+        internal const int MIN_PLY = 5;
         // this aint working
 
         private enum ScoreType : byte {
@@ -121,12 +121,22 @@ namespace Stockshrimp_1.search {
             //but when we store it in the TT the score is made relative to the current position. So when we want to 
             //retrieve the score we have to subtract the current ply to make it relative to the root again.
             // (and again MinimalChessEngine inspiration)
-            if (Eval.IsMateScore(score))
+            if (Eval.IsMateScore(score)) {
                 score -= (short)(Math.Sign(score) * ply);
+                return true;
+            }
 
-            return entry.type  == ScoreType.Exact
-                || (entry.type == ScoreType.LowerBound && score <= window.alpha)
-                || (entry.type == ScoreType.UpperBound && score >= window.beta);
+            if (entry.type == ScoreType.Exact) return true;
+            if (entry.type == ScoreType.LowerBound && score <= window.alpha) {
+                score = window.alpha;
+                return true;
+            }
+            if (entry.type == ScoreType.UpperBound && score >= window.beta) {
+                score = window.beta;
+                return true;
+            }
+
+            return false;
         }
     }
 }

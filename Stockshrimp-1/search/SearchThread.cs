@@ -11,7 +11,7 @@ namespace Stockshrimp_1.search;
 
 internal class SearchThread {
     // maximum allowed qsearch depth - counting from qsearch start
-    private const int MAX_QSEARCH_DEPTH = 8;
+    private const int MAX_QSEARCH_DEPTH = 9;
 
     // maximum allowed depth at current iteration - including both full and qsearch
     private int cur_max_qsearch_depth = 0;
@@ -60,9 +60,27 @@ internal class SearchThread {
         // store principal variation from previous search iteration
         StorePVinTT(PV, cur_depth);
 
+        //Window w = NewIterWindow();
+        //Console.WriteLine($"{w.alpha} {w.beta}");
+        //Window w = Window.Infinite;
+
         // start of the search
         (pv_score, PV) = Search(Game.board, 0, cur_depth, Window.Infinite);
+
+        //if (PV.Length == 0)
+        //    PV[0] = Movegen.GetLegalMoves(Game.board)[0];
     }
+
+    //private Window NewIterWindow() {
+
+    //    // first iteration or previous iteration found mate
+    //    if (cur_depth <= 1 || Eval.IsMateScore(pv_score))
+    //        return Window.Infinite;
+
+    //    int margin = (7 - Math.Min(cur_depth, 6)) * 120 + Math.Abs(pv_score) + 100;
+
+    //    return new((short)(pv_score - margin), (short)(pv_score + margin));
+    //}
 
     internal void Reset() {
         cur_max_qsearch_depth = 0;
@@ -100,7 +118,7 @@ internal class SearchThread {
 
         // we need to check the ply to prevent some terrible blunders?
         // i don't know why but it works just fine
-        if (ply > 4 && TT.GetScore(b, depth, ply, window, out short ttScore)) {
+        if (ply > TT.MIN_PLY && TT.GetScore(b, depth, ply, window, out short ttScore)) {
 
             // if we found the position in tt, we return the score
             return (ttScore, []);
@@ -121,10 +139,10 @@ internal class SearchThread {
         //short cur_eval = Eval.StaticEval(b);
         //bool improved = false;
 
-        //if (b.side_to_move == 0 && cur_eval > root_eval - 15)
+        //if (b.side_to_move == 0 && cur_eval > root_eval - 25)
         //    improved = true;
 
-        //else if (b.side_to_move == 1 && cur_eval < root_eval + 15)
+        //else if (b.side_to_move == 1 && cur_eval < root_eval + 25)
         //    improved = true;
 
         bool improved = true;
@@ -164,7 +182,7 @@ internal class SearchThread {
 
             // additional depth reduce if position is not improving
             //int add_R = (improved || ply < 6) ? 0 : 1;
-            int next_depth = depth - NMP.R - 1;
+            int next_depth = depth - NMP.GetR(ply) - 1;
 
             // evaluate the null child at a reduced depth
             short score = SearchTT(nullChild, ply + 1, next_depth, beta).Score;
@@ -177,6 +195,10 @@ internal class SearchThread {
         // get all legal moves sorted
         // bestmove from tt, captures by mvvlva, killer moves and quiet moves by history
         List<Move> moves = MoveSort.GetSortedMoves(b, depth);
+
+        //if (ply == 0) {
+        //    ShuffleMoves(ref moves);
+        //}
 
         // expanding the nodes
         int checked_nodes = 0;
@@ -378,5 +400,16 @@ internal class SearchThread {
         Array.Copy(pv, 0, result, 1, pv.Length);
 
         return result;
+    }
+
+    private static void ShuffleMoves(ref List<Move> moves) {
+        for (int i = moves.Count / 2; i < moves.Count - 1; i++) {
+
+            int swap_i = new Random().Next(i, moves.Count);
+
+            if (swap_i != i) {
+                (moves[swap_i], moves[i]) = (moves[i], moves[swap_i]);
+            }
+        }
     }
 }

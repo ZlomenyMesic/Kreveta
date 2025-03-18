@@ -1,31 +1,31 @@
 ﻿using Stockshrimp_1.movegen;
 using Stockshrimp_1.search.movesort;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Stockshrimp_1.search;
 
 internal static class ParallelSearch {
 
+    // max full depth allowed
     private static int max_depth = 0;
 
     private static int time_budget_ms = 0;
 
-    private static List<SearchThread> workers = [];
+    // all instances of the search
+    private static readonly List<SearchThread> workers = [];
 
+    // this may not actually be useful at all, we'll see
     private static Thread? thread = null;
 
+    // index of the "best" worker (actually just the last)
     internal static int best_worker = 0;
 
+    // array of best moves of each worker
     internal static Move[] best_moves = [];
 
-    internal static long total_nodes {
+    // total nodes this iteration
+    internal static long cur_nodes {
         get {
             long total = 0;
             foreach (var worker in workers) {
@@ -34,6 +34,11 @@ internal static class ParallelSearch {
             return total;
         }
     }
+
+    // total nodes from the whole search
+    internal static long abs_nodes = 0;
+
+    private static Stopwatch sw = new();
 
     internal static void Reset() {
 
@@ -48,6 +53,7 @@ internal static class ParallelSearch {
         max_depth = 0;
         time_budget_ms = 0;
         best_worker = 0;
+        abs_nodes = 0;
 
         best_moves = [];
     }
@@ -76,7 +82,8 @@ internal static class ParallelSearch {
 
     internal static void DeepeningSearchLoop() {
 
-        Stopwatch sw = Stopwatch.StartNew();
+        sw = Stopwatch.StartNew();
+
         long spent = 0;
         bool @break = false;
 
@@ -106,7 +113,7 @@ internal static class ParallelSearch {
 
                 // if this iteration took a lot of time, we can expect the next one would cross the time budget
                 long diff = sw.ElapsedMilliseconds - spent;
-                if (diff > time_budget_ms / 4)
+                if (diff > time_budget_ms * 6 / 25)
                     @break = true;
 
                 if (i == 0) spent = sw.ElapsedMilliseconds;
@@ -114,6 +121,7 @@ internal static class ParallelSearch {
         });
 
         Console.WriteLine($"time spent {sw.Elapsed}");
+        Console.WriteLine($"total nodes {abs_nodes}");
         Console.WriteLine($"bestmove {VoteBestMove()}");
 
         Reset();
@@ -121,7 +129,13 @@ internal static class ParallelSearch {
 
     [MethodImpl(MethodImplOptions.Synchronized)]
     private static void GetResult(int worker, bool print = true) {
-        best_moves[worker] = workers[worker].PV[0];
+        if (workers[worker].PV.Length == 0) {
+            Console.WriteLine("FAIL");
+        }
+        else best_moves[worker] = workers[worker].PV[0];
+
+        if (worker == best_worker)
+            abs_nodes += cur_nodes;
 
         // we only want to print a single search thread to prevent utter chaos
         if (print) {
@@ -132,10 +146,12 @@ internal static class ParallelSearch {
             // pv score relative to color (this is printed to the gui)
             int col_score = eng_score * (Game.engine_col == 0 ? 1 : -1);
 
-            Console.Write($"info depth {workers[worker].cur_depth} seldepth {workers[worker].achieved_depth} nodes {total_nodes} score cp {col_score} pv ");
+            int nps = (int)(abs_nodes / sw.Elapsed.TotalSeconds);
+
+            Console.Write($"info depth {workers[worker].cur_depth} seldepth {workers[worker].achieved_depth} nodes {cur_nodes} nps {nps} score cp {col_score} pv");
 
             foreach (Move m in GetFullPV(worker, workers[worker].achieved_depth))
-                Console.Write($"{m} ");
+                Console.Write($" {m}");
 
             Console.WriteLine();
         }
