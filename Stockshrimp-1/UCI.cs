@@ -104,8 +104,9 @@ internal static class UCI {
 
         Console.WriteLine($"ideal time budget: {TimeMan.time_budget_ms} ms");
 
-        ParallelSearch.Reset();
-        ParallelSearch.StartSearch(1, 50, TimeMan.time_budget_ms);
+        //PVSControl.Reset();
+        //PVSControl.StartSearch(1, 50, TimeMan.time_budget_ms);
+        OldPVSControl.StartSearch(50, TimeMan.time_budget_ms);
     }
 
     private static void CmdShowAllMoves() {

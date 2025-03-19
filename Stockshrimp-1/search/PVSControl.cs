@@ -5,15 +5,16 @@ using System.Runtime.CompilerServices;
 
 namespace Stockshrimp_1.search;
 
-internal static class ParallelSearch {
+internal static class PVSControl {
 
     // max full depth allowed
     private static int max_depth = 0;
 
-    private static int time_budget_ms = 0;
+    internal static int time_budget_ms = 0;
+    internal static Stopwatch sw = new();
 
     // all instances of the search
-    private static readonly List<SearchThread> workers = [];
+    private static readonly List<PVSearch> workers = [];
 
     // this may not actually be useful at all, we'll see
     private static Thread? thread = null;
@@ -25,7 +26,7 @@ internal static class ParallelSearch {
     internal static Move[] best_moves = [];
 
     // total nodes this iteration
-    internal static long cur_nodes {
+    internal static long CurNodes {
         get {
             long total = 0;
             foreach (var worker in workers) {
@@ -37,8 +38,6 @@ internal static class ParallelSearch {
 
     // total nodes from the whole search
     internal static long abs_nodes = 0;
-
-    private static Stopwatch sw = new();
 
     internal static void Reset() {
 
@@ -70,13 +69,13 @@ internal static class ParallelSearch {
 
         // set some values
         max_depth = depth;
-        ParallelSearch.time_budget_ms = time_budget_ms;
+        PVSControl.time_budget_ms = time_budget_ms;
 
-        // start the actual search loop
-        thread = new(DeepeningSearchLoop) {
-            Priority = ThreadPriority.Highest
-        };
-        thread.Start();
+       // start the actual search loop
+       thread = new(DeepeningSearchLoop) {
+           Priority = ThreadPriority.Highest
+       };
+       thread.Start();
     }
 
 
@@ -99,13 +98,12 @@ internal static class ParallelSearch {
 
                 workers[i].SearchDeeper();
 
-                // if the search was aborted, we don't save the results
-                if (workers[i].Abort)
-                    break;
-
                 // save (and print) the current results
                 // we only print the results from the last thread
                 GetResult(i, i == workers.Count - 1);
+
+                if (workers[i].Abort)
+                    break;
 
                 // time budget was already crossed
                 if (sw.ElapsedMilliseconds >= time_budget_ms)
@@ -130,12 +128,13 @@ internal static class ParallelSearch {
     [MethodImpl(MethodImplOptions.Synchronized)]
     private static void GetResult(int worker, bool print = true) {
         if (workers[worker].PV.Length == 0) {
-            Console.WriteLine("FAIL");
+            Console.WriteLine("iteration aborted");
+            return;
         }
         else best_moves[worker] = workers[worker].PV[0];
 
         if (worker == best_worker)
-            abs_nodes += cur_nodes;
+            abs_nodes += CurNodes;
 
         // we only want to print a single search thread to prevent utter chaos
         if (print) {
@@ -148,7 +147,7 @@ internal static class ParallelSearch {
 
             int nps = (int)(abs_nodes / sw.Elapsed.TotalSeconds);
 
-            Console.Write($"info depth {workers[worker].cur_depth} seldepth {workers[worker].achieved_depth} nodes {cur_nodes} nps {nps} score cp {col_score} pv");
+            Console.Write($"info depth {workers[worker].cur_depth} seldepth {workers[worker].achieved_depth} nodes {CurNodes} nps {nps} score cp {col_score} pv");
 
             foreach (Move m in GetFullPV(worker, workers[worker].achieved_depth))
                 Console.Write($" {m}");

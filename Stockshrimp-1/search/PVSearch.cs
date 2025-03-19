@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Stockshrimp_1.search;
 
-internal class SearchThread {
+internal class PVSearch {
     // maximum allowed qsearch depth - counting from qsearch start
     private const int MAX_QSEARCH_DEPTH = 9;
 
@@ -36,16 +36,13 @@ internal class SearchThread {
     internal Move[] PV = [];
 
     // should end the search?
-    internal bool Abort => total_nodes >= max_nodes;
+    internal bool Abort => 
+        total_nodes >= max_nodes
+        || PVSControl.sw.ElapsedMilliseconds >= PVSControl.time_budget_ms;
 
     // evaluation of the root/starting node
     // used to indicate whether we actually improved
     private short root_eval = 0;
-
-    internal void StartSearching(int depth) {
-        while (cur_depth <= depth)
-            SearchDeeper();
-    }
 
     internal void SearchDeeper() {
         cur_depth++;
@@ -65,7 +62,10 @@ internal class SearchThread {
         //Window w = Window.Infinite;
 
         // start of the search
-        (pv_score, PV) = Search(Game.board, 0, cur_depth, Window.Infinite);
+        (pv_score, PV) = Search(Game.board, 0, cur_depth, Window.Infinite, true);
+
+        if (Abort && cur_depth > 1)
+            PV = [];
 
         //if (PV.Length == 0)
         //    PV[0] = Movegen.GetLegalMoves(Game.board)[0];
@@ -114,7 +114,7 @@ internal class SearchThread {
     }
 
     // either returns a score found in tt or calls EvalPosition and stores the new score in tt
-    private (short Score, Move[] PV) SearchTT(Board b, int ply, int depth, Window window) {
+    private (short Score, Move[] PV) SearchTT(Board b, int ply, int depth, Window window, bool full_search) {
 
         // we need to check the ply to prevent some terrible blunders?
         // i don't know why but it works just fine
@@ -125,7 +125,7 @@ internal class SearchThread {
         }
 
         // in case it wasn't there, we evaluate it
-        var result = Search(b, ply, depth, window);
+        var result = Search(b, ply, depth, window, full_search);
 
         // and store the new evaluation in tt
         TT.Store(b, depth, ply, window, result.Score, result.PV.Length > 0 ? result.PV[0] : default);
@@ -134,7 +134,11 @@ internal class SearchThread {
     }
 
     // the main recursive function for the search
-    private (short Score, Move[] PV) Search(Board b, int ply, int depth, Window window) {
+    private (short Score, Move[] PV) Search(Board b, int ply, int depth, Window window, bool full_search) {
+
+        // end the search immediately
+        if (Abort && cur_depth > 1)
+            return (0, []);
 
         //short cur_eval = Eval.StaticEval(b);
         //bool improved = false;
@@ -156,10 +160,6 @@ internal class SearchThread {
         // this gets incremented only if no qsearch, otherwise the node would count twice
         total_nodes++;
 
-        // end the search immediately
-        if (Abort)
-            return (0, []);
-
         int col = b.side_to_move;
 
         // is the current side to move being checked?
@@ -168,7 +168,8 @@ internal class SearchThread {
         // NULL MOVE PRUNING:
         // avoid null moves for a few plys if we found a mate in the previous iteration
         // we must either find the shortest mate or escape
-        if (!Eval.IsMateScore(pv_score)
+        if (!full_search
+            && !Eval.IsMateScore(pv_score)
             && ply >= NMP.MIN_PLY
             && depth >= NMP.MIN_DEPTH
             && !is_checked
@@ -182,14 +183,15 @@ internal class SearchThread {
 
             // additional depth reduce if position is not improving
             //int add_R = (improved || ply < 6) ? 0 : 1;
-            int next_depth = depth - NMP.GetR(ply) - 1;
+            int next_depth = depth - /*NMP.GetR(ply)*/ NMP.R - 1;
 
             // evaluate the null child at a reduced depth
-            short score = SearchTT(nullChild, ply + 1, next_depth, beta).Score;
+            short score = SearchTT(nullChild, ply + 1, next_depth, beta, false).Score;
 
             // is the evaluation "too good" despite null-move? then don't waste time on a branch that is likely going to fail-high
             if (window.FailsHigh(score, col))
                 return (score, []);
+                //return (col == 0 ? window.beta : window.alpha, []);
         }
 
         // get all legal moves sorted
@@ -211,13 +213,19 @@ internal class SearchThread {
             Board child = b.Clone();
             child.DoMove(moves[i]);
 
+            bool is_capture = moves[i].Capture() != 6;
+
             //History.AddVisited(position, moves[i]);
 
-            // a child node is marked as interesting if:
-            // we just escaped a check
-            // we are checking the opposite king
-            // we have only expanded a single node so far
+            // a child node is marked as interesting if we:
+            //
+            // only expanded a single node so far
+            // captured a piece
+            // just escaped a check
+            // are checking the opposite king
             bool interesting = checked_nodes == 1
+                || full_search
+                || is_capture
                 || is_checked
                 || Movegen.IsKingInCheck(child, col == 0 ? 1 : 0);
 
@@ -226,7 +234,8 @@ internal class SearchThread {
             // futility margin represents the largest possible eval gain through the move.
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can discard this move
-            if (ply >= FP.MIN_PLY
+            if (!full_search 
+                && ply >= FP.MIN_PLY
                 && depth <= FP.MAX_DEPTH
                 && !interesting) {
 
@@ -247,28 +256,33 @@ internal class SearchThread {
             // LATE MOVE REDUCTIONS (LMR):
             // moves other than the pv are expected to fail low (not raise alpha),
             // thus we first search them with null window around alpha. if it does
-            // NOT fail low we need a full re-search
-            if (ply >= LMR.MIN_PLY
+            // not fail low we need a full re-search
+            if (!full_search
+                && ply >= LMR.MIN_PLY
                 && depth >= LMR.MIN_DEPTH
                 && checked_nodes >= LMR.MIN_EXP_NODES) {
 
                 // interesting or early moves are searched at full depth
                 // not interesting and late moves with a reduced depth
-                // R is a common name standing for depth reduction??
-                int R = (interesting ? 0 : LMR.R) 
-                    + (ply > 5 && improved ? 0 : 1);
+                // R is a common name standing for depth reduction
+                int R = interesting ? 0 : (History.GetRep(child, moves[i]) <= -1320 ? LMR.R - 1 : LMR.R);
+                //    + (ply > 5 && improved ? 0 : 1);
 
                 // do the reduced search
-                short score = SearchTT(child, ply + 1, depth - R - 1, window.GetLowerBound(col)).Score;
+                short score = SearchTT(child, ply + 1, depth - R - 1, window.GetLowerBound(col), false).Score;
 
                 // if we fail low as expected, we can skip this move
                 if (window.FailsLow(score, col))
                     continue;
             }
 
+            // if we are at a pv node (or a potential pv node), we force a full expansion in the next ply
+            // this only applies at ply 0 or 1
+            bool force_full_search = false;
+
             // if we got all the way to this point, we expect this move to raise alpha,
             // so we have to search it at full depth
-            var full_eval = SearchTT(child, ply + 1, depth - 1, window);
+            var full_eval = SearchTT(child, ply + 1, depth - 1, window, force_full_search);
 
             // in case of still somehow failing low, we skip it
             if (window.FailsLow(full_eval.Score, col)) {
@@ -289,7 +303,7 @@ internal class SearchThread {
             if (window.CutWindow(full_eval.Score, col)) {
 
                 // if the move is quiet (no capture)
-                if (b.PieceAt(moves[i].End()).Item2 == 6) {
+                if (!is_capture) {
 
                     // give it a good reputation
                     // and remember it as a killer move
@@ -364,7 +378,6 @@ internal class SearchThread {
             // sort them by mvvlva
             moves = MVV_LVA.SortCaptures(capts);
         }
-
 
         int checked_nodes = 0;
 

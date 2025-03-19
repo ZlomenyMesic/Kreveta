@@ -41,6 +41,7 @@ internal static class Eval {
     internal static bool IsMateScore(int s)
         => Math.Abs(s) > MATE_BASE;
 
+    private static readonly int[] values = [100, 295, 305, 495, 900, 0];
     internal static short StaticEval(Board b) {
 
         int piece_count = BB.Popcount(b.Occupied());
@@ -54,15 +55,22 @@ internal static class Eval {
 
                 if (copy == 0) continue;
 
-                eval += j switch {
-                    0 => PawnEval(copy, i, piece_count),
-                    1 => KnightEval(copy, i, piece_count),
-                    2 => BishopEval(copy, i, piece_count),
-                    3 => RookEval(copy, i, piece_count),
-                    4 => QueenEval(copy, i, piece_count),
-                    5 => KingEval(copy, i, piece_count),
-                    _ => 0
-                };
+                int sq;
+                while (copy != 0) {
+                    (copy, sq) = BB.LS1BReset(copy);
+
+                    eval += GetTableValue(j, i, sq, piece_count) * (i == 0 ? 1 : -1);
+                }
+
+                //eval += j switch {
+                //    0 => PawnEval(copy, i, piece_count),
+                //    1 => KnightEval(copy, i, piece_count),
+                //    2 => BishopEval(copy, i, piece_count),
+                //    3 => RookEval(copy, i, piece_count),
+                //    4 => QueenEval(copy, i, piece_count),
+                //    5 => KingEval(copy, i, piece_count),
+                //    _ => 0
+                //};
             }
         }
 
@@ -71,15 +79,16 @@ internal static class Eval {
         return (short)(eval/* + r.Next(-12, 12)*/);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetTableValue(int p, int col, int pos, int piece_count) {
         // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
         // there are two tables - midgame and endgame, this is important, because the pieces should be
         // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
         // but in the endgame in the center)
 
-        pos = col == 0 ? 63 - pos : pos;
-        int mg_value = EvalTables.Midgame[(p * 64) + pos];
-        int eg_value = EvalTables.Endgame[(p * 64) + pos];
+        int i = (p * 64) + (col == 0 ? 63 - pos : pos);
+        int mg_value = EvalTables.Midgame[i];
+        int eg_value = EvalTables.Endgame[i];
 
         return (short)(mg_value * piece_count / 32 + eg_value * (32 - piece_count) / 32);
     }
@@ -99,11 +108,12 @@ internal static class Eval {
         return eval;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short PawnEval(ulong p, int col, int piece_count) {
 
         int eval = 0;
 
-        eval += PiecesTableEval(p, 0, col, piece_count);
+        //eval += PiecesTableEval(p, 0, col, piece_count);
 
         col = col == 0 ? 1 : -1;
 
@@ -129,10 +139,11 @@ internal static class Eval {
         return (short)eval;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short KnightEval(ulong n, int col, int piece_count) {
         int eval = 0;
 
-        eval += PiecesTableEval(n, 1, col, piece_count);
+        //eval += PiecesTableEval(n, 1, col, piece_count);
 
         col = col == 0 ? 1 : -1;
 
@@ -142,10 +153,11 @@ internal static class Eval {
         return (short)eval;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short BishopEval(ulong b, int col, int piece_count) {
         int eval = 0;
 
-        eval += PiecesTableEval(b, 2, col, piece_count);
+        //eval += PiecesTableEval(b, 2, col, piece_count);
 
         col = col == 0 ? 1 : -1;
 
@@ -156,10 +168,11 @@ internal static class Eval {
         return (short)eval;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short RookEval(ulong r, int col, int piece_count) {
         int eval = 0;
 
-        eval += PiecesTableEval(r, 3, col, piece_count);
+        //eval += PiecesTableEval(r, 3, col, piece_count);
 
         col = col == 0 ? 1 : -1;
 
@@ -169,18 +182,20 @@ internal static class Eval {
         return (short)eval;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short QueenEval(ulong q, int col, int piece_count) {
         int eval = 0;
 
-        eval += PiecesTableEval(q, 4, col, piece_count);
+        //eval += PiecesTableEval(q, 4, col, piece_count);
 
         return (short)eval;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short KingEval(ulong k, int col, int piece_count) {
         int eval = 0;
 
-        eval += PiecesTableEval(k, 5, col, piece_count);
+        //eval += PiecesTableEval(k, 5, col, piece_count);
 
         return (short)eval;
     }

@@ -128,11 +128,11 @@ namespace Stockshrimp_1.search {
 
             if (entry.type == ScoreType.Exact) return true;
             if (entry.type == ScoreType.LowerBound && score <= window.alpha) {
-                score = window.alpha;
+                //score = window.alpha;
                 return true;
             }
             if (entry.type == ScoreType.UpperBound && score >= window.beta) {
-                score = window.beta;
+                //score = window.beta;
                 return true;
             }
 

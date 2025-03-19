@@ -3,6 +3,8 @@
  *  developed by ZlomenyMesic
  */
 
+using System.Runtime.CompilerServices;
+
 namespace Stockshrimp_1.search;
 
 // NULL MOVE PRUNING
@@ -16,7 +18,9 @@ internal static class NMP {
     internal const int DROP_INTO_QS = 2;
 
     // depth reduce within nullmp
-    private const int R = 3;
+    internal const int R = 3;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetR(int ply) {
         if (ply <= 4) return R - 1;
         //if (ply >= 8) return R + 1;
@@ -59,5 +63,5 @@ internal static class LMR {
     internal const int MIN_EXP_NODES = 3;
 
     // depth reduce
-    internal const int R = 2;
+    internal const int R = 3;
 }

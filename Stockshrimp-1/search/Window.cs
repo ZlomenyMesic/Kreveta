@@ -31,7 +31,8 @@ internal struct Window {
 
         // raising alpha (floor)
         if (col == 0) {
-            //outside search window
+
+            // fail low
             if (score <= alpha)
                 return false;
 
@@ -43,7 +44,8 @@ internal struct Window {
 
         // reducing beta (ceiling)
         else {
-            //outside search window
+
+            // fail high
             if (score >= beta)
                 return false; 
 
