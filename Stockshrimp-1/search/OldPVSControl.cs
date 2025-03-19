@@ -11,7 +11,7 @@ namespace Stockshrimp_1.search {
         internal static Move best_move;
         private static int max_depth;
         private static int time_budget_ms;
-        private static Thread? thread;
+        //private static Thread? thread;
 
         internal static void StartSearch(int depth, int time_budget_ms) {
             Console.WriteLine("search started");

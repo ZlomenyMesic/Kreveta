@@ -69,10 +69,11 @@ internal class Board {
         en_passant_sq = 64;
         side_to_move = side_to_move == 0 ? 1 : 0;
 
-        // start & end squares
+        // start and end squares
         int start_32 = move.Start();
         int end_32 = move.End();
 
+        // start and end squares represented as bitboards
         ulong start = Consts.SqMask[start_32];
         ulong end = Consts.SqMask[end_32];
 
@@ -89,10 +90,13 @@ internal class Board {
 
         // en passant
         if (prom == 0) {
+
+            // the pawn that is to be captured
             ulong cap_sq = col == 0
                 ? end << 8
                 : end >> 8;
 
+            // xor the captured pawn and move our pawn
             pieces[col_op, 0] ^= cap_sq;
             pieces[col, 0]    ^= start | end;
         } 

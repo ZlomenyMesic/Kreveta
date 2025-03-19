@@ -300,7 +300,7 @@ internal class PVSearch {
             pv = AddMoveToPV(moves[i], full_eval.PV);
 
             //...and maybe we even get a beta cutoff?
-            if (window.CutWindow(full_eval.Score, col)) {
+            if (window.TryCutoff(full_eval.Score, col)) {
 
                 // if the move is quiet (no capture)
                 if (!is_capture) {
@@ -353,7 +353,7 @@ internal class PVSearch {
             short stand_pat = Eval.StaticEval(position);// + mobility;
 
             // raise alpha and get a beta cutoff if standpat is too good
-            if (window.CutWindow(stand_pat, col))
+            if (window.TryCutoff(stand_pat, col))
                 return window.GetBoundScore(col);
         }
 
@@ -394,7 +394,7 @@ internal class PVSearch {
             short score = QSearch(child, ply + 1, window);
 
             // once again raise alpha + beta cutoff when a move is too good
-            if (window.CutWindow(score, col))
+            if (window.TryCutoff(score, col))
                 break;
         }
 

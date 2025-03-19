@@ -27,7 +27,7 @@ internal struct Window {
 
     // makes the window smaller by raising alpha or reducing beta, depending on the color
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool CutWindow(short score, int col) {
+    internal bool TryCutoff(short score, int col) {
 
         // raising alpha (floor)
         if (col == 0) {
