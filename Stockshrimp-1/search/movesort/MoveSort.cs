@@ -28,11 +28,11 @@ internal static class MoveSort {
             // add every capture in legal moves
             if (!sorted.Contains(legal[i]) && legal[i].Capture() != 6)
                 capts.Add(legal[i]);
+        }
 
-            List<Move> mvvlva = MVV_LVA.SortCaptures(capts);
-            for (int j = 0; j < mvvlva.Count; j++) {
-                sorted.Add(mvvlva[j]);
-            }
+        List<Move> mvvlva = capts.Count > 1 ? MVV_LVA.SortCaptures(capts) : capts;
+        for (int j = 0; j < mvvlva.Count; j++) {
+            sorted.Add(mvvlva[j]);
         }
 
         // killers - quiet moves that caused a beta cutoff

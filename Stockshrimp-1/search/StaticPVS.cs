@@ -4,10 +4,10 @@ using Stockshrimp_1.search.movesort;
 
 #nullable enable
 namespace Stockshrimp_1.search {
-    internal static class OldPVS {
+    internal static class StaticPVS {
 
         // maximum depth allowed in the quiescence search itself
-        private const int MAX_QSEARCH_DEPTH = 8;
+        private const int MAX_QSEARCH_DEPTH = 9;
 
         // maximum depth total - qsearch and regular search combined
         // changes each iteration depending on pvsearch depth
@@ -44,7 +44,7 @@ namespace Stockshrimp_1.search {
             cur_depth++;
 
             // as already mentioned, this represents the absolute depth limit
-            cur_max_qsearch_depth = cur_depth + 8;
+            cur_max_qsearch_depth = cur_depth + MAX_QSEARCH_DEPTH;
 
             // reset total nodes
             total_nodes = 0L;
@@ -252,10 +252,10 @@ namespace Stockshrimp_1.search {
                     Window nullw_alpha = window.GetLowerBound(col);
 
                     // once again a reduced depth search
-                    int score = SearchTT(child, ply + 1, depth - R - 1, nullw_alpha).Score;
+                    short score = SearchTT(child, ply + 1, depth - R - 1, nullw_alpha).Score;
 
                     // we failed low, we prune this branch. it is not good enough
-                    if (window.FailsLow((short)score, col))
+                    if (window.FailsLow(score, col))
                         continue;
                 }
 
@@ -264,7 +264,7 @@ namespace Stockshrimp_1.search {
                 (short Score, Move[] PV) full_search = SearchTT(child, ply + 1, depth - 1, window);
 
                 // we somehow still failed low
-                if (window.FailsLow((short)full_search.Score, col)) {
+                if (window.FailsLow(full_search.Score, col)) {
 
                     // decrease the move's reputation
                     History.DecreaseRep(b, moves[i], depth);
@@ -315,42 +315,81 @@ namespace Stockshrimp_1.search {
                 : (window.GetBoundScore(col), pv);
         }
 
-        private static short QSearch(Board position, int ply, Window window) {
-            ++OldPVS.total_nodes;
-            if (OldPVS.Abort)
+        // QUIESCENCE SEARCH:
+        // instead of immediately returning the static eval of leaf nodes in the main
+        // search tree, we return a qsearch eval. qsearch is essentially just an extension
+        // to the main search, but only expands captures or checks. this prevents falsely
+        // evaluating positions where we can for instance lose a queen in the next move
+        private static short QSearch(Board b, int ply, Window window) {
+
+            if (Abort)
                 return 0;
-            if (ply > OldPVS.achieved_depth)
-                OldPVS.achieved_depth = ply;
-            if (ply >= OldPVS.cur_max_qsearch_depth)
-                return Eval.StaticEval(position);
-            int sideToMove = position.side_to_move;
-            bool flag = Movegen.IsKingInCheck(position, sideToMove);
-            if (!flag) {
-                int score = Eval.StaticEval(position);
-                if (window.TryCutoff((short)score, sideToMove))
-                    return window.GetBoundScore(sideToMove);
+
+            total_nodes++;
+
+            // this stores the highest achieved search depth in this iteration
+            if (ply > achieved_depth)
+                achieved_depth = ply;
+
+            // we reached the end, we return the static eval
+            if (ply >= cur_max_qsearch_depth)
+                return Eval.StaticEval(b);
+
+            int col = b.side_to_move;
+
+            // is the side to move in check?
+            bool is_checked = Movegen.IsKingInCheck(b, col);
+
+            short stand_pat = 0;
+
+            // can not use stand pat when in check
+            if (!is_checked) {
+
+                // stand pat is nothing more than a static eval
+                stand_pat = Eval.StaticEval(b);
+
+                // if the stand pat fails high, we can return it
+                // if not, we use it as a lower bound (alpha)
+                if (window.TryCutoff(stand_pat, col))
+                    return window.GetBoundScore(col);
             }
-            List<Move> moveList = Movegen.GetLegalMoves(position);
-            if (!flag && moveList.Count == 0)
-                return 0;
-            if (!flag) {
-                List<Move> capts = new List<Move>();
-                for (int index = 0; index < moveList.Count; ++index) {
-                    if (moveList[index].Capture() != 6)
-                        capts.Add(moveList[index]);
+
+            // from a certain point, we only generate captures
+            bool only_captures = ply > (cur_depth + 5);
+            List<Move> moves = Movegen.GetLegalMoves(b, only_captures);
+
+            // we have to check for stalemate here
+            // we might not have any captures available, but the position probably isn't stalemate
+            if (moves.Count == 0) {
+                if (only_captures) {
+                    return stand_pat;
                 }
-                moveList = MVV_LVA.SortCaptures(capts);
+
+                return is_checked ? Eval.GetMateScore(col, ply) : (short)0;
             }
+
+            // don't waste time sorting moves when we are checked
+            if (!is_checked && !only_captures) {
+                List<Move> capts = [];
+
+                for (int index = 0; index < moves.Count; ++index) {
+
+                    if (moves[index].Capture() != 6)
+                        capts.Add(moves[index]);
+                }
+                moves = MVV_LVA.SortCaptures(capts);
+            } else if (only_captures) moves = MVV_LVA.SortCaptures(moves);
+
             int num = 0;
-            for (int index = 0; index < moveList.Count; ++index) {
-                Board position1 = position.Clone();
-                position1.DoMove(moveList[index]);
+            for (int index = 0; index < moves.Count; ++index) {
+                Board position1 = b.Clone();
+                position1.DoMove(moves[index]);
                 ++num;
-                int score = OldPVS.QSearch(position1, ply + 1, window);
-                if (window.TryCutoff((short)score, sideToMove))
+                int score = StaticPVS.QSearch(position1, ply + 1, window);
+                if (window.TryCutoff((short)score, col))
                     break;
             }
-            return num == 0 & flag ? Eval.GetMateScore(sideToMove, ply) : window.GetBoundScore(sideToMove);
+            return num == 0 & is_checked ? Eval.GetMateScore(col, ply) : window.GetBoundScore(col);
         }
 
         private static Move[] AddMoveToPV(Move move, Move[] pv) {

@@ -11,14 +11,19 @@ namespace Stockshrimp_1.movegen;
 internal static class Movegen {
 
     [MethodImpl(MethodImplOptions.Synchronized)]
-    internal static List<Move> GetLegalMoves(Board b) {
+    internal static List<Move> GetLegalMoves(Board b, bool only_captures = false) {
 
         int col = b.side_to_move;
 
         List<Move> moves = [];
 
-        // generate all pseudo-legal moves
-        GetPseudoLegalMoves(b, col, moves);
+        // only generate captures (used in qsearch)
+        if (only_captures) {
+            GetPseudoLegalCaptures(b, col, moves);
+        }
+
+        // otherwise all possible moves
+        else GetPseudoLegalMoves(b, col, moves);
 
         // remove the illegal ones
         List<Move> legal = [];
@@ -34,9 +39,16 @@ internal static class Movegen {
 
     internal static void GetPseudoLegalMoves(Board b, int col, List<Move> moves) {
 
+        // squares occupied by opposite color
         ulong occ_opp = b.Occupied(col == 0 ? 1 : 0);
+
+        // all occupied squares (both colors)
         ulong occ = occ_opp | b.Occupied(col);
+
+        // all empty squares
         ulong empty = ~occ;
+
+        // squares, where moves can end - empty or occupied by opponent (captures)
         ulong free = empty | occ_opp;
 
         // loop through every piece type and add start the respective move search loop
@@ -44,10 +56,28 @@ internal static class Movegen {
             LoopPiecesBB(b, b.pieces[col, i], i, col, moves, occ_opp, occ, empty, free);
         }
 
+        // castling when in check is illegal
         if (!IsKingInCheck(b, col)) {
             ulong cast = King.GetCastlingMoves(b, col);
             LoopMovesBB(cast, b, BB.LS1B(b.pieces[col, 5]), 7, col, moves);
         }
+    }
+
+    internal static void GetPseudoLegalCaptures(Board b, int col, List<Move> moves) {
+
+        ulong occ_opp = b.Occupied(col == 0 ? 1 : 0);
+        ulong occ = occ_opp | b.Occupied(col);
+
+        // we pass this instead of free as well
+        ulong empty = ~occ;
+
+        // loop through every piece (same as above)
+        // we only generate captures, though
+        for (int i = 0; i < 6; i++) {
+            LoopPiecesBB(b, b.pieces[col, i], i, col, moves, occ_opp, occ, empty, occ_opp, true);
+        }
+
+        // no need to generate castling moves - they can never be a capture
     }
 
     internal static bool IsKingInCheck(Board b, int col) {
@@ -78,23 +108,7 @@ internal static class Movegen {
         return false;
     }
 
-    private static ulong GetMovesBB(ulong sq, Board b, int p, int col, ulong occ_opp, ulong occ, ulong empty, ulong free) {
-
-        // return a bitboard of possible moves depending on the piece type
-        return p switch {
-            0 => Pawn.GetPawnPushes(sq, col, empty) | Pawn.GetPawnCaptures(sq, b.en_passant_sq, col, occ_opp),
-            1 => Knight.GetKnightMoves(sq, free),
-            2 => Bishop.GetBishopMoves(sq, free, occ),
-            3 => Rook.GetRookMoves(sq, free, occ),
-
-            // queen = bishop + rook
-            4 => Bishop.GetBishopMoves(sq, free, occ) | Rook.GetRookMoves(sq, free, occ),
-            5 => King.GetKingMoves(sq, free),
-            _ => 0
-        };
-    }
-
-    private static void LoopPiecesBB(Board b, ulong pieces, int p, int col, List<Move> moves, ulong occ_opp, ulong occ, ulong empty, ulong free) {
+    private static void LoopPiecesBB(Board b, ulong pieces, int p, int col, List<Move> moves, ulong occ_opp, ulong occ, ulong empty, ulong free, bool only_captures = false) {
         ulong moves_bb;
         int start;
 
@@ -106,11 +120,31 @@ internal static class Movegen {
             ulong sq = Consts.SqMask[start];
 
             // generate the moves
-            moves_bb = GetMovesBB(sq, b, p, col, occ_opp, occ, empty, free);
+            moves_bb = GetMovesBB(sq, b, p, col, occ_opp, occ, empty, free, only_captures);
 
             // loop the found moves and add them
             LoopMovesBB(moves_bb, b, start, p, col, moves);
         }
+    }
+
+    private static ulong GetMovesBB(ulong sq, Board b, int p, int col, ulong occ_opp, ulong occ, ulong empty, ulong free, bool only_captures) {
+
+        // return a bitboard of possible moves depending on the piece type
+        return p switch {
+
+            // don't generate pawn pushes when we only want captures
+            0 => (only_captures ? 0 : Pawn.GetPawnPushes(sq, col, empty)) 
+                | Pawn.GetPawnCaptures(sq, b.en_passant_sq, col, occ_opp),
+
+            1 => Knight.GetKnightMoves(sq, free),
+            2 => Bishop.GetBishopMoves(sq, free, occ),
+            3 => Rook.GetRookMoves(sq, free, occ),
+
+            // queen = bishop + rook
+            4 => Bishop.GetBishopMoves(sq, free, occ) | Rook.GetRookMoves(sq, free, occ),
+            5 => King.GetKingMoves(sq, free),
+            _ => 0
+        };
     }
 
     private static void LoopMovesBB(ulong moves_bb, Board b, int start, int p, int col, List<Move> moves) {
@@ -121,8 +155,8 @@ internal static class Movegen {
             (moves_bb, end) = BB.LS1BReset(moves_bb);
 
             // get the potential capture piece type
-            int capt = 6;
-            if (p != 7) capt = b.PieceAt(end).Item2;
+            int capt = p != 7 
+                ? b.PieceAt(end).Item2 : 6;
 
             // add the move
             AddMovesToList(p, col, start, end, capt, moves, b.en_passant_sq);

@@ -13,20 +13,27 @@ internal static class MVV_LVA {
 
     // very simple evaluation of pieces
     // king is gived 10 points?? not sure what bad could happen but don't want to risk it
-    private static readonly int[] PIECE_VALUES = [1, 3, 3, 5, 9, 10];
+    private static readonly int[] PIECE_VALUES = [1, 3, 3, 5, 9, 10, -1];
 
     // takes a list of captures, sorts it and returns it
     internal static List<Move> SortCaptures(List<Move> capts) {
+        if (capts.Count <= 1) return capts;
+
         List<(Move, float)> scores = [];
 
         for (int i = 0; i < capts.Count; i++) {
 
             // piece moved and piece captured
-            int piece = PIECE_VALUES[capts[i].Piece()];
-            int capt = PIECE_VALUES[capts[i].Capture()];
+            int aggressor = PIECE_VALUES[capts[i].Piece()];
+            int victim = PIECE_VALUES[capts[i].Capture()];
+
+            //
+            // TODO - FIX THIS WEIRD CASE
+            //
+            if (aggressor == -1 || victim == -1) continue;
 
             // calculate the difference - positive diff => likely a good move
-            int diff = capt - piece;
+            int diff = victim - aggressor;
             scores.Add((capts[i], diff));
         }
 
