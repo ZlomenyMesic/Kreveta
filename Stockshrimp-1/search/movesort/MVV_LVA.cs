@@ -27,10 +27,12 @@ internal static class MVV_LVA {
             int aggressor = PIECE_VALUES[capts[i].Piece()];
             int victim = PIECE_VALUES[capts[i].Capture()];
 
-            //
-            // TODO - FIX THIS WEIRD CASE
-            //
-            if (aggressor == -1 || victim == -1) continue;
+            // weird case for en passant - move doesn't end on capture square
+            if (victim == -1 && aggressor == 1) {
+
+                // en passant captures a pawn, so we let the engine know it
+                victim = 1;
+            }
 
             // calculate the difference - positive diff => likely a good move
             int diff = victim - aggressor;

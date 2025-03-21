@@ -8,28 +8,25 @@ using System.Runtime.CompilerServices;
 namespace Stockshrimp_1.search;
 
 // NULL MOVE PRUNING
-internal static class NMP {
+internal static class NullMP {
 
     // minimal depth and ply needed to allow nullmp
     internal const int MIN_DEPTH = 0;
     internal const int MIN_PLY = 2;
 
-    // depth at which nmp goes straight into qsearch
-    internal const int DROP_INTO_QS = 2;
-
     // depth reduce within nullmp
     internal const int R = 3;
 
+    // use lower depth reduce when at lower ply
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetR(int ply) {
         if (ply <= 4) return R - 1;
-        //if (ply >= 8) return R + 1;
         return R;
     }
 }
 
 // FUTILITY PRUNING
-internal static class FP {
+internal static class FPrunes {
 
     // minimum ply and maximum depth to allow futility pruning
     internal const int MIN_PLY = 3;
@@ -52,7 +49,7 @@ internal static class FP {
 }
 
 // LATE MOVE REDUCTIONS
-internal static class LMR {
+internal static class LateMR {
 
     // once again we set a minimum ply and depth
     internal const int MIN_PLY = 4;
@@ -62,6 +59,12 @@ internal static class LMR {
     // (we obviously don't want to reduce the pv)
     internal const int MIN_EXP_NODES = 3;
 
-    // depth reduce
+    // when a move's history rep falls below this threshold,
+    // we use a larger R (we assume the move isn't that good
+    // and save some time by not searching it that deeply)
+    internal const int HH_THRESHOLD = -1320;
+
+    // depth reduce normally and with bad history rep
     internal const int R = 3;
+    internal const int HH_R = 4;
 }

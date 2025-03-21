@@ -1,4 +1,9 @@
-﻿using Stockshrimp_1.evaluation;
+﻿/*
+ *  Stockshrimp chess engine 1.0
+ *  developed by ZlomenyMesic
+ */
+
+using Stockshrimp_1.evaluation;
 using Stockshrimp_1.movegen;
 using Stockshrimp_1.search.movesort;
 
@@ -7,7 +12,7 @@ namespace Stockshrimp_1.search {
     internal static class StaticPVS {
 
         // maximum depth allowed in the quiescence search itself
-        private const int MAX_QSEARCH_DEPTH = 9;
+        private const int MAX_QSEARCH_DEPTH = 8;
 
         // maximum depth total - qsearch and regular search combined
         // changes each iteration depending on pvsearch depth
@@ -149,8 +154,8 @@ namespace Stockshrimp_1.search {
             // we must either find the shortest mate or escape. we also don't prune
             // if we are being checked
             if (!Eval.IsMateScore(pv_score) 
-                && ply >= NMP.MIN_PLY 
-                && depth >= NMP.MIN_DEPTH 
+                && ply >= NullMP.MIN_PLY 
+                && depth >= NullMP.MIN_DEPTH 
                 && !is_checked 
                 && window.CanFailHigh(col)) {
 
@@ -160,7 +165,7 @@ namespace Stockshrimp_1.search {
                 // child with no move played
                 Board null_child = b.GetNullChild();
 
-                int R = NMP.R;
+                int R = NullMP.R;
 
                 // do the reduced search
                 short score = SearchTT(null_child, ply + 1, depth - R - 1, nullw_beta).Score;
@@ -218,8 +223,8 @@ namespace Stockshrimp_1.search {
                 // if we add this margin to the static eval of the position and still don't raise
                 // alpha, we can prune this branch. we assume there probably isn't a phenomenal move
                 // that could save this position
-                if (ply >= FP.MIN_PLY 
-                    && depth <= FP.MAX_DEPTH 
+                if (ply >= FPrunes.MIN_PLY 
+                    && depth <= FPrunes.MAX_DEPTH 
                     && !interesting) {
 
                     // as taken from chessprogrammingwiki:
@@ -229,7 +234,7 @@ namespace Stockshrimp_1.search {
                     // however, a lower margin increases the search speed and thus our futility margin stays low
                     //
                     // TODO - BETTER FUTILITY MARGIN?
-                    int margin = FP.GetMargin(depth, col, true);
+                    int margin = FPrunes.GetMargin(depth, col, true);
 
                     // if we fail low, we fell under alpha. this means we already know of a better
                     // alternative somewhere else in the search tree, and we can prune this branch.
@@ -241,12 +246,13 @@ namespace Stockshrimp_1.search {
                 // moves other than the pv node are expected to fail low (not raise alpha),
                 // so we first search them with null window around alpha. if it does not fail
                 // low as expected, we do a full re-search
-                if (ply >= LMR.MIN_PLY 
-                    && depth >= LMR.MIN_DEPTH 
-                    && exp_nodes >= LMR.MIN_EXP_NODES) {
+                if (!interesting 
+                    && ply >= LateMR.MIN_PLY 
+                    && depth >= LateMR.MIN_DEPTH 
+                    && exp_nodes >= LateMR.MIN_EXP_NODES) {
 
                     // depth reduce is larger with bad history
-                    int R = interesting ? 0 : (History.GetRep(child, moves[i]) < -1320 ? 4 : 3);
+                    int R = History.GetRep(child, moves[i]) < LateMR.HH_THRESHOLD ? LateMR.HH_R : LateMR.R;
 
                     // null window around alpha
                     Window nullw_alpha = window.GetLowerBound(col);
@@ -355,48 +361,50 @@ namespace Stockshrimp_1.search {
             }
 
             // from a certain point, we only generate captures
-            bool only_captures = ply > (cur_depth + 5);
+            bool only_captures = !is_checked || ply >= cur_max_qsearch_depth - 3;
+
             List<Move> moves = Movegen.GetLegalMoves(b, only_captures);
 
-            // we have to check for stalemate here
-            // we might not have any captures available, but the position probably isn't stalemate
             if (moves.Count == 0) {
+
+                // if we aren't checked, it means there just aren't
+                // any more captures and we can return the stand pat
+                // (we also might be in stalemate - FIX THIS)
                 if (only_captures) {
                     return stand_pat;
                 }
 
+                // if we are checked it's checkmate
                 return is_checked ? Eval.GetMateScore(col, ply) : (short)0;
             }
 
-            // don't waste time sorting moves when we are checked
-            if (!is_checked && !only_captures) {
-                List<Move> capts = [];
+            // we generate only captures when we aren't checked
+            if (only_captures) {
 
-                for (int index = 0; index < moves.Count; ++index) {
+                // sort the captures by MVV-LVA
+                // (most valuable victim - least valuable aggressor)
+                moves = MVV_LVA.SortCaptures(moves);
+            } 
 
-                    if (moves[index].Capture() != 6)
-                        capts.Add(moves[index]);
-                }
-                moves = MVV_LVA.SortCaptures(capts);
-            } else if (only_captures) moves = MVV_LVA.SortCaptures(moves);
+            for (int i = 0; i < moves.Count; ++i) {
 
-            int num = 0;
-            for (int index = 0; index < moves.Count; ++index) {
-                Board position1 = b.Clone();
-                position1.DoMove(moves[index]);
-                ++num;
-                int score = StaticPVS.QSearch(position1, ply + 1, window);
-                if (window.TryCutoff((short)score, col))
+                Board child = b.Clone();
+                child.DoMove(moves[i]);
+
+                short score = QSearch(child, ply + 1, window);
+
+                if (window.TryCutoff(score, col))
                     break;
             }
-            return num == 0 & is_checked ? Eval.GetMateScore(col, ply) : window.GetBoundScore(col);
+
+            return window.GetBoundScore(col);
         }
 
         private static Move[] AddMoveToPV(Move move, Move[] pv) {
-            Move[] destinationArray = new Move[pv.Length + 1];
-            destinationArray[0] = move;
-            Array.Copy((Array)pv, 0, (Array)destinationArray, 1, pv.Length);
-            return destinationArray;
+            Move[] new_pv = new Move[pv.Length + 1];
+            new_pv[0] = move;
+            Array.Copy(pv, 0, new_pv, 1, pv.Length);
+            return new_pv;
         }
     }
 }

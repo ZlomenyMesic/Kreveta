@@ -52,11 +52,11 @@ internal static class History {
     }
 
     internal static void IncreaseRep(Board b, Move m, int depth) {
-        int i = GetPieceIndex(b, m);
+        int i = PieceIndex(b, m);
         int end = m.End();
 
         lock (hh_scores) {
-            hh_scores[end, i] += depth * depth;
+            hh_scores[end, i] += HHShift(depth);
         }
 
         lock (bf_scores) {
@@ -65,11 +65,11 @@ internal static class History {
     }
 
     internal static void DecreaseRep(Board b, Move m, int depth) {
-        int i = GetPieceIndex(b, m);
+        int i = PieceIndex(b, m);
         int end = m.End();
 
         lock (hh_scores) {
-            hh_scores[end, i] -= depth * depth;
+            hh_scores[end, i] -= HHShift(depth);
         }
         lock (bf_scores) {
             bf_scores[end, i] += BF_INC;
@@ -77,7 +77,7 @@ internal static class History {
     }
 
     internal static void AddVisited(Board b, Move m) {
-        int i = GetPieceIndex(b, m);
+        int i = PieceIndex(b, m);
         int end = m.End();
 
         lock (bf_scores) {
@@ -86,7 +86,7 @@ internal static class History {
     }
 
     internal static int GetRep(Board b, Move m) {
-        int i = GetPieceIndex(b, m);
+        int i = PieceIndex(b, m);
         int end = m.End();
 
         return hh_scores[end, i]
@@ -94,8 +94,16 @@ internal static class History {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetPieceIndex(Board b, Move m) {
+    private static int PieceIndex(Board b, Move m) {
         (int col, int piece) = b.PieceAt(m.Start());
         return piece + col == 0 ? 6 : 0;
     }
+
+    private const int HHS_SUBTRACT = 5;
+    private const int HHS_MAX = 84;
+
+    // how much do we affect the history reputation
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int HHShift(int depth)
+        => Math.Min(depth * depth - HHS_SUBTRACT, HHS_MAX);
 }

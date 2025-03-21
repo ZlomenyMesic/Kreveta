@@ -170,8 +170,8 @@ internal class PVSearch {
         // we must either find the shortest mate or escape
         if (!full_search
             && !Eval.IsMateScore(pv_score)
-            && ply >= NMP.MIN_PLY
-            && depth >= NMP.MIN_DEPTH
+            && ply >= NullMP.MIN_PLY
+            && depth >= NullMP.MIN_DEPTH
             && !is_checked
             && window.CanFailHigh(col)) {
 
@@ -183,7 +183,7 @@ internal class PVSearch {
 
             // additional depth reduce if position is not improving
             //int add_R = (improved || ply < 6) ? 0 : 1;
-            int next_depth = depth - /*NMP.GetR(ply)*/ NMP.R - 1;
+            int next_depth = depth - /*NMP.GetR(ply)*/ NullMP.R - 1;
 
             // evaluate the null child at a reduced depth
             short score = SearchTT(nullChild, ply + 1, next_depth, beta, false).Score;
@@ -235,8 +235,8 @@ internal class PVSearch {
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can discard this move
             if (!full_search 
-                && ply >= FP.MIN_PLY
-                && depth <= FP.MAX_DEPTH
+                && ply >= FPrunes.MIN_PLY
+                && depth <= FPrunes.MAX_DEPTH
                 && !interesting) {
 
                 // from chessprogrammingwiki: If at depth 1 the margin does not exceed the value
@@ -245,7 +245,7 @@ internal class PVSearch {
                 // however, a lower margin increases the search speed and thus our futility margin stays low
                 //
                 // TODO - BETTER FUTILITY MARGIN
-                int margin = FP.GetMargin(depth, col, improved);
+                int margin = FPrunes.GetMargin(depth, col, improved);
                 short child_eval = Eval.StaticEval(child);
 
                 // if we fail low (don't cross alpha), we can skip this move
@@ -258,14 +258,14 @@ internal class PVSearch {
             // thus we first search them with null window around alpha. if it does
             // not fail low we need a full re-search
             if (!full_search
-                && ply >= LMR.MIN_PLY
-                && depth >= LMR.MIN_DEPTH
-                && checked_nodes >= LMR.MIN_EXP_NODES) {
+                && ply >= LateMR.MIN_PLY
+                && depth >= LateMR.MIN_DEPTH
+                && checked_nodes >= LateMR.MIN_EXP_NODES) {
 
                 // interesting or early moves are searched at full depth
                 // not interesting and late moves with a reduced depth
                 // R is a common name standing for depth reduction
-                int R = interesting ? 0 : (History.GetRep(child, moves[i]) <= -1320 ? LMR.R - 1 : LMR.R);
+                int R = interesting ? 0 : (History.GetRep(child, moves[i]) <= -1320 ? LateMR.R - 1 : LateMR.R);
                 //    + (ply > 5 && improved ? 0 : 1);
 
                 // do the reduced search

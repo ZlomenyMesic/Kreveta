@@ -1,4 +1,7 @@
-﻿
+﻿/*
+ *  Stockshrimp chess engine 1.0
+ *  developed by ZlomenyMesic
+ */
 
 using Stockshrimp_1.movegen;
 using System.Diagnostics;
