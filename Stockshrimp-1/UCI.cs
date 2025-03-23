@@ -4,6 +4,7 @@
  */
 
 using Stockshrimp_1.movegen;
+using Stockshrimp_1.opening_book;
 using Stockshrimp_1.search;
 using Stockshrimp_1.search.movesort;
 using System.Diagnostics;
@@ -86,6 +87,11 @@ internal static class UCI {
     }
 
     private static void CmdGo(string[] toks) {
+
+        if (OpeningBook.book_move != "") {
+            // Console.WriteLine($"bestmove {OpeningBook.book_move}");
+            //return;
+        }
 
         // TODO - OTHER ARGS
 

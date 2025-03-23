@@ -16,8 +16,8 @@ namespace Stockshrimp_1.search {
         // maximum search depth allowed
         private static int max_depth;
 
-        private static long time_budget_ms;
-        private static Stopwatch? sw = new();
+        internal static long time_budget_ms;
+        internal static Stopwatch? sw = new();
 
         private static long total_nodes;
 

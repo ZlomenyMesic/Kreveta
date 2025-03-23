@@ -6,9 +6,11 @@
 namespace Stockshrimp_1;
 
 internal static class Consts {
+
     internal const string STARTPOS_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     internal const string PIECES = "pnbrqk";
     internal const string FILES = "abcdefgh";
+
 
     internal static readonly ulong[] RankMask = [
             0x000000000000007E, 0x0000000000007E00, 0x00000000007E0000,

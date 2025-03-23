@@ -183,7 +183,7 @@ internal class PVSearch {
 
             // additional depth reduce if position is not improving
             //int add_R = (improved || ply < 6) ? 0 : 1;
-            int next_depth = depth - /*NMP.GetR(ply)*/ NullMP.R - 1;
+            int next_depth = depth - /*NMP.GetR(ply)*/ NullMP.R_Base - 1;
 
             // evaluate the null child at a reduced depth
             short score = SearchTT(nullChild, ply + 1, next_depth, beta, false).Score;
@@ -235,8 +235,8 @@ internal class PVSearch {
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can discard this move
             if (!full_search 
-                && ply >= FPrunes.MIN_PLY
-                && depth <= FPrunes.MAX_DEPTH
+                && ply >= FPruning.MIN_PLY
+                && depth <= FPruning.MAX_DEPTH
                 && !interesting) {
 
                 // from chessprogrammingwiki: If at depth 1 the margin does not exceed the value
@@ -245,7 +245,7 @@ internal class PVSearch {
                 // however, a lower margin increases the search speed and thus our futility margin stays low
                 //
                 // TODO - BETTER FUTILITY MARGIN
-                int margin = FPrunes.GetMargin(depth, col, improved);
+                int margin = FPruning.GetMargin(depth, col, improved);
                 short child_eval = Eval.StaticEval(child);
 
                 // if we fail low (don't cross alpha), we can skip this move

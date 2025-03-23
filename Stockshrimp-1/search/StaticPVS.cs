@@ -6,13 +6,14 @@
 using Stockshrimp_1.evaluation;
 using Stockshrimp_1.movegen;
 using Stockshrimp_1.search.movesort;
+using System.Diagnostics;
 
 #nullable enable
 namespace Stockshrimp_1.search {
     internal static class StaticPVS {
 
         // maximum depth allowed in the quiescence search itself
-        private const int MAX_QSEARCH_DEPTH = 8;
+        private const int MAX_QSEARCH_DEPTH = 10;
 
         // maximum depth total - qsearch and regular search combined
         // changes each iteration depending on pvsearch depth
@@ -42,7 +43,8 @@ namespace Stockshrimp_1.search {
         // pv node is also the move the engine is going to play
         internal static Move[] PV = [];
 
-        internal static bool Abort => total_nodes >= max_nodes;
+        internal static bool Abort => total_nodes >= max_nodes 
+            || (StaticPVSControl.sw ?? Stopwatch.StartNew()).ElapsedMilliseconds >= StaticPVSControl.time_budget_ms;
 
         // increase the depth and do a re-search
         internal static void SearchDeeper() {
@@ -100,9 +102,9 @@ namespace Stockshrimp_1.search {
 
         // first search the transposition table for the score, if it's not there
         // just continue the regular search. parameters need to be the same as in the search method itself
-        private static (short Score, Move[] PV) SearchTT(Board b, int ply, int depth, Window window) {
+        internal static (short Score, Move[] PV) SearchTT(Board b, int ply, int depth, Window window) {
 
-            // did we find the score?
+            // did we find the position and score?
             // we also need to check the ply, since too early tt lookups cause some serious blunders
             if (ply >= TT.MIN_PLY && TT.GetScore(b, depth, ply, window, out short tt_score))
 
@@ -125,12 +127,19 @@ namespace Stockshrimp_1.search {
         private static (short Score, Move[] PV) Search(Board b, int ply, int depth, Window window) {
 
             // either crossed the time budget or maximum nodes
-            if (Abort)
+            // we cannot abort the first iteration - no bestmove
+            if (Abort && cur_depth > 1)
                 return (0, []);
 
             // we reached depth = 0, we evaluate the leaf node though the qsearch
             if (depth <= 0)
                 return (QSearch(b, ply, window), []);
+
+            // if the position is saved as a 3-fold repetition draw, return 0.
+            // we have to check at ply 2 as well to prevent a forced draw by the opponent
+            if ((ply == 1 || ply == 2) && Game.draws.Contains(Zobrist.GetHash(b))) {
+                return (0, []);
+            }
 
             // this gets incremented only if no qsearch, otherwise the node would count twice
             total_nodes++;
@@ -140,43 +149,15 @@ namespace Stockshrimp_1.search {
             // is the color to play currently in check?
             bool is_checked = Movegen.IsKingInCheck(b, col);
 
-            // NULL MOVE PRUNING:
-            // we assume that there is at least one move that improves our position,
-            // so we play a "null move", which is essentially no move at all (we just
-            // flip the side to move and erase the en passant square). we then search
-            // this null child at a reduced depth (depth reduce R). if we still fail
-            // high despite skipping a move, we can expect that playing a move would
-            // also fail high, and thus, we can prune this branch.
-            //
-            // NMP for this reason failes in zugzwangs
-            //
-            // avoid NMP for a few plys if we found a mate in the previous iteration
-            // we must either find the shortest mate or escape. we also don't prune
-            // if we are being checked
-            if (!Eval.IsMateScore(pv_score) 
-                && ply >= NullMP.MIN_PLY 
-                && depth >= NullMP.MIN_DEPTH 
-                && !is_checked 
-                && window.CanFailHigh(col)) {
+            // are the conditions for nmp satisfied?
+            if (NullMP.CanPrune(depth, ply, is_checked, pv_score, window, col)) {
 
-                // null window around beta
-                Window nullw_beta = window.GetUpperBound(col);
+                // we try the reduced search and check for failing high
+                if (NullMP.TryPrune(b, depth, ply, window, col, out short score)) {
 
-                // child with no move played
-                Board null_child = b.GetNullChild();
-
-                int R = NullMP.R;
-
-                // do the reduced search
-                short score = SearchTT(null_child, ply + 1, depth - R - 1, nullw_beta).Score;
-
-                // if we failed high, that means the score is above beta and is "too good" to be
-                // allowed by the opponent. if we don't fail high, we just continue the expansion
-                if (window.FailsHigh(score, col))
-
-                    // currently we are returning the null search score, but returning beta
-                    // may also work. this needs some testing
+                    // we failed high - prune this branch
                     return (score, []);
+                }
             }
 
             // all legal moves sorted from best to worst (only a guess)
@@ -217,14 +198,16 @@ namespace Stockshrimp_1.search {
                     || is_checked 
                     || Movegen.IsKingInCheck(child, col == 0 ? 1 : 0);
 
+                short s_eval = Eval.StaticEval(child);
+
                 // FUTILITY PRUNING:
                 // we try to discard moves near the leaves which have no potential of raising alpha.
                 // futility margin represents the largest possible score gain through a single move.
                 // if we add this margin to the static eval of the position and still don't raise
                 // alpha, we can prune this branch. we assume there probably isn't a phenomenal move
                 // that could save this position
-                if (ply >= FPrunes.MIN_PLY 
-                    && depth <= FPrunes.MAX_DEPTH 
+                if (ply >= FPruning.MIN_PLY 
+                    && depth <= FPruning.MAX_DEPTH 
                     && !interesting) {
 
                     // as taken from chessprogrammingwiki:
@@ -234,11 +217,26 @@ namespace Stockshrimp_1.search {
                     // however, a lower margin increases the search speed and thus our futility margin stays low
                     //
                     // TODO - BETTER FUTILITY MARGIN?
-                    int margin = FPrunes.GetMargin(depth, col, true);
+                    int margin = FPruning.GetMargin(depth, col, true);
 
-                    // if we fail low, we fell under alpha. this means we already know of a better
+                    // if we failed low (fell under alpha). this means we already know of a better
                     // alternative somewhere else in the search tree, and we can prune this branch.
-                    if (window.FailsLow((short)(Eval.StaticEval(child) + margin), col))
+                    if (window.FailsLow((short)(s_eval + margin), col))
+                        continue;
+                }
+
+                // REVERSE FUTILITY PRUNING:
+                // we also use reverse futility pruning - it's basically the same as fp but we subtract
+                // the margin from the static eval and prune the branch if we still fail high
+                if (ply >= RFPruning.MIN_PLY
+                    && depth <= RFPruning.MAX_DEPTH
+                    && !interesting) {
+
+                    int rev_margin = RFPruning.GetMargin(depth, col, true);
+
+                    // we failed high (above beta). our opponent already has an alternative which
+                    // wouldn't allow this score to happen
+                    if (window.FailsHigh((short)(s_eval - rev_margin), col))
                         continue;
                 }
 

@@ -12,7 +12,7 @@ namespace Stockshrimp_1.search;
 internal static class TT {
 
     // minimum ply needed to use tt
-    internal const int MIN_PLY = 5;
+    internal const int MIN_PLY = 6;
     // this aint working
 
     private enum ScoreType : byte {
@@ -71,8 +71,12 @@ internal static class TT {
     }
 
     internal static void Store(Board b, int depth, int ply, Window window, short score, Move best_move) {
+        Store(Zobrist.GetHash(b), depth, ply, window, score, best_move);
+    }
 
-        ulong hash = Zobrist.GetHash(b);
+    internal static void Store(ulong hash, int depth, int ply, Window window, short score, Move best_move) {
+
+        //ulong hash = Zobrist.GetHash(b);
         int i = TTIndex(hash);
 
         // maybe an entry is already saved
