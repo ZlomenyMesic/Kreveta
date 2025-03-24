@@ -112,7 +112,7 @@ internal static class UCI {
 
         //PVSControl.Reset();
         //PVSControl.StartSearch(1, 50, TimeMan.time_budget_ms);
-        StaticPVSControl.StartSearch(50, TimeMan.time_budget_ms);
+        PVSControl.StartSearch(50, TimeMan.time_budget_ms);
     }
 
     private static void CmdShowAllMoves() {

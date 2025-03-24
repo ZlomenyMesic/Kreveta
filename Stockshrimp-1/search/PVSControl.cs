@@ -1,204 +1,155 @@
-﻿using Stockshrimp_1.movegen;
-using Stockshrimp_1.search.movesort;
+﻿/*
+ *  Stockshrimp chess engine 1.0
+ *  developed by ZlomenyMesic
+ */
+
+using Stockshrimp_1.movegen;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
-namespace Stockshrimp_1.search;
+#nullable enable
+namespace Stockshrimp_1.search {
+    internal static class PVSControl {
 
-internal static class PVSControl {
+        // best move found so far
+        internal static Move best_move;
 
-    // max full depth allowed
-    private static int max_depth = 0;
+        // maximum search depth allowed
+        private static int max_depth;
 
-    internal static int time_budget_ms = 0;
-    internal static Stopwatch sw = new();
+        internal static long time_budget_ms;
+        internal static Stopwatch? sw = new();
 
-    // all instances of the search
-    private static readonly List<PVSearch> workers = [];
+        private static long total_nodes;
 
-    // this may not actually be useful at all, we'll see
-    private static Thread? thread = null;
+        //private static Thread? thread;
 
-    // index of the "best" worker (actually just the last)
-    internal static int best_worker = 0;
+        internal static void StartSearch(int depth, long time_budget_ms) {
+            max_depth = depth;
+            PVSControl.time_budget_ms = time_budget_ms;
 
-    // array of best moves of each worker
-    internal static Move[] best_moves = [];
+            // start iterative deepening
+            DeepeningSearchLoop();
+        }
 
-    // total nodes this iteration
-    internal static long CurNodes {
-        get {
-            long total = 0;
-            foreach (var worker in workers) {
-                total += worker.total_nodes;
+        // we are using an approach called iterative deepening. we search the same
+        // position multiple times, but at increasingly larger depths. results from
+        // previoud iterations are stored in the tt, killers, and history, which
+        // makes new iterations not take too much time.
+        private static void DeepeningSearchLoop() {
+
+            // time spent on previous iteration
+            long prev_iter = 0;
+
+            sw = Stopwatch.StartNew();
+
+            // we still have time and are allowed to search deeper
+            while (PVSearch.cur_depth < max_depth 
+                && sw.ElapsedMilliseconds < time_budget_ms) {
+
+                // search at a larger depth
+                PVSearch.SearchDeeper();
+
+                // didn't abort (yet?)
+                if (!PVSearch.Abort) {
+
+                    // print the results to the console and save the first pv node
+                    GetResult();
+
+                    // if the time spent on the previous iteration is exceeds a specified
+                    // portion of the time budget, we can expect going deeper would definitely
+                    // cross it, causing an abortion. not starting the next iteration saves us time
+                    prev_iter = sw.ElapsedMilliseconds - prev_iter;
+                    if (prev_iter > (time_budget_ms / 3))
+                        break;
+
+                } else break;
             }
-            return total;
-        }
-    }
 
-    // total nodes from the whole search
-    internal static long abs_nodes = 0;
+            Console.WriteLine($"time spent {sw.Elapsed}");
+            Console.WriteLine($"total nodes {total_nodes}");
 
-    internal static void Reset() {
+            // the final response of the engine to the gui
+            Console.WriteLine($"bestmove {best_move}");
 
-        History.Clear();
-        Killers.Clear();
-        TT.Clear();
-
-        workers.Clear();
-
-        thread = null;
-
-        max_depth = 0;
-        time_budget_ms = 0;
-        best_worker = 0;
-        abs_nodes = 0;
-
-        best_moves = [];
-    }
-
-    internal static void StartSearch(int threads, int depth, int time_budget_ms) {
-
-        best_moves = new Move[threads];
-
-        for (int i = 0; i < threads; i++) {
-            workers.Add(new());
+            // reset all counters for the next search
+            // NEXT SEARCH, not the next iteration of the current one
+            sw = null;
+            PVSearch.Reset();
+            total_nodes = 0;
         }
 
-        Console.WriteLine("search started");
+        private static void GetResult() {
 
-        // set some values
-        max_depth = depth;
-        PVSControl.time_budget_ms = time_budget_ms;
+            // save the first pv node as the current best move
+            best_move = PVSearch.PV[0];
 
-       // start the actual search loop
-       thread = new(DeepeningSearchLoop) {
-           Priority = ThreadPriority.Highest
-       };
-       thread.Start();
-    }
-
-
-    internal static void DeepeningSearchLoop() {
-
-        sw = Stopwatch.StartNew();
-
-        long spent = 0;
-        bool @break = false;
-
-        Parallel.For(0, workers.Count, i => {
-
-            best_worker = i;
-
-            while (workers[i].cur_depth < max_depth) {
-
-                // loop was stopped by another thread
-                if (@break) 
-                    break;
-
-                workers[i].SearchDeeper();
-
-                // save (and print) the current results
-                // we only print the results from the last thread
-                GetResult(i, i == workers.Count - 1);
-
-                if (workers[i].Abort)
-                    break;
-
-                // time budget was already crossed
-                if (sw.ElapsedMilliseconds >= time_budget_ms)
-                    @break = true;
-
-                // if this iteration took a lot of time, we can expect the next one would cross the time budget
-                long diff = sw.ElapsedMilliseconds - spent;
-                if (diff > time_budget_ms * 6 / 25)
-                    @break = true;
-
-                if (i == 0) spent = sw.ElapsedMilliseconds;
-            }
-        });
-
-        Console.WriteLine($"time spent {sw.Elapsed}");
-        Console.WriteLine($"total nodes {abs_nodes}");
-        Console.WriteLine($"bestmove {VoteBestMove()}");
-
-        Reset();
-    }
-
-    [MethodImpl(MethodImplOptions.Synchronized)]
-    private static void GetResult(int worker, bool print = true) {
-        if (workers[worker].PV.Length == 0) {
-            Console.WriteLine("iteration aborted");
-            return;
-        }
-        else best_moves[worker] = workers[worker].PV[0];
-
-        if (worker == best_worker)
-            abs_nodes += CurNodes;
-
-        // we only want to print a single search thread to prevent utter chaos
-        if (print) {
+            total_nodes += PVSearch.total_nodes;
 
             // pv score relative to the engine
-            int eng_score = workers[worker].pv_score;
+            int eng_score = PVSearch.pv_score;
 
-            // pv score relative to color (this is printed to the gui)
+            // pv score relative to color (this gets printed to the gui)
+            // although we probably don't need this, it is a common way to do so
             int col_score = eng_score * (Game.engine_col == 0 ? 1 : -1);
 
-            int nps = (int)(abs_nodes / sw.Elapsed.TotalSeconds);
+            // nodes per second - a widely used measure to approximate an
+            // engine's strength or efficiency. we need to maximize nps.
+            int nps = (int)(total_nodes / (sw ?? Stopwatch.StartNew()).Elapsed.TotalSeconds);
 
-            Console.Write($"info depth {workers[worker].cur_depth} seldepth {workers[worker].achieved_depth} nodes {CurNodes} nps {nps} score cp {col_score} pv");
+            // we print the search info to the console
+            Console.Write($"info " +
 
-            foreach (Move m in GetFullPV(worker, workers[worker].achieved_depth))
+                // full search depth
+                $"depth {PVSearch.cur_depth} " +
+
+                // selective search depth - full search + qsearch
+                $"seldepth {PVSearch.achieved_depth} " +
+
+                // nodes searched this iteration
+                $"nodes {PVSearch.total_nodes} " +
+
+                // nodes per second
+                $"nps {nps} " +
+
+                // pv score relative to color
+                // measured in centipawns (cp)
+                $"score cp {col_score} " +
+
+                // principal variation
+                $"pv");
+
+            // print the actual moves in the pv
+            foreach (Move m in GetFullPV(PVSearch.achieved_depth))
                 Console.Write($" {m}");
 
+            // as per the convention, the engine's response
+            // shall always end with a newline character
             Console.WriteLine();
         }
-    }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Move[] GetFullPV(int worker, int depth) {
-        List<Move> pv_list = new(workers[worker].PV);
+        // tries to find the pv outside of just the stored array
+        private static Move[] GetFullPV(int depth) {
+            List<Move> pv_list = new(PVSearch.PV);
 
-        // if we want to go deeper than just the saved pv
-        if (pv_list.Count < depth) {
+            // if we want to go deeper than just the saved pv
+            if (pv_list.Count < depth) {
 
-            Board b = Game.board.Clone();
+                Board b = Game.board.Clone();
 
-            // do all pv moves
-            foreach (Move m in workers[worker].PV)
-                b.DoMove(m);
+                // play along the principal variation
+                // the correct position is needed for correct tt lookups
+                foreach (Move m in PVSearch.PV)
+                    b.DoMove(m);
 
-            // try going deeper through the transposition table
-            while (pv_list.Count < depth && TT.GetBestMove(b, out Move m)) {
-                b.DoMove(m);
-                pv_list.Add(m);
+                // try going deeper through the transposition table
+                while (pv_list.Count < depth && TT.GetBestMove(b, out Move m)) {
+                    b.DoMove(m);
+                    pv_list.Add(m);
+                }
             }
+
+            // return the (hopefully) elongated pv
+            return [.. pv_list];
         }
-
-        return [.. pv_list];
-    }
-
-    internal static Move VoteBestMove() {
-        Dictionary<Move, int> votes = [];
-
-        foreach (Move m in best_moves) {
-            if (votes.TryGetValue(m, out int value))
-                votes[m] = ++value;
-
-            else votes.Add(m, 1);
-        }
-
-        Move best = default;
-        int best_freq = 0;
-
-        foreach ((Move m, int freq) in votes) {
-            if (freq > best_freq) {
-                best = m;
-            }
-        }
-
-        return best;
     }
 }
-    
