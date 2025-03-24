@@ -4,21 +4,24 @@
 */
 
 using Stockshrimp_1.movegen;
+using Stockshrimp_1.movegen.pieces;
 using System.Runtime.CompilerServices;
 
 namespace Stockshrimp_1.evaluation;
 
 internal static class Eval {
 
-    const int MATE_SCORE_BASE = 9000;
-    const int MATE_SCORE = 9999;
+    private const ulong CENTER = 0x00007E7E7E7E0000;
 
-    const int SIDE_TO_MOVE_BONUS = 5;
+    private const int MATE_SCORE_BASE = 9000;
+    private const int MATE_SCORE = 9999;
 
-    const int DOUBLED_PAWN_PENALTY = -7;
-    const int ISOLATED_PAWN_PENALTY = -21;
+    private const int SIDE_TO_MOVE_BONUS = 5;
 
-    const int BISHOP_PAIR_BONUS = 35;
+    private const int DOUBLED_PAWN_PENALTY = -7;
+    private const int ISOLATED_PAWN_PENALTY = -21;
+
+    private const int BISHOP_PAIR_BONUS = 35;
 
     private static readonly Random r = new();
 
@@ -48,7 +51,10 @@ internal static class Eval {
     private static readonly byte[,,] pieces = new byte[2, 6, 64];
     internal static short StaticEval(Board b) {
 
-        int piece_count = BB.Popcount(b.Occupied());
+        ulong w_occ = b.Occupied(0);
+        ulong b_occ = b.Occupied(1);
+
+        int piece_count = BB.Popcount(w_occ | b_occ);
 
         int eval = 0;
 
@@ -61,7 +67,7 @@ internal static class Eval {
 
                 while (copy != 0) {
                     (copy, int sq) = BB.LS1BReset(copy);
-                    //pieces[i, j, sq] = 1;
+                    pieces[i, j, sq] = 1;
 
                     eval += GetTableValue(j, i, sq, piece_count) * (i == 0 ? 1 : -1);
                 }
@@ -91,13 +97,15 @@ internal static class Eval {
         // rook eval includes:
         //
         // 1. increasing value in the endgame
+        // 2. penalty for not leaving starting squares
         //
         eval += RookEval(b, piece_count);
 
-        List<Move> moves = [];
-        Movegen.GetPseudoLegalMoves(b, b.side_to_move, moves);
-
-        eval += Math.Min(moves.Count / 2, 30);
+        // king eval includes:
+        //
+        // 1. friendly pieces protecting the king
+        //
+        eval += KingEval(b, piece_count);
 
         // side to move should also get a slight advantage
         eval += b.side_to_move == 0 ? SIDE_TO_MOVE_BONUS : -SIDE_TO_MOVE_BONUS;
@@ -131,8 +139,10 @@ internal static class Eval {
             ulong file = Consts.FileMask[i];
 
             // count the number of pawns on the file
-            // and maybe penalize doubled pawns
             int file_occ = BB.Popcount(file & p);
+            if (file_occ == 0) continue;
+
+            // penalize doubled pawns
             eval += (file_occ - 1) * DOUBLED_PAWN_PENALTY * col;
 
             // current file + files on the sides
@@ -140,11 +150,9 @@ internal static class Eval {
 
             // if the number of pawns on current file is equal to the number of pawns
             // on the current plus adjacent files, we know the pawn/s are isolated
-            int sides_occ = BB.Popcount(adj & p);
-            eval += file_occ != sides_occ ? 0 : ISOLATED_PAWN_PENALTY * col;
+            int adj_occ = BB.Popcount(adj & p);
+            eval += file_occ != adj_occ ? 0 : ISOLATED_PAWN_PENALTY * col;
         }
-
-        // TODO - PENALTY FOR NOT LEAVING D/E SQUARES
 
         return (short)eval;
     }
@@ -200,7 +208,7 @@ internal static class Eval {
         // add some eval for white if it has rooks
         eval -= (short)(w_rooks * (32 - piece_count) / 3);
 
-        // suntract some eval for black it has rooks
+        // subtract some eval for black it has rooks
         eval += (short)(b_rooks * (32 - piece_count) / 3);
 
         return eval;
@@ -216,10 +224,18 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval(ulong k, int col, int piece_count) {
+    private static short KingEval(Board b, int piece_count) {
         int eval = 0;
 
-        //eval += PiecesTableEval(k, 5, col, piece_count);
+        // same color pieces around the king - protection
+        ulong w_protection = King.GetKingMoves(b.pieces[0, 5], b.Occupied(0));
+        ulong b_protection = King.GetKingMoves(b.pieces[1, 5], b.Occupied(1));
+
+        // bonus for the number of friendly pieces protecting the king
+        short w_prot_bonus = (short)(BB.Popcount(w_protection) * 2);
+        short b_prot_bonus = (short)(BB.Popcount(b_protection) * 2);
+
+        eval += w_prot_bonus - b_prot_bonus;
 
         return (short)eval;
     }

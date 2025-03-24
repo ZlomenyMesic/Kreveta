@@ -116,7 +116,7 @@ internal static class UCI {
     }
 
     private static void CmdShowAllMoves() {
-        foreach (Move m in Movegen.GetLegalMoves(Game.board)) {
+        foreach (Move m in Movegen.GetLegalMoves(Game.board, true)) {
             Console.WriteLine(m.ToString());
         }
     }

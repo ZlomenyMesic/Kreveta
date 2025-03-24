@@ -100,9 +100,9 @@ namespace Stockshrimp_1.search {
             }
         }
 
-        // first search the transposition table for the score, if it's not there
+        // first check the transposition table for the score, if it's not there
         // just continue the regular search. parameters need to be the same as in the search method itself
-        internal static (short Score, Move[] PV) SearchTT(Board b, int ply, int depth, Window window) {
+        internal static (short Score, Move[] PV) ProbeTT(Board b, int ply, int depth, Window window) {
 
             // did we find the position and score?
             // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -148,6 +148,18 @@ namespace Stockshrimp_1.search {
 
             // is the color to play currently in check?
             bool is_checked = Movegen.IsKingInCheck(b, col);
+
+            // razoring
+            if (!is_checked && ply >= 3 && depth == 4) {
+                short q_eval = QSearch(b, 2, window.GetLowerBound(col));
+
+                int margin = 165 * depth * (col == 0 ? 1 : -1);
+
+                if (window.FailsLow((short)(q_eval + margin), col)) {
+                    depth -= 2;
+                    ply += 2;
+                }
+            }
 
             // are the conditions for nmp satisfied?
             if (NullMP.CanPrune(depth, ply, is_checked, pv_score, window, col)) {
@@ -196,6 +208,7 @@ namespace Stockshrimp_1.search {
                 // are checking the opposite king
                 bool interesting = exp_nodes == 1 
                     || is_checked 
+                    //|| is_capture
                     || Movegen.IsKingInCheck(child, col == 0 ? 1 : 0);
 
                 short s_eval = Eval.StaticEval(child);
@@ -256,7 +269,7 @@ namespace Stockshrimp_1.search {
                     Window nullw_alpha = window.GetLowerBound(col);
 
                     // once again a reduced depth search
-                    short score = SearchTT(child, ply + 1, depth - R - 1, nullw_alpha).Score;
+                    short score = ProbeTT(child, ply + 1, depth - R - 1, nullw_alpha).Score;
 
                     // we failed low, we prune this branch. it is not good enough
                     if (window.FailsLow(score, col))
@@ -265,7 +278,7 @@ namespace Stockshrimp_1.search {
 
                 // if we got through all the pruning all the way to this point,
                 // we expect this move to raise alpha, so we search it at full depth
-                (short Score, Move[] PV) full_search = SearchTT(child, ply + 1, depth - 1, window);
+                (short Score, Move[] PV) full_search = ProbeTT(child, ply + 1, depth - 1, window);
 
                 // we somehow still failed low
                 if (window.FailsLow(full_search.Score, col)) {
@@ -317,6 +330,21 @@ namespace Stockshrimp_1.search {
 
                 // return the score as usual
                 : (window.GetBoundScore(col), pv);
+        }
+
+        // same idea as ProbeTT, but used in qsearch
+        internal static short QProbeTT(Board b, int ply, Window window) {
+
+            int depth = MAX_QSEARCH_DEPTH - ply - cur_depth;
+
+            // did we find the position and score?
+            if (ply >= cur_depth + 3 && TT.GetScore(b, depth, ply, window, out short tt_score))
+                return tt_score;
+
+            // if the position is not yet stored, we continue the qsearch and then store it
+            short score = QSearch(b, ply, window);
+            TT.Store(b, depth, ply, window, score, default);
+            return score;
         }
 
         // QUIESCENCE SEARCH:
@@ -373,7 +401,7 @@ namespace Stockshrimp_1.search {
                 }
 
                 // if we are checked it's checkmate
-                return is_checked ? Eval.GetMateScore(col, ply) : (short)0;
+                return is_checked && !only_captures ? Eval.GetMateScore(col, ply) : (short)0;
             }
 
             // we generate only captures when we aren't checked
@@ -389,6 +417,22 @@ namespace Stockshrimp_1.search {
                 Board child = b.Clone();
                 child.DoMove(moves[i]);
 
+                // value of the piece we just captured
+                int captured = only_captures ? EvalTables.Values[moves[i].Capture()] : 0;
+
+                // DELTA PRUNING:
+                //
+                //
+                if (only_captures && ply >= cur_depth + 4) {
+                    int delta_margin = (cur_max_qsearch_depth - ply) * 81 * (col == 0 ? 1 : -1);
+
+                    //Console.WriteLine(delta_margin);
+
+                    if (window.FailsLow((short)(stand_pat + captured + delta_margin), col))
+                        continue;
+                }
+
+                // full search
                 short score = QSearch(child, ply + 1, window);
 
                 if (window.TryCutoff(score, col))

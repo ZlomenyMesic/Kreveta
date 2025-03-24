@@ -59,7 +59,7 @@ internal static class NullMP {
         int R = ply <= 4 ? R_Base - 1 : R_Base;
 
         // do the reduced search
-        score = StaticPVS.SearchTT(null_child, ply + 1, depth - R - 1, nullw_beta).Score;
+        score = StaticPVS.ProbeTT(null_child, ply + 1, depth - R - 1, nullw_beta).Score;
 
         // if we failed high, that means the score is above beta and is "too good" to be
         // allowed by the opponent. if we don't fail high, we just continue the expansion
@@ -97,11 +97,11 @@ internal static class FPruning {
 internal static class RFPruning {
 
     // minimum ply and maximum depth to allow rfp
-    internal const int MIN_PLY = 5;
+    internal const int MIN_PLY = 50;
     internal const int MAX_DEPTH = 3;
 
     // higher margin => fewer reductions
-    internal const int RF_MARGIN_BASE = 166;
+    internal const int RF_MARGIN_BASE = 266;
 
     // if not improving we make the margin smaller
     internal const int IMPROVING_PENALTY = -10;

@@ -147,7 +147,7 @@ internal static class TT {
             return false;
 
         // the position is saved, but it's depth is shallower than ours
-        if (entry.depth < depth)
+        if (entry.depth <= depth)
             return false;
 
         score = entry.score;

@@ -69,12 +69,12 @@ internal static class Movegen {
         ulong occ = occ_opp | b.Occupied(col);
 
         // we pass this instead of free as well
-        ulong empty = ~occ;
+        ulong empty = occ_opp;
 
         // loop through every piece (same as above)
         // we only generate captures, though
         for (int i = 0; i < 6; i++) {
-            LoopPiecesBB(b, b.pieces[col, i], i, col, moves, occ_opp, occ, empty, occ_opp, true);
+            LoopPiecesBB(b, b.pieces[col, i], i, col, moves, occ_opp, occ, occ_opp, occ_opp, true);
         }
 
         // no need to generate castling moves - they can never be a capture
