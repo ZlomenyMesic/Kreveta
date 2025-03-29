@@ -1,0 +1,48 @@
+﻿/*
+ * |============================|
+ * |                            |
+ * |    Kreveta chess engine    |
+ * | engineered by ZlomenyMesic |
+ * | -------------------------- |
+ * |      started 4-3-2025      |
+ * | -------------------------- |
+ * |                            |
+ * | read README for additional |
+ * | information about the code |
+ * |    and usage that isn't    |
+ * |  included in the comments  |
+ * |                            |
+ * |============================|
+ */
+
+using Kreveta.movegen;
+
+namespace Kreveta.search;
+
+internal static class Perft {
+    internal static long Run(Board board, int depth) {
+
+        if (depth == 1) {
+            return Movegen.GetLegalMoves(board).Count;
+        }
+
+        long nodes = 0;
+
+        List<Move> moves = [];
+        Movegen.GetPseudoLegalMoves(board, board.color, moves);
+
+        for (int i = 0; i < moves.Count; i++) {
+
+            Board child = board.Clone();
+            child.PlayMove(moves[i]);
+
+            // the move is illegal
+            if (Movegen.IsKingInCheck(child, board.color))
+                continue;
+
+            nodes += Run(child, depth - 1);
+        }
+
+        return nodes;
+    }
+}
