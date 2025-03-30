@@ -1,19 +1,7 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 namespace Kreveta.search;
 
@@ -30,22 +18,27 @@ internal static class Zobrist {
     // white x black
     private static readonly ulong[] side_to_move = new ulong[2];
 
+    // this seed was taken from MinimalChess, and actually
+    // works very well. might try to find a better one in the
+    // future, though
+    private const int SEED = 228126;
+
     static Zobrist() {
-        Random r = new(228126);
+        Random rand = new(SEED);
 
         for (int i = 0; i < 64; i++) {
             for (int j = 0; j < 12; j++) {
-                pieces[i, j] = R(r);
+                pieces[i, j] = RandUInt64(rand);
             }
 
-            en_passant[i] = R(r);
+            en_passant[i] = RandUInt64(rand);
         }
 
-        side_to_move[0] = R(r);
-        side_to_move[1] = R(r);
+        side_to_move[0] = RandUInt64(rand);
+        side_to_move[1] = RandUInt64(rand);
 
         for (int i = 0; i < 16; i++) {
-            castling[i] = R(r);
+            castling[i] = RandUInt64(rand);
         }
     }
 
@@ -74,7 +67,7 @@ internal static class Zobrist {
         return pieces[square, index];
     }
 
-    private static ulong R(Random r) {
+    private static ulong RandUInt64(Random r) {
         byte[] bytes = new byte[8];
         r.NextBytes(bytes);
         return BitConverter.ToUInt64(bytes, 0);

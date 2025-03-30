@@ -17,7 +17,7 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.movesort;
+using Kreveta.search.moveorder;
 using Kreveta.search.pruning;
 using System.Diagnostics;
 
@@ -201,7 +201,7 @@ namespace Kreveta.search {
             // all legal moves sorted from best to worst (only a guess)
             // first the tt bestmove, then captures sorted by MVV-LVA,
             // then killer moves and last quiet moves sorted by history
-            List<Move> moves = MoveSort.GetSortedMoves(b, depth);
+            List<Move> moves = MoveOrder.GetSortedMoves(b, depth);
 
             // counter for expanded nodes
             int exp_nodes = 0;
@@ -276,7 +276,7 @@ namespace Kreveta.search {
                 if (window.FailsLow(full_search.Score, col)) {
 
                     // decrease the move's reputation
-                    History.DecreaseRep(b, moves[i], depth);
+                    History.DecreaseQRep(b, moves[i], depth);
                 }
 
                 // we didn't fail low => we have a new best move for this position
@@ -299,7 +299,7 @@ namespace Kreveta.search {
 
                             // if a quiet move caused a beta cutoff, we increase it's
                             // reputation in history and save it as a killer move on this depth
-                            History.IncreaseRep(b, moves[i], depth);
+                            History.IncreaseQRep(b, moves[i], depth);
                             Killers.Add(moves[i], depth);
                         }
 
@@ -426,7 +426,7 @@ namespace Kreveta.search {
 
                 // sort the captures by MVV-LVA
                 // (most valuable victim - least valuable aggressor)
-                moves = MVV_LVA.SortCaptures(moves);
+                moves = MVV_LVA.OrderCaptures(moves);
             } 
 
             for (int i = 0; i < moves.Count; ++i) {

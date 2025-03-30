@@ -1,61 +1,64 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 namespace Kreveta;
 
 internal static class TimeMan {
-    private static int wtime;
-    private static int btime;
+    private static long wtime;
+    private static long btime;
 
     private static int winc;
     private static int binc;
 
     private static int movestogo;
-    private static int DEF_MOVESTOGO = 40;
+    private static readonly int DEF_MOVESTOGO = 40;
 
-    internal static int time_budget_ms;
-    private static int DEF_TIME_BUDGET = 8000;
+    private static long movetime = 0;
+
+    internal static long time_budget_ms;
+    private static readonly long DEF_TIME_BUDGET = 8000;
 
     internal static void ProcessTime(string[] toks) {
-        wtime = btime = winc = binc = movestogo = 0;
+        wtime = btime = movetime = winc = binc = movestogo = 0;
 
-        for (int i = 1; i < toks.Length; i += 2) {
+        for (int i = 1; i < toks.Length; ) {
 
             bool success = false;
 
-            if (i == toks.Length - 1) {
-                goto arg_fail;
-            }
+            if (toks[i] == "infinite") {
+                movetime = long.MaxValue;
+                success = true;
 
-            if (toks[i] == "wtime") {
-                if (int.TryParse(toks[i + 1], out wtime)) {
+                i++;
+            } 
+
+            else if (toks[i] == "movetime") {
+                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out movetime)) {
                     success = true;
+
+                    i += 2;
+                }
+            }
+            else if (toks[i] == "wtime") {
+                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out wtime)) {
+                    success = true;
+                    i += 2;
                 }
             }
 
             else if (toks[i] == "btime") {
-                if (int.TryParse(toks[i + 1], out btime)) {
+                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out btime)) {
                     success = true;
+                    i += 2;
                 }
             }
 
             else if (toks[i] == "movestogo") {
-                if (int.TryParse(toks[i + 1], out movestogo)) {
+                if (i != toks.Length - 1 && int.TryParse(toks[i + 1], out movestogo)) {
                     success = true;
+                    i += 2;
                 }
             }
 
@@ -64,10 +67,10 @@ internal static class TimeMan {
                 goto arg_fail;
 
             // parsed numbers successfully and got to the last argument
-            if (success && i == toks.Length - 2) {
+            if (success && i == toks.Length) {
 
-                if (movestogo == 0) {
-                    Console.WriteLine($"using default movestogo: {DEF_MOVESTOGO}");
+                if (movestogo == 0 && movetime == 0) {
+                    Console.WriteLine($"info string using default movestogo {DEF_MOVESTOGO}");
                     movestogo = DEF_MOVESTOGO;
                 }
 
@@ -77,15 +80,19 @@ internal static class TimeMan {
         }
 
         arg_fail: {
-            Console.WriteLine("missing or invalid time format argument/s");
-            Console.WriteLine($"using default time budget");
-
             time_budget_ms = DEF_TIME_BUDGET;
             return;
         }
     }
 
     internal static void CalculateTimeBudget() {
+
+        // either infinite time or strictly set time per move
+        if (movetime != 0) {
+            time_budget_ms = movetime;
+            return;
+        }
+
         time_budget_ms = (int)((Game.engine_col == 0 ? wtime : btime) / movestogo / 1.1f);
     }
 }

@@ -1,19 +1,7 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using Kreveta.movegen;
 using Kreveta.search.pruning;
@@ -58,6 +46,8 @@ namespace Kreveta.search {
             int piece_count = BB.Popcount(Game.board.Occupied());
             NMP.UpdateMinPly(piece_count);
 
+            TT.Clear();
+
             // we still have time and are allowed to search deeper
             while (PVSearch.cur_depth < max_depth 
                 && sw.ElapsedMilliseconds < time_budget_ms) {
@@ -81,8 +71,8 @@ namespace Kreveta.search {
                 } else break;
             }
 
-            Console.WriteLine($"time spent {sw.Elapsed}");
-            Console.WriteLine($"total nodes {total_nodes}");
+            Console.WriteLine($"info string time spent {sw.Elapsed}");
+            Console.WriteLine($"info string total nodes {total_nodes}");
 
             // the final response of the engine to the gui
             Console.WriteLine($"bestmove {best_move}");
@@ -126,6 +116,9 @@ namespace Kreveta.search {
 
                 // nodes per second
                 $"nps {nps} " +
+
+                // how full is the hash table (permill)
+                $"hashfull {TT.HashFull()} " +
 
                 // pv score relative to color
                 // measured in centipawns (cp)

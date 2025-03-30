@@ -1,26 +1,14 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using Kreveta.movegen;
 using Kreveta.opening_book;
 using Kreveta.search;
-using Kreveta.search.movesort;
-using Stockshrimp_1;
+using Kreveta.search.moveorder;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
@@ -46,6 +34,8 @@ internal static class UCI {
             switch (toks[0]) {
                 case "uci": CmdUCI(); break;
                 case "isready": CmdIsReady(); break;
+                case "ucinewgame": CmdUciNewGame(); break;
+                case "setoption": CmdSetOption(toks); break;
                 case "position": CmdPosition(toks); break;
                 case "go": CmdGo(toks); break;
                 case "perft": CmdPerft(toks); break;
@@ -59,16 +49,29 @@ internal static class UCI {
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUCI() {
         Console.WriteLine("id name Kreveta\nid author ZlomenyMesic\n");
         Options.Print();
         Console.WriteLine("uciok");
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdIsReady() {
         Console.WriteLine("readyok");
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CmdUciNewGame() {
+
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CmdSetOption(string[] toks) {
+        Options.SetOption(toks);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPosition(string[] toks) {
         switch (toks[1]) {
             case "startpos": Game.SetPosFEN(["", "", ..Consts.STARTPOS_FEN.Split(' '), ..toks]); break;
@@ -103,7 +106,7 @@ internal static class UCI {
 
     private static void CmdGo(string[] toks) {
 
-        if (Options.own_book.value == "true" && OpeningBook.book_move != "") {
+        if (Options.OwnBook && OpeningBook.book_move != "") {
             Console.WriteLine($"bestmove {OpeningBook.book_move}");
             return;
         }
@@ -125,7 +128,7 @@ internal static class UCI {
         // position startpos moves e2e4 e7e5 g1f3 g8f6 b1c3 f8d6 f1c4 e8g8 e1g1 b8c6 d2d4 d8e8 d4d5 c6a5 c4d3 d6c5 c3b5 f6g4 b5c7 g4f2 f1f2 c5f2 g1f2 e8e7 c7a8 f7f5 e4f5 e5e4 d1e1 e7c5 c1e3 c5d5 d3e4 d5e4 e1a5 e4c2 f2g1 f8f5 a5a3 f5f8 e3a7 d7d5 a3d6 c2c6 d6c6 b7c6 a7c5 f8d8 a8b6 c8b7 a1d1 d8e8 b2b4 h7h6 h2h4 h6h5 a2a4 e8e4 a4a5 b7a6 f3d4 a6e2 d1d2 e2b5 d4b5 c6b5 b6d5 g8f7 a5a6 e4e1 g1f2 e1a1 d5c7 g7g5 h4g5 f7g6 c5e3 a1a3 a6a7 a3a7 d2d6 g6f5 d6d5 f5g6 e3a7 h5h4
         TimeMan.ProcessTime(toks);
 
-        Console.WriteLine($"ideal time budget {TimeMan.time_budget_ms} ms");
+        Console.WriteLine($"info string ideal time budget {TimeMan.time_budget_ms} ms");
 
         PVSControl.StartSearch(50, TimeMan.time_budget_ms);
     }

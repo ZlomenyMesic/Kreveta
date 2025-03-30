@@ -1,28 +1,16 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Stockshrimp_1;
+namespace Kreveta;
 
 internal static class Options {
     internal enum OptionType {
-        CHECK, SPIN, BUTTON, COMBO, STRING
+        CHECK, SPIN, BUTTON, STRING
     }
 
     internal struct Option {
@@ -31,32 +19,53 @@ internal static class Options {
 
         internal string min_value;
         internal string max_value;
-        internal string[] combo_values;
 
         internal string def_value;
         internal string value;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string TypeToString(OptionType type) {
+            return type switch {
+                OptionType.CHECK  => "check",
+                OptionType.SPIN   => "spin",
+                OptionType.BUTTON => "button",
+                OptionType.STRING => "string",
+                _ => ""
+            };
+        }
     }
 
-    internal static Option own_book = new() {
-        name = "OwnBook",
-        type = OptionType.CHECK,
+    private static readonly Option[] options = [
 
-        def_value = "true",
-        value = "true"
-    };
+        // should the engine use its own opening book?
+        new() {
+            name = "OwnBook",
+            type = OptionType.CHECK,
 
-    internal static Option hash = new() {
-        name = "Hash",
-        type = OptionType.SPIN,
+            def_value = "false",
+            value = "false"
+        },
 
-        min_value = "1",
-        max_value = "2048",
+        // modify the size of the hash table (transpositions)
+        new() {
+            name = "Hash",
+            type = OptionType.SPIN,
 
-        def_value = "100",
-        value = "100"
-    };
+            min_value = "1",
+            max_value = "2048",
 
-    private static readonly Option[] options = [own_book, hash];
+            def_value = "16",
+            value = "16"
+        },
+    ];
+
+    internal static bool OwnBook {
+        get => options[0].value == "true";
+    }
+
+    internal static int Hash {
+        get => int.Parse(options[1].value);
+    }
 
     internal static void Print() {
         foreach (Option opt in options) {
@@ -64,14 +73,7 @@ internal static class Options {
 
             sb.Append($"option name {opt.name}");
 
-            string type = opt.type switch { 
-                OptionType.CHECK  => "check",
-                OptionType.SPIN   => "spin",
-                OptionType.BUTTON => "button",
-                OptionType.COMBO  => "combo",
-                OptionType.STRING => "string",
-                _ => ""
-            };
+            string type = Option.TypeToString(opt.type);
 
             sb.Append($" type {type}");
 
@@ -83,17 +85,69 @@ internal static class Options {
                 sb.Append($" default {opt.def_value} min {opt.min_value} max {opt.max_value}");
             }
 
-            else if (opt.type == OptionType.COMBO) {
-                sb.Append($" default {opt.def_value}");
-                foreach (string var in opt.combo_values)
-                    sb.Append($" var {var}");
-            }
-
             Console.WriteLine(sb.ToString());
         }
     }
 
     internal static void SetOption(string[] toks) {
+        if (toks.Length < 3 || toks[1] != "name") {
+            goto invalid_syntax;
+        }
 
+        for (int i = 0; i < options.Length; i++) {
+            if (options[i].name == toks[2]) {
+
+                if (options[i].type == OptionType.BUTTON) {
+                    //
+                    //
+                    //
+                    return;
+                }
+
+                if (options[i].type == OptionType.CHECK) {
+                    if (toks.Length == 5 && toks[3] == "value"
+                        && (toks[4] == "true" || toks[4] == "false")) {
+
+                        options[i].value = toks[4];
+
+                        return;
+
+                    } else goto invalid_syntax;
+                }
+
+                if (options[i].type == OptionType.SPIN) {
+                    if (toks.Length == 5 && toks[3] == "value") {
+
+                        if (!long.TryParse(toks[4], out _))
+                            goto invalid_syntax;
+
+                        options[i].value = toks[4];
+                        return;
+
+                    } else goto invalid_syntax;
+                }
+
+                if (options[i].type == OptionType.STRING) {
+                    if (toks.Length >= 5 && toks[3] == "value") {
+
+                        options[i].value = "";
+                        for (int j = 3; j < toks.Length; j++) {
+
+                            options[i].value += $" {toks[j]}";
+                            options[i].value = options[i].value.Trim();
+                        }
+                        return;
+
+                    } else goto invalid_syntax;
+                }
+            }
+        }
+
+        Console.WriteLine($"unsupported option {toks[2]}");
+        return;
+
+        invalid_syntax:
+        Console.WriteLine("invalid setoption syntax");
+        return;
     }
 }

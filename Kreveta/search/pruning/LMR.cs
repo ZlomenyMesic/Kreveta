@@ -1,23 +1,11 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.movesort;
+using Kreveta.search.moveorder;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.pruning;

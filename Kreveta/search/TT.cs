@@ -1,22 +1,11 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
@@ -34,7 +23,7 @@ internal static class TT {
     }
 
     [StructLayout(LayoutKind.Explicit, Size = ENTRY_SIZE)]
-    private struct Entry {
+    private record struct Entry {
         // 8 bytes
         [FieldOffset(0)] internal ulong hash;
 
@@ -51,44 +40,47 @@ internal static class TT {
         [FieldOffset(12)] internal Move best_move;
     }
 
-    // tt memory limit (megabytes)
-    internal static int MAX_TT_MBYTES = 48;
-
     // size of a single hash entry
     internal const int ENTRY_SIZE = 16;
 
     // size of the tt array
     internal static int TT_SIZE = TTSize();
 
-    private static readonly Entry[] table = new Entry[TT_SIZE];
+    // how many items are currently stored
+    internal static long STORED = 0;
+
+    private static Entry[] table = new Entry[TT_SIZE];
 
     //private static long tt_lookups = 0;
 
     // tt array size - megabytes * bytes_in_mb / entry_size
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int TTSize() {
-        return Math.Min(MAX_TT_MBYTES * 1048576 / ENTRY_SIZE, int.MaxValue / ENTRY_SIZE);
+        return (int)Math.Min(Options.Hash * (long)1048576 / ENTRY_SIZE, (long)int.MaxValue / ENTRY_SIZE);
     }
 
     // generate an index in the tt for a specific board hash
     // key collisions can (and will) occur, so we later also check the correctness of this index
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int TTIndex(ulong hash) {
-        return (int)(hash % (ulong)TT_SIZE);
+        uint hash32 = (uint)hash ^ (uint)(hash >> 32);
+        return (int)(hash32 % TT_SIZE);
     }
 
     internal static void Clear() {
-        for (int i = 0; i < table.Length; i++) {
-            table[i] = default;
-        }
+        STORED = 0;
+
+        TT_SIZE = TTSize();
+        table = new Entry[TT_SIZE];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Store(Board b, int depth, int ply, Window window, short score, Move best_move) {
         Store(Zobrist.GetHash(b), depth, ply, window, score, best_move);
     }
 
     internal static void Store(ulong hash, int depth, int ply, Window window, short score, Move best_move) {
 
-        //ulong hash = Zobrist.GetHash(b);
         int i = TTIndex(hash);
 
         // maybe an entry is already saved
@@ -127,6 +119,9 @@ internal static class TT {
             entry.type = ScoreType.Exact;
             entry.score = score;
         }
+
+        // if we aren't overwriting an existing entry, increase the counter
+        if (existing.hash == default) STORED++;
 
         // store the new entry or overwrite the old one if allowed
         table[i] = entry;
@@ -184,5 +179,16 @@ internal static class TT {
         }
 
         return false;
+    }
+
+
+    // hashfull tells us how filled is the hash table
+    // in permill (entries per thousand). this number
+    // is sent regularly to the GUI, which allows it
+    // sent us a hash table clearing command (option)
+    // in case we are too full to free some memory
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int HashFull() {
+        return (int)((float)STORED / TT_SIZE * 100);
     }
 }
