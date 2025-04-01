@@ -8,7 +8,7 @@ namespace Kreveta.search.pruning;
 internal static class PruningOptions {
     internal static bool ALLOW_NULL_MOVE_PRUNING = true;
 
-    internal static bool ALLOW_RAZORING = false; // false
+    internal static bool ALLOW_RAZORING = true; // false
 
     internal static bool ALLOW_FUTILITY_PRUNING = true;
     internal static bool ALLOW_REVERSE_FUTILITY_PRUNING = false; // false

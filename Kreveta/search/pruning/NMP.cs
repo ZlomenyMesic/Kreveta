@@ -71,7 +71,7 @@ internal static class NMP {
 
         // if we are TOO good (like really good) we don't prune, it might be worth
         // to actually check what's happening
-        //int MARGIN = 395;
+        //int MARGIN = 395 * col == 0 ? 1 : -1;
         //if (window.FailsHigh((short)(score - MARGIN), col)) return false;
 
         // if we failed high, that means the score is above beta and is "too good" to be

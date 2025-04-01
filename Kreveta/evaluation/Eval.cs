@@ -59,35 +59,36 @@ internal static class Eval {
         => Math.Abs(s) > MATE_SCORE_BASE;
 
 
-    // save the position of all current pieces as an array
-    // [col, piece, square]
-    private static byte[,,] pieces = new byte[2, 6, 64];
     internal static short StaticEval(Board b) {
-
-        pieces = new byte[2, 6, 64];
 
         ulong w_occ = b.Occupied(0);
         ulong b_occ = b.Occupied(1);
 
         int piece_count = BB.Popcount(w_occ | b_occ);
 
-        int eval = 0;
+        short eval = 0;
 
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 6; j++) {
+        short w_eval = 0, b_eval = 0;
 
-                ulong copy = b.pieces[i, j];
+        for (int i = 0; i < 6; i++) {
 
-                if (copy == 0) continue;
+            ulong w_copy = b.pieces[0, i];
+            ulong b_copy = b.pieces[1, i];
 
-                while (copy != 0) {
-                    (copy, int sq) = BB.LS1BReset(copy);
-                    pieces[i, j, sq] = 1;
+            while (w_copy != 0) {
+                (w_copy, int w_sq) = BB.LS1BReset(w_copy);
 
-                    eval += GetTableValue(j, i, sq, piece_count) * (i == 0 ? 1 : -1);
-                }
+                w_eval += GetTableValue(i, 0, w_sq, piece_count);
+            }
+
+            while (b_copy != 0) {
+                (b_copy, int b_sq) = BB.LS1BReset(b_copy);
+
+                b_eval += GetTableValue(i, 1, b_sq, piece_count);
             }
         }
+
+        eval = (short)(w_eval - b_eval);
 
         // pawn structure eval includes:
         // 
@@ -123,13 +124,13 @@ internal static class Eval {
         eval += KingEval(b, piece_count);
 
         // side to move should also get a slight advantage
-        eval += b.color == 0 ? SIDE_TO_MOVE_BONUS : -SIDE_TO_MOVE_BONUS;
+        eval += (short)(b.color == 0 ? SIDE_TO_MOVE_BONUS : -SIDE_TO_MOVE_BONUS);
 
         return (short)(eval/* + r.Next(-6, 6)*/);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int GetTableValue(int p, int col, int pos, int piece_count) {
+    internal static short GetTableValue(int p, int col, int pos, int piece_count) {
         // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
         // there are two tables - midgame and endgame, this is important, because the pieces should be
         // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,

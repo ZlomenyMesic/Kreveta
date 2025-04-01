@@ -75,8 +75,8 @@ internal static class TT {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Store(Board b, int depth, int ply, Window window, short score, Move best_move) {
-        Store(Zobrist.GetHash(b), depth, ply, window, score, best_move);
+    internal static void Store(Board board, int depth, int ply, Window window, short score, Move best_move) {
+        Store(Zobrist.GetHash(board), depth, ply, window, score, best_move);
     }
 
     internal static void Store(ulong hash, int depth, int ply, Window window, short score, Move best_move) {
@@ -127,8 +127,8 @@ internal static class TT {
         table[i] = entry;
     }
 
-    internal static bool GetBestMove(Board b, out Move best_move) {
-        ulong hash = Zobrist.GetHash(b);
+    internal static bool GetBestMove(Board board, out Move best_move) {
+        ulong hash = Zobrist.GetHash(board);
         best_move = default;
 
         int i = TTIndex(hash);
@@ -142,8 +142,8 @@ internal static class TT {
         return best_move != default;
     }
 
-    internal static bool GetScore(Board b, int depth, int ply, Window window, out short score) {
-        ulong hash = Zobrist.GetHash(b);
+    internal static bool GetScore(Board board, int depth, int ply, Window window, out short score) {
+        ulong hash = Zobrist.GetHash(board);
         score = 0;
 
         int i = TTIndex(hash);

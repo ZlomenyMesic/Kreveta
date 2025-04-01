@@ -95,9 +95,6 @@ internal static class Movegen {
 
         ulong king_sq = b.pieces[col, 5];
 
-        // TODO - FIX
-        if (king_sq == 0) return true;
-
         ulong occ_opp = b.Occupied(col_opp);
         ulong occ = occ_opp | b.Occupied(col);
 

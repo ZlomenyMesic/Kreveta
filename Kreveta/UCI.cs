@@ -39,7 +39,7 @@ internal static class UCI {
                 case "position": CmdPosition(toks); break;
                 case "go": CmdGo(toks); break;
                 case "perft": CmdPerft(toks); break;
-                case "showallmoves": CmdShowAllMoves(); break;
+                case "test": CmdTest(); break;
                 case "print": CmdPrint(); break;
 
                 default: Console.WriteLine($"unknown command: {toks[0]}"); break;
@@ -133,10 +133,8 @@ internal static class UCI {
         PVSControl.StartSearch(50, TimeMan.time_budget_ms);
     }
 
-    private static void CmdShowAllMoves() {
-        foreach (Move m in Movegen.GetLegalMoves(Game.board, true)) {
-            Console.WriteLine(m.ToString());
-        }
+    private static void CmdTest() {
+        SpeedTest.Run();
     }
 
     private static void CmdPrint() {

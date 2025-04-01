@@ -12,7 +12,7 @@ internal static class Razoring {
     private const int DEPTH = 4;
 
     private const int QS_PLY = 2;
-    private const int MARGIN_BASE = 185;
+    private const int MARGIN_BASE = 165;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool CanReduce(int ply, int depth, bool in_check) {

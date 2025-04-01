@@ -54,8 +54,8 @@ internal static class Options {
             min_value = "1",
             max_value = "2048",
 
-            def_value = "16",
-            value = "16"
+            def_value = "48",
+            value = "48"
         },
     ];
 

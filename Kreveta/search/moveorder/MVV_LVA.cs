@@ -25,16 +25,18 @@ internal static class MVV_LVA {
     // Most Valuable Victim - Least Valuable Aggressor. this gives
     // us a rough guess of how good a capture is, e.g. capturing
     // a queen with a pawn is usually a really good move.
-    internal static List<Move> OrderCaptures(List<Move> capts) {
+    internal static Move[] OrderCaptures(Move[] capts) {
 
         // if there's only a single available capture,
         // don't bother wasting time on this thing
-        if (capts.Count <= 1) return capts;
+        if (capts.Length <= 1) return capts;
 
         // add each capture and its score into a list
-        List<(Move, float)> scores = [];
-        for (int i = 0; i < capts.Count; i++) {
-            scores.Add((capts[i], GetCaptureScore(capts[i])));
+        (Move, int)[] scores = new (Move, int)[capts.Length];
+        int cur = 0;
+
+        for (int i = 0; i < capts.Length; i++) {
+            scores[cur++] = (capts[i], GetCaptureScore(capts[i]));
         }
 
         // here we once again have a very naive and primitive
@@ -46,11 +48,11 @@ internal static class MVV_LVA {
             // once we haven't switched any moves, break the loop
             sorts_made = false;
 
-            for (int i = 1; i < scores.Count; i++) {
+            for (int i = 1; i < scores.Length; i++) {
 
                 // if the current item's MVV-LVA score is higher
                 // than the previous one's, switch their places
-                if (scores[i].Item2 < scores[i - 1].Item2) {
+                if (scores[i].Item2 > scores[i - 1].Item2) {
                     (scores[i], scores[i - 1]) = (scores[i - 1], scores[i]);
                     sorts_made = true;
                 }
@@ -58,9 +60,11 @@ internal static class MVV_LVA {
         }
 
         // add the sorted captures to the final list
-        List<Move> sorted = [];
-        foreach ((Move m, _) in scores)
-            sorted.Add(m);
+        Move[] sorted = new Move[scores.Length];
+
+        for (int i = 0; i < scores.Length; i++) {
+            sorted[i] = scores[i].Item1;
+        }
 
         return sorted;
     }
@@ -75,8 +79,8 @@ internal static class MVV_LVA {
 
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as
-        // none even though we captured a pawn
-        if (victim == -1 && aggressor == 1) {
+        // negative one despite the captured pawn
+        if (victim >> 31 == 1) {
 
             // en passant always captures a pawn
             victim = 1;

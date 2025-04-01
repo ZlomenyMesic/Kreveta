@@ -77,7 +77,7 @@ internal static class History {
         quiet_scores[end, i] += HHShift(depth);
 
         // add the move as visited, too
-        bf_scores[end, i]++;
+        bf_scores[end, i]--;
     }
 
     // decreases the history rep of a quiet move
@@ -126,7 +126,8 @@ internal static class History {
         // so this is still relative to the butterfly boards, but
         // we assume that with a larger amount of encounters, the
         // score is more "confirmed" than with just a few cases
-        return (int)(q * Math.Log10(Math.Min(1000, bf)));
+        //return (int)(q * Math.Log10(Math.Min(1000, bf)));
+        return (int)(q - bf / 9);
     }
 
     // calculate the index of a piece in the boards

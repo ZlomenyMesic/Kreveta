@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+using System.Diagnostics;
 
 namespace Kreveta.search.moveorder;
 
@@ -14,17 +15,19 @@ internal static class MoveOrder {
     // more space for pruning. we, of course, cannot know which
     // moves are the best unless we do the search, but we can at
     // least make a rough guess.
-    internal static List<Move> GetSortedMoves(Board b, int depth) {
-        List<Move> sorted = [];
+    internal static Move[] GetSortedMoves(Board b, int depth) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
         List<Move> legal = Movegen.GetLegalMoves(b);
 
+        Move[] sorted = new Move[legal.Count];
+        int cur = 0;
+
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
         if (TT.GetBestMove(b, out Move bestMove) && legal.Contains(bestMove)) {
-            sorted.Add(bestMove);
+            sorted[cur++] = bestMove;
         }
 
         // after that go all captures, sorted by MVV-LVA, which
@@ -39,9 +42,9 @@ internal static class MoveOrder {
         }
 
         // get the captures ordered and add them to the list
-        List<Move> mvvlva = capts.Count > 1 ? MVV_LVA.OrderCaptures(capts) : capts;
-        for (int j = 0; j < mvvlva.Count; j++) {
-            sorted.Add(mvvlva[j]);
+        Move[] mvvlva = capts.Count > 1 ? MVV_LVA.OrderCaptures([ ..capts]) : [ ..capts];
+        for (int j = 0; j < mvvlva.Length; j++) {
+            sorted[cur++] = mvvlva[j];
         }
 
         // next go killers, which are quiet moves, that caused
@@ -56,7 +59,7 @@ internal static class MoveOrder {
                 && !sorted.Contains(found_killers[i])               // already added
                 && b.PieceAt(found_killers[i].End()).Item2 == 6) {  // not quiet
 
-                sorted.Add(found_killers[i]);
+                sorted[cur++] = found_killers[i];
             }
         }
 
@@ -77,8 +80,8 @@ internal static class MoveOrder {
         OrderQuiets(quiets);
 
         // and add them to the final list
-        foreach ((Move q, _) in quiets)
-            sorted.Add(q);
+        for (int i = 0; i < quiets.Count; i++)
+            sorted[cur++] = quiets[i].Item1;
 
         return sorted;
     }
@@ -94,7 +97,7 @@ internal static class MoveOrder {
             sorts_made = false;
 
             for (int i = 1; i < quiets.Count; i++) {
-                if (quiets[i].Item2 > quiets[i - 1].Item2) {
+                if (quiets[i].Item2 < quiets[i - 1].Item2) {
 
                     // switch places
                     (quiets[i], quiets[i - 1]) = (quiets[i - 1], quiets[i]);
