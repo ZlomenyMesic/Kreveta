@@ -13,57 +13,58 @@ using System.Runtime.CompilerServices;
 namespace Kreveta;
 
 internal static class UCI {
-    internal static void Main() {
-        using (Process p = Process.GetCurrentProcess()) {
-            p.PriorityClass = ProcessPriorityClass.RealTime;
-        }
-
-        LookupTables.Initialize();
-
-        Killers.Clear();
-        History.Clear();
-
-        Game.TestingFunction();
-
-        Console.WriteLine("Kreveta-INDEV by ZlomenyMesic");
-
+    internal static void UCILoop() {
         while (true) {
-            string cmd = Console.ReadLine() ?? string.Empty;
-            string[] toks = cmd.Split(' ');
+            string input = Console.ReadLine() ?? string.Empty;
+            string[] tokens = input.Split(' ');
 
-            switch (toks[0]) {
-                case "uci": CmdUCI(); break;
-                case "isready": CmdIsReady(); break;
-                case "ucinewgame": CmdUciNewGame(); break;
-                case "setoption": CmdSetOption(toks); break;
-                case "position": CmdPosition(toks); break;
-                case "go": CmdGo(toks); break;
-                case "perft": CmdPerft(toks); break;
-                case "test": CmdTest(); break;
-                case "print": CmdPrint(); break;
+            switch (tokens[0]) {
+                case "uci":        CmdUCI();             break;
+                case "isready":    CmdIsReady();         break;
 
-                default: Console.WriteLine($"unknown command: {toks[0]}"); break;
+                case "setoption":  CmdSetOption(tokens); break;
+
+                case "ucinewgame": CmdUciNewGame();      break;
+                case "position":   CmdPosition(tokens);  break;
+
+                case "go":         CmdGo(tokens);        break;
+                case "perft":      CmdPerft(tokens);     break;
+
+                case "test":       CmdTest();            break;
+                case "print":      CmdPrint();           break;
+
+                case "stop":       CmdStop();            break;
+                case "quit":       goto quit;
+
+                default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); break;
             }
 
             Console.WriteLine();
         }
+        quit: return;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUCI() {
-        Console.WriteLine("id name Kreveta\nid author ZlomenyMesic\n");
+        Log("id name Kreveta\nid author ZlomenyMesic\n");
         Options.Print();
-        Console.WriteLine("uciok");
+        Log("uciok");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdIsReady() {
-        Console.WriteLine("readyok");
+        Log("readyok");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUciNewGame() {
+        Game.fullGame = true;
+    }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CmdStop() {
+        Game.fullGame = false;
+        TT.Clear();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -74,9 +75,10 @@ internal static class UCI {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPosition(string[] toks) {
         switch (toks[1]) {
-            case "startpos": Game.SetPosFEN(["", "", ..Consts.STARTPOS_FEN.Split(' '), ..toks]); break;
-            case "fen": Game.SetPosFEN(toks); break;
-            default: Console.WriteLine($"invalid argument: {toks[1]}"); return;
+            case "startpos": Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' '), ..toks]); break;
+            case "fen":      Game.SetPosFEN(toks);                                              break;
+
+            default: Log($"invalid argument: {toks[1]}", LogLevel.ERROR); return;
         }
     }
 
@@ -89,25 +91,24 @@ internal static class UCI {
 
             try {
                 depth = int.Parse(toks[1]);
-            } catch {
-                Console.WriteLine($"invalid perft command syntax");
-                return;
-            }
+            } catch { goto invalid_syntax; }
 
-            Console.WriteLine($"nodes: {Perft.Run(Game.board, depth)}");
-            Console.WriteLine($"time spent: {sw.Elapsed}");
+            Log($"nodes: {Perft.Run(Game.board, depth)}", LogLevel.INFO);
+            Log($"time spent: {sw.Elapsed}", LogLevel.INFO);
 
             sw.Stop();
+            return;
         } 
-        else {
-            Console.WriteLine($"invalid perft command syntax");
-        }
+
+        invalid_syntax:
+        Log($"invalid perft command syntax", LogLevel.ERROR);
+        
     }
 
     private static void CmdGo(string[] toks) {
 
         if (Options.OwnBook && OpeningBook.book_move != "") {
-            Console.WriteLine($"bestmove {OpeningBook.book_move}");
+            Log($"bestmove {OpeningBook.book_move}");
             return;
         }
 
@@ -128,16 +129,38 @@ internal static class UCI {
         // position startpos moves e2e4 e7e5 g1f3 g8f6 b1c3 f8d6 f1c4 e8g8 e1g1 b8c6 d2d4 d8e8 d4d5 c6a5 c4d3 d6c5 c3b5 f6g4 b5c7 g4f2 f1f2 c5f2 g1f2 e8e7 c7a8 f7f5 e4f5 e5e4 d1e1 e7c5 c1e3 c5d5 d3e4 d5e4 e1a5 e4c2 f2g1 f8f5 a5a3 f5f8 e3a7 d7d5 a3d6 c2c6 d6c6 b7c6 a7c5 f8d8 a8b6 c8b7 a1d1 d8e8 b2b4 h7h6 h2h4 h6h5 a2a4 e8e4 a4a5 b7a6 f3d4 a6e2 d1d2 e2b5 d4b5 c6b5 b6d5 g8f7 a5a6 e4e1 g1f2 e1a1 d5c7 g7g5 h4g5 f7g6 c5e3 a1a3 a6a7 a3a7 d2d6 g6f5 d6d5 f5g6 e3a7 h5h4
         TimeMan.ProcessTime(toks);
 
-        Console.WriteLine($"info string ideal time budget {TimeMan.time_budget_ms} ms");
+        Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
 
-        PVSControl.StartSearch(50, TimeMan.time_budget_ms);
+        PVSControl.StartSearch(50, TimeMan.TimeBudget);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdTest() {
         SpeedTest.Run();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPrint() {
         Game.board.Print();
+    }
+
+    internal enum LogLevel : byte {
+        INFO, WARNING, ERROR, RAW
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Log(string msg, LogLevel level = LogLevel.RAW) {
+        if (Options.NKLogs) {
+
+            // using KryKom's NeoKolors library for fancy logs
+            // this option can be toggled via the FancyLogs option
+            switch (level) {
+                //case LogLevel.INFO: NeoKolors.Console.Debug.Info(msg); break;
+                //case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg); break;
+                //case LogLevel.ERROR: NeoKolors.Console.Debug.Error(msg); break;
+
+                default: Console.WriteLine(msg); break;
+            }
+        } else Console.WriteLine(msg);
     }
 }

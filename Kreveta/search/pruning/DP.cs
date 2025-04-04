@@ -21,8 +21,8 @@ internal static class DP {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool TryPrune(int ply, int cur_max_qs_depth, int col, Window window, short stand_pat, int captured) {
-        int delta_margin = (cur_max_qs_depth - ply) * MARGIN_BASE * (col == 0 ? 1 : -1);
+    internal static bool TryPrune(int ply, int cur_max_qs_depth, Color col, Window window, short stand_pat, int captured) {
+        int delta_margin = (cur_max_qs_depth - ply) * MARGIN_BASE * (col == Color.WHITE ? 1 : -1);
 
         return window.FailsLow((short)(stand_pat + captured + delta_margin), col);
     }

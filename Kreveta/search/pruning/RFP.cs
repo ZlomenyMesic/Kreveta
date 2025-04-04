@@ -38,12 +38,12 @@ internal static class RFP {
             && !Eval.IsMateScore(pv_score);
     }
 
-    internal static bool TryPrune(Board b, int depth, int col, Window window, out short ret_score) {
+    internal static bool TryPrune(Board b, int depth, Color col, Window window, out short ret_score) {
         ret_score = default;
 
         short s_eval = Eval.StaticEval(b);
 
-        int rf_margin = RF_MARGIN_BASE * (depth + 1) * (col == 0 ? 1 : -1);
+        int rf_margin = RF_MARGIN_BASE * (depth + 1) * (col == Color.WHITE ? 1 : -1);
 
         // we failed high (above beta). our opponent already has an alternative which
         // wouldn't allow this move/node/score to happen

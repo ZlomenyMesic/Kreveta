@@ -42,14 +42,14 @@ internal readonly struct Move {
     */
     [FieldOffset(0)] private readonly int _flags = 0;
 
-    internal Move(int start, int end, int piece, int capture, int promotion) {
+    internal Move(int start, int end, PType piece, PType capture, PType promotion) {
 
         // flags are only set when the constructor is called, after that they cannot be changed
         _flags |= start;
         _flags |= end << 6;
-        _flags |= piece << 12;
-        _flags |= capture << 15;
-        _flags |= promotion << 18;
+        _flags |= (byte)piece << 12;
+        _flags |= (byte)capture << 15;
+        _flags |= (byte)promotion << 18;
     }
 
     public static bool operator ==(Move a, Move b)
@@ -70,18 +70,18 @@ internal readonly struct Move {
 
     // the moved piece type
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly int Piece()
-        => (_flags & 0x00007000) >> 12;
+    internal readonly PType Piece()
+        => (PType)((_flags & 0x00007000) >> 12);
 
     // captured piece (6 if no capture)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly int Capture()
-        => (_flags & 0x00038000) >> 15;
+    internal readonly PType Capture()
+        => (PType)((_flags & 0x00038000) >> 15);
 
     // piece promoted to (6 if no promotion)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly int Promotion()
-        => (_flags & 0x001C0000) >> 18;
+    internal readonly PType Promotion()
+        => (PType)((_flags & 0x001C0000) >> 18);
 
 
     // taken from my previous engine
@@ -89,24 +89,25 @@ internal readonly struct Move {
 
         // checks if the move from the user input makes sense (doesn't check legality)
         // caution: don't try to understand this mess
-        return str.Length >= 4 && Consts.FILES.Contains(str[0]) && char.IsDigit(str[1]) && Consts.FILES.Contains(str[2]) && char.IsDigit(str[3])
-            && (str.Length == 4 || (str.Length == 5 && Consts.PIECES.Contains(str[4])));
+        return str.Length >= 4 && Consts.Files.Contains(str[0]) && char.IsDigit(str[1]) && Consts.Files.Contains(str[2]) && char.IsDigit(str[3])
+            && (str.Length == 4 || (str.Length == 5 && Consts.Pieces.Contains(str[4])));
     }
 
     public override string ToString() {
 
         // converts a move back to a string, see the method below for more information
 
-        int start = Start();
-        int end = End();
-        int prom = Promotion();
+        int start      = Start();
+        int end        = End();
+        PType prom = Promotion();
         
         // convert starting and ending squares to standard format, e.g. "e4"
-        string str_start = Consts.FILES[start % 8] + (8 - start / 8).ToString();
-        string str_end = Consts.FILES[end % 8] + (8 - end / 8).ToString();
+        string str_start = Consts.Files[start % 8] + (8 - start / 8).ToString();
+        string str_end = Consts.Files[end % 8] + (8 - end / 8).ToString();
 
         // if no promotion => empty string
-        string promotion = (prom > 0 && prom < 5) ? Consts.PIECES[prom].ToString() : "";
+        string promotion = (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE) 
+            ? Consts.Pieces[(byte)prom].ToString() : "";
 
         return $"{str_start}{str_end}{promotion}";
     }
@@ -119,22 +120,24 @@ internal readonly struct Move {
         // and the destination (e.g. "e2e4"), or an additional character for the promotion (e.g. "e7e8q").
 
         // indices of starting and ending squares
-        int start = ((8 - (str[1] - '0')) * 8) + Consts.FILES.IndexOf(str[0]);
-        int end = ((8 - (str[3] - '0')) * 8) + Consts.FILES.IndexOf(str[2]);
+        int start = ((8 - (str[1] - '0')) * 8) + Consts.Files.IndexOf(str[0]);
+        int end = ((8 - (str[3] - '0')) * 8) + Consts.Files.IndexOf(str[2]);
 
         // find the piece types
-        (_, int piece) = b.PieceAt(start);
-        (_, int capt) = b.PieceAt(end);
+        (_, PType piece) = b.PieceAt(start);
+        (_, PType capt) = b.PieceAt(end);
 
         // potential promotion?
-        int prom = str.Length == 5 ? Consts.PIECES.IndexOf(str[4]) : 6;
+        PType prom = str.Length == 5 ? (PType)Consts.Pieces.IndexOf(str[4]) : PType.NONE;
 
         // overriding promotion:
         // castling (prom = king)
-        if (piece == 5 && (str == "e8c8" || str == "e8g8" || str == "e1c1" || str == "e1g1")) prom = 5;
+        if (piece == PType.KING && (str == "e8c8" || str == "e8g8" || str == "e1c1" || str == "e1g1")) 
+            prom = PType.KING;
 
         // en passant (prom = pawn)
-        if (piece == 0 && capt == 6 && str[0] != str[2]) prom = 0;
+        if (piece == PType.PAWN && capt == PType.NONE && str[0] != str[2]) 
+            prom = PType.PAWN;
 
         return new(start, end, piece, capt, prom);
     }

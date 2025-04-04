@@ -5,11 +5,36 @@
 
 namespace Kreveta;
 
+internal enum Color : byte {
+    WHITE = 0,
+    BLACK = 1,
+    NONE  = 2
+}
+
+internal enum PType : byte {
+    PAWN   = 0,
+    KNIGHT = 1,
+    BISHOP = 2,
+    ROOK   = 3,
+    QUEEN  = 4,
+    KING   = 5,
+    NONE   = 6
+}
+
+[Flags]
+internal enum CastlingRights : byte {
+    NONE = 0,
+    K    = 1, // white kingside
+    Q    = 2, // white queenside
+    k    = 4, // black kingside
+    q    = 8  // black queenside
+}
+
 internal static class Consts {
 
-    internal const string STARTPOS_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    internal const string PIECES = "pnbrqk";
-    internal const string FILES = "abcdefgh";
+    internal const string StartposFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    internal const string Pieces = "pnbrqk";
+    internal const string Files = "abcdefgh";
 
 
     internal static readonly ulong[] RelevantRankMask = [

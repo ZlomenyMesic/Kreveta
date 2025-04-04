@@ -51,8 +51,8 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetMateScore(int col, int ply)
-        => (short)((col == 0 ? -1 : 1) * (MATE_SCORE - ply));
+    internal static short GetMateScore(Color col, int ply)
+        => (short)((col == Color.WHITE ? -1 : 1) * (MATE_SCORE - ply));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsMateScore(int s)
@@ -61,8 +61,8 @@ internal static class Eval {
 
     internal static short StaticEval(Board b) {
 
-        ulong w_occ = b.Occupied(0);
-        ulong b_occ = b.Occupied(1);
+        ulong w_occ = b.Occupied(Color.WHITE);
+        ulong b_occ = b.Occupied(Color.BLACK);
 
         int piece_count = BB.Popcount(w_occ | b_occ);
 
@@ -72,19 +72,19 @@ internal static class Eval {
 
         for (int i = 0; i < 6; i++) {
 
-            ulong w_copy = b.pieces[0, i];
-            ulong b_copy = b.pieces[1, i];
+            ulong w_copy = b.pieces[(byte)Color.WHITE, i];
+            ulong b_copy = b.pieces[(byte)Color.BLACK, i];
 
             while (w_copy != 0) {
                 (w_copy, int w_sq) = BB.LS1BReset(w_copy);
 
-                w_eval += GetTableValue(i, 0, w_sq, piece_count);
+                w_eval += GetTableValue((PType)i, Color.WHITE, w_sq, piece_count);
             }
 
             while (b_copy != 0) {
                 (b_copy, int b_sq) = BB.LS1BReset(b_copy);
 
-                b_eval += GetTableValue(i, 1, b_sq, piece_count);
+                b_eval += GetTableValue((PType)i, Color.BLACK, b_sq, piece_count);
             }
         }
 
@@ -95,8 +95,8 @@ internal static class Eval {
         // 1. doubled (or tripled) pawns penalty
         // 2. isolated pawn penalty
         //
-        eval += PawnStructureEval(b.pieces[0, 0], 0, piece_count);
-        eval -= PawnStructureEval(b.pieces[1, 0], 1, piece_count);
+        eval += PawnStructureEval(b.pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE, piece_count);
+        eval -= PawnStructureEval(b.pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK, piece_count);
 
         // knight eval includes:
         //
@@ -124,19 +124,19 @@ internal static class Eval {
         eval += KingEval(b, piece_count);
 
         // side to move should also get a slight advantage
-        eval += (short)(b.color == 0 ? SIDE_TO_MOVE_BONUS : -SIDE_TO_MOVE_BONUS);
+        eval += (short)(b.color == Color.WHITE ? SIDE_TO_MOVE_BONUS : -SIDE_TO_MOVE_BONUS);
 
         return (short)(eval/* + r.Next(-6, 6)*/);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetTableValue(int p, int col, int pos, int piece_count) {
+    internal static short GetTableValue(PType p, Color col, int pos, int piece_count) {
         // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
         // there are two tables - midgame and endgame, this is important, because the pieces should be
         // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
         // but in the endgame in the center)
 
-        int i = (p * 64) + (col == 0 
+        int i = ((byte)p * 64) + (col == Color.WHITE
             ? (63 - pos) 
             : (pos >> 3) * 8 + (7 - (pos & 7)));
 
@@ -148,11 +148,11 @@ internal static class Eval {
 
     // bonuses or penalties for pawn structure
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short PawnStructureEval(ulong p, int col, int piece_count) {
+    private static short PawnStructureEval(ulong p, Color col, int piece_count) {
 
         int eval = 0;
 
-        col = col == 0 ? 1 : -1;
+        int colMult = col == Color.WHITE ? 1 : -1;
 
         for (int i = 0; i < 8; i++) {
             ulong file = Consts.RelevantFileMask[i];
@@ -162,7 +162,7 @@ internal static class Eval {
             if (file_occ == 0) continue;
 
             // penalize doubled pawns
-            eval += (file_occ - 1) * DOUBLED_PAWN_PENALTY * col;
+            eval += (file_occ - 1) * DOUBLED_PAWN_PENALTY * colMult;
 
             // current file + files on the sides
             ulong adj = AdjFiles[i];
@@ -170,7 +170,7 @@ internal static class Eval {
             // if the number of pawns on current file is equal to the number of pawns
             // on the current plus adjacent files, we know the pawn/s are isolated
             int adj_occ = BB.Popcount(adj & p);
-            eval += file_occ != adj_occ ? 0 : ISOLATED_PAWN_PENALTY * col;
+            eval += file_occ != adj_occ ? 0 : ISOLATED_PAWN_PENALTY * colMult;
         }
 
         return (short)eval;
@@ -252,7 +252,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short QueenEval(ulong q, int col, int piece_count) {
+    private static short QueenEval(ulong q, Color col, int piece_count) {
         int eval = 0;
 
         //eval += PiecesTableEval(q, 4, col, piece_count);
@@ -265,8 +265,8 @@ internal static class Eval {
         int eval = 0;
 
         // same color pieces around the king - protection
-        ulong w_protection = King.GetKingMoves(b.pieces[0, 5], b.Occupied(0));
-        ulong b_protection = King.GetKingMoves(b.pieces[1, 5], b.Occupied(1));
+        ulong w_protection = King.GetKingMoves(b.pieces[(byte)Color.WHITE, (byte)PType.KING], b.Occupied(Color.WHITE));
+        ulong b_protection = King.GetKingMoves(b.pieces[(byte)Color.BLACK, (byte)PType.KING], b.Occupied(Color.BLACK));
 
         // bonus for the number of friendly pieces protecting the king
         short w_prot_bonus = (short)(BB.Popcount(w_protection) * 2);

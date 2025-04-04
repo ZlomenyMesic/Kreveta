@@ -14,12 +14,18 @@ internal static class Game {
     // current chessboard state is saved here (root node)
     internal static Board board = new();
 
-    // to let the engine know which side it plays on
-    internal static int engine_col = 0;
+    // the side the engine plays on
+    internal static Color color = 0;
+
+    // if the engine receives the "ucinewgame" command, we know
+    // we will be playing a whole game rather than just analyzing
+    // a single position. this allows us to implement some stuff,
+    // such as keeping the tt from the previous turn
+    internal static bool fullGame = false;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
-    internal static List<ulong> history_positions = [];
-    internal static List<ulong> draws = [];
+    internal static List<ulong> HistoryPositions = [];
+    internal static List<ulong> Draws = [];
 
     internal static void SetPosFEN(string[] toks) {
 
@@ -27,8 +33,8 @@ internal static class Game {
         board.Erase();
 
         // erase the draw counters
-        history_positions = [];
-        draws = [];
+        HistoryPositions = [];
+        Draws = [];
 
         // 1. POSITION
         // starting from rank 8 to rank 1, ranks are separated by a "/". on each rank, pieces are
@@ -43,7 +49,7 @@ internal static class Game {
             else if (char.IsLetter(c)) {
 
                 // wrong letter?
-                if (!Consts.PIECES.Contains(char.ToLower(toks[2][i]))) {
+                if (!Consts.Pieces.Contains(char.ToLower(toks[2][i]))) {
                     Console.WriteLine($"invalid piece in FEN: {toks[2][i]}");
 
                     // clear the board to prevent chaos
@@ -55,7 +61,7 @@ internal static class Game {
                 int col = char.IsUpper(c) ? 0 : 1;
 
                 // piece type (0-5)
-                int piece = Consts.PIECES.IndexOf(char.ToLower(c));
+                int piece = Consts.Pieces.IndexOf(char.ToLower(c));
 
                 // add the piece to the board
                 board.pieces[col, piece] |= Consts.SqMask[sq++];
@@ -67,35 +73,35 @@ internal static class Game {
         switch (toks[3]) {
 
             // white
-            case "w": engine_col = 0; break;
+            case "w": color = Color.WHITE; break;
 
             // black
-            case "b": engine_col = 1; break;
+            case "b": color = Color.BLACK; break;
 
             default: Console.WriteLine($"invalid side to move: {toks[3]}"); return;
         }
-        board.color = engine_col;
+        board.color = color;
 
         // 3. CASTLING RIGHTS
         // if neither side can castle, this is "-". otherwise, we can have up to 4 letters.
         // "k" and "q" marks kingside and queenside castling rights respectively. just to clarify, this has nothing 
         // to do with the legality of castling in the next move, it denotes the castling rights availability.
-        board.castling = 0;
+        board.castRights = 0;
 
         for (int i = 0; i < toks[4].Length; i++) {
             switch (toks[4][i]) {
 
                 // white kingside
-                case 'K': board.castling |= Board.CastlingRights.K; break;
+                case 'K': board.castRights |= CastlingRights.K; break;
 
                 // white queenside
-                case 'Q': board.castling |= Board.CastlingRights.Q; break;
+                case 'Q': board.castRights |= CastlingRights.Q; break;
 
                 // black kingside
-                case 'k': board.castling |= Board.CastlingRights.k; break;
+                case 'k': board.castRights |= CastlingRights.k; break;
 
                 // black queenside
-                case 'q': board.castling |= Board.CastlingRights.q; break;
+                case 'q': board.castRights |= CastlingRights.q; break;
 
                 default:
                     if (toks[4][i] != '-') {
@@ -113,9 +119,9 @@ internal static class Game {
         // the old version of the standard is the one most commonly used.
 
         if (toks[5].Length == 2 && char.IsDigit(toks[3][0]) && char.IsDigit(toks[3][1]))
-            board.en_passant_sq = (byte)int.Parse(toks[3]);
+            board.enPassantSq = (byte)int.Parse(toks[3]);
         else if (toks[5].Length == 1 && toks[5][0] == '-')
-            board.en_passant_sq = 64;
+            board.enPassantSq = 64;
         else {
             Console.WriteLine($"invalid en passant square: {toks[3]}");
             return;
@@ -135,7 +141,7 @@ internal static class Game {
         int m_start = toks.ToList().IndexOf("moves");
 
         // we save the previous positions as 3-fold repetition exists
-        history_positions.Add(Zobrist.GetHash(board));
+        HistoryPositions.Add(Zobrist.GetHash(board));
 
         List<string> sequence = [];
 
@@ -147,10 +153,12 @@ internal static class Game {
                 sequence.Add(toks[i]);
 
                 board.PlayMove(Move.FromString(board, toks[i]));
-                history_positions.Add(Zobrist.GetHash(board));
+                HistoryPositions.Add(Zobrist.GetHash(board));
 
                 // switch the engine's color
-                engine_col = engine_col == 0 ? 1 : 0;
+                color = color == Color.WHITE 
+                    ? Color.BLACK 
+                    : Color.WHITE;
             }
         }
 
@@ -169,7 +177,7 @@ internal static class Game {
     private static void List3FoldDraws() {
         Dictionary<ulong, int> occurences = [];
 
-        foreach (ulong hash in history_positions) {
+        foreach (ulong hash in HistoryPositions) {
 
             // the position has already occured
             if (occurences.TryGetValue(hash, out _)) {
@@ -177,7 +185,7 @@ internal static class Game {
                 // increase the counter and if we reached 2,
                 // save the position as a 3-fold repetition draw
                 if (++occurences[hash] == 2) {
-                    draws.Add(hash);
+                    Draws.Add(hash);
                 }
             }
 

@@ -13,8 +13,7 @@ namespace Kreveta.search;
 internal static class TT {
 
     // minimum ply needed to use tt
-    internal const int MIN_PLY = 6;
-    // this aint working
+    internal const int MIN_PLY = 4;
 
     private enum ScoreType : byte {
         UpperBound,
@@ -31,7 +30,7 @@ internal static class TT {
         [FieldOffset(8)] internal short score;
 
         // 1 byte
-        [FieldOffset(10)] internal byte depth;
+        [FieldOffset(10)] internal sbyte depth;
 
         // 1 byte
         [FieldOffset(11)] internal ScoreType type;
@@ -47,7 +46,7 @@ internal static class TT {
     internal static int TT_SIZE = TTSize();
 
     // how many items are currently stored
-    internal static long STORED = 0;
+    internal static int STORED = 0;
 
     private static Entry[] table = new Entry[TT_SIZE];
 
@@ -74,6 +73,15 @@ internal static class TT {
         table = new Entry[TT_SIZE];
     }
 
+    // instead of using an age value, we decrement the depths
+    // in the entries stored for the next search, so they aren't
+    // as important. note that this is only used in a full game
+    internal static void DecrementEntryDepths() {
+        //for (int i = 0; i < TT_SIZE; i++) {
+        //    table[i].depth -= 3;
+        //}
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Store(Board board, int depth, int ply, Window window, short score, Move best_move) {
         Store(Zobrist.GetHash(board), depth, ply, window, score, best_move);
@@ -95,7 +103,7 @@ internal static class TT {
 
         Entry entry = new() {
             hash = hash,
-            depth = (byte)depth,
+            depth = (sbyte)depth,
             best_move = best_move
         };
 
@@ -189,6 +197,6 @@ internal static class TT {
     // in case we are too full to free some memory
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int HashFull() {
-        return (int)((float)STORED / TT_SIZE * 100);
+        return (int)((float)STORED / TT_SIZE * 1000);
     }
 }

@@ -53,7 +53,7 @@ internal static class LMR {
     }
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune(Board child, Move move, int ply, int depth, int col, int exp_nodes, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune(Board child, Move move, int ply, int depth, Color col, int exp_nodes, Window window) {
 
         // depth reduce is larger with bad history
         int R = History.GetRep(child, move) < HH_THRESHOLD ? HH_R : LMR.R;
@@ -79,7 +79,7 @@ internal static class LMR {
         int window_size = Math.Abs(window.beta - window.alpha);
 
         // one tenth of the window is the margin
-        int reduce_margin = Math.Min(MAX_REDUCE_MARGIN, window_size / WINDOW_SIZE_DIVISOR) * (col == 0 ? 1 : -1) / MARGIN_DIVISOR + exp_nodes;
+        int reduce_margin = Math.Min(MAX_REDUCE_MARGIN, window_size / WINDOW_SIZE_DIVISOR) * (col == Color.WHITE ? 1 : -1) / MARGIN_DIVISOR + exp_nodes;
         if (reduce_margin == 0 || (depth != REDUCTION_DEPTH)) return (false, false);
 
         // we didn't fail low, but if the history rep is bad, we try to fail low

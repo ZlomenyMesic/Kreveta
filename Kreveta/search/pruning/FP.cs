@@ -36,13 +36,13 @@ internal static class FP {
     }
 
     // try futility pruning
-    internal static bool TryPrune(int depth, int col, short s_eval, Window window) {
+    internal static bool TryPrune(int depth, Color col, short s_eval, Window window) {
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at
         // depth 2 it should be more like the value of a rook."
         //
         // however, a lower margin increases search speed and thus our futility margin stays low
-        int margin = FUTILITY_MARGIN_BASE * (depth + 1) * (col == 0 ? 1 : -1);
+        int margin = FUTILITY_MARGIN_BASE * (depth + 1) * (col == Color.WHITE ? 1 : -1);
 
         // if we failed low (fell under alpha). this means we already know of a better
         // alternative somewhere else in the search tree, and we can prune this branch.

@@ -24,7 +24,7 @@ internal static class OpeningBook {
 
         // only look for book moves from starting position.
         // (might implement other ones later)
-        if (fen != Consts.STARTPOS_FEN.Split()[0])
+        if (fen != Consts.StartposFEN.Split()[0])
             return;
 
         List<string> possible = [];
@@ -75,16 +75,32 @@ internal static class OpeningBook {
 
     private static readonly string[] BOOK = [
 
-        "d2d4 g8f6",
-        "d2d4 d7d5",
-        "e2e4 e7e6",
-        "e2e4 e7e5",
         "e2e4 d7d6",
-        "g1f3 d7d5",
-        "e2e3 g8f6",
-        "c2c4 g8f6",
+
+        "e2e4 d7d5",
+
         "e2e4 c7c5",
+        "e2e4 c7c5",
+
         "e2e4 c7c6",
+        "e2e4 c7c6",
+
+        "g1f3 d7d5",
+
+        "e2e3 g8f6",
+        "e2e3 g8f6",
+
+        "c2c4 g8f6",
+        "c2c4 g8f6",
+        "c2c4 g8f6",
+
+        "c2c3",
+        "c2c4",
+
+        "d2d3",
+        "d2d3",
+
+        "a2a3"
 
 
         //// king's indian defense

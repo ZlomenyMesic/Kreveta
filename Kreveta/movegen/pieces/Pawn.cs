@@ -1,33 +1,21 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 namespace Kreveta.movegen.pieces;
 
 internal static class Pawn {
     // returns a bitboard of possible move end squares
-    internal static ulong GetPawnPushes(ulong pawn, int col, ulong empty) {
+    internal static ulong GetPawnPushes(ulong pawn, Color col, ulong empty) {
 
         // chess speaks for itself
-        ulong singlePush = col == 0
+        ulong singlePush = col == Color.WHITE
             ? pawn >> 8 & empty
             : pawn << 8 & empty;
 
         // another single push but make sure the pawn moved from the starting position
-        ulong doublePush = col == 0
+        ulong doublePush = col == Color.WHITE
             ? singlePush >> 8 & empty & 0x000000FF00000000
             : singlePush << 8 & empty & 0x00000000FF000000;
 
@@ -35,16 +23,16 @@ internal static class Pawn {
     }
 
     // returns a bitboard of possible capture end squares
-    internal static ulong GetPawnCaptures(ulong pawn, int en_p_sq, int col, ulong occ_opp) {
+    internal static ulong GetPawnCaptures(ulong pawn, int en_p_sq, Color col, ulong occ_opp) {
 
         // in both cases we ensure the pawn hasn't jumped to the other side of the board
 
         // captures to the left
-        ulong l = col == 0
+        ulong l = col == Color.WHITE
             ? pawn >> 9 & 0x7F7F7F7F7F7F7F7F
             : pawn << 7 & 0x7F7F7F7F7F7F7F7F;
         // captures to the right
-        ulong r = col == 0
+        ulong r = col == Color.WHITE
             ? pawn >> 7 & 0xFEFEFEFEFEFEFEFE
             : pawn << 9 & 0xFEFEFEFEFEFEFEFE;
 
@@ -56,25 +44,25 @@ internal static class Pawn {
 
     // this method is only used to prevent nesting in a switch case
     // moves are added into the list
-    internal static void AddPawnMoves(int col, int start, int end, int capt, List<Move> moves, int en_p_sq) {
+    internal static void AddPawnMoves(Color col, int start, int end, PType capt, List<Move> moves, int en_p_sq) {
 
         // in case of promotion
-        if ((col == 0 && end < 8) | (col == 1 && end > 55)) {
+        if ((col == Color.WHITE && end < 8) | (col == Color.BLACK && end > 55)) {
 
-            // loop through possible promotions - N B R Q
-            for (int i = 1; i <= 4; i++) {
-                moves.Add(new(start, end, 0, capt, i));
-            }
+            moves.Add(new(start, end, PType.PAWN, capt, PType.KNIGHT));
+            moves.Add(new(start, end, PType.PAWN, capt, PType.BISHOP));
+            moves.Add(new(start, end, PType.PAWN, capt, PType.ROOK));
+            moves.Add(new(start, end, PType.PAWN, capt, PType.QUEEN));
         } 
         else if (end == en_p_sq) {
 
-            // en passant
-            moves.Add(new(start, end, 0, 6, 0));
+            // en passant - "pawn promotion"
+            moves.Add(new(start, end, PType.PAWN, PType.NONE, PType.PAWN));
         } 
         else {
 
             // regular moves
-            moves.Add(new(start, end, 0, capt, 6));
+            moves.Add(new(start, end, PType.PAWN, capt, PType.NONE));
         }
     }
 }

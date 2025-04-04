@@ -37,7 +37,7 @@ internal static class MoveOrder {
         for (int i = 0; i < legal.Count; i++) {
 
             // only add captures
-            if (!sorted.Contains(legal[i]) && legal[i].Capture() != 6)
+            if (!sorted.Contains(legal[i]) && legal[i].Capture() != PType.NONE)
                 capts.Add(legal[i]);
         }
 
@@ -57,7 +57,7 @@ internal static class MoveOrder {
             // the position, we have to check a couple thing
             if (legal.Contains(found_killers[i])                    // illegal
                 && !sorted.Contains(found_killers[i])               // already added
-                && b.PieceAt(found_killers[i].End()).Item2 == 6) {  // not quiet
+                && b.PieceAt(found_killers[i].End()).type == PType.NONE) {  // not quiet
 
                 sorted[cur++] = found_killers[i];
             }
@@ -97,7 +97,7 @@ internal static class MoveOrder {
             sorts_made = false;
 
             for (int i = 1; i < quiets.Count; i++) {
-                if (quiets[i].Item2 < quiets[i - 1].Item2) {
+                if (quiets[i].Item2 > quiets[i - 1].Item2) {
 
                     // switch places
                     (quiets[i], quiets[i - 1]) = (quiets[i - 1], quiets[i]);

@@ -35,7 +35,7 @@ internal static class LookupTables {
     internal static readonly ulong[][] DiagMoves = new ulong[64][];
 
     // initializes all lookup tables when starting the engine
-    internal static void Initialize() {
+    static LookupTables() {
         InitKingMoves();
         InitKnightMoves();
         InitRankMoves();

@@ -9,132 +9,151 @@ using System.Text;
 namespace Kreveta;
 
 internal static class Options {
+
+    private const bool DefaultOwnBook = true;
+    private const bool DefaultNKLogs = false;
+    private const long DefaultHash = 40;
+
     internal enum OptionType {
         CHECK, SPIN, BUTTON, STRING
     }
 
     internal struct Option {
-        internal string name;
-        internal OptionType type;
 
-        internal string min_value;
-        internal string max_value;
+        internal string Name;
+        internal OptionType Type;
 
-        internal string def_value;
-        internal string value;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string TypeToString(OptionType type) {
-            return type switch {
-                OptionType.CHECK  => "check",
-                OptionType.SPIN   => "spin",
-                OptionType.BUTTON => "button",
-                OptionType.STRING => "string",
-                _ => ""
-            };
-        }
+        internal string MinValue;
+        internal string MaxValue;
+        internal string DefaultValue;
+        internal string Value;
     }
 
     private static readonly Option[] options = [
 
         // should the engine use its own opening book?
         new() {
-            name = "OwnBook",
-            type = OptionType.CHECK,
+            Name = "OwnBook",
+            Type = OptionType.CHECK,
 
-            def_value = "false",
-            value = "false"
+            // standard ToString returns True and False, which
+            // isn't what we want. this works just fine
+            DefaultValue = DefaultOwnBook ? "true" : "false",
+            Value = DefaultOwnBook ? "true" : "false"
         },
 
         // modify the size of the hash table (transpositions)
         new() {
-            name = "Hash",
-            type = OptionType.SPIN,
+            Name = "Hash",
+            Type = OptionType.SPIN,
 
-            min_value = "1",
-            max_value = "2048",
+            MinValue = "1",
+            MaxValue = "2048",
 
-            def_value = "48",
-            value = "48"
+            DefaultValue = DefaultHash.ToString(),
+            Value = DefaultHash.ToString()
+        },
+
+
+        // special fancy info, warning and error logs
+        // using the NeoKolors library by KryKom
+        new() {
+            Name = "NKLogs",
+            Type = OptionType.CHECK,
+
+            DefaultValue = DefaultNKLogs ? "true" : "false",
+            Value = DefaultNKLogs ? "true" : "false"
         },
     ];
 
     internal static bool OwnBook {
-        get => options[0].value == "true";
+        get => options[0].Value == "true";
     }
 
     internal static int Hash {
-        get => int.Parse(options[1].value);
+        get => int.Parse(options[1].Value);
+    }
+
+    internal static bool NKLogs {
+        get => options[2].Value == "true";
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string OTypeToString(OptionType type) {
+        return type switch {
+            OptionType.CHECK  => "check",
+            OptionType.SPIN   => "spin",
+            OptionType.BUTTON => "button",
+            OptionType.STRING => "string",
+            _ => ""
+        };
     }
 
     internal static void Print() {
         foreach (Option opt in options) {
             StringBuilder sb = new();
 
-            sb.Append($"option name {opt.name}");
+            sb.Append($"option name {opt.Name}");
 
-            string type = Option.TypeToString(opt.type);
-
+            string type = OTypeToString(opt.Type);
             sb.Append($" type {type}");
 
-            if (opt.type == OptionType.CHECK || opt.type == OptionType.STRING) {
-                sb.Append($" default {opt.def_value}");
+            if (opt.Type == OptionType.CHECK || opt.Type == OptionType.STRING) {
+                sb.Append($" default {opt.DefaultValue}");
+            } else if (opt.Type == OptionType.SPIN) {
+                sb.Append($" default {opt.DefaultValue} min {opt.MinValue} max {opt.MaxValue}");
             }
 
-            else if (opt.type == OptionType.SPIN) {
-                sb.Append($" default {opt.def_value} min {opt.min_value} max {opt.max_value}");
-            }
-
-            Console.WriteLine(sb.ToString());
+            UCI.Log(sb.ToString(), UCI.LogLevel.RAW);
         }
     }
 
-    internal static void SetOption(string[] toks) {
-        if (toks.Length < 3 || toks[1] != "name") {
+    internal static void SetOption(string[] tokens) {
+        if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;
         }
 
         for (int i = 0; i < options.Length; i++) {
-            if (options[i].name == toks[2]) {
+            if (options[i].Name == tokens[2]) {
 
-                if (options[i].type == OptionType.BUTTON) {
+                if (options[i].Type == OptionType.BUTTON) {
                     //
                     //
                     //
                     return;
                 }
 
-                if (options[i].type == OptionType.CHECK) {
-                    if (toks.Length == 5 && toks[3] == "value"
-                        && (toks[4] == "true" || toks[4] == "false")) {
+                if (options[i].Type == OptionType.CHECK) {
+                    if (tokens.Length == 5 && tokens[3] == "value"
+                        && (tokens[4] == "true" || tokens[4] == "false")) {
 
-                        options[i].value = toks[4];
+                        options[i].Value = tokens[4];
 
                         return;
 
                     } else goto invalid_syntax;
                 }
 
-                if (options[i].type == OptionType.SPIN) {
-                    if (toks.Length == 5 && toks[3] == "value") {
+                if (options[i].Type == OptionType.SPIN) {
+                    if (tokens.Length == 5 && tokens[3] == "value") {
 
-                        if (!long.TryParse(toks[4], out _))
+                        if (!long.TryParse(tokens[4], out _))
                             goto invalid_syntax;
 
-                        options[i].value = toks[4];
+                        options[i].Value = tokens[4];
                         return;
 
                     } else goto invalid_syntax;
                 }
 
-                if (options[i].type == OptionType.STRING) {
-                    if (toks.Length >= 5 && toks[3] == "value") {
+                if (options[i].Type == OptionType.STRING) {
+                    if (tokens.Length >= 5 && tokens[3] == "value") {
 
-                        options[i].value = "";
-                        for (int j = 3; j < toks.Length; j++) {
+                        options[i].Value = "";
+                        for (int j = 3; j < tokens.Length; j++) {
 
-                            options[i].value += $" {toks[j]}";
-                            options[i].value = options[i].value.Trim();
+                            options[i].Value += $" {tokens[j]}";
+                            options[i].Value = options[i].Value.Trim();
                         }
                         return;
 
@@ -143,11 +162,11 @@ internal static class Options {
             }
         }
 
-        Console.WriteLine($"unsupported option {toks[2]}");
+        UCI.Log($"unsupported option {tokens[2]}", UCI.LogLevel.ERROR);
         return;
 
         invalid_syntax:
-        Console.WriteLine("invalid setoption syntax");
+        UCI.Log("invalid setoption syntax", UCI.LogLevel.ERROR);
         return;
     }
 }

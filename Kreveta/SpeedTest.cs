@@ -12,27 +12,28 @@ namespace Kreveta;
 
 internal static class SpeedTest {
 
-    private const int REPETITIONS = 20;
-    private const long ITERATIONS_PER_REP = 50000;
+    private const int Repetitions = 20;
+    private const long IterationsPerRep = 50000;
 
     internal static void Run() {
 
-        long elapsed_ms = 0;
+        long elapsed = 0;
 
-        for (int i = 0; i < REPETITIONS; i++) {
+        for (int i = 0; i < Repetitions; i++) {
+
             Stopwatch sw = Stopwatch.StartNew();
 
-            long counter = 0;
+            long auxCounter = 0;
 
-            for (int j = 0; j < ITERATIONS_PER_REP; j++) {
-                counter += MoveOrder.GetSortedMoves(Game.board, 3).Length;
+            for (int j = 0; j < IterationsPerRep; j++) {
+                auxCounter += MoveOrder.GetSortedMoves(Game.board, 3).Length;
             }
 
             sw.Stop();
-            elapsed_ms += sw.ElapsedMilliseconds;
+            elapsed += sw.ElapsedMilliseconds;
         }
 
-        long average = elapsed_ms / REPETITIONS;
-        Console.WriteLine($"average time spent: {average} ms");
+        long average = elapsed / Repetitions;
+        UCI.Log($"average time spent: {average} ms", UCI.LogLevel.INFO);
     }
 }

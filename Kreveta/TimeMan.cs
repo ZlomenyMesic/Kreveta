@@ -13,12 +13,13 @@ internal static class TimeMan {
     private static int binc;
 
     private static int movestogo;
-    private static readonly int DEF_MOVESTOGO = 40;
 
     private static long movetime = 0;
 
-    internal static long time_budget_ms;
-    private static readonly long DEF_TIME_BUDGET = 8000;
+    internal static long TimeBudget;
+
+    private static readonly int DefaultMovestogo = 40;
+    private static readonly long DefaultTimeBudget = 8000;
 
     internal static void ProcessTime(string[] toks) {
         wtime = btime = movetime = winc = binc = movestogo = 0;
@@ -70,8 +71,8 @@ internal static class TimeMan {
             if (success && i == toks.Length) {
 
                 if (movestogo == 0 && movetime == 0) {
-                    Console.WriteLine($"info string using default movestogo {DEF_MOVESTOGO}");
-                    movestogo = DEF_MOVESTOGO;
+                    Console.WriteLine($"info string using default movestogo {DefaultMovestogo}");
+                    movestogo = DefaultMovestogo;
                 }
 
                 CalculateTimeBudget();
@@ -80,7 +81,7 @@ internal static class TimeMan {
         }
 
         arg_fail: {
-            time_budget_ms = DEF_TIME_BUDGET;
+            TimeBudget = DefaultTimeBudget;
             return;
         }
     }
@@ -89,10 +90,10 @@ internal static class TimeMan {
 
         // either infinite time or strictly set time per move
         if (movetime != 0) {
-            time_budget_ms = movetime;
+            TimeBudget = movetime;
             return;
         }
 
-        time_budget_ms = (int)((Game.engine_col == 0 ? wtime : btime) / movestogo / 1.1f);
+        TimeBudget = (int)((Game.color == Color.WHITE ? wtime : btime) / movestogo / 1.1f);
     }
 }

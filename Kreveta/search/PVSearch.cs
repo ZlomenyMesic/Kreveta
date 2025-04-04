@@ -95,7 +95,12 @@ namespace Kreveta.search {
 
             Killers.Clear();
             History.Clear();
-            TT.Clear();
+
+            // if we are playing a full game,
+            // we want to keep the hash table
+            if (Game.fullGame)
+                TT.DecrementEntryDepths();
+            else TT.Clear();
         }
 
         // stores the pv in the transposition table.
@@ -145,7 +150,7 @@ namespace Kreveta.search {
             if (Abort && cur_depth > 1)
                 return (0, []);
 
-            int col = board.color;
+            Color col = board.color;
 
             // we reached depth = 0, we evaluate the leaf node though the qsearch
             if (depth <= 0) {
@@ -159,7 +164,7 @@ namespace Kreveta.search {
 
             // if the position is saved as a 3-fold repetition draw, return 0.
             // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply == 1 || ply == 2) && Game.draws.Contains(Zobrist.GetHash(board))) {
+            if ((ply == 1 || ply == 2) && Game.Draws.Contains(Zobrist.GetHash(board))) {
                 return (0, []);
             }
 
@@ -219,7 +224,7 @@ namespace Kreveta.search {
                 child.PlayMove(cur_move);
 
                 // did this move capture a piece?
-                bool is_capture = cur_move.Capture() != 6;
+                bool is_capture = cur_move.Capture() != PType.NONE;
 
                 // we save the moves as visited to the history table.
                 // history only stores quiet moves - no captures
@@ -236,7 +241,7 @@ namespace Kreveta.search {
                 bool interesting = exp_nodes == 1 
                     || in_check 
                     //|| (depth >= 6 && is_capture)
-                    || Movegen.IsKingInCheck(child, col == 0 ? 1 : 0);
+                    || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
                 short s_eval = Eval.StaticEval(child);
 
@@ -360,7 +365,7 @@ namespace Kreveta.search {
             if (ply >= cur_max_qs_depth)
                 return Eval.StaticEval(board);
 
-            int col = board.color;
+            Color col = board.color;
 
             // is the side to move in check?
             //
@@ -419,7 +424,7 @@ namespace Kreveta.search {
                 child.PlayMove(moves[i]);
 
                 // value of the piece we just captured
-                int captured = in_check ? 0 : EvalTables.Values[moves[i].Capture()];
+                int captured = in_check ? 0 : EvalTables.Values[(byte)moves[i].Capture()];
 
                 // delta pruning
                 if (DP.CanPrune(!in_check, ply, cur_depth)) {

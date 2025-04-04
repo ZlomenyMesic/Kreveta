@@ -46,8 +46,6 @@ namespace Kreveta.search {
             int piece_count = BB.Popcount(Game.board.Occupied());
             NMP.UpdateMinPly(piece_count);
 
-            TT.Clear();
-
             // we still have time and are allowed to search deeper
             while (PVSearch.cur_depth < max_depth 
                 && sw.ElapsedMilliseconds < time_budget_ms) {
@@ -71,11 +69,11 @@ namespace Kreveta.search {
                 } else break;
             }
 
-            Console.WriteLine($"info string time spent {sw.Elapsed}");
-            Console.WriteLine($"info string total nodes {total_nodes}");
+            UCI.Log($"info string time spent {sw.Elapsed}",   UCI.LogLevel.INFO);
+            UCI.Log($"info string total nodes {total_nodes}", UCI.LogLevel.INFO);
 
             // the final response of the engine to the gui
-            Console.WriteLine($"bestmove {best_move}");
+            UCI.Log($"bestmove {best_move}");
 
             // reset all counters for the next search
             // NEXT SEARCH, not the next iteration of the current one
@@ -96,14 +94,14 @@ namespace Kreveta.search {
 
             // pv score relative to color (this gets printed to the gui)
             // although we probably don't need this, it is a common way to do so
-            int col_score = eng_score * (Game.engine_col == 0 ? 1 : -1);
+            int col_score = eng_score * (Game.color == Color.WHITE ? 1 : -1);
 
             // nodes per second - a widely used measure to approximate an
             // engine's strength or efficiency. we need to maximize nps.
             int nps = (int)(total_nodes / (sw ?? Stopwatch.StartNew()).Elapsed.TotalSeconds);
 
             // we print the search info to the console
-            Console.Write($"info " +
+            string info = "info " +
 
                 // full search depth
                 $"depth {PVSearch.cur_depth} " +
@@ -125,15 +123,15 @@ namespace Kreveta.search {
                 $"score cp {col_score} " +
 
                 // principal variation
-                $"pv");
+                $"pv";
 
             // print the actual moves in the pv
             foreach (Move m in GetFullPV(PVSearch.achieved_depth))
-                Console.Write($" {m}");
+                info += $" {m}";
 
             // as per the convention, the engine's response
             // shall always end with a newline character
-            Console.WriteLine();
+            UCI.Log(info, UCI.LogLevel.INFO);
         }
 
         // tries to find the pv outside of just the stored array

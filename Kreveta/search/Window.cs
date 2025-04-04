@@ -27,10 +27,10 @@ internal struct Window {
 
     // makes the window smaller by raising alpha or reducing beta, depending on the color
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryCutoff(short score, int col) {
+    internal bool TryCutoff(short score, Color col) {
 
         // raising alpha (floor)
-        if (col == 0) {
+        if (col == Color.WHITE) {
 
             // fail low
             if (score <= alpha)
@@ -69,38 +69,38 @@ internal struct Window {
 
     // returns the "floor" for a specific color
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly Window GetLowerBound(int col)
-        => col == 0 ? LowerBound() : UpperBound();
+    internal readonly Window GetLowerBound(Color col)
+        => col == Color.WHITE ? LowerBound() : UpperBound();
 
     // returns the "ceiling" for a specific color
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly Window GetUpperBound(int col)
-        => col == 0 ? UpperBound() : LowerBound();
+    internal readonly Window GetUpperBound(Color col)
+        => col == Color.WHITE ? UpperBound() : LowerBound();
 
 
     // if a move fails low, it is not good enough to improve our position, so we won't play it
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly bool FailsLow(short score, int col) 
-        => col == 0 
+    internal readonly bool FailsLow(short score, Color col) 
+        => col == Color.WHITE 
         ? (score <= alpha) 
         : (score >= beta);
 
 
     // if a move fails high, it is "too good" and the opponen won't allow it to be played
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly bool FailsHigh(short score, int col)
-        => col == 0 
+    internal readonly bool FailsHigh(short score, Color col)
+        => col == Color.WHITE
         ? (score >= beta) 
         : (score <= alpha);
 
     // return the "ensured" score for a color
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly short GetBoundScore(int col) 
-        => col == 0 ? alpha : beta;
+    internal readonly short GetBoundScore(Color col) 
+        => col == Color.WHITE ? alpha : beta;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly bool CanFailHigh(int col)
-        => col == 0 
+    internal readonly bool CanFailHigh(Color col)
+        => col == Color.WHITE
         ? (beta < short.MaxValue) 
         : (alpha > short.MinValue);
 }

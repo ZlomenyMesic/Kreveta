@@ -43,27 +43,27 @@ internal static class Zobrist {
     }
 
     internal static ulong GetHash(Board b) {
-        ulong hash = side_to_move[b.color];
+        ulong hash = side_to_move[(byte)b.color];
 
-        hash ^= castling[(byte)b.castling];
+        hash ^= castling[(byte)b.castRights];
 
-        if (b.en_passant_sq != 64)
-            hash ^= en_passant[b.en_passant_sq];
+        if (b.enPassantSq != 64)
+            hash ^= en_passant[b.enPassantSq];
 
-        for (int i = 0; i < 64; i++) {
+        for (int sq = 0; sq < 64; sq++) {
 
-            (int c, int piece) = b.PieceAt(i);
-            hash ^= GetPieceHash(piece, c, i);
+            (Color c, PType piece) = b.PieceAt(sq);
+            hash ^= GetPieceHash(piece, c, sq);
         }
 
         return hash;
     }
 
-    private static ulong GetPieceHash(int piece, int col, int square) {
-        if (piece == 6) 
+    private static ulong GetPieceHash(PType piece, Color col, int square) {
+        if (piece == PType.NONE) 
             return 0;
 
-        int index = piece + col == 0 ? 6 : 0;
+        int index = (byte)piece + (col == Color.WHITE ? 6 : 0);
         return pieces[square, index];
     }
 

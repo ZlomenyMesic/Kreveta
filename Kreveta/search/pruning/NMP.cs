@@ -37,7 +37,7 @@ internal static class NMP {
     // we must either find the shortest mate or escape. we also don't prune
     // if we are being checked
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanPrune(int depth, int ply, bool is_checked, int pv_score, Window window, int col) {
+    internal static bool CanPrune(int depth, int ply, bool is_checked, int pv_score, Window window, Color col) {
 
         return PruningOptions.ALLOW_NULL_MOVE_PRUNING
 
@@ -56,7 +56,7 @@ internal static class NMP {
     }
 
     // try null move pruning
-    internal static bool TryPrune(Board b, int depth, int ply, Window window, int col, out short score) {
+    internal static bool TryPrune(Board b, int depth, int ply, Window window, Color col, out short score) {
 
         // null window around beta
         Window nullw_beta = window.GetUpperBound(col);

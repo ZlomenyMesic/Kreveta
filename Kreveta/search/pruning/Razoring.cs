@@ -22,10 +22,10 @@ internal static class Razoring {
             && depth == DEPTH;
     }
 
-    internal static bool TryReduce(Board b, int depth, int col, Window window) {
+    internal static bool TryReduce(Board b, int depth, Color col, Window window) {
         short q_eval = PVSearch.QSearch(b, QS_PLY, window.GetLowerBound(col));
 
-        int margin = MARGIN_BASE * depth * (col == 0 ? 1 : -1);
+        int margin = MARGIN_BASE * depth * (col == Color.WHITE ? 1 : -1);
 
         return window.FailsLow((short)(q_eval + margin), col);
     }

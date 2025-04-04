@@ -134,8 +134,8 @@ internal static class History {
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int PieceIndex(Board b, Move m) {
-        (int col, int piece) = b.PieceAt(m.Start());
-        return piece + col == 0 ? 6 : 0;
+        (Color col, PType piece) = b.PieceAt(m.Start());
+        return (byte)piece + (col == Color.WHITE ? 6 : 0);
     }
 
     private const int HHS_SUBTRACT = 5;

@@ -74,8 +74,8 @@ internal static class MVV_LVA {
     internal static int GetCaptureScore(Move capt) {
 
         // piece moved and piece captured (aggressor and victim)
-        int aggressor = PIECE_VALUES[capt.Piece()];
-        int victim    = PIECE_VALUES[capt.Capture()];
+        int aggressor = PIECE_VALUES[(byte)capt.Piece()];
+        int victim    = PIECE_VALUES[(byte)capt.Capture()];
 
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as
@@ -83,7 +83,7 @@ internal static class MVV_LVA {
         if (victim >> 31 == 1) {
 
             // en passant always captures a pawn
-            victim = 1;
+            victim = 100;
         }
 
         // calculate the difference - positive diff means the move is
