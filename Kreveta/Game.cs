@@ -30,7 +30,7 @@ internal static class Game {
     internal static void SetPosFEN(string[] toks) {
 
         // clear the board from previous game/search
-        board.Erase();
+        board.Clear();
 
         // erase the draw counters
         HistoryPositions = [];
@@ -50,10 +50,10 @@ internal static class Game {
 
                 // wrong letter?
                 if (!Consts.Pieces.Contains(char.ToLower(toks[2][i]))) {
-                    Console.WriteLine($"invalid piece in FEN: {toks[2][i]}");
+                    UCI.Log($"invalid piece in FEN: {toks[2][i]}", UCI.LogLevel.ERROR);
 
                     // clear the board to prevent chaos
-                    board.Erase();
+                    board.Clear();
                     return;
                 }
 
@@ -78,7 +78,9 @@ internal static class Game {
             // black
             case "b": color = Color.BLACK; break;
 
-            default: Console.WriteLine($"invalid side to move: {toks[3]}"); return;
+            default: UCI.Log($"invalid side to move: {toks[3]}", UCI.LogLevel.ERROR); 
+                     board.Clear(); 
+                     return;
         }
         board.color = color;
 
@@ -105,7 +107,9 @@ internal static class Game {
 
                 default:
                     if (toks[4][i] != '-') {
-                        Console.WriteLine($"invalid castling availiability: {toks[2][i]}");
+                        UCI.Log($"invalid castling availiability: {toks[2][i]}", UCI.LogLevel.ERROR);
+
+                        board.Clear();
                         return;
                     } else continue;
             }
@@ -118,12 +122,20 @@ internal static class Game {
         // spec has since made it so the target square is only recorded if a legal en passant move is possible but
         // the old version of the standard is the one most commonly used.
 
-        if (toks[5].Length == 2 && char.IsDigit(toks[3][0]) && char.IsDigit(toks[3][1]))
+        if (toks[5].Length == 2 
+            && char.IsDigit(toks[3][0]) 
+            && char.IsDigit(toks[3][1]))
+
             board.enPassantSq = (byte)int.Parse(toks[3]);
-        else if (toks[5].Length == 1 && toks[5][0] == '-')
+
+        else if (toks[5].Length == 1 
+            && toks[5][0] == '-')
+
             board.enPassantSq = 64;
         else {
-            Console.WriteLine($"invalid en passant square: {toks[3]}");
+            UCI.Log($"invalid en passant square: {toks[3]}", UCI.LogLevel.ERROR);
+
+            board.Clear();
             return;
         }
 
@@ -138,7 +150,7 @@ internal static class Game {
         // TODO: FINISH FEN
 
         // position command can be followed by a sequence of moves
-        int m_start = toks.ToList().IndexOf("moves");
+        int moveSeqStart = toks.ToList().IndexOf("moves");
 
         // we save the previous positions as 3-fold repetition exists
         HistoryPositions.Add(Zobrist.GetHash(board));
@@ -146,11 +158,18 @@ internal static class Game {
         List<string> sequence = [];
 
         // if the sequence exists
-        if (m_start != -1) {
+        if (moveSeqStart != -1) {
 
             // play the sequence of moves
-            for (int i = m_start + 1; i < toks.Length; i++) {
+            for (int i = moveSeqStart + 1; i < toks.Length; i++) {
                 sequence.Add(toks[i]);
+
+                if (!Move.IsCorrectFormat(toks[i])) {
+                    UCI.Log($"invalid move: {toks[i]}", UCI.LogLevel.ERROR);
+
+                    board.Clear();
+                    return;
+                }
 
                 board.PlayMove(Move.FromString(board, toks[i]));
                 HistoryPositions.Add(Zobrist.GetHash(board));

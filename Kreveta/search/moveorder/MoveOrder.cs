@@ -15,18 +15,18 @@ internal static class MoveOrder {
     // more space for pruning. we, of course, cannot know which
     // moves are the best unless we do the search, but we can at
     // least make a rough guess.
-    internal static Move[] GetSortedMoves(Board b, int depth) {
+    internal static Move[] GetSortedMoves(Board board, int depth) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
-        List<Move> legal = Movegen.GetLegalMoves(b);
+        List<Move> legal = Movegen.GetLegalMoves(board);
 
         Move[] sorted = new Move[legal.Count];
         int cur = 0;
 
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
-        if (TT.GetBestMove(b, out Move bestMove) && legal.Contains(bestMove)) {
+        if (TT.GetBestMove(board, out Move bestMove) && legal.Contains(bestMove)) {
             sorted[cur++] = bestMove;
         }
 
@@ -37,12 +37,14 @@ internal static class MoveOrder {
         for (int i = 0; i < legal.Count; i++) {
 
             // only add captures
-            if (!sorted.Contains(legal[i]) && legal[i].Capture() != PType.NONE)
+            if (!sorted.Contains(legal[i]) 
+                && legal[i].Capture() != PType.NONE)
+
                 capts.Add(legal[i]);
         }
 
         // get the captures ordered and add them to the list
-        Move[] mvvlva = capts.Count > 1 ? MVV_LVA.OrderCaptures([ ..capts]) : [ ..capts];
+        Move[] mvvlva = MVV_LVA.OrderCaptures([ ..capts]);
         for (int j = 0; j < mvvlva.Length; j++) {
             sorted[cur++] = mvvlva[j];
         }
@@ -50,16 +52,16 @@ internal static class MoveOrder {
         // next go killers, which are quiet moves, that caused
         // a beta cutoff somewhere in the past in or in a different
         // position. we only save a few per depth, though
-        Move[] found_killers = Killers.Get(depth);
-        for (int i = 0; i < found_killers.Length; i++) {
+        Move[] killers = Killers.Get(depth);
+        for (int i = 0; i < killers.Length; i++) {
 
             // since killer moves are stored independently of
             // the position, we have to check a couple thing
-            if (legal.Contains(found_killers[i])                    // illegal
-                && !sorted.Contains(found_killers[i])               // already added
-                && b.PieceAt(found_killers[i].End()).type == PType.NONE) {  // not quiet
+            if (legal.Contains(killers[i])                    // illegal
+                && !sorted.Contains(killers[i])               // already added
+                && board.PieceAt(killers[i].End()).type == PType.NONE) {  // not quiet
 
-                sorted[cur++] = found_killers[i];
+                sorted[cur++] = killers[i];
             }
         }
 
@@ -73,7 +75,7 @@ internal static class MoveOrder {
 
             // if the move has no history, this is
             // set to zero, which is also fine
-            quiets.Add((legal[i], History.GetRep(b, legal[i])));
+            quiets.Add((legal[i], History.GetRep(board, legal[i])));
         }
 
         // sort them
@@ -92,16 +94,16 @@ internal static class MoveOrder {
 
         // very primitive sorting algorithm for quiet moves,
         // sorts by their history value
-        bool sorts_made = true;
-        while (sorts_made) {
-            sorts_made = false;
+        bool sortsMade = true;
+        while (sortsMade) {
+            sortsMade = false;
 
             for (int i = 1; i < quiets.Count; i++) {
                 if (quiets[i].Item2 > quiets[i - 1].Item2) {
 
                     // switch places
                     (quiets[i], quiets[i - 1]) = (quiets[i - 1], quiets[i]);
-                    sorts_made = true;
+                    sortsMade = true;
                 }
             }
         }

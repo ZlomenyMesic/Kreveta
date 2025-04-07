@@ -10,20 +10,19 @@ namespace Kreveta.search.pruning;
 // DELTA PRUNING:
 //
 internal static class DP {
-    private const int MIN_PLY = 4;
-    private const int MARGIN_BASE = 81;
+    internal const int MinPly          = 4;
+    private  const int DeltaMarginBase = 81;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanPrune(bool only_captures, int ply, int cur_depth) {
-        return PruningOptions.ALLOW_DELTA_PRUNING 
-            && only_captures 
-            && ply >= cur_depth + MIN_PLY;
-    }
+    internal static bool TryPrune(int ply, int curQSDepth, Color col, Window window, short standPat, int captured) {
+        int delta = (curQSDepth - ply) * DeltaMarginBase 
+            * (col == Color.WHITE ? 1 : -1);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool TryPrune(int ply, int cur_max_qs_depth, Color col, Window window, short stand_pat, int captured) {
-        int delta_margin = (cur_max_qs_depth - ply) * MARGIN_BASE * (col == Color.WHITE ? 1 : -1);
+        standPat += (short)captured;
+        standPat += (short)delta;
 
-        return window.FailsLow((short)(stand_pat + captured + delta_margin), col);
+        return col == Color.WHITE
+            ? (standPat <= window.alpha)
+            : (standPat >= window.beta);
     }
 }

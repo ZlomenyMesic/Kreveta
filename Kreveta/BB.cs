@@ -33,7 +33,7 @@ internal static class BB {
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static (ulong, int) LS1BReset(ulong bb) {
+    internal static (ulong BB, int Index) LS1BReset(ulong bb) {
         ulong new_bb = bb;
         bb &= new_bb - 1;
         return (bb, LS1B(new_bb));

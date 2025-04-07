@@ -1,19 +1,7 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using Kreveta.movegen.pieces;
 using System.Runtime.CompilerServices;
@@ -22,19 +10,19 @@ namespace Kreveta.evaluation;
 
 internal static class Eval {
 
-    private const ulong CENTER = 0x00007E7E7E7E0000;
+    private const ulong Center = 0x00007E7E7E7E0000;
 
-    private const int MATE_SCORE_BASE = 9000;
-    private const int MATE_SCORE = 9999;
+    private const int MateScoreThreshold = 9000;
+    private const int MateScoreDefault = 9999;
 
-    private const int SIDE_TO_MOVE_BONUS = 5;
+    private const int SideToMoveBonus = 5;
 
-    private const int DOUBLED_PAWN_PENALTY = -7;
-    private const int ISOLATED_PAWN_PENALTY = -21;
+    private const int DoubledPawnPenalty = -6;
+    private const int IsolatedPawnPenalty = -21;
 
-    private const int BISHOP_PAIR_BONUS = 35;
+    private const int BishopPairBonus = 35;
 
-    private const int OPEN_FILE_ROOK_BONUS = 24;
+    private const int OpenFileRookBonus = 24;
 
     private static readonly Random r = new();
 
@@ -52,11 +40,11 @@ internal static class Eval {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short GetMateScore(Color col, int ply)
-        => (short)((col == Color.WHITE ? -1 : 1) * (MATE_SCORE - ply));
+        => (short)((col == Color.WHITE ? -1 : 1) * (MateScoreDefault - ply));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsMateScore(int s)
-        => Math.Abs(s) > MATE_SCORE_BASE;
+        => Math.Abs(s) > MateScoreThreshold;
 
 
     internal static short StaticEval(Board b) {
@@ -65,8 +53,6 @@ internal static class Eval {
         ulong b_occ = b.Occupied(Color.BLACK);
 
         int piece_count = BB.Popcount(w_occ | b_occ);
-
-        short eval = 0;
 
         short w_eval = 0, b_eval = 0;
 
@@ -88,7 +74,7 @@ internal static class Eval {
             }
         }
 
-        eval = (short)(w_eval - b_eval);
+        short eval = (short)(w_eval - b_eval);
 
         // pawn structure eval includes:
         // 
@@ -124,7 +110,7 @@ internal static class Eval {
         eval += KingEval(b, piece_count);
 
         // side to move should also get a slight advantage
-        eval += (short)(b.color == Color.WHITE ? SIDE_TO_MOVE_BONUS : -SIDE_TO_MOVE_BONUS);
+        eval += (short)(b.color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
 
         return (short)(eval/* + r.Next(-6, 6)*/);
     }
@@ -162,7 +148,7 @@ internal static class Eval {
             if (file_occ == 0) continue;
 
             // penalize doubled pawns
-            eval += (file_occ - 1) * DOUBLED_PAWN_PENALTY * colMult;
+            eval += (file_occ - 1) * DoubledPawnPenalty * colMult;
 
             // current file + files on the sides
             ulong adj = AdjFiles[i];
@@ -170,7 +156,7 @@ internal static class Eval {
             // if the number of pawns on current file is equal to the number of pawns
             // on the current plus adjacent files, we know the pawn/s are isolated
             int adj_occ = BB.Popcount(adj & p);
-            eval += file_occ != adj_occ ? 0 : ISOLATED_PAWN_PENALTY * colMult;
+            eval += file_occ != adj_occ ? 0 : IsolatedPawnPenalty * colMult;
         }
 
         return (short)eval;
@@ -207,10 +193,10 @@ internal static class Eval {
         // slows down the eval quite a lot, that's why it isn't implemented
 
         // does white have two (or more) bishops?
-        eval += (short)(BB.Popcount(b.pieces[0, 2]) > 1 ? BISHOP_PAIR_BONUS : 0);
+        eval += (short)(BB.Popcount(b.pieces[0, 2]) > 1 ? BishopPairBonus : 0);
 
         // does black have two (or more) bishops?
-        eval -= (short)(BB.Popcount(b.pieces[1, 2]) > 1 ? BISHOP_PAIR_BONUS : 0);
+        eval -= (short)(BB.Popcount(b.pieces[1, 2]) > 1 ? BishopPairBonus : 0);
 
         return eval;
     }
@@ -265,8 +251,8 @@ internal static class Eval {
         int eval = 0;
 
         // same color pieces around the king - protection
-        ulong w_protection = King.GetKingMoves(b.pieces[(byte)Color.WHITE, (byte)PType.KING], b.Occupied(Color.WHITE));
-        ulong b_protection = King.GetKingMoves(b.pieces[(byte)Color.BLACK, (byte)PType.KING], b.Occupied(Color.BLACK));
+        ulong w_protection = King.GetKingTargets(b.pieces[(byte)Color.WHITE, (byte)PType.KING], b.Occupied(Color.WHITE));
+        ulong b_protection = King.GetKingTargets(b.pieces[(byte)Color.BLACK, (byte)PType.KING], b.Occupied(Color.BLACK));
 
         // bonus for the number of friendly pieces protecting the king
         short w_prot_bonus = (short)(BB.Popcount(w_protection) * 2);

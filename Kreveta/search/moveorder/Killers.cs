@@ -13,25 +13,25 @@ internal static class Killers {
     private static int depth = 0;
 
     // number of saved killers per ply/depth
-    private const int WIDTH = 7;
+    private const int CapacityPerPly = 7;
 
     internal static void Expand(int depth) {
         Killers.depth = Math.Max(Killers.depth, depth);
-        Array.Resize(ref killers, Killers.depth * WIDTH);
+        Array.Resize(ref killers, Killers.depth * CapacityPerPly);
     }
 
     internal static void Clear() {
-        depth = 4;
         killers = [];
+        depth   = 4;
     }
 
     internal static void Add(Move move, int depth) {
-        int index0 = WIDTH * (Killers.depth - depth);
+        int index0 = CapacityPerPly * (Killers.depth - depth);
 
         lock (killers) {
             //We shift all moves by one slot to make room but overwrite a potential duplicate of 'move' then store the new 'move' at [0] 
             int last = index0;
-            for (; last < index0 + WIDTH - 1; last++)
+            for (; last < index0 + CapacityPerPly - 1; last++)
                 if (killers[last] == move) //if 'move' is present we want to overwrite it instead of the the one at [_width-1]
                     break;
 
@@ -46,9 +46,9 @@ internal static class Killers {
 
     internal static Move[] Get(int depth) {
 
-        Move[] line = new Move[WIDTH];
-        int index0 = WIDTH * (Killers.depth - depth);
-        Array.Copy(killers, index0, line, 0, WIDTH);
+        Move[] line = new Move[CapacityPerPly];
+        int index0 = CapacityPerPly * (Killers.depth - depth);
+        Array.Copy(killers, index0, line, 0, CapacityPerPly);
 
         return line;
     }

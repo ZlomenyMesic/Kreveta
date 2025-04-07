@@ -3,10 +3,8 @@
 // started 4-3-2025
 //
 
-using Kreveta.movegen;
 using Kreveta.opening_book;
 using Kreveta.search;
-using Kreveta.search.moveorder;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -107,8 +105,8 @@ internal static class UCI {
 
     private static void CmdGo(string[] toks) {
 
-        if (Options.OwnBook && OpeningBook.book_move != "") {
-            Log($"bestmove {OpeningBook.book_move}");
+        if (Options.OwnBook && OpeningBook.BookMove != "") {
+            Log($"bestmove {OpeningBook.BookMove}");
             return;
         }
 
@@ -131,7 +129,7 @@ internal static class UCI {
 
         Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
 
-        PVSControl.StartSearch(50, TimeMan.TimeBudget);
+        PVSControl.StartSearch(50);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

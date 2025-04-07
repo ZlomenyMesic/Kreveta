@@ -6,19 +6,19 @@
 namespace Kreveta.movegen.pieces;
 
 internal static class Bishop {
-    internal static ulong GetBishopMoves(ulong bishop, ulong free, ulong occupied) {
-        ulong moves = 0;
+    internal static ulong GetBishopTargets(ulong bishop, ulong free, ulong occupied) {
+        ulong targets = 0;
 
         int sq = BB.LS1B(bishop);
 
         int diag = 7 + (sq >> 3) - (sq & 7);
         int occupancy = (int)((occupied & Consts.AntidiagMask[diag]) * Consts.AntidiagMagic[diag] >> 56);
-        moves |= LookupTables.AntidiagMoves[sq][(occupancy >> 1) & 63];
+        targets |= LookupTables.AntidiagTargets[sq][(occupancy >> 1) & 63];
 
         diag = (sq >> 3) + (sq & 7);
         occupancy = (int)((occupied & Consts.DiagMask[diag]) * Consts.DiagMagic[diag] >> 56);
-        moves |= LookupTables.DiagMoves[sq][(occupancy >> 1) & 63];
+        targets |= LookupTables.DiagTargets[sq][(occupancy >> 1) & 63];
 
-        return moves & free;
+        return targets & free;
     }
 }

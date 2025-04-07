@@ -21,6 +21,11 @@ internal enum PType : byte {
     NONE   = 6
 }
 
+//internal struct Piece {
+//    internal PType type;
+//    internal Color color;
+//}
+
 [Flags]
 internal enum CastlingRights : byte {
     NONE = 0,
@@ -33,8 +38,8 @@ internal enum CastlingRights : byte {
 internal static class Consts {
 
     internal const string StartposFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    internal const string Pieces = "pnbrqk";
-    internal const string Files = "abcdefgh";
+    internal const string Pieces      = "pnbrqk";
+    internal const string Files       = "abcdefgh";
 
 
     internal static readonly ulong[] RelevantRankMask = [

@@ -8,6 +8,7 @@ using Kreveta.evaluation;
 using Kreveta.search;
 using Kreveta.search.pruning;
 using System.Runtime.CompilerServices;
+using static System.Formats.Asn1.AsnWriter;
 
 // REVERSE FUTILITY PRUNING:
 // apart from futility pruning, we also use reverse futility pruning - it's
@@ -16,40 +17,34 @@ using System.Runtime.CompilerServices;
 internal static class RFP {
 
     // minimum ply and maximum depth to allow rfp
-    private const int MIN_PLY = 5;
-    private const int MAX_DEPTH = 4;
-    private const int MIN_DEPTH = 2;
+    internal const int MinPly   = 5;
+    internal const int MaxDepth = 4;
+    internal const int MinDepth = 2;
 
     // higher margin => fewer reductions
-    private const int RF_MARGIN_BASE = 159;
+    private const int RFMarginBase = 159;
 
     // if not improving we make the margin smaller
-    private const int IMPROVING_PENALTY = -10;
+    private const int ImprovingPenalty = -10;
 
-    private const int QS_PLY = 4;
+    private const int SQPly = 4;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanPrune(int depth, int ply, bool in_check, short pv_score) {
-        return PruningOptions.ALLOW_REVERSE_FUTILITY_PRUNING 
-            && ply >= MIN_PLY
-            && depth >= MIN_DEPTH
-            && depth <= MAX_DEPTH
-            && !in_check
-            && !Eval.IsMateScore(pv_score);
-    }
+    internal static bool TryPrune(Board board, int depth, Color col, Window window, out short retScore) {
+        retScore = default;
 
-    internal static bool TryPrune(Board b, int depth, Color col, Window window, out short ret_score) {
-        ret_score = default;
+        short staticEval = Eval.StaticEval(board);
 
-        short s_eval = Eval.StaticEval(b);
+        int rfMargin = RFMarginBase * (depth + 1) * (col == Color.WHITE ? 1 : -1);
 
-        int rf_margin = RF_MARGIN_BASE * (depth + 1) * (col == Color.WHITE ? 1 : -1);
+        staticEval -= (short)rfMargin;
 
         // we failed high (above beta). our opponent already has an alternative which
         // wouldn't allow this move/node/score to happen
-        if (window.FailsHigh((short)(s_eval - rf_margin), col)) {
-            ret_score = PVSearch.QSearch(b, QS_PLY, window);
+        if (col == Color.WHITE
+            ? (staticEval >= window.beta)
+            : (staticEval <= window.alpha)) {
 
+            retScore = PVSearch.QSearch(board, SQPly, window);
             return true;
         }
 

@@ -10,8 +10,8 @@ namespace Kreveta.movegen.pieces;
 internal static class Knight {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ulong GetKnightMoves(ulong knight, ulong free) {
-        ulong moves = LookupTables.KnightMoves[BB.LS1B(knight)];
-        return moves & free;
+    internal static ulong GetKnightTargets(ulong knight, ulong free) {
+        ulong targets = LookupTables.KnightTargets[BB.LS1B(knight)];
+        return targets & free;
     }
 }

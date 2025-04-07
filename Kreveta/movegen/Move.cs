@@ -93,17 +93,16 @@ internal readonly struct Move {
             && (str.Length == 4 || (str.Length == 5 && Consts.Pieces.Contains(str[4])));
     }
 
+    // converts a move back to a string, see the method below for more information
     public override string ToString() {
 
-        // converts a move back to a string, see the method below for more information
-
-        int start      = Start();
-        int end        = End();
-        PType prom = Promotion();
+        int   start = Start();
+        int   end   = End();
+        PType prom  = Promotion();
         
         // convert starting and ending squares to standard format, e.g. "e4"
         string str_start = Consts.Files[start % 8] + (8 - start / 8).ToString();
-        string str_end = Consts.Files[end % 8] + (8 - end / 8).ToString();
+        string str_end   = Consts.Files[end   % 8] + (8 - end   / 8).ToString();
 
         // if no promotion => empty string
         string promotion = (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE) 
@@ -113,7 +112,7 @@ internal readonly struct Move {
     }
 
     // converts a string to a move object
-    internal static Move FromString(Board b, string str) {
+    internal static Move FromString(Board board, string str) {
 
         // the move in the string is stored using a form of Long Algebraic Notation (LAN),
         // which is used by UCI. there is no information about the piece moved, only the starting square
@@ -121,14 +120,16 @@ internal readonly struct Move {
 
         // indices of starting and ending squares
         int start = ((8 - (str[1] - '0')) * 8) + Consts.Files.IndexOf(str[0]);
-        int end = ((8 - (str[3] - '0')) * 8) + Consts.Files.IndexOf(str[2]);
+        int end   = ((8 - (str[3] - '0')) * 8) + Consts.Files.IndexOf(str[2]);
 
         // find the piece types
-        (_, PType piece) = b.PieceAt(start);
-        (_, PType capt) = b.PieceAt(end);
+        (_, PType piece) = board.PieceAt(start);
+        (_, PType capt)  = board.PieceAt(end);
 
         // potential promotion?
-        PType prom = str.Length == 5 ? (PType)Consts.Pieces.IndexOf(str[4]) : PType.NONE;
+        PType prom = str.Length == 5 
+            ? (PType)Consts.Pieces.IndexOf(str[4]) 
+            : PType.NONE;
 
         // overriding promotion:
         // castling (prom = king)
@@ -139,6 +140,6 @@ internal readonly struct Move {
         if (piece == PType.PAWN && capt == PType.NONE && str[0] != str[2]) 
             prom = PType.PAWN;
 
-        return new(start, end, piece, capt, prom);
+        return new Move(start, end, piece, capt, prom);
     }
 }

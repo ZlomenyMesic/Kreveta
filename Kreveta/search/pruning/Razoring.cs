@@ -8,25 +8,22 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.search.pruning;
 
 internal static class Razoring {
-    private const int MIN_PLY = 3;
-    private const int DEPTH = 4;
+    internal const int MinPly = 3;
+    internal const int Depth  = 4;
 
-    private const int QS_PLY = 2;
-    private const int MARGIN_BASE = 165;
+    private const int QSPly  = 2;
+    private const int MarginBase = 165;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanReduce(int ply, int depth, bool in_check) {
-        return PruningOptions.ALLOW_RAZORING 
-            && !in_check 
-            && ply >= MIN_PLY 
-            && depth == DEPTH;
-    }
+    internal static bool TryReduce(Board board, int depth, Color col, Window window) {
+        short qEval = PVSearch.QSearch(board, QSPly, col == Color.WHITE 
+            ? new(window.alpha, (short)(window.alpha + 1)) 
+            : new((short)(window.beta - 1), window.beta));
 
-    internal static bool TryReduce(Board b, int depth, Color col, Window window) {
-        short q_eval = PVSearch.QSearch(b, QS_PLY, window.GetLowerBound(col));
+        int margin = MarginBase * depth * (col == Color.WHITE ? 1 : -1);
 
-        int margin = MARGIN_BASE * depth * (col == Color.WHITE ? 1 : -1);
-
-        return window.FailsLow((short)(q_eval + margin), col);
+        int score = qEval + margin;
+        return col == Color.WHITE
+            ? (score <= window.alpha)
+            : (score >= window.beta);
     }
 }

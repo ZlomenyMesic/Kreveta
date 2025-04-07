@@ -21,6 +21,13 @@ internal class Board {
 
     internal Color color = 0;
 
+    internal void Clear() {
+        pieces      = new ulong[2, 6];
+        enPassantSq = 64;
+        castRights  = CastlingRights.NONE;
+        color       = Color.NONE;
+    }
+
     // returns all squares occupied by the color
     internal ulong Occupied(Color col) {
         return pieces[(byte)col, (byte)PType.PAWN] 
@@ -72,12 +79,12 @@ internal class Board {
             : Color.WHITE;
 
         // start and end squares
-        int start_32 = move.Start();
-        int end_32 = move.End();
+        int start32 = move.Start();
+        int end32   = move.End();
 
         // start and end squares represented as bitboards
-        ulong start = Consts.SqMask[start_32];
-        ulong end = Consts.SqMask[end_32];
+        ulong start = Consts.SqMask[start32];
+        ulong end   = Consts.SqMask[end32];
 
         // TODO - TRY TO GET COLOR FROM SIDETOMOVE
 
@@ -85,7 +92,7 @@ internal class Board {
         Color col = (Occupied(Color.WHITE) & start) == 0 
             ? Color.BLACK 
             : Color.WHITE;
-        Color col_op = col == Color.WHITE ? Color.BLACK : Color.WHITE;
+        Color colOpp = col == Color.WHITE ? Color.BLACK : Color.WHITE;
 
         // other stuff
         PType prom  = move.Promotion();
@@ -96,18 +103,19 @@ internal class Board {
         if (prom == PType.PAWN) {
 
             // the pawn that is to be captured
-            ulong cap_sq = col == Color.WHITE
+            ulong captureSq = col == Color.WHITE
                 ? end << 8
                 : end >> 8;
 
             // xor the captured pawn and move our pawn
-            pieces[(byte)col_op, (byte)PType.PAWN] ^= cap_sq;
+            pieces[(byte)colOpp, (byte)PType.PAWN] ^= captureSq;
             pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
         } 
 
         // castling
         else if (prom == PType.KING) {
 
+            // get the rook move respetive to the king move
             ulong rook = end switch {
                 0x0000000000000004 => 0x0000000000000009, // q
                 0x0000000000000040 => 0x00000000000000A0, // k
@@ -133,13 +141,21 @@ internal class Board {
         else {
             pieces[(byte)col, (byte)piece] ^= start | end;
 
-            if (piece == PType.PAWN && (col == Color.WHITE ? (start >> 16 == end) : (start << 16 == end)))
-                enPassantSq = (byte)BB.LS1B(col == Color.WHITE ? start >> 8 : start << 8);
+            // if we double pushed a pawn, set the en passant square
+            if (piece == PType.PAWN && (col == Color.WHITE 
+                ? (start >> 16 == end) 
+                : (start << 16 == end)))
+
+                // en passant square is the square over which the
+                // pawn has double pushed, not the capture square
+                enPassantSq = (byte)BB.LS1B(col == Color.WHITE 
+                    ? start >> 8 
+                    : start << 8);
         }
 
         // capture
         if (capt != PType.NONE) {
-            pieces[(byte)col_op, (byte)capt] ^= end;
+            pieces[(byte)colOpp, (byte)capt] ^= end;
         }
 
         if (castRights != CastlingRights.NONE && piece == PType.KING) {
@@ -153,13 +169,13 @@ internal class Board {
         if (castRights != CastlingRights.NONE 
             && (piece == PType.ROOK || capt == PType.ROOK)) {
 
-            // if rook moved we check move starting square
-            // if rook was captured we check move ending square
-            int cause = piece == PType.ROOK
-                ? start_32
-                : end_32;
+            // if rook moved we need the starting square
+            // if rook was captured we need the ending square
+            int rookSq = piece == PType.ROOK
+                ? start32
+                : end32;
 
-            int mask = cause switch {
+            int mask = rookSq switch {
                 63 => 0xE, // all except K
                 56 => 0xD, // all except Q
                 7  => 0xB, // all except k
@@ -174,12 +190,13 @@ internal class Board {
 
     internal void PlayReversibleMove(Move move, Color col) {
 
-        color = color == Color.WHITE ? Color.BLACK : Color.WHITE;
+        color = color == Color.WHITE 
+            ? Color.BLACK 
+            : Color.WHITE;
 
         // start & end squares
         ulong start = Consts.SqMask[move.Start()];
-        ulong end = Consts.SqMask[move.End()];
-        ulong s_e = start | end;
+        ulong end  = Consts.SqMask[move.End()];
 
         // opposite color
         Color col_op = col == Color.WHITE 
@@ -187,20 +204,18 @@ internal class Board {
             : Color.WHITE;
 
         // other stuff
-        PType prom =  move.Promotion();
+        PType prom  = move.Promotion();
         PType piece = move.Piece();
-        PType capt =  move.Capture();
-
-        ulong en_p_cap_sq;
+        PType capt  = move.Capture();
 
         // en passant
         if (prom == PType.PAWN) {
-            en_p_cap_sq = col == Color.WHITE
+            ulong captureSq = col == Color.WHITE
                 ? end << 8
                 : end >> 8;
 
-            pieces[(byte)col_op, (byte)PType.PAWN] ^= en_p_cap_sq;
-            pieces[(byte)col,    (byte)PType.PAWN] ^= s_e;
+            pieces[(byte)col_op, (byte)PType.PAWN] ^= captureSq;
+            pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
         }
 
         // promotion
@@ -210,7 +225,7 @@ internal class Board {
         }
 
         // regular move
-        else pieces[(byte)col, (byte)piece] ^= s_e;
+        else pieces[(byte)col, (byte)piece] ^= start | end;
 
         // capture
         if (capt != PType.NONE) pieces[(byte)col_op, (byte)capt] ^= end;
@@ -234,51 +249,40 @@ internal class Board {
 
     // no move
     internal Board GetNullChild() {
-        Board c = Clone();
+        Board @null = Clone();
 
-        c.enPassantSq = 64;
-        c.color = c.color == Color.WHITE 
+        @null.enPassantSq = 64;
+        @null.color = @null.color == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
 
-        return c;
+        return @null;
     }
 
     internal bool IsMoveLegal(Move move, Color col) {
 
         PlayReversibleMove(move, col);
 
-        bool is_legal = !Movegen.IsKingInCheck(this, col);
+        bool isLegal = !Movegen.IsKingInCheck(this, col);
 
         PlayReversibleMove(move, col);
 
-        return is_legal;
-    }
-
-    internal void Erase() {
-        for (int i = 0; i < 6; i++) {
-            pieces[(byte)Color.WHITE, i] = 0;
-            pieces[(byte)Color.BLACK, i] = 0;
-        }
-
-        enPassantSq = 0;
-        castRights = 0;
-        color = Color.NONE;
+        return isLegal;
     }
 
     internal Board Clone() {
-        Board n = new() {
-            castRights = castRights,
+        Board @new = new() {
+            castRights  = castRights,
             enPassantSq = enPassantSq,
-            color = color
+            color       = color
         };
 
         for (int i = 0; i < 6; i++) {
-            n.pieces[(byte)Color.WHITE, i] = pieces[(byte)Color.WHITE, i];
-            n.pieces[(byte)Color.BLACK, i] = pieces[(byte)Color.BLACK, i];
+            @new.pieces[(byte)Color.WHITE, i] = pieces[(byte)Color.WHITE, i];
+            @new.pieces[(byte)Color.BLACK, i] = pieces[(byte)Color.BLACK, i];
         }
 
-        return n;
+        return @new;
     }
 
     internal void Print() {
@@ -287,10 +291,10 @@ internal class Board {
 
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 6; j++) {
-                ulong copyPieces = pieces[i, j];
+                ulong copy = pieces[i, j];
 
                 while (true) {
-                    (copyPieces, int index) = BB.LS1BReset(copyPieces);
+                    (copy, int index) = BB.LS1BReset(copy);
                     if (index == -1) break;
 
                     c_pieces[index] = Consts.Pieces[j];

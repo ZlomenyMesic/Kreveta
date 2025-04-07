@@ -20,54 +20,33 @@ namespace Kreveta.search.pruning;
 internal static class NMP {
 
     // minimum depth and ply required for nmp
-    private const int MIN_DEPTH = 0;
-    private static int MIN_PLY = 3;
+    internal const  int MinDepth = 0;
+    internal static int MinPly   = 3;
 
     // depth reduce base within nmp
-    private const int R_Base = 3;
+    private const int RBase = 3;
 
     // with fewer pieces on the board, we want to prune less
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void UpdateMinPly(int piece_count) {
-        MIN_PLY = Math.Max(3, (32 - piece_count) / 7);
-    }
-
-    // can we try nmp in a position?
-    // avoid NMP for a few plys if we found a mate in the previous iteration
-    // we must either find the shortest mate or escape. we also don't prune
-    // if we are being checked
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanPrune(int depth, int ply, bool is_checked, int pv_score, Window window, Color col) {
-
-        return PruningOptions.ALLOW_NULL_MOVE_PRUNING
-
-            // are we at a permissible depth and ply
-            && depth >= MIN_DEPTH
-            && ply >= MIN_PLY
-
-            // do NOT prune when in check
-            && !is_checked
-
-            // do not prune when previous search iteration found a mate
-            && !Eval.IsMateScore(pv_score)
-
-            // there is "space" to fail high in the window
-            && window.CanFailHigh(col);
+    internal static void UpdateMinPly(int pieceCount) {
+        MinPly = Math.Max(3, (32 - pieceCount) / 7);
     }
 
     // try null move pruning
-    internal static bool TryPrune(Board b, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune(Board board, int depth, int ply, Window window, Color col, out short score) {
 
         // null window around beta
-        Window nullw_beta = window.GetUpperBound(col);
+        Window nullWindowBeta = col == Color.WHITE 
+            ? new((short)(window.beta - 1), window.beta) 
+            : new(window.alpha, (short)(window.alpha + 1));
 
         // child with no move played
-        Board null_child = b.GetNullChild();
+        Board nullChild = board.GetNullChild();
 
-        int R = ply <= 4 ? R_Base - 1 : R_Base;
+        int R = ply <= 4 ? RBase - 1 : RBase;
 
         // do the reduced search
-        score = PVSearch.ProbeTT(null_child, ply + 1, depth - R - 1, nullw_beta).Score;
+        score = PVSearch.ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowBeta).Score;
 
         // if we are TOO good (like really good) we don't prune, it might be worth
         // to actually check what's happening
@@ -79,6 +58,8 @@ internal static class NMP {
         //
         // currently we are returning the null search score, but returning beta
         // may also work. this needs some testing
-        return window.FailsHigh(score, col);
+        return col == Color.WHITE
+            ? (score >= window.beta)
+            : (score <= window.alpha);
     }
 }

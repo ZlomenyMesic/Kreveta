@@ -6,17 +6,17 @@
 namespace Kreveta.movegen.pieces;
 
 internal static class Rook {
-    internal static ulong GetRookMoves(ulong rook, ulong free, ulong occupied) {
-        ulong moves = 0;
+    internal static ulong GetRookTargets(ulong rook, ulong free, ulong occupied) {
+        ulong targets = 0;
 
         int sq = BB.LS1B(rook);
 
         int occupancy = (int)((occupied & Consts.RelevantRankMask[sq >> 3]) >> (8 * (sq >> 3)));
-        moves |= LookupTables.RankMoves[sq][(occupancy >> 1) & 63];
+        targets |= LookupTables.RankTargets[sq][(occupancy >> 1) & 63];
 
         occupancy = (int)((occupied & Consts.RelevantFileMask[sq & 7]) * Consts.FileMagic[sq & 7] >> 56);
-        moves |= LookupTables.FileMoves[sq][(occupancy >> 1) & 63];
+        targets |= LookupTables.FileTargets[sq][(occupancy >> 1) & 63];
 
-        return moves & free;
+        return targets & free;
     }
 }

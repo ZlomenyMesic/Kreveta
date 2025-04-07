@@ -7,20 +7,20 @@ namespace Kreveta.opening_book;
 
 internal static class OpeningBook {
 
-    internal static string book_move = "";
+    internal static string BookMove = "";
 
     static OpeningBook() {
-        BOOK_SPLIT = new string[BOOK.Length][];
+        BookSplit = new string[Book.Length][];
 
-        for (int i = 0; i < BOOK.Length; i++) {
-            BOOK_SPLIT[i] = BOOK[i].Split(' ');
+        for (int i = 0; i < Book.Length; i++) {
+            BookSplit[i] = Book[i].Split(' ');
         }
     }
 
     internal static void SaveSequence(string[] sequence, string fen) {
 
         // reset the previous book move
-        book_move = "";
+        BookMove = "";
 
         // only look for book moves from starting position.
         // (might implement other ones later)
@@ -31,29 +31,29 @@ internal static class OpeningBook {
 
         // we are currently at the starting position
         if (sequence.Length == 0) {
-            foreach (string[] opening in BOOK_SPLIT)
+            foreach (string[] opening in BookSplit)
                 possible.Add(opening[0]);
 
             // choose a random first move from the book
-            book_move = possible[new Random().Next(0, possible.Count)];
+            BookMove = possible[new Random().Next(0, possible.Count)];
             return;
         }
 
-        for (int i = 0; i < BOOK_SPLIT.Length; i++) {
+        for (int i = 0; i < BookSplit.Length; i++) {
             for (int j = 0; j < sequence.Length; j++) {
 
                 // we found the move in the book
-                if (sequence[j] == BOOK_SPLIT[i][j]) {
+                if (sequence[j] == BookSplit[i][j]) {
 
                     // our sequence is longer than the one in the book
-                    if (j == BOOK_SPLIT[i].Length - 1) break;
+                    if (j == BookSplit[i].Length - 1) break;
 
                     // we are at the end of our sequence but not
                     // past the end of the sequence saved in the book
                     if (j == sequence.Length - 1) {
 
                         // add the next move as a possibility
-                        possible.Add(BOOK_SPLIT[i][j + 1]);
+                        possible.Add(BookSplit[i][j + 1]);
                         break;
                     } 
                 } 
@@ -65,22 +65,25 @@ internal static class OpeningBook {
 
         // we have at least one book move
         if (possible.Count > 0) {
-            book_move = possible[
+            BookMove = possible[
                 new Random(Guid.NewGuid().GetHashCode()).Next(0, possible.Count)
             ];
         }
     }
 
-    private static readonly string[][] BOOK_SPLIT;
+    private static readonly string[][] BookSplit;
 
-    private static readonly string[] BOOK = [
-
-        "e2e4 d7d6",
+    private static readonly string[] Book = [
 
         "e2e4 d7d5",
 
+        "e2e4 e7e6",
+
         "e2e4 c7c5",
         "e2e4 c7c5",
+
+        "e2e4 e7e5",
+        "e2e4 b8c6",
 
         "e2e4 c7c6",
         "e2e4 c7c6",
@@ -91,8 +94,9 @@ internal static class OpeningBook {
         "e2e3 g8f6",
 
         "c2c4 g8f6",
-        "c2c4 g8f6",
-        "c2c4 g8f6",
+
+        "d2d4",
+        "d2d4",
 
         "c2c3",
         "c2c4",
@@ -100,8 +104,14 @@ internal static class OpeningBook {
         "d2d3",
         "d2d3",
 
-        "a2a3"
+        "g1f3",
+        "b1c3",
+        "b1c3",
 
+
+        "d2d4 d7d5 g1f3",
+        "d2d4 d7d5 c1f4",
+        "d2d4 d7d5 c2c4",
 
         //// king's indian defense
         //"d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 g1f3 e8g8 f1e2 e7e5 e1g1 b8a6 c1g5 h7h6",

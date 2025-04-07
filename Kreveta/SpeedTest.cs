@@ -4,8 +4,8 @@
 //
 
 using Kreveta.evaluation;
-using Kreveta.movegen;
-using Kreveta.search.moveorder;
+using Kreveta.search;
+using Kreveta.search.pruning;
 using System.Diagnostics;
 
 namespace Kreveta;
@@ -13,8 +13,11 @@ namespace Kreveta;
 internal static class SpeedTest {
 
     private const int Repetitions = 20;
-    private const long IterationsPerRep = 50000;
+    private const long IterationsPerRep = 500000;
 
+    //
+    // run using the "test" command
+    //
     internal static void Run() {
 
         long elapsed = 0;
@@ -26,7 +29,7 @@ internal static class SpeedTest {
             long auxCounter = 0;
 
             for (int j = 0; j < IterationsPerRep; j++) {
-                auxCounter += MoveOrder.GetSortedMoves(Game.board, 3).Length;
+                auxCounter += Eval.StaticEval(Game.board);
             }
 
             sw.Stop();

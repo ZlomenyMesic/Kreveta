@@ -21,7 +21,7 @@ internal static class History {
     // be a failure in my implementation, though.
 
     // this array stores history values of quiet moves - no captures
-    private static readonly int[,] quiet_scores = new int[64, 12];
+    private static readonly int[,] QuietScores = new int[64, 12];
 
     // butterfly boards store the number of times a move has been visited.
     //
@@ -40,7 +40,7 @@ internal static class History {
     // is quite wrong (or at least in my particular case), and not only
     // that, the engine performs better when i do the exact opposite,
     // so the history value is multiplied by the common log of bf score
-    private static readonly int[,] bf_scores = new int[64, 12];
+    private static readonly int[,] ButterflyScores = new int[64, 12];
 
     // before each new iterated depth, we "shrink" the stored values.
     // they are still quite relevant, but the new values coming are
@@ -50,65 +50,61 @@ internal static class History {
             for (int j = 0; j < 12; j++) {
 
                 // history reputation is straightforward
-                quiet_scores[i, j] /= 2;
+                QuietScores[i, j] /= 2;
 
                 // this for an unexplainable reason works
                 // out to be the best option available
-                bf_scores[i, j] = Math.Min(1, bf_scores[i, j]);
+                ButterflyScores[i, j] = Math.Min(1, ButterflyScores[i, j]);
             }
         }
     }
 
     // clears all history data
     internal static void Clear() {
-        for (int i = 0; i < 64; i++) {
-            for (int j = 0; j < 12; j++) {
-                quiet_scores[i, j] = 0;
-                bf_scores[i, j] = 0;
-            }
-        }
+        Array.Clear(QuietScores);
+        Array.Clear(ButterflyScores);
     }
 
     // increases the history rep of a quiet move
-    internal static void IncreaseQRep(Board b, Move m, int depth) {
-        int i = PieceIndex(b, m);
-        int end = m.End();
+    internal static void IncreaseQRep(Board board, Move move, int depth) {
+        int i = PieceIndex(board, move);
+        int end = move.End();
 
-        quiet_scores[end, i] += HHShift(depth);
+        QuietScores[end, i] += QuietShift(depth);
 
         // add the move as visited, too
-        bf_scores[end, i]--;
+        ButterflyScores[end, i]--;
     }
 
     // decreases the history rep of a quiet move
-    internal static void DecreaseQRep(Board b, Move m, int depth) {
-        int i = PieceIndex(b, m);
-        int end = m.End();
+    internal static void DecreaseQRep(Board board, Move move, int depth) {
+        int i = PieceIndex(board, move);
+        int end = move.End();
 
-        quiet_scores[end, i] -= HHShift(depth);
+        QuietScores[end, i] -= QuietShift(depth);
 
         // also the same, add the move as visited
-        bf_scores[end, i]++;
+        ButterflyScores[end, i]++;
     }
 
     // sometimes we only add the move as visited without
     // changing any history values. the move isn't good
     // but also isn't bad, so it stays neutral
-    internal static void AddVisited(Board b, Move m) {
-        int i = PieceIndex(b, m);
-        int end = m.End();
+    internal static void AddVisited(Board board, Move move) {
+        int i = PieceIndex(board, move);
+        int end = move.End();
 
-        bf_scores[end, i]++;
+        ButterflyScores[end, i]++;
     }
 
     // calculate the reputation of a move
-    internal static int GetRep(Board b, Move m) {
-        int i = PieceIndex(b, m);
-        int end = m.End();
+    internal static int GetRep(Board board, Move move) {
+        int i = PieceIndex(board, move);
+        int end = move.End();
 
         // quiet score and butterfly score
-        int q  = quiet_scores[end, i];
-        int bf = bf_scores[end, i];
+        int q  = QuietScores[end, i];
+        int bf = ButterflyScores[end, i];
 
         // as already mentioned, we do the opposite of what relative
         // history heuristics is about, and we multiply the score
@@ -133,18 +129,26 @@ internal static class History {
     // calculate the index of a piece in the boards
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PieceIndex(Board b, Move m) {
-        (Color col, PType piece) = b.PieceAt(m.Start());
+    private static int PieceIndex(Board board, Move move) {
+        //
+        // TODO - dont use pieceat
+        //
+
+        PType piece = move.Piece();
+        Color col = (board.pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start()]) == 0
+            ? Color.BLACK
+            : Color.WHITE;
+
         return (byte)piece + (col == Color.WHITE ? 6 : 0);
     }
 
-    private const int HHS_SUBTRACT = 5;
-    private const int HHS_MAX = 84;
+    private const int QuietShiftSubtract = 5;
+    private const int QuietShiftLimit    = 84;
 
     // how much should a move affect the history reputation.
     // i borrowed this idea from somewhere and forgot where,
     // but it turns out to be very precise
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int HHShift(int depth)
-        => Math.Min(depth * depth - HHS_SUBTRACT, HHS_MAX);
+    private static int QuietShift(int depth)
+        => Math.Min(depth * depth - QuietShiftSubtract, QuietShiftLimit);
 }

@@ -18,7 +18,7 @@ internal static class MVV_LVA {
     // also isn't a very good idea. the king is given a lot
     // of point to avoid some bugs, although i think there
     // shouldn't be any
-    private static readonly int[] PIECE_VALUES = [100, 315, 330, 520, 930, 10000, -1];
+    private static readonly int[] PieceValues = [100, 315, 330, 520, 930, 10000, -1];
 
     // takes a list of captures, sorts it from best to worst and
     // returns it. the technique is called MVV-LVA and stands for
@@ -29,7 +29,8 @@ internal static class MVV_LVA {
 
         // if there's only a single available capture,
         // don't bother wasting time on this thing
-        if (capts.Length <= 1) return capts;
+        if (capts.Length <= 1) 
+            return capts;
 
         // add each capture and its score into a list
         (Move, int)[] scores = new (Move, int)[capts.Length];
@@ -42,11 +43,11 @@ internal static class MVV_LVA {
         // here we once again have a very naive and primitive
         // sorting algorithm, but it shouldn't slow anything
         // down due to the usual low amount of captures
-        bool sorts_made = true;
-        while (sorts_made) {
+        bool sortsMade = true;
+        while (sortsMade) {
 
             // once we haven't switched any moves, break the loop
-            sorts_made = false;
+            sortsMade = false;
 
             for (int i = 1; i < scores.Length; i++) {
 
@@ -54,7 +55,7 @@ internal static class MVV_LVA {
                 // than the previous one's, switch their places
                 if (scores[i].Item2 > scores[i - 1].Item2) {
                     (scores[i], scores[i - 1]) = (scores[i - 1], scores[i]);
-                    sorts_made = true;
+                    sortsMade = true;
                 }
             }
         }
@@ -74,8 +75,8 @@ internal static class MVV_LVA {
     internal static int GetCaptureScore(Move capt) {
 
         // piece moved and piece captured (aggressor and victim)
-        int aggressor = PIECE_VALUES[(byte)capt.Piece()];
-        int victim    = PIECE_VALUES[(byte)capt.Capture()];
+        int aggressor = PieceValues[(byte)capt.Piece()];
+        int victim    = PieceValues[(byte)capt.Capture()];
 
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as
