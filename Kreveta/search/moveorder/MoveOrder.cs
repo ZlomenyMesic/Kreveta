@@ -49,6 +49,8 @@ internal static class MoveOrder {
             sorted[cur++] = mvvlva[j];
         }
 
+        ulong empty = board.Empty();
+
         // next go killers, which are quiet moves, that caused
         // a beta cutoff somewhere in the past in or in a different
         // position. we only save a few per depth, though
@@ -59,7 +61,7 @@ internal static class MoveOrder {
             // the position, we have to check a couple thing
             if (legal.Contains(killers[i])                    // illegal
                 && !sorted.Contains(killers[i])               // already added
-                && board.PieceAt(killers[i].End()).type == PType.NONE) {  // not quiet
+                && ((empty & Consts.SqMask[killers[i].End()]) != 0)) { // quiet
 
                 sorted[cur++] = killers[i];
             }

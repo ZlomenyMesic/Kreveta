@@ -123,11 +123,11 @@ internal static class TT {
 
         if (score >= window.beta) {
             entry.Type = ScoreType.UPPER_BOUND;
-            entry.Score = (short)window.beta;
+            entry.Score = window.beta;
 
         } else if (score <= window.alpha) {
             entry.Type = ScoreType.LOWER_BOUND;
-            entry.Score = (short)window.alpha;
+            entry.Score = window.alpha;
 
         } else {
             entry.Type = ScoreType.EXACT;

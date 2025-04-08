@@ -16,6 +16,7 @@
  */
 
 using Kreveta.movegen.pieces;
+using System.Drawing;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.movegen;
@@ -172,15 +173,30 @@ internal static class Movegen {
     }
 
     private static void LoopTargets(Board board, int start, ulong targets, PType type, Color col, List<Move> moves) {
+        Color colOpp = col == Color.WHITE 
+            ? Color.BLACK 
+            : Color.WHITE;
+
         int end;
 
         // same principle as above
         while (targets != 0) {
             (targets, end) = BB.LS1BReset(targets);
 
+            PType capt = PType.NONE;
+
+            if (type != PType.NONE) {
+                for (int i = 0; i < 5; i++) {
+                    if ((board.pieces[(byte)colOpp, i] & Consts.SqMask[end]) != 0) {
+                        capt = (PType)i;
+                        break;
+                    }
+                }
+            }
+
             // get the potential capture piece type
-            PType capt = type != PType.NONE
-                ? board.PieceAt(end).type : PType.NONE;
+            //PType capt = type != PType.NONE
+            //    ? board.PieceAt(end).type : PType.NONE;
 
             // add the move
             AddMovesToList(type, col, start, end, capt, moves, board.enPassantSq);
@@ -194,7 +210,7 @@ internal static class Movegen {
 
             // pawns have a special designated method to prevent nesting (promotions)
             case PType.PAWN:
-                if ((col == Color.WHITE && end < 8) | (col == Color.BLACK && end > 55)) {
+                if ((end < 8 && col == Color.WHITE) | (end > 55 && col == Color.BLACK)) {
 
                     // all four possible promotions
                     moves.Add(new(start, end, PType.PAWN, capt, PType.KNIGHT));

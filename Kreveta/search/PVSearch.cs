@@ -44,7 +44,7 @@ namespace Kreveta.search {
         // pv node is also the move the engine is going to play
         internal static Move[] PV = [];
 
-        private static long AbortTimeThreshold = (long)(TimeMan.TimeBudget * 0.99f);
+        private static long AbortTimeThreshold = 0L;
         internal static bool Abort => CurNodes >= MaxNodes 
             || (PVSControl.sw ?? Stopwatch.StartNew()).ElapsedMilliseconds >= AbortTimeThreshold;
 
@@ -58,7 +58,7 @@ namespace Kreveta.search {
             // reset total nodes
             CurNodes = 0L;
 
-            AbortTimeThreshold = (long)(TimeMan.TimeBudget * 0.99f);
+            AbortTimeThreshold = TimeMan.TimeBudget - (TimeMan.TimeBudget / 100);
 
             // create more space for killers on the new depth
             Killers.Expand(CurDepth);

@@ -130,9 +130,6 @@ internal static class History {
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int PieceIndex(Board board, Move move) {
-        //
-        // TODO - dont use pieceat
-        //
 
         PType piece = move.Piece();
         Color col = (board.pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start()]) == 0

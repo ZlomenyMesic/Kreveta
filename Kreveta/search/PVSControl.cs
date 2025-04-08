@@ -93,7 +93,10 @@ namespace Kreveta.search {
 
             // nodes per second - a widely used measure to approximate an
             // engine's strength or efficiency. we need to maximize nps.
-            int nps = (int)(PVSearch.CurNodes / (curElapsed / 1000f));
+            // if the time is too low (less than a millisecond), we simply
+            // divide as if it took us 1 millisecond.
+            long divisor = curElapsed != 0 ? curElapsed : 1;
+            int nps = (int)((float)PVSearch.CurNodes / divisor * 1000);
 
             // we print the search info to the console
             string info = "info " +
@@ -110,6 +113,7 @@ namespace Kreveta.search {
                 // nodes per second
                 $"nps {nps} " +
 
+                // total time spent so far
                 $"time {sw.ElapsedMilliseconds} " +
 
                 // how full is the hash table (permill)

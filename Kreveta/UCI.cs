@@ -105,12 +105,24 @@ internal static class UCI {
 
     private static void CmdGo(string[] toks) {
 
-        if (Options.OwnBook && OpeningBook.BookMove != "") {
+        TimeMan.ProcessTime(toks);
+
+        int depth = 50;
+        int index = Array.IndexOf(toks, "depth");
+
+        // the depth keyword should be directly followed by a parsable token
+        if (index != -1) {
+            try {
+                depth = int.Parse(toks[index + 1]);
+                TimeMan.TimeBudget = long.MaxValue;
+            } catch { Log("invalid depth argument", LogLevel.ERROR); }
+        }
+
+        // don't use book moves when we want an actual search at a specified depth
+        if (index == -1 && Options.OwnBook && OpeningBook.BookMove != "") {
             Log($"bestmove {OpeningBook.BookMove}");
             return;
         }
-
-        // TODO - OTHER ARGS
 
         // PROBLEMATIC POSITIONS:
         // position startpos moves e2e4 g8f6 e4e5 f6g4 d1g4 b8c6 g1f3 a8b8 g4g3 d7d5 e5d6 e7d6 f1b5 c8d7 e1g1 f7f6 b1c3 c6e7 d2d4 c7c6 b5d3 e7f5 f1e1 e8f7
@@ -125,11 +137,10 @@ internal static class UCI {
 
         // doesn't find mate
         // position startpos moves e2e4 e7e5 g1f3 g8f6 b1c3 f8d6 f1c4 e8g8 e1g1 b8c6 d2d4 d8e8 d4d5 c6a5 c4d3 d6c5 c3b5 f6g4 b5c7 g4f2 f1f2 c5f2 g1f2 e8e7 c7a8 f7f5 e4f5 e5e4 d1e1 e7c5 c1e3 c5d5 d3e4 d5e4 e1a5 e4c2 f2g1 f8f5 a5a3 f5f8 e3a7 d7d5 a3d6 c2c6 d6c6 b7c6 a7c5 f8d8 a8b6 c8b7 a1d1 d8e8 b2b4 h7h6 h2h4 h6h5 a2a4 e8e4 a4a5 b7a6 f3d4 a6e2 d1d2 e2b5 d4b5 c6b5 b6d5 g8f7 a5a6 e4e1 g1f2 e1a1 d5c7 g7g5 h4g5 f7g6 c5e3 a1a3 a6a7 a3a7 d2d6 g6f5 d6d5 f5g6 e3a7 h5h4
-        TimeMan.ProcessTime(toks);
 
         Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
 
-        PVSControl.StartSearch(50);
+        PVSControl.StartSearch(depth);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
