@@ -18,8 +18,8 @@ namespace Kreveta.search {
         private static int MaxDepth;
 
         internal static Stopwatch sw = new();
-        private static long curElapsed  = 0;
-        private static long prevElapsed = 0;
+        private static long curElapsed  = 0L;
+        private static long prevElapsed = 0L;
 
         private static long TotalNodes;
 
@@ -37,7 +37,7 @@ namespace Kreveta.search {
         // previoud iterations are stored in the tt, killers, and history, which
         // makes new iterations not take too much time.
         private static void IterativeDeepeningLoop() {
-            prevElapsed = 0;
+            prevElapsed = 0L;
 
             sw = Stopwatch.StartNew();
 

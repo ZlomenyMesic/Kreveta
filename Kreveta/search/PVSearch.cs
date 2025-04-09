@@ -92,7 +92,7 @@ namespace Kreveta.search {
             // if we are playing a full game,
             // we want to keep the hash table
             if (Game.fullGame)
-                TT.DecrementEntryDepths();
+                TT.ResetScores();
             else TT.Clear();
         }
 

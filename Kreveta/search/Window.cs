@@ -14,11 +14,11 @@ internal struct Window {
 
     // floor/lower bound
     // moves under alpha are too bad
-    [FieldOffset(0)] internal short alpha;
+    [field: FieldOffset(0)] internal short alpha;
 
     // ceiling/upper bound
     // moves above beta are too good and won't be allowed by the opponent
-    [FieldOffset(2)] internal short beta;
+    [field: FieldOffset(2)] internal short beta;
 
     internal Window(short alpha, short beta) {
         this.alpha = alpha;
