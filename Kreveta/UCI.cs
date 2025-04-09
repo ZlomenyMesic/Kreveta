@@ -11,29 +11,33 @@ using System.Runtime.CompilerServices;
 namespace Kreveta;
 
 internal static class UCI {
+    static UCI() {
+        NeoKolors.Console.Debug.Output = new StreamWriter("./out.log");
+        NeoKolors.Console.Debug.SimpleMessages = true;
+    }
+
     internal static void UCILoop() {
         while (true) {
+
             string input = Console.ReadLine() ?? string.Empty;
             string[] tokens = input.Split(' ');
+
+            // we log the input commands as well
+            LogIntoFile(input, LogLevel.RAW);
 
             switch (tokens[0]) {
                 case "uci":        CmdUCI();             break;
                 case "isready":    CmdIsReady();         break;
-
                 case "setoption":  CmdSetOption(tokens); break;
-
                 case "ucinewgame": CmdUciNewGame();      break;
                 case "position":   CmdPosition(tokens);  break;
-
                 case "go":         CmdGo(tokens);        break;
                 case "perft":      CmdPerft(tokens);     break;
-
                 case "test":       CmdTest();            break;
                 case "print":      CmdPrint();           break;
-
                 case "stop":       CmdStop();            break;
-                case "quit":       goto quit;
 
+                case "quit":       goto quit;
                 default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); break;
             }
 
@@ -56,6 +60,7 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUciNewGame() {
+        TT.Clear();
         Game.fullGame = true;
     }
 
@@ -159,17 +164,22 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string msg, LogLevel level = LogLevel.RAW) {
+        LogIntoFile(msg, level);
+        Console.WriteLine(msg);
+    }
+
+    internal static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
         if (Options.NKLogs) {
 
             // using KryKom's NeoKolors library for fancy logs
             // this option can be toggled via the FancyLogs option
             switch (level) {
-                //case LogLevel.INFO: NeoKolors.Console.Debug.Info(msg); break;
-                //case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg); break;
-                //case LogLevel.ERROR: NeoKolors.Console.Debug.Error(msg); break;
+                case LogLevel.INFO: NeoKolors.Console.Debug.Info(msg); break;
+                case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg); break;
+                case LogLevel.ERROR: NeoKolors.Console.Debug.Error(msg); break;
 
-                default: Console.WriteLine(msg); break;
+                default: NeoKolors.Console.Debug.Log(msg); break;
             }
-        } else Console.WriteLine(msg);
+        }
     }
 }

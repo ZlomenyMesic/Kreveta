@@ -24,19 +24,19 @@ internal static class TT {
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {
         // 8 bytes
-        [FieldOffset(0)] internal ulong Hash;
+        [field: FieldOffset(0)] internal ulong Hash;
 
         // 2 bytes
-        [FieldOffset(8)] internal short Score;
+        [field: FieldOffset(8)] internal short Score;
 
         // 1 byte
-        [FieldOffset(10)] internal sbyte Depth;
+        [field: FieldOffset(10)] internal sbyte Depth;
 
         // 1 byte
-        [FieldOffset(11)] internal ScoreType Type;
+        [field: FieldOffset(11)] internal ScoreType Type;
 
         // 4 bytes
-        [FieldOffset(12)] internal Move BestMove;
+        [field:FieldOffset(12)] internal Move BestMove;
     }
 
     // size of a single hash entry
@@ -76,10 +76,15 @@ internal static class TT {
     // instead of using an age value, we decrement the depths
     // in the entries stored for the next search, so they aren't
     // as important. note that this is only used in a full game
-    internal static void DecrementEntryDepths() {
-        //for (int i = 0; i < TT_SIZE; i++) {
-        //    table[i].depth -= 3;
-        //}
+    internal static void ResetScores() {
+        if (Stored == 0) return;
+
+        for (int i = 0; i < TableSize; i++) {
+            if (table[i].Hash != default) {
+                table[i].Score = default;
+                table[i].Depth = default;
+            }
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
