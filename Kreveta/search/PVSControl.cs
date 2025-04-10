@@ -6,6 +6,7 @@
 using Kreveta.movegen;
 using Kreveta.search.pruning;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 #nullable enable
 namespace Kreveta.search {
@@ -18,8 +19,12 @@ namespace Kreveta.search {
         private static int MaxDepth;
 
         internal static Stopwatch sw = new();
-        private static long curElapsed  = 0L;
-        private static long prevElapsed = 0L;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private static long _curElapsed  = 0L;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private static long _prevElapsed = 0L;
 
         private static long TotalNodes;
 
@@ -37,11 +42,11 @@ namespace Kreveta.search {
         // previoud iterations are stored in the tt, killers, and history, which
         // makes new iterations not take too much time.
         private static void IterativeDeepeningLoop() {
-            prevElapsed = 0L;
+            _prevElapsed = 0L;
 
             sw = Stopwatch.StartNew();
 
-            int pieceCount = BB.Popcount(Game.board.Occupied());
+            int pieceCount = BB.Popcount(Game.board.Occupied);
             NMP.UpdateMinPly(pieceCount);
 
             // we still have time and are allowed to search deeper
@@ -54,12 +59,12 @@ namespace Kreveta.search {
                 // didn't abort (yet?)
                 if (!PVSearch.Abort) {
 
-                    curElapsed = sw.ElapsedMilliseconds - prevElapsed;
+                    _curElapsed = sw.ElapsedMilliseconds - _prevElapsed;
 
                     // print the results to the console and save the first pv node
                     GetResult();
 
-                    prevElapsed = sw.ElapsedMilliseconds;
+                    _prevElapsed = sw.ElapsedMilliseconds;
 
                 } else break;
             }
@@ -95,7 +100,7 @@ namespace Kreveta.search {
             // engine's strength or efficiency. we need to maximize nps.
             // if the time is too low (less than a millisecond), we simply
             // divide as if it took us 1 millisecond.
-            long divisor = curElapsed != 0 ? curElapsed : 1;
+            long divisor = _curElapsed != 0 ? _curElapsed : 1;
             int nps = (int)((float)PVSearch.CurNodes / divisor * 1000);
 
             // we print the search info to the console

@@ -8,10 +8,10 @@ using Kreveta.movegen;
 namespace Kreveta.search;
 
 internal static class Perft {
-    internal static long Run(Board board, int depth) {
+    internal static long Run(in Board board, int depth) {
 
         if (depth == 1) {
-            return Movegen.GetLegalMoves(board).Count;
+            return Movegen.GetLegalMoves(board).Count();
         }
 
         long nodes = 0;

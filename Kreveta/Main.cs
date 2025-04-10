@@ -4,11 +4,19 @@
 //
 
 using Kreveta.search.moveorder;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 
 namespace Kreveta;
 
 internal static class Program {
+
+    [DataType(DataType.Text)]
+    private const string Version = "INDEV";
+
+    [DataType(DataType.Text)]
+    private const string HeaderText = $"Kreveta {Version} by ZlomenyMesic";
+
     internal static int Main(string[] args) {
 
         using (Process p = Process.GetCurrentProcess()) {
@@ -18,9 +26,11 @@ internal static class Program {
         Killers.Clear();
         History.Clear();
 
-        UCI.Log("Kreveta-INDEV by ZlomenyMesic", UCI.LogLevel.RAW);
+        UCI.Log(HeaderText, UCI.LogLevel.RAW);
 
+#if DEBUG
         Game.TestingFunction();
+#endif
 
         UCI.UCILoop();
 

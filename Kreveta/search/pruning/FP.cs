@@ -40,7 +40,7 @@ internal static class FP {
         // alternative somewhere else in the search tree, and we can prune this branch.
         staticEval += (short)margin;
         return col == Color.WHITE
-            ? (staticEval <= window.alpha)
-            : (staticEval >= window.beta);
+            ? (staticEval <= window.Alpha)
+            : (staticEval >= window.Beta);
     }
 }

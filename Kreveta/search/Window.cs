@@ -8,21 +8,23 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
 
-[StructLayout(LayoutKind.Explicit, Size = 4)]
+[StructLayout(LayoutKind.Explicit, Size = 2 * sizeof(short))]
 internal struct Window {
     internal static readonly Window Infinite = new(short.MinValue, short.MaxValue);
 
     // floor/lower bound
     // moves under alpha are too bad
-    [field: FieldOffset(0)] internal short alpha;
+    [field: FieldOffset(0)] 
+    internal short Alpha;
 
     // ceiling/upper bound
     // moves above beta are too good and won't be allowed by the opponent
-    [field: FieldOffset(2)] internal short beta;
+    [field: FieldOffset(sizeof(short))] 
+    internal short Beta;
 
     internal Window(short alpha, short beta) {
-        this.alpha = alpha;
-        this.beta = beta;
+        this.Alpha = alpha;
+        this.Beta = beta;
     }
 
     // makes the window smaller by raising alpha or reducing beta, depending on the color
@@ -33,26 +35,26 @@ internal struct Window {
         if (col == Color.WHITE) {
 
             // fail low
-            if (score <= alpha)
+            if (score <= Alpha)
                 return false;
 
-            alpha = score;
+            Alpha = score;
 
             // cutoff?
-            return alpha >= beta;
+            return Alpha >= Beta;
         }
 
         // reducing beta (ceiling)
         else {
 
             // fail high
-            if (score >= beta)
+            if (score >= Beta)
                 return false; 
 
-            beta = score;
+            Beta = score;
 
             // cutoff?
-            return beta <= alpha;
+            return Beta <= Alpha;
         }
     }
 }

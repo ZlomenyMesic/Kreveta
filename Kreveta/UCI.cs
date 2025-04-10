@@ -10,16 +10,36 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
+#nullable enable
 internal static class UCI {
+    internal enum LogLevel : byte {
+        INFO, WARNING, ERROR, RAW
+    }
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private static readonly TextReader Input;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private static readonly TextWriter Output;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private static readonly StreamWriter NKOutput;
+
+    internal static string NKLogFilePath = "./out.log";
+
     static UCI() {
-        NeoKolors.Console.Debug.Output = new StreamWriter("./out.log");
+        Input = Console.In;
+        Output = Console.Out;
+        NKOutput = new StreamWriter(NKLogFilePath);
+
+        NeoKolors.Console.Debug.Output = NKOutput;
         NeoKolors.Console.Debug.SimpleMessages = true;
     }
 
     internal static void UCILoop() {
         while (true) {
 
-            string input = Console.ReadLine() ?? string.Empty;
+            string input = Input.ReadLine() ?? string.Empty;
             string[] tokens = input.Split(' ');
 
             // we log the input commands as well
@@ -33,9 +53,12 @@ internal static class UCI {
                 case "position":   CmdPosition(tokens);  break;
                 case "go":         CmdGo(tokens);        break;
                 case "perft":      CmdPerft(tokens);     break;
-                case "test":       CmdTest();            break;
                 case "print":      CmdPrint();           break;
                 case "stop":       CmdStop();            break;
+
+#if DEBUG
+                case "test": CmdTest(); break;
+#endif
 
                 case "quit":       goto quit;
                 default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); break;
@@ -148,6 +171,7 @@ internal static class UCI {
         PVSControl.StartSearch(depth);
     }
 
+    [Conditional("DEBUG")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdTest() {
         SpeedTest.Run();
@@ -158,14 +182,10 @@ internal static class UCI {
         Game.board.Print();
     }
 
-    internal enum LogLevel : byte {
-        INFO, WARNING, ERROR, RAW
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string msg, LogLevel level = LogLevel.RAW) {
         LogIntoFile(msg, level);
-        Console.WriteLine(msg);
+        Output.WriteLine(msg);
     }
 
     internal static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
@@ -174,9 +194,9 @@ internal static class UCI {
             // using KryKom's NeoKolors library for fancy logs
             // this option can be toggled via the FancyLogs option
             switch (level) {
-                case LogLevel.INFO: NeoKolors.Console.Debug.Info(msg); break;
-                case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg); break;
-                case LogLevel.ERROR: NeoKolors.Console.Debug.Error(msg); break;
+                case LogLevel.INFO:    NeoKolors.Console.Debug.Info(msg);  break;
+                case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg);  break;
+                case LogLevel.ERROR:   NeoKolors.Console.Debug.Error(msg); break;
 
                 default: NeoKolors.Console.Debug.Log(msg); break;
             }

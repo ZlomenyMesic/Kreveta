@@ -29,7 +29,7 @@ internal static class RFP {
 
     private const int SQPly = 4;
 
-    internal static bool TryPrune(Board board, int depth, Color col, Window window, out short retScore) {
+    internal static bool TryPrune(in Board board, int depth, Color col, Window window, out short retScore) {
         retScore = default;
 
         short staticEval = Eval.StaticEval(board);
@@ -41,8 +41,8 @@ internal static class RFP {
         // we failed high (above beta). our opponent already has an alternative which
         // wouldn't allow this move/node/score to happen
         if (col == Color.WHITE
-            ? (staticEval >= window.beta)
-            : (staticEval <= window.alpha)) {
+            ? (staticEval >= window.Beta)
+            : (staticEval <= window.Alpha)) {
 
             retScore = PVSearch.QSearch(board, SQPly, window);
             return true;

@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
+
 namespace Kreveta.opening_book;
 
 internal static class OpeningBook {
@@ -71,8 +73,10 @@ internal static class OpeningBook {
         }
     }
 
+    [ReadOnly(true)]
     private static readonly string[][] BookSplit;
 
+    [ReadOnly(true)]
     private static readonly string[] Book = [
 
         "e2e4 d7d5",

@@ -33,12 +33,12 @@ internal static class NMP {
     }
 
     // try null move pruning
-    internal static bool TryPrune(Board board, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune(in Board board, int depth, int ply, Window window, Color col, out short score) {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 
-            ? new((short)(window.beta - 1), window.beta) 
-            : new(window.alpha, (short)(window.alpha + 1));
+            ? new((short)(window.Beta - 1), window.Beta) 
+            : new(window.Alpha, (short)(window.Alpha + 1));
 
         // child with no move played
         Board nullChild = board.GetNullChild();
@@ -59,7 +59,7 @@ internal static class NMP {
         // currently we are returning the null search score, but returning beta
         // may also work. this needs some testing
         return col == Color.WHITE
-            ? (score >= window.beta)
-            : (score <= window.alpha);
+            ? (score >= window.Beta)
+            : (score <= window.Alpha);
     }
 }

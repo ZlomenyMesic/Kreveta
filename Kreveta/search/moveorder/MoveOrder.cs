@@ -4,7 +4,7 @@
 //
 
 using Kreveta.movegen;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Kreveta.search.moveorder;
 
@@ -15,11 +15,13 @@ internal static class MoveOrder {
     // more space for pruning. we, of course, cannot know which
     // moves are the best unless we do the search, but we can at
     // least make a rough guess.
-    internal static Move[] GetSortedMoves(Board board, int depth) {
+
+    // don't use "in" keyword!!! it becomes much slower
+    internal static Move[] GetSortedMoves([NotNull] Board board, int depth) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
-        List<Move> legal = Movegen.GetLegalMoves(board);
+        List<Move> legal = Movegen.GetLegalMoves(board).ToList();
 
         Move[] sorted = new Move[legal.Count];
         int cur = 0;
@@ -49,7 +51,7 @@ internal static class MoveOrder {
             sorted[cur++] = mvvlva[j];
         }
 
-        ulong empty = board.Empty();
+        ulong empty = board.Empty;
 
         // next go killers, which are quiet moves, that caused
         // a beta cutoff somewhere in the past in or in a different

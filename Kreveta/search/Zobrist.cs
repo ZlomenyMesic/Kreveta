@@ -4,20 +4,26 @@
 //
 
 using Kreveta.evaluation;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Kreveta.search;
 
 internal static class Zobrist {
 
+    [ReadOnly(true)]
     private static readonly ulong[,] Pieces     = new ulong[64, 12];
 
     // TODO - MAKE THIS SMALLER
-    private static readonly ulong[]  EnPassant  = new ulong[64];
+    [ReadOnly(true)]
+    private static readonly ulong[]  EnPassant  = new ulong[8];
 
     // all possible permutations of castling rights
+    [ReadOnly(true)]
     private static readonly ulong[]  Castling   = new ulong[16];
 
     // white x black
+    [ReadOnly(true)]
     private static readonly ulong[]  SideToMove = new ulong[2];
 
     // this seed was taken from MinimalChess, and actually
@@ -32,8 +38,10 @@ internal static class Zobrist {
             for (int p = 0; p < 12; p++) {
                 Pieces[sq, p] = RandUInt64(rand);
             }
+        }
 
-            EnPassant[sq] = RandUInt64(rand);
+        for (int file = 0; file < 8; file++) {
+            EnPassant[file] = RandUInt64(rand);
         }
 
         SideToMove[0] = RandUInt64(rand);
@@ -44,69 +52,28 @@ internal static class Zobrist {
         }
     }
 
-    internal static ulong GetHash(Board board) {
+    internal static ulong GetHash([NotNull] in Board board) {
         ulong hash = SideToMove[(byte)board.color];
 
         hash ^= Castling[(byte)board.castRights];
 
         if (board.enPassantSq != 64)
-            hash ^= EnPassant[board.enPassantSq];
+            hash ^= EnPassant[board.enPassantSq & 7];
 
         for (int i = 0; i < 6; i++) {
 
-            ulong wCopy = board.pieces[(byte)Color.WHITE, i];
-            ulong bCopy = board.pieces[(byte)Color.BLACK, i];
+            ulong wCopy = board.Pieces[(byte)Color.WHITE, i];
+            ulong bCopy = board.Pieces[(byte)Color.BLACK, i];
 
             while (wCopy != 0) {
-                (wCopy, int sq) = BB.LS1BReset(wCopy);
-
+                int sq = BB.LS1BReset(ref wCopy);
                 hash ^= GetPieceHash((PType)i, Color.WHITE, sq);
             }
 
             while (bCopy != 0) {
-                (bCopy, int sq) = BB.LS1BReset(bCopy);
-
+                int sq = BB.LS1BReset(ref bCopy);
                 hash ^= GetPieceHash((PType)i, Color.BLACK, sq);
             }
-        }
-
-        //for (int sq = 0; sq < 64; sq++) {
-        //    (Color col, PType type) = board.PieceAt(sq);
-        //    hash ^= GetPieceHash(type, col, sq);
-        //}
-
-        return hash;
-    }
-
-    internal static ulong GetHash2(Board board) {
-        ulong hash = SideToMove[(byte)board.color];
-
-        hash ^= Castling[(byte)board.castRights];
-
-        if (board.enPassantSq != 64)
-            hash ^= EnPassant[board.enPassantSq];
-
-        //for (int i = 0; i < 6; i++) {
-
-        //    ulong wCopy = board.pieces[(byte)Color.WHITE, i];
-        //    ulong bCopy = board.pieces[(byte)Color.BLACK, i];
-
-        //    while (wCopy != 0) {
-        //        (wCopy, int sq) = BB.LS1BReset(wCopy);
-
-        //        hash ^= GetPieceHash((PType)i, Color.WHITE, sq);
-        //    }
-
-        //    while (bCopy != 0) {
-        //        (bCopy, int sq) = BB.LS1BReset(bCopy);
-
-        //        hash ^= GetPieceHash((PType)i, Color.BLACK, sq);
-        //    }
-        //}
-
-        for (int sq = 0; sq < 64; sq++) {
-            (Color col, PType type) = board.PieceAt(sq);
-            hash ^= GetPieceHash(type, col, sq);
         }
 
         return hash;
@@ -120,7 +87,7 @@ internal static class Zobrist {
         return Pieces[square, index];
     }
 
-    private static ulong RandUInt64(Random rand) {
+    private static ulong RandUInt64([NotNull] in Random rand) {
         byte[] bytes = new byte[
             sizeof(ulong) / sizeof(byte)
         ];

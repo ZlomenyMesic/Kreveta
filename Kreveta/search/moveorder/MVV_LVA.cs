@@ -4,6 +4,8 @@
 //
 
 using Kreveta.movegen;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.moveorder;
@@ -18,6 +20,8 @@ internal static class MVV_LVA {
     // also isn't a very good idea. the king is given a lot
     // of point to avoid some bugs, although i think there
     // shouldn't be any
+    [ReadOnly(true)]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly int[] PieceValues = [100, 315, 330, 520, 930, 10000, -1];
 
     // takes a list of captures, sorts it from best to worst and
