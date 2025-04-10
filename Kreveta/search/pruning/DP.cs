@@ -22,7 +22,7 @@ internal static class DP {
         standPat += (short)delta;
 
         return col == Color.WHITE
-            ? (standPat <= window.alpha)
-            : (standPat >= window.beta);
+            ? (standPat <= window.Alpha)
+            : (standPat >= window.Beta);
     }
 }

@@ -15,6 +15,7 @@
  * |============================|
  */
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -40,7 +41,9 @@ internal readonly struct Move {
     0 0 0 0 0 0 0 0 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 0 0 0 | 0 0 0 0 0 0
 
     */
-    [FieldOffset(0)] private readonly int _flags = 0;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [FieldOffset(0)] 
+    private readonly int _flags = 0;
 
     internal Move(int start, int end, PType piece, PType capture, PType promotion) {
 

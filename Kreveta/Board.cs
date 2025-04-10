@@ -4,6 +4,10 @@
 //
 
 using Kreveta.movegen;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Drawing;
+using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
@@ -11,58 +15,89 @@ internal class Board {
 
     // [color, piece_type]
     // all pieces are saved here
-    internal ulong[,] pieces = new ulong[2, 6];
+    internal ulong[,] Pieces = new ulong[2, 6];
+
+    internal ulong WOccupied = 0;
+    internal ulong BOccupied = 0;
+
+    [DefaultValue(0UL)]
+    internal ulong Occupied => WOccupied | BOccupied;
+
+    [DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
+    internal ulong Empty => ~Occupied;
 
     // square over which a double pushing pawn has passed one move ago
     internal byte enPassantSq = 64;
 
     // 0 0 0 0 q k Q K
+    [EnumDataType(typeof(CastlingRights))]
     internal CastlingRights castRights = 0;
 
+    [EnumDataType(typeof(Color))]
     internal Color color = 0;
 
     internal void Clear() {
-        pieces      = new ulong[2, 6];
+        Pieces      = new ulong[2, 6];
+        WOccupied   = 0;
+        BOccupied   = 0;
+
         enPassantSq = 64;
         castRights  = CastlingRights.NONE;
         color       = Color.NONE;
     }
 
     // returns all squares occupied by the color
-    internal ulong Occupied(Color col) {
-        return pieces[(byte)col, (byte)PType.PAWN] 
-             | pieces[(byte)col, (byte)PType.KNIGHT] 
-             | pieces[(byte)col, (byte)PType.BISHOP] 
-             | pieces[(byte)col, (byte)PType.ROOK] 
-             | pieces[(byte)col, (byte)PType.QUEEN] 
-             | pieces[(byte)col, (byte)PType.KING];
-    }
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //internal ulong OccupiedByColor(Color col) {
+
+    //    if (col == Color.WHITE) 
+    //        return WOccupied;
+    //    return BOccupied;
+
+
+    //    return Pieces[(byte)col, (byte)PType.PAWN]
+    //         | Pieces[(byte)col, (byte)PType.KNIGHT]
+    //         | Pieces[(byte)col, (byte)PType.BISHOP]
+    //         | Pieces[(byte)col, (byte)PType.ROOK]
+    //         | Pieces[(byte)col, (byte)PType.QUEEN]
+    //         | Pieces[(byte)col, (byte)PType.KING];
+    //}
 
     // all occupied squares
-    internal ulong Occupied() {
-        return Occupied(Color.WHITE) 
-             | Occupied(Color.BLACK);
-    }
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //internal ulong Occupied() {
+    //    return WOccupied | BOccupied;
+
+    //    return Occupied(Color.WHITE) 
+    //         | Occupied(Color.BLACK);
+    //}
 
     // return all empty squares
-    internal ulong Empty() {
-        return ~(Occupied(Color.WHITE) 
-               | Occupied(Color.BLACK));
-    }
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //internal ulong Empty() {
+    //    return ~(Occupied());
+
+    //    return ~(Occupied(Color.WHITE) 
+    //           | Occupied(Color.BLACK));
+    //}
 
     // returns the piece at a certain square
     // (color, piece_type)
+    [Obsolete("PieceAt is fairly slow, try a different approach", false)]
     internal (Color col, PType type) PieceAt(int index) {
         ulong sq = Consts.SqMask[index];
+
+        if ((Empty & sq) != 0) 
+            return (Color.NONE, PType.NONE);
 
         for (int i = 0; i < 6; i++) {
             
             // white
-            if ((pieces[(byte)Color.WHITE, i] & sq) != 0)
+            if ((Pieces[(byte)Color.WHITE, i] & sq) != 0)
                 return (Color.WHITE, (PType)i);
 
             // black
-            if ((pieces[(byte)Color.BLACK, i] & sq) != 0)
+            if ((Pieces[(byte)Color.BLACK, i] & sq) != 0)
                 return (Color.BLACK, (PType)i);
         }
 
@@ -89,9 +124,10 @@ internal class Board {
         // TODO - TRY TO GET COLOR FROM SIDETOMOVE
 
         // color and opposite color
-        Color col = (Occupied(Color.WHITE) & start) == 0 
+        Color col = (WOccupied & start) == 0 
             ? Color.BLACK 
             : Color.WHITE;
+
         Color colOpp = col == Color.WHITE ? Color.BLACK : Color.WHITE;
 
         // other stuff
@@ -108,8 +144,17 @@ internal class Board {
                 : end >> 8;
 
             // xor the captured pawn and move our pawn
-            pieces[(byte)colOpp, (byte)PType.PAWN] ^= captureSq;
-            pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
+            Pieces[(byte)colOpp, (byte)PType.PAWN] ^= captureSq;
+            Pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
+
+            if (col == Color.WHITE) {
+                WOccupied ^= start | end;
+                BOccupied ^= captureSq;
+            }
+            else {
+                BOccupied ^= start | end;
+                WOccupied ^= captureSq;
+            }
         } 
 
         // castling
@@ -125,21 +170,25 @@ internal class Board {
             };
 
             // king
-            pieces[(byte)col, (byte)piece] ^= start | end;
+            Pieces[(byte)col, (byte)PType.KING] ^= start | end;
 
             // rook
-            pieces[(byte)col, (byte)PType.ROOK] ^= rook;
+            Pieces[(byte)col, (byte)PType.ROOK] ^= rook;
+
+            if (col == Color.WHITE) WOccupied ^= rook | start | end;
+            else BOccupied ^= rook | start | end;
         }
 
         // promotion
         else if (prom != PType.NONE) {
-            pieces[(byte)col, (byte)piece] ^= start;
-            pieces[(byte)col, (byte)prom]  ^= end;
+            Pieces[(byte)col, (byte)piece] ^= start;
+            Pieces[(byte)col, (byte)prom]  ^= end;
         } 
 
         // regular move
         else {
-            pieces[(byte)col, (byte)piece] ^= start | end;
+            //Console.WriteLine($"{col} {piece} {prom}");
+            Pieces[(byte)col, (byte)piece] ^= start | end;
 
             // if we double pushed a pawn, set the en passant square
             if (piece == PType.PAWN && (col == Color.WHITE 
@@ -151,11 +200,17 @@ internal class Board {
                 enPassantSq = (byte)BB.LS1B(col == Color.WHITE 
                     ? start >> 8 
                     : start << 8);
+
+            if (col == Color.WHITE) WOccupied ^= start | end;
+            else BOccupied ^= start | end;
         }
 
         // capture
         if (capt != PType.NONE) {
-            pieces[(byte)colOpp, (byte)capt] ^= end;
+            Pieces[(byte)colOpp, (byte)capt] ^= end;
+
+            if (col == Color.WHITE) BOccupied ^= end;
+            else WOccupied ^= end;
         }
 
         if (castRights != CastlingRights.NONE && piece == PType.KING) {
@@ -199,7 +254,7 @@ internal class Board {
         ulong end  = Consts.SqMask[move.End()];
 
         // opposite color
-        Color col_op = col == Color.WHITE 
+        Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
 
@@ -214,26 +269,34 @@ internal class Board {
                 ? end << 8
                 : end >> 8;
 
-            pieces[(byte)col_op, (byte)PType.PAWN] ^= captureSq;
-            pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
+            Pieces[(byte)colOpp, (byte)PType.PAWN] ^= captureSq;
+            Pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
         }
 
         // promotion
         else if (prom != PType.KING && prom != PType.NONE) {
-            pieces[(byte)col, (byte)piece] ^= start;
-            pieces[(byte)col, (byte)prom]  ^= end;
+            Pieces[(byte)col, (byte)piece] ^= start;
+            Pieces[(byte)col, (byte)prom]  ^= end;
         }
 
         // regular move
-        else pieces[(byte)col, (byte)piece] ^= start | end;
+        else Pieces[(byte)col, (byte)piece] ^= start | end;
 
         // capture
-        if (capt != PType.NONE) pieces[(byte)col_op, (byte)capt] ^= end;
+        if (capt != PType.NONE) {
+            Pieces[(byte)colOpp, (byte)capt] ^= end;
+
+            if (colOpp == Color.WHITE) WOccupied ^= end;
+            else BOccupied ^= end;
+        }
+
+        if (col == Color.WHITE) WOccupied ^= start | end;
+        else BOccupied ^= start | end;
     }
 
     internal List<Board> GetChildren() {
 
-        List<Move> moves = Movegen.GetLegalMoves(this);
+        List<Move> moves = Movegen.GetLegalMoves(this).ToList();
 
         List<Board> children = [];
 
@@ -272,39 +335,42 @@ internal class Board {
 
     internal Board Clone() {
         Board @new = new() {
+            WOccupied   = WOccupied,
+            BOccupied   = BOccupied,
+
             castRights  = castRights,
             enPassantSq = enPassantSq,
             color       = color
         };
 
         for (int i = 0; i < 6; i++) {
-            @new.pieces[(byte)Color.WHITE, i] = pieces[(byte)Color.WHITE, i];
-            @new.pieces[(byte)Color.BLACK, i] = pieces[(byte)Color.BLACK, i];
+            @new.Pieces[(byte)Color.WHITE, i] = Pieces[(byte)Color.WHITE, i];
+            @new.Pieces[(byte)Color.BLACK, i] = Pieces[(byte)Color.BLACK, i];
         }
 
         return @new;
     }
 
     internal void Print() {
-        char[] c_pieces = new char[64];
-        Array.Fill(c_pieces, '-');
+        char[] chars = new char[64];
+        Array.Fill(chars, '-');
 
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 6; j++) {
-                ulong copy = pieces[i, j];
+                ulong copy = Pieces[i, j];
 
                 while (true) {
-                    (copy, int index) = BB.LS1BReset(copy);
+                    int index = BB.LS1BReset(ref copy);
                     if (index == -1) break;
 
-                    c_pieces[index] = Consts.Pieces[j];
-                    if (i == 0) c_pieces[index] = char.ToUpper(c_pieces[index]);
+                    chars[index] = Consts.Pieces[j];
+                    if (i == 0) chars[index] = char.ToUpper(chars[index]);
                 }
             }
         }
 
         for (int i = 0; i < 64; i++) {
-            Console.Write($"{c_pieces[i]} ");
+            Console.Write($"{chars[i]} ");
             if ((i + 1) % 8 == 0) Console.WriteLine();
         }
     }

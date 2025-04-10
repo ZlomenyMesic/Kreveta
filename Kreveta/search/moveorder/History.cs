@@ -4,6 +4,8 @@
 //
 
 using Kreveta.movegen;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.moveorder;
@@ -66,7 +68,7 @@ internal static class History {
     }
 
     // increases the history rep of a quiet move
-    internal static void IncreaseQRep(Board board, Move move, int depth) {
+    internal static void IncreaseQRep([NotNull] in Board board, [NotNull] Move move, int depth) {
         int i = PieceIndex(board, move);
         int end = move.End();
 
@@ -77,7 +79,7 @@ internal static class History {
     }
 
     // decreases the history rep of a quiet move
-    internal static void DecreaseQRep(Board board, Move move, int depth) {
+    internal static void DecreaseQRep([NotNull] in Board board, [NotNull] Move move, int depth) {
         int i = PieceIndex(board, move);
         int end = move.End();
 
@@ -90,7 +92,7 @@ internal static class History {
     // sometimes we only add the move as visited without
     // changing any history values. the move isn't good
     // but also isn't bad, so it stays neutral
-    internal static void AddVisited(Board board, Move move) {
+    internal static void AddVisited([NotNull] in Board board, [NotNull] Move move) {
         int i = PieceIndex(board, move);
         int end = move.End();
 
@@ -98,7 +100,7 @@ internal static class History {
     }
 
     // calculate the reputation of a move
-    internal static int GetRep(Board board, Move move) {
+    internal static int GetRep([NotNull] in Board board, [NotNull] Move move) {
         int i = PieceIndex(board, move);
         int end = move.End();
 
@@ -129,17 +131,20 @@ internal static class History {
     // calculate the index of a piece in the boards
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PieceIndex(Board board, Move move) {
+    private static int PieceIndex([NotNull] in Board board, [NotNull] Move move) {
 
         PType piece = move.Piece();
-        Color col = (board.pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start()]) == 0
+        Color col = (board.Pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start()]) == 0
             ? Color.BLACK
             : Color.WHITE;
 
         return (byte)piece + (col == Color.WHITE ? 6 : 0);
     }
 
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const int QuietShiftSubtract = 5;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const int QuietShiftLimit    = 84;
 
     // how much should a move affect the history reputation.

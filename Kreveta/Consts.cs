@@ -3,6 +3,10 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Runtime.Serialization;
+
 namespace Kreveta;
 
 internal enum Color : byte {
@@ -21,11 +25,6 @@ internal enum PType : byte {
     NONE   = 6
 }
 
-//internal struct Piece {
-//    internal PType type;
-//    internal Color color;
-//}
-
 [Flags]
 internal enum CastlingRights : byte {
     NONE = 0,
@@ -42,29 +41,34 @@ internal static class Consts {
     internal const string Files       = "abcdefgh";
 
 
+    [ReadOnly(true)]
     internal static readonly ulong[] RelevantRankMask = [
             0x000000000000007E, 0x0000000000007E00, 0x00000000007E0000,
             0x000000007E000000, 0x0000007E00000000, 0x00007E0000000000,
             0x007E000000000000, 0x7E00000000000000
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] FileMask = [
             0x0101010101010101, 0x0202020202020202, 0x0404040404040404,
             0x0808080808080808, 0x1010101010101010, 0x2020202020202020,
             0x4040404040404040, 0x8080808080808080, 
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] RelevantFileMask = [
             0x0001010101010100, 0x0002020202020200, 0x0004040404040400,
             0x0008080808080800, 0x0010101010101000, 0x0020202020202000,
             0x0040404040404000, 0x0080808080808000
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] FileMagic = [
             0x8040201008040200, 0x4020100804020100, 0x2010080402010080, 0x1008040201008040,
             0x0804020100804020, 0x0402010080402010, 0x0201008040201008, 0x0100804020100804
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] AntidiagMagic = [
             0x0000000000000000, 0x0000000000000000, 0x0808080000000000, 0x1010101000000000,
             0x2020202020000000, 0x4040404040400000, 0x8080808080808000, 0x0101010101010100,
@@ -72,6 +76,7 @@ internal static class Consts {
             0x0101010101010100, 0x0000000000000000, 0x0000000000000000
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] DiagMagic = [
             0x0000000000000000, 0x0000000000000000, 0x0101010101010100, 0x0101010101010100,
             0x0101010101010100, 0x0101010101010100, 0x0101010101010100, 0x0101010101010100,
@@ -79,6 +84,7 @@ internal static class Consts {
             0x0008080808080808, 0x0000000000000000, 0x0000000000000000
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] AntidiagMask = [
             0x0000000000000080, 0x0000000000008040, 0x0000000000804020, 0x0000000080402010,
             0x0000008040201008, 0x0000804020100804, 0x0080402010080402, 0x8040201008040201,
@@ -86,6 +92,7 @@ internal static class Consts {
             0x0402010000000000, 0x0201000000000000, 0x0100000000000000
         ];
 
+    [ReadOnly(true)]
     internal static readonly ulong[] DiagMask = [
             0x0000000000000001, 0x0000000000000102, 0x0000000000010204, 0x0000000001020408,
             0x0000000102040810, 0x0000010204081020, 0x0001020408102040, 0x0102040810204080,
@@ -93,6 +100,7 @@ internal static class Consts {
             0x2040800000000000, 0x4080000000000000, 0x8000000000000000
         ];
 
+    [ReadOnly(true)]
     internal static ulong[] SqMask = [
             0x0000000000000001,
             0x0000000000000002,

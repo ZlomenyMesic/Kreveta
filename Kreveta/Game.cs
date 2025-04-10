@@ -58,13 +58,18 @@ internal static class Game {
                 }
 
                 // color (white = uppercase, black = lowercase)
-                int col = char.IsUpper(c) ? 0 : 1;
+                Color col = char.IsUpper(c) ? Color.WHITE : Color.BLACK;
 
                 // piece type (0-5)
                 int piece = Consts.Pieces.IndexOf(char.ToLower(c));
 
                 // add the piece to the board
-                board.pieces[col, piece] |= Consts.SqMask[sq++];
+                board.Pieces[(byte)col, piece] |= Consts.SqMask[sq];
+
+                if (col == Color.WHITE) board.WOccupied |= Consts.SqMask[sq];
+                else board.BOccupied |= Consts.SqMask[sq];
+
+                sq++;
             }
         }
 

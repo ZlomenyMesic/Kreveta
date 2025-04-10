@@ -124,14 +124,14 @@ internal static class Options {
                 }
 
                 if (options[i].Type == OptionType.CHECK) {
-                    if (tokens.Length == 5 && tokens[3] == "value"
-                        && (tokens[4] == "true" || tokens[4] == "false")) {
+                    //if (tokens.Length == 5 && tokens[3] == "value"
+                    //    && (tokens[4] == "true" || tokens[4] == "false")) {
 
-                        options[i].Value = tokens[4];
+                    //    options[i].Value = tokens[4];
 
-                        return;
+                    //    return;
 
-                    } else goto invalid_syntax;
+                    //} else goto invalid_syntax;
                 }
 
                 if (options[i].Type == OptionType.SPIN) {

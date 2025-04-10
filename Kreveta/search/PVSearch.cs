@@ -7,7 +7,10 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.moveorder;
 using Kreveta.search.pruning;
-using System.Diagnostics;
+
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 #nullable enable
 namespace Kreveta.search {
@@ -44,9 +47,13 @@ namespace Kreveta.search {
         // pv node is also the move the engine is going to play
         internal static Move[] PV = [];
 
+        // after this time the engine aborts the search
         private static long AbortTimeThreshold = 0L;
+
+        [ReadOnly(true)]
+        [DefaultValue(false)]
         internal static bool Abort => CurNodes >= MaxNodes 
-            || (PVSControl.sw ?? Stopwatch.StartNew()).ElapsedMilliseconds >= AbortTimeThreshold;
+            || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
 
         // increase the depth and do a re-search
         internal static void SearchDeeper() {
@@ -58,7 +65,10 @@ namespace Kreveta.search {
             // reset total nodes
             CurNodes = 0L;
 
-            AbortTimeThreshold = TimeMan.TimeBudget - (TimeMan.TimeBudget / 100);
+            AbortTimeThreshold = TimeMan.TimeBudget != long.MaxValue 
+                // approximately subtracting 1/128
+                ? TimeMan.TimeBudget - (TimeMan.TimeBudget >> 7)
+                : long.MaxValue;
 
             // create more space for killers on the new depth
             Killers.Expand(CurDepth);
@@ -66,8 +76,6 @@ namespace Kreveta.search {
             // decrease history values, as they shouldn't be as relevant now.
             // erasing them completely would, however, slow down the search
             History.Shrink();
-
-            //nnue = new(Game.board);
 
             // store the pv from the previous iteration in tt
             // this should hopefully allow some faster lookups
@@ -105,7 +113,7 @@ namespace Kreveta.search {
             for (int i = 0; i < pv.Length; i++) {
 
                 // store the pv-node
-                TT.Store(b, --depth, i, Window.Infinite, PVScore, pv[i]);
+                TT.Store(b, (sbyte)--depth, i, Window.Infinite, PVScore, pv[i]);
 
                 // play along the pv to store corrent positions as well
                 b.PlayMove(pv[i]);
@@ -114,7 +122,7 @@ namespace Kreveta.search {
 
         // first check the transposition table for the score, if it's not there
         // just continue the regular search. parameters need to be the same as in the search method itself
-        internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window) {
+        internal static (short Score, Move[] PV) ProbeTT([NotNull] Board board, int ply, int depth, Window window) {
 
             // did we find the position and score?
             // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -125,7 +133,7 @@ namespace Kreveta.search {
 
         // in case the position is not yet stored, we fully search it and then store it
         (short Score, Move[] PV) search = Search(board, ply, depth, window);
-            TT.Store(board, depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
+            TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
             return search;
         }
 
@@ -136,7 +144,7 @@ namespace Kreveta.search {
         // depth, on the other hand, starts at the highest value and decreases over time.
         // once we get to depth = 0, we drop into the qsearch. the search window contains 
         // the alpha and beta values, which are the pillars to this thing
-        private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window) {
+        private static (short Score, Move[] PV) Search([NotNull] Board board, int ply, int depth, Window window) {
 
             // either crossed the time budget or maximum nodes
             // we cannot abort the first iteration - no bestmove
@@ -198,8 +206,8 @@ namespace Kreveta.search {
                 && !Eval.IsMateScore(PVScore)
 
                 && (col == Color.WHITE
-                    ? (window.beta < short.MaxValue)
-                    : (window.alpha > short.MinValue))) {
+                    ? (window.Beta < short.MaxValue)
+                    : (window.Alpha > short.MinValue))) {
 
                 // we try the reduced search and check for failing high
                 if (NMP.TryPrune(board, depth, ply, window, col, out short score)) {
@@ -299,8 +307,8 @@ namespace Kreveta.search {
 
                 // we somehow still failed low
                 if (col == Color.WHITE 
-                    ? (fullSearch.Score <= window.alpha) 
-                    : (fullSearch.Score >= window.beta)) {
+                    ? (fullSearch.Score <= window.Alpha) 
+                    : (fullSearch.Score >= window.Beta)) {
 
                     // decrease the move's reputation
                     History.DecreaseQRep(board, curMove, depth);
@@ -311,7 +319,7 @@ namespace Kreveta.search {
                 else {
 
                     // store the new move in tt
-                    TT.Store(board, depth, ply, window, fullSearch.Score, moves[i]);
+                    TT.Store(board, (sbyte)depth, ply, window, fullSearch.Score, moves[i]);
 
                     // append this move followed by the child's pv to the bigger pv
                     pv = AddMoveToPV(curMove, fullSearch.PV);
@@ -348,12 +356,12 @@ namespace Kreveta.search {
 
                 // return the score as usual
                 : (col == Color.WHITE 
-                    ? window.alpha 
-                    : window.beta, pv);
+                    ? window.Alpha 
+                    : window.Beta, pv);
         }
 
         // same idea as ProbeTT, but used in qsearch
-        internal static short QProbeTT(Board board, int ply, Window window) {
+        internal static short QProbeTT([NotNull] Board board, int ply, Window window) {
 
             int depth = QSDepth - ply - CurDepth;
 
@@ -363,7 +371,7 @@ namespace Kreveta.search {
 
             // if the position is not yet stored, we continue the qsearch and then store it
             short score = QSearch(board, ply, window);
-            TT.Store(board, depth, ply, window, score, default);
+            TT.Store(board, (sbyte)depth, ply, window, score, default);
             return score;
         }
 
@@ -372,7 +380,7 @@ namespace Kreveta.search {
         // search tree, we return a qsearch eval. qsearch is essentially just an extension
         // to the main search, but only expands captures or checks. this prevents falsely
         // evaluating positions where we can for instance lose a queen in the next move
-        internal static short QSearch(Board board, int ply, Window window, bool onlyCaptures = false) {
+        internal static short QSearch([NotNull] Board board, int ply, Window window, bool onlyCaptures = false) {
 
             if (Abort)
                 return 0;
@@ -408,8 +416,8 @@ namespace Kreveta.search {
                 // if not, we use it as a lower bound (alpha)
                 if (window.TryCutoff(standPat, col))
                     return col == Color.WHITE 
-                        ? window.alpha 
-                        : window.beta;
+                        ? window.Alpha 
+                        : window.Beta;
             }
 
             onlyCaptures = !inCheck || onlyCaptures;
@@ -470,10 +478,11 @@ namespace Kreveta.search {
             }
 
             return col == Color.WHITE 
-                ? window.alpha 
-                : window.beta;
+                ? window.Alpha 
+                : window.Beta;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Move[] AddMoveToPV(Move move, Move[] pv) {
             Move[] new_pv = new Move[pv.Length + 1];
             new_pv[0] = move;

@@ -4,39 +4,43 @@
 //
 
 using Kreveta.evaluation;
-using Kreveta.search;
-using Kreveta.search.pruning;
 using System.Diagnostics;
 
 namespace Kreveta;
 
+#if DEBUG
+
 internal static class SpeedTest {
 
-    private const int Repetitions = 20;
-    private const long IterationsPerRep = 500000;
+    private const int Iterations = 3000000;
 
-    //
-    // run using the "test" command
-    //
+    [Conditional("DEBUG")]
     internal static void Run() {
+        Stopwatch sw = Stopwatch.StartNew();
 
-        long elapsed = 0;
+// Variable is assigned but its value is never used
+#pragma warning disable CS0219
 
-        for (int i = 0; i < Repetitions; i++) {
+// Unnecessary assignment of a value
+#pragma warning disable IDE0059
 
-            Stopwatch sw = Stopwatch.StartNew();
+        long auxCounter = 0;
 
-            long auxCounter = 0;
+#pragma warning restore IDE0059
+#pragma warning restore CS0219
 
-            for (int j = 0; j < IterationsPerRep; j++) {
-                auxCounter += Eval.StaticEval(Game.board);
+        for (int i = 0; i < Iterations; i++) {
+            // logic here
+
+            ulong something = 0xFFFFFFFFFFFFFFFF;
+            while (something != 0) {
+                int index = BB.LS1BReset(ref something);
+                auxCounter += index;
             }
-
-            sw.Stop();
-            elapsed += sw.ElapsedMilliseconds;
         }
 
-        long average = elapsed / Repetitions;
-        UCI.Log($"average time spent: {average} ms", UCI.LogLevel.INFO);
+        UCI.Log($"time spent: {sw.ElapsedMilliseconds} ms", UCI.LogLevel.INFO);
     }
 }
+
+#endif // DEBUG

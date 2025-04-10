@@ -3,12 +3,18 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.movegen.pieces;
 
 internal static class King {
-    internal static readonly ulong[][] CastlingMask = [
+
+    [ReadOnly(true)]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private static readonly ulong[][] CastlingMask = [
         [0x6000000000000000, 0x0E00000000000000],
         [0x0000000000000060, 0x000000000000000E]
     ];
@@ -19,14 +25,14 @@ internal static class King {
         return targets & free;
     }
 
-    internal static ulong GetCastlingTargets(Board board, Color col) {
-        ulong occ = board.Occupied();
+    internal static ulong GetCastlingTargets([NotNull] in Board board, Color col) {
+        ulong occ = board.Occupied;
 
         bool kingside =  ((byte)board.castRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
         bool queenside = ((byte)board.castRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
 
-        if (kingside)  kingside  &= (occ & CastlingMask[(byte)col][0]) == 0;
-        if (queenside) queenside &= (occ & CastlingMask[(byte)col][1]) == 0;
+        kingside  &= (occ & CastlingMask[(byte)col][0]) == 0;
+        queenside &= (occ & CastlingMask[(byte)col][1]) == 0;
 
         int start = col == Color.WHITE ? 60 : 4;
 

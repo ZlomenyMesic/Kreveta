@@ -5,6 +5,7 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -24,38 +25,44 @@ internal static class TT {
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {
         // 8 bytes
-        [field: FieldOffset(0)] internal ulong Hash;
+        [field: FieldOffset(0)]  
+        internal ulong Hash;
 
         // 2 bytes
-        [field: FieldOffset(8)] internal short Score;
+        [field: FieldOffset(sizeof(ulong))]  
+        internal short Score;
 
         // 1 byte
-        [field: FieldOffset(10)] internal sbyte Depth;
+        [field: FieldOffset(sizeof(ulong) + sizeof(short))] 
+        internal sbyte Depth;
 
         // 1 byte
-        [field: FieldOffset(11)] internal ScoreType Type;
+        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte))] 
+        internal ScoreType Type;
 
         // 4 bytes
-        [field:FieldOffset(12)] internal Move BestMove;
+        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte) + sizeof(ScoreType))]
+        internal Move BestMove;
     }
 
     // size of a single hash entry
-    internal const int EntrySize = 16;
+    private const int EntrySize = 16;
 
     // size of the tt array
-    internal static int TableSize = GetTableSize();
+    private static int TableSize = GetTableSize();
 
     // how many items are currently stored
-    internal static int Stored = 0;
+    private static int Stored = 0;
 
-    private static Entry[] table = new Entry[TableSize];
+    private static Entry[] Table = new Entry[TableSize];
 
     //private static long tt_lookups = 0;
 
-    // tt array size - megabytes * bytes_in_mb / entry_size
+    // tt array size = megabytes * bytes_in_mb / entry_size
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
-        return (int)Math.Min(Options.Hash * (long)1048576 / EntrySize, (long)int.MaxValue / EntrySize);
+        const int MaxSize = int.MaxValue / EntrySize;
+        return (int)Math.Min((long)Options.Hash * 1048576 / EntrySize, MaxSize);
     }
 
     // generate an index in the tt for a specific board hash
@@ -70,7 +77,7 @@ internal static class TT {
         Stored = 0;
 
         TableSize = GetTableSize();
-        table = new Entry[TableSize];
+        Table = new Entry[TableSize];
     }
 
     // instead of using an age value, we decrement the depths
@@ -80,24 +87,24 @@ internal static class TT {
         if (Stored == 0) return;
 
         for (int i = 0; i < TableSize; i++) {
-            if (table[i].Hash != default) {
-                table[i].Score = default;
-                table[i].Depth = default;
+            if (Table[i].Hash != default) {
+                Table[i].Score = default;
+                Table[i].Depth = default;
             }
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Store(Board board, int depth, int ply, Window window, short score, Move bestMove) {
+    internal static void Store([NotNull] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
         Store(Zobrist.GetHash(board), depth, ply, window, score, bestMove);
     }
 
-    internal static void Store(ulong hash, int depth, int ply, Window window, short score, Move bestMove) {
+    internal static void Store(ulong hash, sbyte depth, int ply, Window window, short score, Move bestMove) {
 
         int i = HashIndex(hash);
 
         // maybe an entry is already saved
-        Entry existing = table[i];
+        Entry existing = Table[i];
 
         // is the index already occupied with a result from a higher depth search?
         // key collisions may also be problematic - multiple positions
@@ -108,7 +115,7 @@ internal static class TT {
 
         Entry entry = new() {
             Hash = hash,
-            Depth = (sbyte)depth,
+            Depth = depth,
             BestMove = bestMove
         };
 
@@ -126,13 +133,13 @@ internal static class TT {
             score += (short)(Math.Sign(score) * ply);
         }
 
-        if (score >= window.beta) {
+        if (score >= window.Beta) {
             entry.Type = ScoreType.UPPER_BOUND;
-            entry.Score = window.beta;
+            entry.Score = window.Beta;
 
-        } else if (score <= window.alpha) {
+        } else if (score <= window.Alpha) {
             entry.Type = ScoreType.LOWER_BOUND;
-            entry.Score = window.alpha;
+            entry.Score = window.Alpha;
 
         } else {
             entry.Type = ScoreType.EXACT;
@@ -144,15 +151,15 @@ internal static class TT {
             Stored++;
 
         // store the new entry or overwrite the old one if allowed
-        table[i] = entry;
+        Table[i] = entry;
     }
 
-    internal static bool GetBestMove(Board board, out Move bestMove) {
+    internal static bool GetBestMove([NotNull] in Board board, out Move bestMove) {
         ulong hash = Zobrist.GetHash(board);
         bestMove = default;
 
         int i = HashIndex(hash);
-        Entry entry = table[i];
+        Entry entry = Table[i];
 
         // the position isn't saved
         if (entry.Hash != hash)
@@ -162,12 +169,12 @@ internal static class TT {
         return bestMove != default;
     }
 
-    internal static bool GetScore(Board board, int depth, int ply, Window window, out short score) {
+    internal static bool GetScore([NotNull] in Board board, int depth, int ply, Window window, out short score) {
         ulong hash = Zobrist.GetHash(board);
         score = 0;
 
         int i = HashIndex(hash);
-        Entry entry = table[i];
+        Entry entry = Table[i];
 
         // once again the position is not yet saved
         if (entry.Hash != hash)
@@ -192,11 +199,11 @@ internal static class TT {
         }
 
         if (entry.Type == ScoreType.EXACT) return true;
-        if (entry.Type == ScoreType.LOWER_BOUND && score <= window.alpha) {
+        if (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha) {
             //score = window.alpha;
             return true;
         }
-        if (entry.Type == ScoreType.UPPER_BOUND && score >= window.beta) {
+        if (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta) {
             //score = window.beta;
             return true;
         }

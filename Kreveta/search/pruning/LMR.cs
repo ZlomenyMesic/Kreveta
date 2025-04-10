@@ -43,7 +43,7 @@ internal static class LMR {
     private const int ReductionDepth = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune(Board board, Board child, Move move, int ply, int depth, Color col, int expNodes, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune(in Board board, in Board child, Move move, int ply, int depth, Color col, int expNodes, Window window) {
 
         // depth reduce is larger with bad history
         int R = History.GetRep(board, move) < HistReductionThreshold ? HistR : LMR.R;
@@ -51,8 +51,8 @@ internal static class LMR {
 
         // null window around alpha
         Window nullAlphaWindow = col == Color.WHITE 
-            ? new(window.alpha, (short)(window.alpha + 1)) 
-            : new((short)(window.beta - 1), window.beta);
+            ? new(window.Alpha, (short)(window.Alpha + 1)) 
+            : new((short)(window.Beta - 1), window.Beta);
 
         // once again a reduced depth search
         short score = PVSearch.ProbeTT(child, ply + 1, depth - R - 1, nullAlphaWindow).Score;
@@ -64,8 +64,8 @@ internal static class LMR {
 
         // we failed low, we prune this branch. it is not good enough
         if (col == Color.WHITE
-            ? (score <= window.alpha)
-            : (score >= window.beta) 
+            ? (score <= window.Alpha)
+            : (score >= window.Beta) 
             && PruningOptions.AllowNullMovePruning) 
 
             return (true, false);
@@ -75,7 +75,7 @@ internal static class LMR {
 
         // REDUCTIONS PART:
         // size of the window
-        int window_size = Math.Abs(window.beta - window.alpha);
+        int window_size = Math.Abs(window.Beta - window.Alpha);
 
         // one tenth of the window is the margin
         short margin = (short)(Math.Min(MaxReduceMargin, window_size / WindowSizeDivisor) * (col == Color.WHITE ? 1 : -1) / MarginDivisor + expNodes);
@@ -89,8 +89,8 @@ internal static class LMR {
         score -= margin;
         bool reduce = R == HistR 
             && col == Color.WHITE
-                ? (score <= window.alpha)
-                : (score >= window.beta);
+                ? (score <= window.Alpha)
+                : (score >= window.Beta);
 
         return (false, reduce);
     }

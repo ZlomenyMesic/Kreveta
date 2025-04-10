@@ -3,11 +3,16 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
 internal static class BB {
+
+    [ReadOnly(true)]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly int[] DeBruijnTable = [
         0,  47, 1, 56,  48, 27, 2,  60,
         57, 49, 41, 37, 28, 16, 3,  61,
@@ -33,10 +38,10 @@ internal static class BB {
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static (ulong BB, int Index) LS1BReset(ulong bb) {
-        ulong new_bb = bb;
-        bb &= new_bb - 1;
-        return (bb, LS1B(new_bb));
+    internal static int LS1BReset(ref ulong bb) {
+        int index = LS1B(bb);
+        bb &= bb - 1;
+        return index;
     }
 
 

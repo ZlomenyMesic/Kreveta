@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen.pieces;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
@@ -46,95 +47,92 @@ internal static class Eval {
     internal static bool IsMateScore(int s)
         => Math.Abs(s) > MateScoreThreshold;
 
+    internal static short StaticEval([NotNull] in Board board) {
 
-    internal static short StaticEval(Board b) {
+        ulong wOccupied = board.WOccupied;
+        ulong bOccupied = board.BOccupied;
 
-        ulong w_occ = b.Occupied(Color.WHITE);
-        ulong b_occ = b.Occupied(Color.BLACK);
+        int pieceCount = BB.Popcount(wOccupied | bOccupied);
 
-        int piece_count = BB.Popcount(w_occ | b_occ);
-
-        short w_eval = 0, b_eval = 0;
+        short wEval = 0, bEval = 0;
 
         for (int i = 0; i < 6; i++) {
 
-            ulong w_copy = b.pieces[(byte)Color.WHITE, i];
-            ulong b_copy = b.pieces[(byte)Color.BLACK, i];
+            ulong wCopy = board.Pieces[(byte)Color.WHITE, i];
+            ulong bCopy = board.Pieces[(byte)Color.BLACK, i];
 
-            while (w_copy != 0) {
-                (w_copy, int w_sq) = BB.LS1BReset(w_copy);
-
-                w_eval += GetTableValue((PType)i, Color.WHITE, w_sq, piece_count);
+            while (wCopy != 0) {
+                int sq = BB.LS1BReset(ref wCopy);
+                wEval += GetTableValue((PType)i, Color.WHITE, sq, pieceCount);
             }
 
-            while (b_copy != 0) {
-                (b_copy, int b_sq) = BB.LS1BReset(b_copy);
-
-                b_eval += GetTableValue((PType)i, Color.BLACK, b_sq, piece_count);
+            while (bCopy != 0) {
+                int sq = BB.LS1BReset(ref bCopy);
+                bEval += GetTableValue((PType)i, Color.BLACK, sq, pieceCount);
             }
         }
 
-        short eval = (short)(w_eval - b_eval);
+        short eval = (short)(wEval - bEval);
 
         // pawn structure eval includes:
         // 
         // 1. doubled (or tripled) pawns penalty
         // 2. isolated pawn penalty
         //
-        eval += PawnStructureEval(b.pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE, piece_count);
-        eval -= PawnStructureEval(b.pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK, piece_count);
+        eval += PawnStructureEval(board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE);
+        eval -= PawnStructureEval(board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK);
 
         // knight eval includes:
         //
         // 1. decreasing value in the endgame
         //
-        eval += KnightEval(b, piece_count);
+        eval += KnightEval(board, pieceCount);
 
         // bishop eval includes:
         //
         // 1. bishop pair bonus
         //
-        eval += BishopEval(b);
+        eval += BishopEval(board);
 
         // rook eval includes:
         //
         // 1. increasing value in the endgame
         // 2. bonuses for rooks on open or semi-open files
         //
-        eval += RookEval(b, piece_count, w_occ | b_occ);
+        eval += RookEval(board, pieceCount);
 
         // king eval includes:
         //
         // 1. friendly pieces protecting the king
         //
-        eval += KingEval(b, piece_count);
+        eval += KingEval(board, pieceCount);
 
         // side to move should also get a slight advantage
-        eval += (short)(b.color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        eval += (short)(board.color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
 
         return (short)(eval/* + r.Next(-6, 6)*/);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetTableValue(PType p, Color col, int pos, int piece_count) {
+    internal static short GetTableValue(PType type, Color col, int sq, int pieceCount) {
         // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
         // there are two tables - midgame and endgame, this is important, because the pieces should be
         // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
         // but in the endgame in the center)
 
-        int i = ((byte)p * 64) + (col == Color.WHITE
-            ? (63 - pos) 
-            : (pos >> 3) * 8 + (7 - (pos & 7)));
+        int i = ((byte)type * 64) + (col == Color.WHITE
+            ? (63 - sq) 
+            : (sq >> 3) * 8 + (7 - (sq & 7)));
 
         int mg_value = EvalTables.Midgame[i];
         int eg_value = EvalTables.Endgame[i];
 
-        return (short)(mg_value * piece_count / 32 + eg_value * (32 - piece_count) / 32);
+        return (short)(mg_value * pieceCount / 32 + eg_value * (32 - pieceCount) / 32);
     }
 
     // bonuses or penalties for pawn structure
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short PawnStructureEval(ulong p, Color col, int piece_count) {
+    private static short PawnStructureEval(ulong p, Color col) {
 
         int eval = 0;
 
@@ -163,25 +161,25 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KnightEval(Board b, int piece_count) {
+    private static short KnightEval([NotNull] in Board board, int pieceCount) {
         short eval = 0;
 
         // knights are less valuable if be have fewer pieces on the board.
         // number of white knights and black knights on the board:
-        int w_knights = BB.Popcount(b.pieces[0, 1]);
-        int b_knights = BB.Popcount(b.pieces[1, 1]);
+        int wKnights = BB.Popcount(board.Pieces[0, 1]);
+        int bKnights = BB.Popcount(board.Pieces[1, 1]);
 
         // subtract some eval for white if it has knights
-        eval -= (short)(w_knights * (32 - piece_count) / 4);
+        eval -= (short)(wKnights * (32 - pieceCount) / 4);
 
         // add some eval for black it has knights
-        eval += (short)(b_knights * (32 - piece_count) / 4);
+        eval += (short)(bKnights * (32 - pieceCount) / 4);
 
         return eval;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short BishopEval(Board b) {
+    private static short BishopEval([NotNull] in Board board) {
 
         short eval = 0;
 
@@ -193,28 +191,28 @@ internal static class Eval {
         // slows down the eval quite a lot, that's why it isn't implemented
 
         // does white have two (or more) bishops?
-        eval += (short)(BB.Popcount(b.pieces[0, 2]) > 1 ? BishopPairBonus : 0);
+        eval += (short)(BB.Popcount(board.Pieces[0, 2]) > 1 ? BishopPairBonus : 0);
 
         // does black have two (or more) bishops?
-        eval -= (short)(BB.Popcount(b.pieces[1, 2]) > 1 ? BishopPairBonus : 0);
+        eval -= (short)(BB.Popcount(board.Pieces[1, 2]) > 1 ? BishopPairBonus : 0);
 
         return eval;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short RookEval(Board b, int piece_count, ulong occ) {
+    private static short RookEval([NotNull] in Board board, int pieceCount) {
         short eval = 0;
 
         // rooks are, as opposed to knights, more valuable if be have fewer pieces on the board.
         // number of white rooks and black rooks on the board:
-        int w_rooks = BB.Popcount(b.pieces[0, 3]);
-        int b_rooks = BB.Popcount(b.pieces[1, 3]);
+        int wRooks = BB.Popcount(board.Pieces[0, 3]);
+        int bRooks = BB.Popcount(board.Pieces[1, 3]);
 
         // add some eval for white if it has rooks
-        eval += (short)(w_rooks * (32 - piece_count) / 2);
+        eval += (short)(wRooks * (32 - pieceCount) / 2);
 
         // subtract some eval for black it has rooks
-        eval -= (short)(b_rooks * (32 - piece_count) / 2);
+        eval -= (short)(bRooks * (32 - pieceCount) / 2);
 
         //for (int i = 0; i < 2; i++) {
         //    ulong copy = b.pieces[i, 3];
@@ -247,18 +245,18 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval(Board b, int piece_count) {
+    private static short KingEval([NotNull] in Board board, int pieceCount) {
         int eval = 0;
 
         // same color pieces around the king - protection
-        ulong w_protection = King.GetKingTargets(b.pieces[(byte)Color.WHITE, (byte)PType.KING], b.Occupied(Color.WHITE));
-        ulong b_protection = King.GetKingTargets(b.pieces[(byte)Color.BLACK, (byte)PType.KING], b.Occupied(Color.BLACK));
+        ulong wProtection = King.GetKingTargets(board.Pieces[(byte)Color.WHITE, (byte)PType.KING], board.WOccupied);
+        ulong bProtection = King.GetKingTargets(board.Pieces[(byte)Color.BLACK, (byte)PType.KING], board.BOccupied);
 
         // bonus for the number of friendly pieces protecting the king
-        short w_prot_bonus = (short)(BB.Popcount(w_protection) * 2);
-        short b_prot_bonus = (short)(BB.Popcount(b_protection) * 2);
+        short wProtBonus = (short)(BB.Popcount(wProtection) * 2);
+        short bProtBonus = (short)(BB.Popcount(bProtection) * 2);
 
-        eval += w_prot_bonus - b_prot_bonus;
+        eval += wProtBonus - bProtBonus;
 
         return (short)eval;
     }
