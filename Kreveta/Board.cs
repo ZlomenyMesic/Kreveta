@@ -6,33 +6,49 @@
 using Kreveta.movegen;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Drawing;
-using System.Runtime.CompilerServices;
+using System.Diagnostics;
 
 namespace Kreveta;
 
 internal class Board {
 
-    // [color, piece_type]
-    // all pieces are saved here
+    // all pieces are saved here in so called bitboards.
+    // we have 12 different ulongs (bitboards) which represent
+    // all possible pieces. these bitboards are empty and
+    // the pieces are stored as one-bits in these large bbs.
+    // since a chessboard has 64 squares and ulong has 64
+    // bits, we don't waste any memory or anything else.
+    [Required]
+    [DebuggerDisplay("indexed [color, piece_type]")]
     internal ulong[,] Pieces = new ulong[2, 6];
 
+    // these two bitboards simply represent all occupied
+    // squares by a certain color. it turns out to be a little
+    // faster than OR the bitboards above, although it takes
+    // 16 additional bytes of memory.
     internal ulong WOccupied = 0;
     internal ulong BOccupied = 0;
 
+    // all occupied squares
+    [ReadOnly(true)]
     [DefaultValue(0UL)]
     internal ulong Occupied => WOccupied | BOccupied;
 
+    // all empty squares (bitwise inverse of occupied)
+    [ReadOnly(true)]
     [DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
     internal ulong Empty => ~Occupied;
 
-    // square over which a double pushing pawn has passed one move ago
+    // square over which a double pushing
+    // pawn has passed one move ago
     internal byte enPassantSq = 64;
 
+    // the current state of castling rights
     // 0 0 0 0 q k Q K
     [EnumDataType(typeof(CastlingRights))]
     internal CastlingRights castRights = 0;
 
+    // the side to move
     [EnumDataType(typeof(Color))]
     internal Color color = 0;
 
@@ -45,41 +61,6 @@ internal class Board {
         castRights  = CastlingRights.NONE;
         color       = Color.NONE;
     }
-
-    // returns all squares occupied by the color
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //internal ulong OccupiedByColor(Color col) {
-
-    //    if (col == Color.WHITE) 
-    //        return WOccupied;
-    //    return BOccupied;
-
-
-    //    return Pieces[(byte)col, (byte)PType.PAWN]
-    //         | Pieces[(byte)col, (byte)PType.KNIGHT]
-    //         | Pieces[(byte)col, (byte)PType.BISHOP]
-    //         | Pieces[(byte)col, (byte)PType.ROOK]
-    //         | Pieces[(byte)col, (byte)PType.QUEEN]
-    //         | Pieces[(byte)col, (byte)PType.KING];
-    //}
-
-    // all occupied squares
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //internal ulong Occupied() {
-    //    return WOccupied | BOccupied;
-
-    //    return Occupied(Color.WHITE) 
-    //         | Occupied(Color.BLACK);
-    //}
-
-    // return all empty squares
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //internal ulong Empty() {
-    //    return ~(Occupied());
-
-    //    return ~(Occupied(Color.WHITE) 
-    //           | Occupied(Color.BLACK));
-    //}
 
     // returns the piece at a certain square
     // (color, piece_type)
@@ -183,6 +164,9 @@ internal class Board {
         else if (prom != PType.NONE) {
             Pieces[(byte)col, (byte)piece] ^= start;
             Pieces[(byte)col, (byte)prom]  ^= end;
+
+            if (col == Color.WHITE) WOccupied ^= start | end;
+            else BOccupied ^= start | end;
         } 
 
         // regular move

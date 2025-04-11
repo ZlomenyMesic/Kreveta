@@ -18,12 +18,13 @@ internal static class Eval {
 
     private const int SideToMoveBonus = 5;
 
-    private const int DoubledPawnPenalty = -6;
-    private const int IsolatedPawnPenalty = -21;
+    private const int DoubledPawnPenalty       = -6;
+    private const int IsolatedPawnPenalty      = -21;
+    private const int ConnectedPassedPawnBonus = 9;
 
     private const int BishopPairBonus = 35;
 
-    private const int OpenFileRookBonus = 24;
+    private const int OpenFileRookBonus = 16;
 
     private static readonly Random r = new();
 
@@ -74,37 +75,33 @@ internal static class Eval {
 
         short eval = (short)(wEval - bEval);
 
-        // pawn structure eval includes:
+        // pawn structure eval:
         // 
-        // 1. doubled (or tripled) pawns penalty
-        // 2. isolated pawn penalty
-        //
+        // 1. penalties for doubled, tripled, and more stacked pawns
+        // 2. penalties for isolated pawns (no friendly pawns on adjacent files)
+        // 3. bonus for connected pawns in the other half of the board
         eval += PawnStructureEval(board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE);
         eval -= PawnStructureEval(board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK);
 
-        // knight eval includes:
+        // knight eval:
         //
         // 1. decreasing value in the endgame
-        //
         eval += KnightEval(board, pieceCount);
 
-        // bishop eval includes:
+        // bishop eval:
         //
-        // 1. bishop pair bonus
-        //
+        // 1. bonus for having a full bishop pair
         eval += BishopEval(board);
 
-        // rook eval includes:
+        // rook eval:
         //
         // 1. increasing value in the endgame
         // 2. bonuses for rooks on open or semi-open files
-        //
         eval += RookEval(board, pieceCount);
 
-        // king eval includes:
+        // king eval:
         //
-        // 1. friendly pieces protecting the king
-        //
+        // 1. bonuses for friendly pieces protecting the king
         eval += KingEval(board, pieceCount);
 
         // side to move should also get a slight advantage
@@ -120,13 +117,20 @@ internal static class Eval {
         // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
         // but in the endgame in the center)
 
+        // we have to index the piece and position correctly. white
+        // pieces are simple, but black piece have to be mirrored
         int i = ((byte)type * 64) + (col == Color.WHITE
             ? (63 - sq) 
             : (sq >> 3) * 8 + (7 - (sq & 7)));
 
+        // we grab both the midgame and endgame table values
         int mg_value = EvalTables.Midgame[i];
         int eg_value = EvalTables.Endgame[i];
 
+        // a very rough attempt for tapering evaluation - instead of
+        // just switching straight from midgame into endgame, the table
+        // value of the piece is always somewhere in between depending
+        // on the number of pieces left on the board.
         return (short)(mg_value * pieceCount / 32 + eg_value * (32 - pieceCount) / 32);
     }
 
@@ -145,16 +149,34 @@ internal static class Eval {
             int file_occ = BB.Popcount(file & p);
             if (file_occ == 0) continue;
 
-            // penalize doubled pawns
+            // penalties for doubled pawns. by subtracting 1 we can simultaneously
+            // penalize all sorts of stacked pawns while not checking single ones
             eval += (file_occ - 1) * DoubledPawnPenalty * colMult;
 
-            // current file + files on the sides
+            // current file + files next to it
             ulong adj = AdjFiles[i];
 
             // if the number of pawns on current file is equal to the number of pawns
             // on the current plus adjacent files, we know the pawn/s are isolated
             int adj_occ = BB.Popcount(adj & p);
             eval += file_occ != adj_occ ? 0 : IsolatedPawnPenalty * colMult;
+        }
+
+        // pawns in the opponent's half of the board. not really
+        // passed pawns by definition, but these pawns should have
+        // a good chance of promoting
+        ulong copy = p & (col == Color.WHITE 
+            ? 0x00000000FFFFFFFF 
+            : 0xFFFFFFFF00000000);
+
+        while (copy != 0) {
+            int sq = BB.LS1BReset(ref copy);
+
+            // add a bonus for connected pawns in the opponent's half of the board.
+            // this should (and hopefully does) increase the playing strength in
+            // endgames and also allow better progressing into endgames
+            ulong targets = Pawn.GetPawnCaptureTargets(Consts.SqMask[sq], 64, col, p);
+            eval += BB.Popcount(targets) * ConnectedPassedPawnBonus;
         }
 
         return (short)eval;
@@ -205,32 +227,40 @@ internal static class Eval {
 
         // rooks are, as opposed to knights, more valuable if be have fewer pieces on the board.
         // number of white rooks and black rooks on the board:
-        int wRooks = BB.Popcount(board.Pieces[0, 3]);
-        int bRooks = BB.Popcount(board.Pieces[1, 3]);
+        int wRooksCount = BB.Popcount(board.Pieces[0, 3]);
+        int bRooksCount = BB.Popcount(board.Pieces[1, 3]);
 
         // add some eval for white if it has rooks
-        eval += (short)(wRooks * (32 - pieceCount) / 2);
+        eval += (short)(wRooksCount * (32 - pieceCount) / 2);
 
         // subtract some eval for black it has rooks
-        eval -= (short)(bRooks * (32 - pieceCount) / 2);
+        eval -= (short)(bRooksCount * (32 - pieceCount) / 2);
 
-        //for (int i = 0; i < 2; i++) {
-        //    ulong copy = b.pieces[i, 3];
+        // here we try to add bonuses for rooks on open files. the bonus id
+        // there permanently, but decreases with more pieces on the same file
+        ulong wCopy = board.Pieces[(byte)Color.WHITE, (byte)PType.ROOK];
+        while (wCopy != 0) {
+            int sq = BB.LS1BReset(ref wCopy);
 
-        //    while (copy != 0) {
-        //        (copy, int sq) = BB.LS1BReset(copy);
+            // how many pieces (regardless of color) are on the same file as the rook
+            int pieces = BB.Popcount(Consts.FileMask[sq & 7] & board.Occupied);
 
-        //        // how many pieces (regardless of color) are on the same file as the rook
-        //        int file_occ = BB.Popcount(Consts.FileMask[sq & 7] & occ);
+            // the bonus gets smaller with more pieces on the file
+            eval += (short)(OpenFileRookBonus >> (pieces - 1));
+        }
 
-        //        // the bonus gets smaller with more pieces on the file
-        //        eval += (short)(OPEN_FILE_ROOK_BONUS / file_occ
+        // the same exact principle as above, but for black. although repeating
+        // code isn't clean code and certainly not good coding practice, in this
+        // case a loop or a separate function would slow everything down and time
+        // is very precious and expensive
+        ulong bCopy = board.Pieces[(byte)Color.BLACK, (byte)PType.ROOK];
+        while (bCopy != 0) {
+            int sq = BB.LS1BReset(ref bCopy);
+            int pieces = BB.Popcount(Consts.FileMask[sq & 7] & board.Occupied);
 
-        //            // more bonus for open files later in the game
-        //            * (32 - piece_count) / 8
-        //            * (i == 0 ? 1 : -1));
-        //    }
-        //}
+            // we subtract the value this time for black
+            eval -= (short)(OpenFileRookBonus >> (pieces - 1));
+        }
 
         return eval;
     }

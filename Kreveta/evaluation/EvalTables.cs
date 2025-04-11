@@ -3,13 +3,17 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
+
 namespace Kreveta.evaluation;
 
 internal static class EvalTables {
 
     // rough guess of piece values (from AlphaZero)
-    internal static readonly short[] Values = [100, 305, 333, 563, 950, 0, 0];
+    [ReadOnly(true)]
+    internal static readonly short[] PieceValues = [100, 305, 333, 563, 950, 0, 0];
 
+    [ReadOnly(true)]
     internal static readonly short[] Midgame =
         [ //PAWN MG
           100,  100,  100,  100,  100,  100,  100,  100,
@@ -67,6 +71,7 @@ internal static class EvalTables {
           -5,   -15,  -20,  -35,  -35,  -20,  -15,   -5,
         ];
 
+    [ReadOnly(true)]
     internal static readonly short[] Endgame =
         [ //PAWN EG
           100,  100,  100,  100,  100,  100,  100,  100,

@@ -4,6 +4,7 @@
 //
 
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace Kreveta.opening_book;
 
@@ -74,9 +75,11 @@ internal static class OpeningBook {
     }
 
     [ReadOnly(true)]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly string[][] BookSplit;
 
     [ReadOnly(true)]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly string[] Book = [
 
         "e2e4 d7d5",

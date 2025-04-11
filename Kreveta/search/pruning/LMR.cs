@@ -6,7 +6,6 @@
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.moveorder;
-using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.pruning;
 
@@ -27,18 +26,22 @@ internal static class LMR {
     // (we obviously don't want to reduce the pv)
     internal const int MinExpNodes = 3;
 
+    // the actual depth reduce within late move reductions
+    internal const int R = 2;
+
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
     private const int HistReductionThreshold = -1320;
 
-    // depth reduce normally and with bad history rep
-    private const int R     = 3;
-    private const int HistR = 4;
+    // depth reduce normally and with bad history rep. this
+    // reduce is used internally to evaluate positions.
+    private const int InternalR     = 3;
+    private const int InternalHistR = 4;
 
     private const int MaxReduceMargin   = 66;
-    private const int WindowSizeDivisor = 10;
-    private const int MarginDivisor     = 5;
+    private const int WindowSizeDivisor = 9;
+    private const int MarginDivisor     = 6;
 
     private const int ReductionDepth = 4;
 
@@ -46,7 +49,7 @@ internal static class LMR {
     internal static (bool Prune, bool Reduce) TryPrune(in Board board, in Board child, Move move, int ply, int depth, Color col, int expNodes, Window window) {
 
         // depth reduce is larger with bad history
-        int R = History.GetRep(board, move) < HistReductionThreshold ? HistR : LMR.R;
+        int R = History.GetRep(board, move) < HistReductionThreshold ? InternalHistR : InternalR;
         //Console.WriteLine(History.GetRep(board, move));
 
         // null window around alpha
@@ -66,8 +69,7 @@ internal static class LMR {
         if (col == Color.WHITE
             ? (score <= window.Alpha)
             : (score >= window.Beta) 
-            && PruningOptions.AllowNullMovePruning) 
-
+            && PruningOptions.AllowNullMovePruning)
             return (true, false);
 
         if (!PruningOptions.AllowLateMoveReductions) 
@@ -75,11 +77,11 @@ internal static class LMR {
 
         // REDUCTIONS PART:
         // size of the window
-        int window_size = Math.Abs(window.Beta - window.Alpha);
+        int windowSize = Math.Abs(window.Beta - window.Alpha);
 
         // one tenth of the window is the margin
-        short margin = (short)(Math.Min(MaxReduceMargin, window_size / WindowSizeDivisor) * (col == Color.WHITE ? 1 : -1) / MarginDivisor + expNodes);
-        
+        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) * (col == Color.WHITE ? 1 : -1) / MarginDivisor + expNodes);
+
         if (margin == 0 || (depth != ReductionDepth)) 
             return (false, false);
 
@@ -87,14 +89,15 @@ internal static class LMR {
         // again with a small margin and if we succeed, we only reduce the search depth
         // (we don't prune this time, we only reduce)
         score -= margin;
-        bool reduce = R == HistR 
+        bool shouldReduce = R == InternalHistR 
             && col == Color.WHITE
                 ? (score <= window.Alpha)
                 : (score >= window.Beta);
 
-        return (false, reduce);
+        return (false, shouldReduce);
     }
 
+    [Obsolete("No need for a method.", true)]
     internal static int GetReduce(int ply, int depth, int expNodes) {
         return 2;
         //return Math.Min(ReductionDepth - 1, Math.Max(2, 

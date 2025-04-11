@@ -14,7 +14,7 @@ internal static class PruningOptions {
     internal static bool AllowReverseFutilityPruning = false; // false
 
     internal static bool AllowLateMovePruning        = true;
-    internal static bool AllowLateMoveReductions     = false;
+    internal static bool AllowLateMoveReductions     = true;
 
     internal static bool AllowDeltaPruning           = true;
 
