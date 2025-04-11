@@ -22,7 +22,8 @@ internal static class MVV_LVA {
     // shouldn't be any
     [ReadOnly(true)]
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly int[] PieceValues = [100, 315, 330, 520, 930, 10000, -1];
+    private static readonly int[] PieceValues 
+        = [100, 315, 330, 520, 930, 10000, -1];
 
     // takes a list of captures, sorts it from best to worst and
     // returns it. the technique is called MVV-LVA and stands for

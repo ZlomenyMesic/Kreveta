@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -14,17 +15,19 @@ internal struct Window {
 
     // floor/lower bound
     // moves under alpha are too bad
+    [Required]
     [field: FieldOffset(0)] 
     internal short Alpha;
 
     // ceiling/upper bound
     // moves above beta are too good and won't be allowed by the opponent
+    [Required]
     [field: FieldOffset(sizeof(short))] 
     internal short Beta;
 
     internal Window(short alpha, short beta) {
-        this.Alpha = alpha;
-        this.Beta = beta;
+        Alpha = alpha;
+        Beta = beta;
     }
 
     // makes the window smaller by raising alpha or reducing beta, depending on the color

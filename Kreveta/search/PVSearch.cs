@@ -294,7 +294,7 @@ namespace Kreveta.search {
 
                     // we failed low with a margin - only reduce, don't prune
                     if (reduce) {
-                        int R = LMR.GetReduce(ply, depth, expNodes);
+                        int R = LMR.R;
 
                         depth -= R;
                         ply += R;
@@ -451,7 +451,7 @@ namespace Kreveta.search {
                 child.PlayMove(moves[i]);
 
                 // value of the piece we just captured
-                int captured = (inCheck ? 0 : EvalTables.Values[(byte)moves[i].Capture()]) 
+                int captured = (inCheck ? 0 : EvalTables.PieceValues[(byte)moves[i].Capture()]) 
                     * (col == Color.WHITE ? 1 : -1);
 
                 // delta pruning
