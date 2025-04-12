@@ -5,6 +5,7 @@
 
 using Kreveta.opening_book;
 using Kreveta.search;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -16,9 +17,11 @@ internal static class UCI {
         INFO, WARNING, ERROR, RAW
     }
 
+    [ReadOnly(true)]
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly TextReader Input;
 
+    [ReadOnly(true)]
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly TextWriter Output;
 
@@ -30,10 +33,15 @@ internal static class UCI {
     static UCI() {
         Input = Console.In;
         Output = Console.Out;
-        NKOutput = new StreamWriter(NKLogFilePath);
 
-        NeoKolors.Console.Debug.Output = NKOutput;
-        NeoKolors.Console.Debug.SimpleMessages = true;
+        //try {
+        //    NKOutput = new StreamWriter(NKLogFilePath);
+
+        //    NeoKolors.Console.Debug.Output = NKOutput;
+        //    NeoKolors.Console.Debug.SimpleMessages = true;
+        //} catch {
+        //    Log("NKLogger initialization failed", LogLevel.ERROR);
+        //}
     }
 
     internal static void UCILoop() {
@@ -191,17 +199,22 @@ internal static class UCI {
     }
 
     internal static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
-        if (Options.NKLogs) {
+        //if (Options.NKLogs) {
 
-            // using KryKom's NeoKolors library for fancy logs
-            // this option can be toggled via the FancyLogs option
-            switch (level) {
-                case LogLevel.INFO:    NeoKolors.Console.Debug.Info(msg);  break;
-                case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg);  break;
-                case LogLevel.ERROR:   NeoKolors.Console.Debug.Error(msg); break;
+        //    // using KryKom's NeoKolors library for fancy logs
+        //    // this option can be toggled via the FancyLogs option
+        //    try {
+        //        switch (level) {
+        //            case LogLevel.INFO:    NeoKolors.Console.Debug.Info(msg);  break;
+        //            case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg);  break;
+        //            case LogLevel.ERROR:   NeoKolors.Console.Debug.Error(msg); break;
 
-                default: NeoKolors.Console.Debug.Log(msg); break;
-            }
-        }
+        //            default: NeoKolors.Console.Debug.Log(msg); break;
+        //        }
+        //    }
+        //    catch {
+        //        Console.WriteLine($"failed to open the log file");
+        //    }
+        //}
     }
 }

@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -23,6 +24,7 @@ internal static class History {
     // be a failure in my implementation, though.
 
     // this array stores history values of quiet moves - no captures
+    [ReadOnly(true)]
     private static readonly int[,] QuietScores = new int[64, 12];
 
     // butterfly boards store the number of times a move has been visited.
@@ -42,7 +44,11 @@ internal static class History {
     // is quite wrong (or at least in my particular case), and not only
     // that, the engine performs better when i do the exact opposite,
     // so the history value is multiplied by the common log of bf score
+    [ReadOnly(true)]
     private static readonly int[,] ButterflyScores = new int[64, 12];
+
+    [ReadOnly(true)]
+    private const int RelHHScale = 12;
 
     // before each new iterated depth, we "shrink" the stored values.
     // they are still quite relevant, but the new values coming are
@@ -75,7 +81,7 @@ internal static class History {
         QuietScores[end, i] += QuietShift(depth);
 
         // add the move as visited, too
-        ButterflyScores[end, i]--;
+        ButterflyScores[end, i]++;
     }
 
     // decreases the history rep of a quiet move
@@ -92,6 +98,7 @@ internal static class History {
     // sometimes we only add the move as visited without
     // changing any history values. the move isn't good
     // but also isn't bad, so it stays neutral
+    [Obsolete("This is probably useless", true)]
     internal static void AddVisited([NotNull] in Board board, [NotNull] Move move) {
         int i = PieceIndex(board, move);
         int end = move.End();
@@ -107,6 +114,8 @@ internal static class History {
         // quiet score and butterfly score
         int q  = QuietScores[end, i];
         int bf = ButterflyScores[end, i];
+
+        if (bf == 0) return 0;
 
         // as already mentioned, we do the opposite of what relative
         // history heuristics is about, and we multiply the score
@@ -124,8 +133,7 @@ internal static class History {
         // so this is still relative to the butterfly boards, but
         // we assume that with a larger amount of encounters, the
         // score is more "confirmed" than with just a few cases
-        //return (int)(q * Math.Log10(Math.Min(1000, bf)));
-        return (int)(q - bf / 9);
+        return RelHHScale * q / bf;
     }
 
     // calculate the index of a piece in the boards

@@ -3,8 +3,6 @@
 // started 4-3-2025
 //
 
-using System.Runtime.CompilerServices;
-
 namespace Kreveta.search.pruning;
 
 internal static class Razoring {

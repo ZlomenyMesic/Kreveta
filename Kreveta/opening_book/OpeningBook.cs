@@ -83,42 +83,40 @@ internal static class OpeningBook {
     private static readonly string[] Book = [
 
         "e2e4 d7d5",
-
         "e2e4 e7e6",
-
         "e2e4 c7c5",
-        "e2e4 c7c5",
-
         "e2e4 e7e5",
         "e2e4 b8c6",
+        "e2e4 c7c6",
+        "e2e4 g8f6",
 
-        "e2e4 c7c6",
-        "e2e4 c7c6",
+        "e2e3 g8f6",
 
         "g1f3 d7d5",
 
-        "e2e3 g8f6",
-        "e2e3 g8f6",
+        "b1c3 e7e5",
 
         "c2c4 g8f6",
 
-        "d2d4",
-        "d2d4",
+        "d2d4 g8f6",
+        "d2d4 c7c6",
 
         "c2c3",
         "c2c4",
 
         "d2d3",
-        "d2d3",
-
-        "g1f3",
-        "b1c3",
-        "b1c3",
-
 
         "d2d4 d7d5 g1f3",
         "d2d4 d7d5 c1f4",
         "d2d4 d7d5 c2c4",
+
+        "g1f3 g8f6",
+
+        "g2g3",
+
+        "d2d4 e7e6",
+        "d2d4 g7g6",
+
 
         //// king's indian defense
         //"d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 g1f3 e8g8 f1e2 e7e5 e1g1 b8a6 c1g5 h7h6",
