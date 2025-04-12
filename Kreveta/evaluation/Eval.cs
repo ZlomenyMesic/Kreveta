@@ -13,18 +13,27 @@ internal static class Eval {
 
     private const ulong Center = 0x00007E7E7E7E0000;
 
-    private const int MateScoreThreshold = 9000;
-    private const int MateScoreDefault = 9999;
+    // any score above this threshold is considered "mate score"
+    private const int MateScoreThreshold       = 9000;
 
-    private const int SideToMoveBonus = 5;
+    // default mate score from which is then subtracted
+    // some amount to prefer shorter mates (M1 = 9998)
+    private const int MateScoreDefault         = 9999;
+
+    // the side to play gets a small bonus
+    private const int SideToMoveBonus          = 5;
+
+    // POSITION STRUCTURE BONUSES & PENALTIES
 
     private const int DoubledPawnPenalty       = -6;
     private const int IsolatedPawnPenalty      = -21;
+    private const int IsolaniAddPenalty        = -4;
     private const int ConnectedPassedPawnBonus = 9;
 
-    private const int BishopPairBonus = 35;
+    private const int BishopPairBonus          = 35;
 
-    private const int OpenFileRookBonus = 16;
+    private const int OpenFileRookBonus        = 18;
+    private const int SemiOpenFileRookBonus    = 7;
 
     private static readonly Random r = new();
 
@@ -159,7 +168,11 @@ internal static class Eval {
             // if the number of pawns on current file is equal to the number of pawns
             // on the current plus adjacent files, we know the pawn/s are isolated
             int adj_occ = BB.Popcount(adj & p);
-            eval += file_occ != adj_occ ? 0 : IsolatedPawnPenalty * colMult;
+
+            // isolani is an isolated pawn on the d-file. this usually tends
+            // to be the worst isolated pawn, so there's a higher penalty
+            int isolani = i == 3 ? IsolaniAddPenalty : 0;
+            eval += file_occ != adj_occ ? 0 : (IsolatedPawnPenalty + isolani) * colMult;
         }
 
         // pawns in the opponent's half of the board. not really
@@ -183,7 +196,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KnightEval([NotNull] in Board board, int pieceCount) {
+    private static short KnightEval([NotNull] in Board board, int pawnCount) {
         short eval = 0;
 
         // knights are less valuable if be have fewer pieces on the board.
@@ -192,10 +205,10 @@ internal static class Eval {
         int bKnights = BB.Popcount(board.Pieces[1, 1]);
 
         // subtract some eval for white if it has knights
-        eval -= (short)(wKnights * (32 - pieceCount) / 4);
+        eval -= (short)(wKnights * (pawnCount / 2));
 
         // add some eval for black it has knights
-        eval += (short)(bKnights * (32 - pieceCount) / 4);
+        eval += (short)(bKnights * (pawnCount / 2));
 
         return eval;
     }
@@ -236,17 +249,25 @@ internal static class Eval {
         // subtract some eval for black it has rooks
         eval -= (short)(bRooksCount * (32 - pieceCount) / 2);
 
-        // here we try to add bonuses for rooks on open files. the bonus id
-        // there permanently, but decreases with more pieces on the same file
+        ulong wPawns = board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN];
+        ulong bPawns = board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN];
+
+        // here we try to add bonuses for rooks on open files
         ulong wCopy = board.Pieces[(byte)Color.WHITE, (byte)PType.ROOK];
         while (wCopy != 0) {
             int sq = BB.LS1BReset(ref wCopy);
 
-            // how many pieces (regardless of color) are on the same file as the rook
-            int pieces = BB.Popcount(Consts.FileMask[sq & 7] & board.Occupied);
+            // number of friendly pawns on the same file as the rook
+            int ownPawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns));
 
-            // the bonus gets smaller with more pieces on the file
-            eval += (short)(OpenFileRookBonus >> (pieces - 1));
+            // total number of pawns (regardless of color) on the same file
+            int pawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
+
+            if (pawnCount == 0) {
+                eval += OpenFileRookBonus;
+            } else if (ownPawnCount == 0) {
+                eval += SemiOpenFileRookBonus;
+            }
         }
 
         // the same exact principle as above, but for black. although repeating
@@ -256,10 +277,15 @@ internal static class Eval {
         ulong bCopy = board.Pieces[(byte)Color.BLACK, (byte)PType.ROOK];
         while (bCopy != 0) {
             int sq = BB.LS1BReset(ref bCopy);
-            int pieces = BB.Popcount(Consts.FileMask[sq & 7] & board.Occupied);
+            int pawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
+            int ownPawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (bPawns));
 
             // we subtract the value this time for black
-            eval -= (short)(OpenFileRookBonus >> (pieces - 1));
+            if (pawnCount == 0) {
+                eval -= OpenFileRookBonus;
+            } else if (ownPawnCount == 0) {
+                eval -= SemiOpenFileRookBonus;
+            }
         }
 
         return eval;

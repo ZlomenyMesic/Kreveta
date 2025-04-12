@@ -243,11 +243,6 @@ namespace Kreveta.search {
                 // did this move capture a piece?
                 bool is_capture = curMove.Capture() != PType.NONE;
 
-                // we save the moves as visited to the history table.
-                // history only stores quiet moves - no captures
-                if (!is_capture)
-                    History.AddVisited(board, curMove);
-
                 // if a position is "interesting", we avoid pruning and reductions
                 // a child node is marked as interesting if we:
                 //
@@ -255,7 +250,7 @@ namespace Kreveta.search {
                 // 2 - (captured a piece) maybe add???
                 // 3 - just escaped a check
                 // 4 - are checking the opposite king
-                bool interesting = expNodes == 1 
+                bool interesting = expNodes == 1
                     || inCheck 
                     //|| (depth >= 6 && is_capture)
                     || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);

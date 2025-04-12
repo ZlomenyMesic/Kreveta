@@ -3,9 +3,6 @@
 // started 4-3-2025
 //
 
-using System.Runtime.CompilerServices;
-using static System.Formats.Asn1.AsnWriter;
-
 namespace Kreveta.search.pruning;
 
 // FUTILITY PRUNING:
@@ -22,7 +19,8 @@ internal static class FP {
 
     // magical constant - DON'T MODIFY
     // higher margin => fewer reductions
-    private const int FutilityMarginBase = 88;
+    private const int FutilityMarginBase = 66;
+    private const int FutilityMarginMultiplier = 102;
 
     // if not improving we make the margin smaller
     private const int ImprovingPenalty = -10;
@@ -34,7 +32,7 @@ internal static class FP {
         // depth 2 it should be more like the value of a rook."
         //
         // however, a lower margin increases search speed and thus our futility margin stays low
-        int margin = FutilityMarginBase * (depth + 1) * (col == Color.WHITE ? 1 : -1);
+        int margin = (FutilityMarginBase + FutilityMarginMultiplier * depth) * (col == Color.WHITE ? 1 : -1);
 
         // if we failed low (fell under alpha). this means we already know of a better
         // alternative somewhere else in the search tree, and we can prune this branch.
