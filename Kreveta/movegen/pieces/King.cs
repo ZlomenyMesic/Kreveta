@@ -12,12 +12,12 @@ namespace Kreveta.movegen.pieces;
 
 internal static class King {
 
-    [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly ulong[][] CastlingMask = [
-        [0x6000000000000000, 0x0E00000000000000],
-        [0x0000000000000060, 0x000000000000000E]
-    ];
+    // masks of squares which need to be empty to allow
+    // castling (squares between the king and the rook)
+    private const ulong OOMask  = 0x6000000000000000;
+    private const ulong OOOMask = 0x0E00000000000000;
+    private const ulong ooMask  = 0x0000000000000060;
+    private const ulong oooMask = 0x000000000000000E;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ulong GetKingTargets(ulong king, ulong free) {
@@ -31,8 +31,8 @@ internal static class King {
         bool kingside =  ((byte)board.castRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
         bool queenside = ((byte)board.castRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
 
-        kingside  &= (occ & CastlingMask[(byte)col][0]) == 0;
-        queenside &= (occ & CastlingMask[(byte)col][1]) == 0;
+        kingside  &= (occ & (col == Color.WHITE ? OOMask  : ooMask))  == 0;
+        queenside &= (occ & (col == Color.WHITE ? OOOMask : oooMask)) == 0;
 
         int start = col == Color.WHITE ? 60 : 4;
 

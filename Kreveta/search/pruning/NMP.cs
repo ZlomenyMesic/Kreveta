@@ -3,7 +3,7 @@
 // started 4-3-2025
 //
 
-using Kreveta.evaluation;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.pruning;
@@ -20,8 +20,11 @@ namespace Kreveta.search.pruning;
 internal static class NMP {
 
     // minimum depth and ply required for nmp
-    internal const  int MinDepth = 0;
-    internal static int MinPly   = 3;
+    internal const  int MinDepth  = 0;
+    internal static int CurMinPly = 3;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private const int MinPly = 3;
 
     // depth reduce base within nmp
     private const int RBase = 3;
@@ -29,7 +32,7 @@ internal static class NMP {
     // with fewer pieces on the board, we want to prune less
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void UpdateMinPly(int pieceCount) {
-        MinPly = Math.Max(3, (32 - pieceCount) / 7);
+        CurMinPly = Math.Max(MinPly, (32 - pieceCount) / 7);
     }
 
     // try null move pruning

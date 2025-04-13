@@ -131,9 +131,12 @@ namespace Kreveta.search {
                 // only return the score, no pv
                 return (ttScore, []);
 
-        // in case the position is not yet stored, we fully search it and then store it
-        (short Score, Move[] PV) search = Search(board, ply, depth, window);
+            // in case the position is not yet stored, we fully search it and then store it
+            (short Score, Move[] PV) search = Search(board, ply, depth, window);
             TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
+
+            History.UpdatePawnCorrHist(board, search.Score, depth);
+
             return search;
         }
 
@@ -165,7 +168,7 @@ namespace Kreveta.search {
 
             // if the position is saved as a 3-fold repetition draw, return 0.
             // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply == 1 || ply == 2) && Game.Draws.Contains(Zobrist.GetHash(board))) {
+            if ((ply is 1 or 2) && Game.Draws.Contains(Zobrist.GetHash(board))) {
                 return (0, []);
             }
 
@@ -201,7 +204,7 @@ namespace Kreveta.search {
             // are the conditions for nmp satisfied?
             if (PruningOptions.AllowNullMovePruning
                 && depth >= NMP.MinDepth
-                && ply >= NMP.MinPly
+                && ply >= NMP.CurMinPly
                 && !inCheck
                 && !Eval.IsMateScore(PVScore)
 
@@ -241,7 +244,7 @@ namespace Kreveta.search {
                 child.PlayMove(curMove);
 
                 // did this move capture a piece?
-                bool is_capture = curMove.Capture() != PType.NONE;
+                bool is_capture = curMove.Capture != PType.NONE;
 
                 // if a position is "interesting", we avoid pruning and reductions
                 // a child node is marked as interesting if we:
@@ -265,7 +268,7 @@ namespace Kreveta.search {
                     && !interesting) {
 
                     // we check for failing low despite the margin
-                    if (FP.TryPrune(depth, col, s_eval, window)) {
+                    if (FP.TryPrune(child, depth, col, s_eval, window)) {
 
                         // prune this branch
                         continue;
@@ -399,13 +402,12 @@ namespace Kreveta.search {
             //
             bool inCheck = Movegen.IsKingInCheck(board, col);
 
-            short standPat = 0;
+            short standPat = Eval.StaticEval(board);
 
             // can not use stand pat when in check
             if (!inCheck) {
 
                 // stand pat is nothing more than a static eval
-                standPat = Eval.StaticEval(board);
 
                 // if the stand pat fails high, we can return it
                 // if not, we use it as a lower bound (alpha)
@@ -446,7 +448,7 @@ namespace Kreveta.search {
                 child.PlayMove(moves[i]);
 
                 // value of the piece we just captured
-                int captured = (inCheck ? 0 : EvalTables.PieceValues[(byte)moves[i].Capture()]) 
+                int captured = (inCheck ? 0 : EvalTables.PieceValues[(byte)moves[i].Capture]) 
                     * (col == Color.WHITE ? 1 : -1);
 
                 // delta pruning

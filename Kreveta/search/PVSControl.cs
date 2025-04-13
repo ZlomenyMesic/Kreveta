@@ -6,7 +6,6 @@
 using Kreveta.movegen;
 using Kreveta.search.pruning;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 
 #nullable enable
 namespace Kreveta.search {
