@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.evaluation;
 using Kreveta.movegen;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -26,6 +27,10 @@ internal static class History {
     // this array stores history values of quiet moves - no captures
     [ReadOnly(true)]
     private static readonly int[,] QuietScores = new int[64, 12];
+
+    private const int PawnCorrHistSize = 1048576;
+    [ReadOnly(true)]
+    private static readonly int[,] PawnCorrHist = new int[2, PawnCorrHistSize];
 
     // butterfly boards store the number of times a move has been visited.
     //
@@ -65,18 +70,24 @@ internal static class History {
                 ButterflyScores[i, j] = Math.Min(1, ButterflyScores[i, j]);
             }
         }
+
+        for (int i = 0; i < PawnCorrHistSize; i++) {
+            PawnCorrHist[0, i] = 0;
+            PawnCorrHist[1, i] = 0;
+        }
     }
 
     // clears all history data
     internal static void Clear() {
         Array.Clear(QuietScores);
         Array.Clear(ButterflyScores);
+        Array.Clear(PawnCorrHist);
     }
 
     // increases the history rep of a quiet move
     internal static void IncreaseQRep([NotNull] in Board board, [NotNull] Move move, int depth) {
         int i = PieceIndex(board, move);
-        int end = move.End();
+        int end = move.End;
 
         QuietScores[end, i] += QuietShift(depth);
 
@@ -87,7 +98,7 @@ internal static class History {
     // decreases the history rep of a quiet move
     internal static void DecreaseQRep([NotNull] in Board board, [NotNull] Move move, int depth) {
         int i = PieceIndex(board, move);
-        int end = move.End();
+        int end = move.End;
 
         QuietScores[end, i] -= QuietShift(depth);
 
@@ -95,21 +106,10 @@ internal static class History {
         ButterflyScores[end, i]++;
     }
 
-    // sometimes we only add the move as visited without
-    // changing any history values. the move isn't good
-    // but also isn't bad, so it stays neutral
-    [Obsolete("This is probably useless", true)]
-    internal static void AddVisited([NotNull] in Board board, [NotNull] Move move) {
-        int i = PieceIndex(board, move);
-        int end = move.End();
-
-        ButterflyScores[end, i]++;
-    }
-
     // calculate the reputation of a move
     internal static int GetRep([NotNull] in Board board, [NotNull] Move move) {
         int i = PieceIndex(board, move);
-        int end = move.End();
+        int end = move.End;
 
         // quiet score and butterfly score
         int q  = QuietScores[end, i];
@@ -141,8 +141,8 @@ internal static class History {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int PieceIndex([NotNull] in Board board, [NotNull] Move move) {
 
-        PType piece = move.Piece();
-        Color col = (board.Pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start()]) == 0
+        PType piece = move.Piece;
+        Color col = (board.Pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start]) == 0
             ? Color.BLACK
             : Color.WHITE;
 
@@ -161,4 +161,46 @@ internal static class History {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int QuietShift(int depth)
         => Math.Min(depth * depth - QuietShiftSubtract, QuietShiftLimit);
+
+    internal static void UpdatePawnCorrHist([NotNull] in Board board, int score, int depth) {
+        if (depth <= 2) return;
+
+        ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
+        ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
+
+        int wIndex = (int)(wHash % PawnCorrHistSize);
+        int bIndex = (int)(bHash % PawnCorrHistSize);
+
+        short staticEval = Eval.StaticEval(board);
+        int diff = Math.Abs(score - staticEval);
+        int shift = PawnCorrHistShift(diff, depth);
+
+        //Console.WriteLine($"{depth} static {staticEval} score {score} diff {diff} shift {shift}");
+        //Console.WriteLine($"{score} {staticEval} white {(score > staticEval ? shift : -shift)} black {(score > staticEval ? -shift : shift)}");
+
+        if (shift == 0) return;
+
+        //Console.WriteLine(shift);
+
+        PawnCorrHist[(byte)Color.WHITE, wIndex] += score > staticEval ? shift : -shift;
+        PawnCorrHist[(byte)Color.BLACK, bIndex] += score > staticEval ? -shift : shift;
+
+        PawnCorrHist[(byte)Color.WHITE, wIndex] = Math.Min(2048, Math.Max(PawnCorrHist[(byte)Color.WHITE, wIndex], -2048));
+        PawnCorrHist[(byte)Color.BLACK, bIndex] = Math.Min(2048, Math.Max(PawnCorrHist[(byte)Color.BLACK, bIndex], -2048));
+    }
+
+    internal static int GetPawnCorrection([NotNull] in Board board) {
+        ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
+        ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
+
+        int wIndex = (int)(wHash % PawnCorrHistSize);
+        int bIndex = (int)(bHash % PawnCorrHistSize);
+
+        int correction = (PawnCorrHist[(byte)Color.WHITE, wIndex] + PawnCorrHist[(byte)Color.BLACK, bIndex]) / 128;
+        return correction;
+    }
+
+    private static int PawnCorrHistShift(int diff, int depth) {
+        return Math.Min(12, diff * (depth - 2) / 256);
+    }
 }

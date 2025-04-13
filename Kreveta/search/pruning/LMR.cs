@@ -32,7 +32,7 @@ internal static class LMR {
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
-    private const int HistReductionThreshold = -1320;
+    private const int HistReductionThreshold = -1220;
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.

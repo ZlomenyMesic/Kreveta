@@ -1,22 +1,9 @@
-﻿/*
- * |============================|
- * |                            |
- * |    Kreveta chess engine    |
- * | engineered by ZlomenyMesic |
- * | -------------------------- |
- * |      started 4-3-2025      |
- * | -------------------------- |
- * |                            |
- * | read README for additional |
- * | information about the code |
- * |    and usage that isn't    |
- * |  included in the comments  |
- * |                            |
- * |============================|
- */
+﻿//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
@@ -34,7 +21,7 @@ internal readonly struct Move {
 #pragma warning restore CS0661
 
     /*
-    even though it is possible to encode a move into 16 bits, we are using 32 bits (int)
+    although it is possible to encode a move into 16 bits, we are using 32 bits (int)
     this is the format:
 
                           | prom. | capt. | piece | end         | start              
@@ -45,14 +32,25 @@ internal readonly struct Move {
     [FieldOffset(0)] 
     private readonly int _flags = 0;
 
+    private const int EndOffset   = 6;
+    private const int PieceOffset = 12;
+    private const int CaptOffset  = 15;
+    private const int PromOffset  = 18;
+
+    private const int StartMask = 0x0000003F;
+    private const int EndMask   = 0x00000FC0;
+    private const int PieceMask = 0x00007000;
+    private const int CaptMask  = 0x00038000;
+    private const int PromMask  = 0x001C0000;
+
     internal Move(int start, int end, PType piece, PType capture, PType promotion) {
 
         // flags are only set when the constructor is called, after that they cannot be changed
         _flags |= start;
-        _flags |= end << 6;
-        _flags |= (byte)piece << 12;
-        _flags |= (byte)capture << 15;
-        _flags |= (byte)promotion << 18;
+        _flags |= end             << EndOffset;
+        _flags |= (byte)piece     << PieceOffset;
+        _flags |= (byte)capture   << CaptOffset;
+        _flags |= (byte)promotion << PromOffset;
     }
 
     public static bool operator ==(Move a, Move b)
@@ -62,29 +60,29 @@ internal readonly struct Move {
         => !(a._flags == b._flags);
 
     // index of the starting sqaure
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly int Start()
-        => _flags & 0x0000003F;
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly int Start
+        => _flags & StartMask;
 
     // index of the ending sqaure
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly int End()
-        => (_flags & 0x00000FC0) >> 6;
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly int End
+        => (_flags & EndMask) >> EndOffset;
 
     // the moved piece type
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly PType Piece()
-        => (PType)((_flags & 0x00007000) >> 12);
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly PType Piece
+        => (PType)((_flags & PieceMask) >> PieceOffset);
 
     // captured piece (6 if no capture)
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly PType Capture()
-        => (PType)((_flags & 0x00038000) >> 15);
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly PType Capture
+        => (PType)((_flags & CaptMask) >> CaptOffset);
 
     // piece promoted to (6 if no promotion)
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal readonly PType Promotion()
-        => (PType)((_flags & 0x001C0000) >> 18);
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly PType Promotion
+        => (PType)((_flags & PromMask) >> PromOffset);
 
 
     // taken from my previous engine
@@ -99,9 +97,9 @@ internal readonly struct Move {
     // converts a move back to a string, see the method below for more information
     public override string ToString() {
 
-        int   start = Start();
-        int   end   = End();
-        PType prom  = Promotion();
+        int   start = Start;
+        int   end   = End;
+        PType prom  = Promotion;
         
         // convert starting and ending squares to standard format, e.g. "e4"
         string str_start = Consts.Files[start % 8] + (8 - start / 8).ToString();

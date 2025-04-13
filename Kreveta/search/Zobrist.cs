@@ -6,6 +6,7 @@
 using Kreveta.evaluation;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Kreveta.search;
 
@@ -74,6 +75,19 @@ internal static class Zobrist {
                 int sq = BB.LS1BReset(ref bCopy);
                 hash ^= GetPieceHash((PType)i, Color.BLACK, sq);
             }
+        }
+
+        return hash;
+    }
+
+    internal static ulong GetPawnHash([NotNull] in Board board, Color col) {
+        ulong hash = 0;
+
+        ulong copy = board.Pieces[(byte)col, (byte)PType.PAWN];
+
+        while (copy != 0) {
+            int sq = BB.LS1BReset(ref copy);
+            hash ^= GetPieceHash(PType.PAWN, col, sq);
         }
 
         return hash;

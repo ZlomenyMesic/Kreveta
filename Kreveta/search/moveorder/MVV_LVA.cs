@@ -80,8 +80,8 @@ internal static class MVV_LVA {
     internal static int GetCaptureScore(Move capt) {
 
         // piece moved and piece captured (aggressor and victim)
-        int aggressor = PieceValues[(byte)capt.Piece()];
-        int victim    = PieceValues[(byte)capt.Capture()];
+        int aggressor = PieceValues[(byte)capt.Piece];
+        int victim    = PieceValues[(byte)capt.Capture];
 
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as

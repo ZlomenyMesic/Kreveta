@@ -3,7 +3,9 @@
 // started 4-3-2025
 //
 
+using Kreveta.movegen;
 using Kreveta.movegen.pieces;
+using Kreveta.search.moveorder;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
@@ -29,11 +31,15 @@ internal static class Eval {
     private const int IsolatedPawnPenalty      = -21;
     private const int IsolaniAddPenalty        = -4;
     private const int ConnectedPassedPawnBonus = 9;
+    private const int BlockedPawnPenalty       = -4;
+    //private const int OpenPawnBonus            = 5;
 
     private const int BishopPairBonus          = 35;
 
     private const int OpenFileRookBonus        = 18;
     private const int SemiOpenFileRookBonus    = 7;
+
+    internal const int KingInCheckPenalty      = 72;
 
     private static readonly Random r = new();
 
@@ -89,8 +95,8 @@ internal static class Eval {
         // 1. penalties for doubled, tripled, and more stacked pawns
         // 2. penalties for isolated pawns (no friendly pawns on adjacent files)
         // 3. bonus for connected pawns in the other half of the board
-        eval += PawnStructureEval(board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE);
-        eval -= PawnStructureEval(board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK);
+        eval += PawnStructureEval(board, board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE);
+        eval -= PawnStructureEval(board, board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK);
 
         // knight eval:
         //
@@ -115,6 +121,8 @@ internal static class Eval {
 
         // side to move should also get a slight advantage
         eval += (short)(board.color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+
+        //eval += (short)History.GetPawnCorrection(board);
 
         return (short)(eval/* + r.Next(-6, 6)*/);
     }
@@ -145,7 +153,7 @@ internal static class Eval {
 
     // bonuses or penalties for pawn structure
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short PawnStructureEval(ulong p, Color col) {
+    private static short PawnStructureEval([NotNull] in Board board, ulong p, Color col) {
 
         int eval = 0;
 
@@ -161,6 +169,9 @@ internal static class Eval {
             // penalties for doubled pawns. by subtracting 1 we can simultaneously
             // penalize all sorts of stacked pawns while not checking single ones
             eval += (file_occ - 1) * DoubledPawnPenalty * colMult;
+
+            //if (BB.Popcount(file & board.Pieces[(byte)(col == Color.WHITE ? Color.BLACK : Color.WHITE), (byte)PType.PAWN]) == 0)
+            //    eval += OpenPawnBonus * colMult;
 
             // current file + files next to it
             ulong adj = AdjFiles[i];
@@ -178,18 +189,24 @@ internal static class Eval {
         // pawns in the opponent's half of the board. not really
         // passed pawns by definition, but these pawns should have
         // a good chance of promoting
-        ulong copy = p & (col == Color.WHITE 
-            ? 0x00000000FFFFFFFF 
-            : 0xFFFFFFFF00000000);
+        ulong copy = p;
 
         while (copy != 0) {
             int sq = BB.LS1BReset(ref copy);
 
-            // add a bonus for connected pawns in the opponent's half of the board.
-            // this should (and hopefully does) increase the playing strength in
-            // endgames and also allow better progressing into endgames
-            ulong targets = Pawn.GetPawnCaptureTargets(Consts.SqMask[sq], 64, col, p);
-            eval += BB.Popcount(targets) * ConnectedPassedPawnBonus;
+            if (col == Color.WHITE ? sq < 40 : sq > 23) {
+                // add a bonus for connected pawns in the opponent's half of the board.
+                // this should (and hopefully does) increase the playing strength in
+                // endgames and also allow better progressing into endgames
+                ulong targets = Pawn.GetPawnCaptureTargets(Consts.SqMask[sq], 64, col, p);
+                eval += BB.Popcount(targets) * ConnectedPassedPawnBonus;
+            }
+
+            if (col == Color.WHITE && (Consts.SqMask[sq - 8] & board.WOccupied) != 0)
+                eval += BlockedPawnPenalty;
+
+            else if (col == Color.BLACK && (Consts.SqMask[sq + 8] & board.BOccupied) != 0)
+                eval -= BlockedPawnPenalty;
         }
 
         return (short)eval;

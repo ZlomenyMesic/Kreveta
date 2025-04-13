@@ -7,10 +7,11 @@ using Kreveta.movegen;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
-internal class Board {
+internal sealed class Board {
 
     // all pieces are saved here in so called bitboards.
     // we have 12 different ulongs (bitboards) which represent
@@ -95,8 +96,8 @@ internal class Board {
             : Color.WHITE;
 
         // start and end squares
-        int start32 = move.Start();
-        int end32   = move.End();
+        int start32 = move.Start;
+        int end32   = move.End;
 
         // start and end squares represented as bitboards
         ulong start = Consts.SqMask[start32];
@@ -112,9 +113,9 @@ internal class Board {
         Color colOpp = col == Color.WHITE ? Color.BLACK : Color.WHITE;
 
         // other stuff
-        PType prom  = move.Promotion();
-        PType piece = move.Piece();
-        PType capt  = move.Capture();
+        PType prom  = move.Promotion;
+        PType piece = move.Piece;
+        PType capt  = move.Capture;
 
         // en passant
         if (prom == PType.PAWN) {
@@ -234,8 +235,8 @@ internal class Board {
             : Color.WHITE;
 
         // start & end squares
-        ulong start = Consts.SqMask[move.Start()];
-        ulong end  = Consts.SqMask[move.End()];
+        ulong start = Consts.SqMask[move.Start];
+        ulong end  = Consts.SqMask[move.End];
 
         // opposite color
         Color colOpp = col == Color.WHITE 
@@ -243,9 +244,9 @@ internal class Board {
             : Color.WHITE;
 
         // other stuff
-        PType prom  = move.Promotion();
-        PType piece = move.Piece();
-        PType capt  = move.Capture();
+        PType prom  = move.Promotion;
+        PType piece = move.Piece;
+        PType capt  = move.Capture;
 
         // en passant
         if (prom == PType.PAWN) {

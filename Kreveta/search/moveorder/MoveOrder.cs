@@ -40,7 +40,7 @@ internal static class MoveOrder {
 
             // only add captures
             if (!sorted.Contains(legal[i]) 
-                && legal[i].Capture() != PType.NONE)
+                && legal[i].Capture != PType.NONE)
 
                 capts.Add(legal[i]);
         }
@@ -61,9 +61,9 @@ internal static class MoveOrder {
 
             // since killer moves are stored independently of
             // the position, we have to check a couple thing
-            if (legal.Contains(killers[i])                    // illegal
-                && !sorted.Contains(killers[i])               // already added
-                && ((empty & Consts.SqMask[killers[i].End()]) != 0)) { // quiet
+            if (legal.Contains(killers[i])                           // illegal
+                && !sorted.Contains(killers[i])                      // already added
+                && ((empty & Consts.SqMask[killers[i].End]) != 0)) { // quiet
 
                 sorted[cur++] = killers[i];
             }
