@@ -6,15 +6,15 @@
 namespace Kreveta;
 
 internal static class TimeMan {
-    private static long wtime;
-    private static long btime;
+    private static long WhiteTime;
+    private static long BlackTime;
 
-    private static int winc;
-    private static int binc;
+    private static int whiteIncrement;
+    private static int blackIncrement;
 
-    private static int movestogo;
+    private static int MovesToGo;
 
-    private static long movetime = 0;
+    internal static long MoveTime = 0;
 
     internal static long TimeBudget;
 
@@ -22,42 +22,42 @@ internal static class TimeMan {
     private static readonly long DefaultTimeBudget = 8000;
 
     internal static void ProcessTime(string[] toks) {
-        wtime = btime = movetime = winc = binc = movestogo = 0;
+        WhiteTime = BlackTime = MoveTime = whiteIncrement = blackIncrement = MovesToGo = 0;
 
         for (int i = 1; i < toks.Length; ) {
 
             bool success = false;
 
             if (toks[i] == "infinite") {
-                movetime = long.MaxValue;
+                MoveTime = long.MaxValue;
                 success = true;
 
                 i++;
             } 
 
             else if (toks[i] == "movetime") {
-                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out movetime)) {
+                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out MoveTime)) {
                     success = true;
 
                     i += 2;
                 }
             }
             else if (toks[i] == "wtime") {
-                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out wtime)) {
+                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out WhiteTime)) {
                     success = true;
                     i += 2;
                 }
             }
 
             else if (toks[i] == "btime") {
-                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out btime)) {
+                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out BlackTime)) {
                     success = true;
                     i += 2;
                 }
             }
 
             else if (toks[i] == "movestogo") {
-                if (i != toks.Length - 1 && int.TryParse(toks[i + 1], out movestogo)) {
+                if (i != toks.Length - 1 && int.TryParse(toks[i + 1], out MovesToGo)) {
                     success = true;
                     i += 2;
                 }
@@ -70,9 +70,9 @@ internal static class TimeMan {
             // parsed numbers successfully and got to the last argument
             if (success && i == toks.Length) {
 
-                if (movestogo == 0 && movetime == 0) {
-                    Console.WriteLine($"info string using default movestogo {DefaultMovestogo}");
-                    movestogo = DefaultMovestogo;
+                if (MovesToGo == 0 && MoveTime == 0) {
+                    UCI.Log($"info string using default movestogo {DefaultMovestogo}", UCI.LogLevel.WARNING);
+                    MovesToGo = DefaultMovestogo;
                 }
 
                 CalculateTimeBudget();
@@ -89,11 +89,11 @@ internal static class TimeMan {
     internal static void CalculateTimeBudget() {
 
         // either infinite time or strictly set time per move
-        if (movetime != 0) {
-            TimeBudget = movetime;
+        if (MoveTime != 0) {
+            TimeBudget = MoveTime;
             return;
         }
 
-        TimeBudget = (int)((Game.color == Color.WHITE ? wtime : btime) / movestogo / 1.1f);
+        TimeBudget = (int)((Game.color == Color.WHITE ? WhiteTime : BlackTime) / MovesToGo / 1.1f);
     }
 }

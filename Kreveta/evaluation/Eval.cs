@@ -3,17 +3,15 @@
 // started 4-3-2025
 //
 
-using Kreveta.movegen;
 using Kreveta.movegen.pieces;
-using Kreveta.search.moveorder;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
 
 internal static class Eval {
-
-    private const ulong Center = 0x00007E7E7E7E0000;
 
     // the side to play gets a small bonus
     private const int SideToMoveBonus          = 5;
@@ -35,8 +33,8 @@ internal static class Eval {
 
     internal const int KingInCheckPenalty      = 72;
 
-    private static readonly Random r = new();
-
+    [ReadOnly(true)]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly ulong[] AdjFiles = new ulong[8];
 
     static Eval() {
@@ -47,44 +45,6 @@ internal static class Eval {
                 | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0)
                 | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0);
         }
-    }
-
-    // any score above this threshold is considered "mate score"
-    private const int MateScoreThreshold = 9000;
-
-    // default mate score from which is then subtracted
-    // some amount to prefer shorter mates (M1 = 9998)
-    private const int MateScoreDefault = 9999;
-
-    // creates a new mate score depending on the number of plies
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetMateScore(Color col, int ply)
-        => (short)((col == Color.WHITE ? -1 : 1) * (MateScoreDefault - ply));
-
-    // checks whether the score falls above the mate score threshold
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsMateScore(int score)
-        => Math.Abs(score) > MateScoreThreshold;
-
-    // maximum non-mate score that can be achieved (in centipawns)
-    private const int NonMateScoreLimit = 1000;
-
-    // some GUIs (such as Cutechess) are unable to print really large
-    // scores that aren't mate, e.g. Cutechess only shows evaluation
-    // below 15 pawns correctly, and above that all scores look the
-    // same. for this reason, when printing a score (that is not a mate
-    // score), we use a kind of like sigmoid function to make all scores
-    // fall into a set interval.
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int LimitScore(int score)
-        => (int)Math.Round(NonMateScoreLimit * (float)Math.Tanh((double)score / 1125), 0);
-
-    // when printing a mate score, we prefer the "mate in X" format,
-    // so we convert the score to the number of plies until mate
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int GetMateInX(int score) {
-        int x = MateScoreDefault - Math.Abs(score);
-        return x * Math.Sign(score);
     }
 
     // returns the static evaluation of a position. static eval is used

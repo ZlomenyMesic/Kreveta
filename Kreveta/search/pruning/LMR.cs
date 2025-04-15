@@ -32,12 +32,12 @@ internal static class LMR {
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
-    private const int HistReductionThreshold = -1220;
+    private const int HistReductionThreshold = -720;
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.
     private const int InternalR     = 3;
-    private const int InternalHistR = 4;
+    private const int InternalBadHistR = 4;
 
     private const int MaxReduceMargin   = 66;
     private const int WindowSizeDivisor = 9;
@@ -48,9 +48,10 @@ internal static class LMR {
     // should we prune or reduce?
     internal static (bool Prune, bool Reduce) TryPrune(in Board board, in Board child, Move move, int ply, int depth, Color col, int expNodes, Window window) {
 
-        // depth reduce is larger with bad history
-        int R = History.GetRep(board, move) < HistReductionThreshold ? InternalHistR : InternalR;
-        //Console.WriteLine(History.GetRep(board, move));
+        // depth reduce is larger with bad quiet history
+        int R = (move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold)
+            ? InternalBadHistR
+            : InternalR;
 
         // null window around alpha
         Window nullAlphaWindow = col == Color.WHITE 
@@ -62,7 +63,7 @@ internal static class LMR {
 
         // continuing without this causes weird behaviour. the engine somehow
         // rates regular positions as mate in X. keep this. it's important.
-        if (Eval.IsMateScore(score)) 
+        if (Score.IsMateScore(score)) 
             return (false, false);
 
         // we failed low, we prune this branch. it is not good enough
@@ -70,6 +71,7 @@ internal static class LMR {
             ? (score <= window.Alpha)
             : (score >= window.Beta) 
             && PruningOptions.AllowNullMovePruning)
+
             return (true, false);
 
         if (!PruningOptions.AllowLateMoveReductions) 
@@ -80,7 +82,8 @@ internal static class LMR {
         int windowSize = Math.Abs(window.Beta - window.Alpha);
 
         // one tenth of the window is the margin
-        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) * (col == Color.WHITE ? 1 : -1) / MarginDivisor + expNodes);
+        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) 
+            * (col == Color.WHITE ? 1 : -1) / MarginDivisor + expNodes);
 
         if (margin == 0 || (depth != ReductionDepth)) 
             return (false, false);
@@ -89,7 +92,7 @@ internal static class LMR {
         // again with a small margin and if we succeed, we only reduce the search depth
         // (we don't prune this time, we only reduce)
         score -= margin;
-        bool shouldReduce = R == InternalHistR 
+        bool shouldReduce = R == InternalBadHistR 
             && col == Color.WHITE
                 ? (score <= window.Alpha)
                 : (score >= window.Beta);

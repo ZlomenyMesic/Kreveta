@@ -31,7 +31,7 @@ internal static class FP {
     // try futility pruning
     internal static bool TryPrune([NotNull] in Board board, int depth, Color col, short staticEval, Window window) {
 
-        int pawnCorrection = History.GetPawnCorrection(board);
+        int pawnCorrection = PawnCorrectionHistory.GetCorrection(board);
 
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at

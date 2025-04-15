@@ -75,9 +75,12 @@ namespace Kreveta.search {
             // create more space for killers on the new depth
             Killers.Expand(CurDepth);
 
-            // decrease history values, as they shouldn't be as relevant now.
+            // decrease quiet history values, as they shouldn't be as relevant now.
             // erasing them completely would, however, slow down the search
-            History.Shrink();
+            QuietHistory.Shrink();
+
+            // these ones need to be erased, though
+            PawnCorrectionHistory.Clear();
 
             // store the pv from the previous iteration in tt
             // this should hopefully allow some faster lookups
@@ -98,12 +101,13 @@ namespace Kreveta.search {
             //SearchStack = [];
 
             Killers.Clear();
-            History.Clear();
+            QuietHistory.Clear();
+            PawnCorrectionHistory.Clear();
             CounterMoveHistory.Clear();
 
             // if we are playing a full game,
             // we want to keep the hash table
-            if (Game.fullGame)
+            if (Game.FullGame)
                 TT.ResetScores();
             else TT.Clear();
         }
@@ -144,7 +148,7 @@ namespace Kreveta.search {
             //if (search.PV.Length > 0)
             //    CounterMoveHistory.Add(board.color, previous, search.PV[0]);
 
-            History.UpdatePawnCorrHist(board, search.Score, depth);
+            PawnCorrectionHistory.Update(board, search.Score, depth);
 
             return search;
         }
@@ -171,8 +175,8 @@ namespace Kreveta.search {
             // searchpast ply 7 since whatever we find won't change anything).
             // we do, however, still want to search at lower plies in case we
             // find a shorter path mate
-            if (Eval.IsMateScore(PVScore)) {
-                int matePly = Math.Abs(Eval.GetMateInX(PVScore));
+            if (Score.IsMateScore(PVScore)) {
+                int matePly = Math.Abs(Score.GetMateInX(PVScore));
                 if (ply > matePly)
                     return (0, []);
             }
@@ -180,17 +184,17 @@ namespace Kreveta.search {
             // based on mate distance pruning - very similar to the algorithm above,
             // but applied in the current iteration. if there's already an ensured
             // mate found in this iteration, we also don't search any further
-            if (col == Color.WHITE && Eval.IsMateScore(window.Alpha) && window.Alpha > 0) {
+            if (col == Color.WHITE && Score.IsMateScore(window.Alpha) && window.Alpha > 0) {
 
-                int matePly = Eval.GetMateInX(window.Alpha);
+                int matePly = Score.GetMateInX(window.Alpha);
                 if (ply >= matePly)
-                    return (Eval.GetMateScore(col, ply + 1), []);
+                    return (Score.GetMateScore(col, ply + 1), []);
             }
-            else if (col == Color.BLACK && Eval.IsMateScore(window.Beta) && window.Beta < 0) {
+            else if (col == Color.BLACK && Score.IsMateScore(window.Beta) && window.Beta < 0) {
 
-                int matePly = -Eval.GetMateInX(window.Beta);
+                int matePly = -Score.GetMateInX(window.Beta);
                 if (ply >= matePly)
-                    return (Eval.GetMateScore(col, ply + 1), []);
+                    return (Score.GetMateScore(col, ply + 1), []);
             }
 
             // we reached depth = 0, we evaluate the leaf node though the qsearch
@@ -230,7 +234,7 @@ namespace Kreveta.search {
                 && depth >= RFP.MinDepth
                 && depth <= RFP.MaxDepth
                 && !inCheck
-                && !Eval.IsMateScore(PVScore)) {
+                && !Score.IsMateScore(PVScore)) {
 
                 // if we failed high
                 if (RFP.TryPrune(board, depth, col, window, out short rfpScore)) {
@@ -243,7 +247,7 @@ namespace Kreveta.search {
                 && depth >= NMP.MinDepth
                 && ply >= NMP.CurMinPly
                 && !inCheck
-                && !Eval.IsMateScore(PVScore)
+                && !Score.IsMateScore(PVScore)
 
                 && (col == Color.WHITE
                     ? (window.Beta < short.MaxValue)
@@ -346,7 +350,7 @@ namespace Kreveta.search {
                     : (fullSearch.Score >= window.Beta)) {
 
                     // decrease the move's reputation
-                    History.DecreaseQRep(board, curMove, depth);
+                    QuietHistory.DecreaseRep(board, curMove, depth);
                 }
 
 
@@ -368,7 +372,7 @@ namespace Kreveta.search {
 
                             // if a quiet move caused a beta cutoff, we increase it's
                             // reputation in history and save it as a killer move on this depth
-                            History.IncreaseQRep(board, curMove, depth);
+                            QuietHistory.IncreaseRep(board, curMove, depth);
                             Killers.Add(curMove, depth);
                         }
 
@@ -384,7 +388,7 @@ namespace Kreveta.search {
                 ? (inCheck 
 
                     // if we are checked this means we got mated (there are no legal moves)
-                    ? Eval.GetMateScore(col, ply)
+                    ? Score.GetMateScore(col, ply)
 
                     // if we aren't checked we return draw (stalemate)
                     : (short)0, []) 
@@ -468,7 +472,9 @@ namespace Kreveta.search {
                     return standPat;
                 }
 
-                return inCheck ? Eval.GetMateScore(col, ply) : (short)0;
+                return inCheck 
+                    ? Score.GetMateScore(col, ply) 
+                    : (short)0;
             }
 
             // we aren't checked => sort the generated captures
@@ -494,8 +500,6 @@ namespace Kreveta.search {
                     && ply >= CurDepth + DP.MinPly) {
 
                     if (DP.TryPrune(ply, CurQSDepth, col, window, standPat, captured)) {
-
-                        //nnue.UnUpdate(col, ref moves[i]);
                         continue;
                     }
                 }

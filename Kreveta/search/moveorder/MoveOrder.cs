@@ -97,7 +97,7 @@ internal static class MoveOrder {
 
             // if the move has no history, this is
             // set to zero, which is also fine
-            quiets.Add((legal[i], History.GetRep(board, legal[i])));
+            quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
         }
 
         // sort them

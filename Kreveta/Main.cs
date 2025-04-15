@@ -24,7 +24,7 @@ internal static class Program {
         }
 
         Killers.Clear();
-        History.Clear();
+        QuietHistory.Clear();
 
         UCI.Log(HeaderText, UCI.LogLevel.RAW);
 

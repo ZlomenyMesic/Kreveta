@@ -22,7 +22,7 @@ internal static class Game {
     // we will be playing a whole game rather than just analyzing
     // a single position. this allows us to implement some stuff,
     // such as keeping the tt from the previous turn
-    internal static bool fullGame = false;
+    internal static bool FullGame = false;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
     internal static List<ulong> HistoryPositions = [];
