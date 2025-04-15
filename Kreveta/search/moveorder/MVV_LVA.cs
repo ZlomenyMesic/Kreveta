@@ -65,7 +65,7 @@ internal static class MVV_LVA {
             }
         }
 
-        // add the sorted captures to the final list
+        //add the sorted captures to the final list
         Move[] sorted = new Move[scores.Length];
 
         for (int i = 0; i < scores.Length; i++) {
@@ -76,6 +76,7 @@ internal static class MVV_LVA {
     }
 
     // this method calculates the score for a single move
+    // positive score = likely a better move
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetCaptureScore(Move capt) {
 

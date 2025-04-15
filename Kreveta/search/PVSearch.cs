@@ -47,6 +47,8 @@ namespace Kreveta.search {
         // pv node is also the move the engine is going to play
         internal static Move[] PV = [];
 
+        //private static Stack<Move> SearchStack = [];
+
         // after this time the engine aborts the search
         private static long AbortTimeThreshold = 0L;
 
@@ -82,7 +84,7 @@ namespace Kreveta.search {
             StorePVinTT(PV, CurDepth);
 
             // actual start of the search tree
-            (PVScore, PV) = Search(Game.board, 0, CurDepth, Window.Infinite);
+            (PVScore, PV) = Search(Game.board, 0, CurDepth, Window.Infinite, default);
         }
 
         // completely reset everything
@@ -93,9 +95,11 @@ namespace Kreveta.search {
             CurNodes = 0L;
             PVScore = 0;
             PV = [];
+            //SearchStack = [];
 
             Killers.Clear();
             History.Clear();
+            CounterMoveHistory.Clear();
 
             // if we are playing a full game,
             // we want to keep the hash table
@@ -122,7 +126,7 @@ namespace Kreveta.search {
 
         // first check the transposition table for the score, if it's not there
         // just continue the regular search. parameters need to be the same as in the search method itself
-        internal static (short Score, Move[] PV) ProbeTT([NotNull] Board board, int ply, int depth, Window window) {
+        internal static (short Score, Move[] PV) ProbeTT([NotNull] Board board, int ply, int depth, Window window, Move previous) {
 
             // did we find the position and score?
             // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -131,9 +135,14 @@ namespace Kreveta.search {
                 // only return the score, no pv
                 return (ttScore, []);
 
+            int R = 0;// (CurDepth < 6 && depth == 2) ? 1 : 0;
+
             // in case the position is not yet stored, we fully search it and then store it
-            (short Score, Move[] PV) search = Search(board, ply, depth, window);
-            TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
+            (short Score, Move[] PV) search = Search(board, ply, depth - R, window, previous);
+            TT.Store(board, (sbyte)(depth), ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
+
+            //if (search.PV.Length > 0)
+            //    CounterMoveHistory.Add(board.color, previous, search.PV[0]);
 
             History.UpdatePawnCorrHist(board, search.Score, depth);
 
@@ -147,7 +156,7 @@ namespace Kreveta.search {
         // depth, on the other hand, starts at the highest value and decreases over time.
         // once we get to depth = 0, we drop into the qsearch. the search window contains 
         // the alpha and beta values, which are the pillars to this thing
-        private static (short Score, Move[] PV) Search([NotNull] Board board, int ply, int depth, Window window) {
+        private static (short Score, Move[] PV) Search([NotNull] Board board, int ply, int depth, Window window, Move previous) {
 
             // either crossed the time budget or maximum nodes
             // we cannot abort the first iteration - no bestmove
@@ -155,6 +164,34 @@ namespace Kreveta.search {
                 return (0, []);
 
             Color col = board.color;
+
+            // if we found a mate score in the previous iteration, we return if
+            // the ply we are currently in is larger than the already found mate
+            // (if we found let's say mate in 7, it doesn't make any sense to
+            // searchpast ply 7 since whatever we find won't change anything).
+            // we do, however, still want to search at lower plies in case we
+            // find a shorter path mate
+            if (Eval.IsMateScore(PVScore)) {
+                int matePly = Math.Abs(Eval.GetMateInX(PVScore));
+                if (ply > matePly)
+                    return (0, []);
+            }
+
+            // based on mate distance pruning - very similar to the algorithm above,
+            // but applied in the current iteration. if there's already an ensured
+            // mate found in this iteration, we also don't search any further
+            if (col == Color.WHITE && Eval.IsMateScore(window.Alpha) && window.Alpha > 0) {
+
+                int matePly = Eval.GetMateInX(window.Alpha);
+                if (ply >= matePly)
+                    return (Eval.GetMateScore(col, ply + 1), []);
+            }
+            else if (col == Color.BLACK && Eval.IsMateScore(window.Beta) && window.Beta < 0) {
+
+                int matePly = -Eval.GetMateInX(window.Beta);
+                if (ply >= matePly)
+                    return (Eval.GetMateScore(col, ply + 1), []);
+            }
 
             // we reached depth = 0, we evaluate the leaf node though the qsearch
             if (depth <= 0) {
@@ -168,7 +205,7 @@ namespace Kreveta.search {
 
             // if the position is saved as a 3-fold repetition draw, return 0.
             // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply is 1 or 2) && Game.Draws.Contains(Zobrist.GetHash(board))) {
+            if ((ply is 1 or 2 or 3) && Game.Draws.Contains(Zobrist.GetHash(board))) {
                 return (0, []);
             }
 
@@ -226,7 +263,7 @@ namespace Kreveta.search {
             // all legal moves sorted from best to worst (only a guess)
             // first the tt bestmove, then captures sorted by MVV-LVA,
             // then killer moves and last quiet moves sorted by history
-            Move[] moves = MoveOrder.GetSortedMoves(board, depth);
+            Move[] moves = MoveOrder.GetSortedMoves(board, depth, previous);
 
             // counter for expanded nodes
             int expNodes = 0;
@@ -301,7 +338,7 @@ namespace Kreveta.search {
 
                 // if we got through all the pruning all the way to this point,
                 // we expect this move to raise alpha, so we search it at full depth
-                (short Score, Move[] PV) fullSearch = ProbeTT(child, ply + 1, depth - 1, window);
+                (short Score, Move[] PV) fullSearch = ProbeTT(child, ply + 1, depth - 1, window, curMove);
 
                 // we somehow still failed low
                 if (col == Color.WHITE 

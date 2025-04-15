@@ -58,7 +58,7 @@ internal static class LMR {
             : new((short)(window.Beta - 1), window.Beta);
 
         // once again a reduced depth search
-        short score = PVSearch.ProbeTT(child, ply + 1, depth - R - 1, nullAlphaWindow).Score;
+        short score = PVSearch.ProbeTT(child, ply + 1, depth - R - 1, nullAlphaWindow, default).Score;
 
         // continuing without this causes weird behaviour. the engine somehow
         // rates regular positions as mate in X. keep this. it's important.
