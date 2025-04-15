@@ -119,17 +119,14 @@ internal static class TT {
             BestMove = bestMove
         };
 
-        //a checkmate score is reduced by the number of plies from the root so that shorter mates are preferred
-        //but when we talk about a position being 'mate in X' then X is independent of the root distance. So we store
-        //the score relative to the position by adding the current ply to the encoded mate distance (from the root).
-        // (taken from MinimalChessEngine)
-        if (Eval.IsMateScore(score)) {
+        // idea from MinimalChess: when a position is evaluated "mate in X", the X plies are
+        // relative to the root node. when we store such position, though, we have to subtract
+        // the current ply to get the actual X plies relative to the position, not root.
+        if (Score.IsMateScore(score)) {
 
-            //
-            //
-            // TODO - MAYBE FIX THIS
-            //
-            //
+            // since a mate score is a number of plies subtracted from a base,
+            // we don't actually subtract the current ply, we add it. the idea
+            // is, however, the same
             score += (short)(Math.Sign(score) * ply);
         }
 
@@ -186,29 +183,19 @@ internal static class TT {
 
         score = entry.Score;
 
-        // a checkmate score is reduced by the number of plies from the root so that shorter mates are preferred
-        // but when we store it in the TT the score is made relative to the current position. So when we want to 
-        // retrieve the score we have to subtract the current ply to make it relative to the root again.
-        // (and again MinimalChessEngine inspiration)
-        if (Eval.IsMateScore(score)) {
-            //
-            // ANOTHER FIX HERE
-            //
+        // when retrieving the eval, we do the opposite of what is
+        // described above - we add the current ply to the "mate in X"
+        // to make it relative to the root node once again
+        if (Score.IsMateScore(score)) {
             score -= (short)(Math.Sign(score) * ply);
             return true;
         }
 
-        if (entry.Type == ScoreType.EXACT) return true;
-        if (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha) {
-            //score = window.alpha;
-            return true;
-        }
-        if (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta) {
-            //score = window.beta;
-            return true;
-        }
-
-        return false;
+        // lower and upper bound scores are only returned when
+        // they fall outside the search window as labeled
+        return (entry.Type == ScoreType.EXACT 
+            || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha) 
+            || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta));
     }
 
 

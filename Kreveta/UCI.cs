@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using BenchmarkDotNet.Running;
 using Kreveta.opening_book;
 using Kreveta.search;
 using System.ComponentModel;
@@ -92,12 +93,12 @@ internal static class UCI {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUciNewGame() {
         TT.Clear();
-        Game.fullGame = true;
+        Game.FullGame = true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdStop() {
-        Game.fullGame = false;
+        Game.FullGame = false;
         TT.Clear();
     }
 
@@ -144,18 +145,19 @@ internal static class UCI {
         TimeMan.ProcessTime(toks);
 
         int depth = 50;
-        int index = Array.IndexOf(toks, "depth");
+        int depthIndex = Array.IndexOf(toks, "depth");
 
         // the depth keyword should be directly followed by a parsable token
-        if (index != -1) {
+        if (depthIndex != -1) {
             try {
-                depth = int.Parse(toks[index + 1]);
+                depth = int.Parse(toks[depthIndex + 1]);
                 TimeMan.TimeBudget = long.MaxValue;
             } catch { Log("invalid depth argument", LogLevel.ERROR); }
         }
 
         // don't use book moves when we want an actual search at a specified depth
-        if (index == -1 && Options.OwnBook && OpeningBook.BookMove != "") {
+        // or when movetime is set (either specific search time or infinite time)
+        if (depthIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook && OpeningBook.BookMove != "") {
             Log($"bestmove {OpeningBook.BookMove}");
             return;
         }
@@ -184,7 +186,7 @@ internal static class UCI {
     [Conditional("DEBUG")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdTest() {
-        SpeedTest.Run();
+        BenchmarkRunner.Run<Benchmarks>();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -87,20 +87,33 @@ namespace Kreveta.search {
             // save the first pv node as the current best move
             BestMove = PVSearch.PV[0];
 
+            // add the searched nodes from this iteration to the total node count
             TotalNodes += PVSearch.CurNodes;
 
-            // pv score relative to the engine
-            //float colRelScore = Eval.IsMateScore(PVSearch.PVScore) 
-            //    ? PVSearch.PVScore 
-            //    : ;
+            // now there's a bit of magic with mate scores. our "mate in X" function
+            // returns the number of plies until mate, but the conventional way to
+            // note mate scores is actually the number of full moves.
+            int mateScore = Score.GetMateInX(PVSearch.PVScore);
 
-            //// pv score relative to color (this gets printed to the gui)
-            //// although we probably don't need this, it is a common way to do so
-            //float engRelScore = (int)colRelScore ;
+            // first we add one to the found mate score - this is because
+            // we have not added the first ply into this score
+            mateScore += Math.Sign(mateScore);
 
-            string score = Eval.IsMateScore(PVSearch.PVScore) 
-                ? $"mate {Eval.GetMateInX(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}"
-                : $"cp {Eval.LimitScore(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}";
+            // after that we subtract one if the score is odd to make
+            // it properly divisible by two
+            mateScore -= Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
+
+            // and then we divide the score by two to get the conventional "mate in X",
+            // while also multiplying it to make it relative to the engine, not color
+            mateScore /= Game.color == Color.WHITE ? 2 : -2;
+
+            // all of the stuff above is done even if the score isn't mate. i'm just
+            // too lazy to care, but i might modify it a bit in the future. so here
+            // we just check whether the pv score is mate or not, and based on that
+            // we either print the "mate in X" or the score in centipawns
+            string score = Score.IsMateScore(PVSearch.PVScore) 
+                ? $"mate {mateScore}"
+                : $"cp {Score.LimitScore(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}";
 
             // nodes per second - a widely used measure to approximate an
             // engine's strength or efficiency. we need to maximize nps.
