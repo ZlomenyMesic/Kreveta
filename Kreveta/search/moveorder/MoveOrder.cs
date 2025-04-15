@@ -17,7 +17,7 @@ internal static class MoveOrder {
     // least make a rough guess.
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static Move[] GetSortedMoves([NotNull] Board board, int depth) {
+    internal static Move[] GetSortedMoves([NotNull] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
@@ -47,8 +47,19 @@ internal static class MoveOrder {
 
         // get the captures ordered and add them to the list
         Move[] mvvlva = MVV_LVA.OrderCaptures([ ..capts]);
-        for (int j = 0; j < mvvlva.Length; j++) {
-            sorted[cur++] = mvvlva[j];
+        //List<Move> badCaptures = [];
+
+        for (int i = 0; i < mvvlva.Length; i++) {
+            sorted[cur++] = mvvlva[i];
+            //if (PVSearch.CurDepth - depth < 3) sorted[cur++] = mvvlva[i];
+
+            //else if (MVV_LVA.GetCaptureScore(mvvlva[i]) >= -350)
+            //    sorted[cur++] = mvvlva[i];
+
+            //else {
+            //    //Console.WriteLine($"{mvvlva[i].Piece} {mvvlva[i].Capture}");
+            //    badCaptures.Add(mvvlva[i]);
+            //}
         }
 
         ulong empty = board.Empty;
@@ -69,6 +80,13 @@ internal static class MoveOrder {
             }
         }
 
+        //if (depth < 2) {
+        //    Move counter = CounterMoveHistory.Get(board.color, previous);
+        //    if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
+        //        sorted[cur++] = counter;
+        //    }
+        //}
+
         // last and probably least are the remaining quiet moves,
         // which are sorted by their history values. see History
         List<(Move, int)> quiets = [];
@@ -88,6 +106,11 @@ internal static class MoveOrder {
         // and add them to the final list
         for (int i = 0; i < quiets.Count; i++)
             sorted[cur++] = quiets[i].Item1;
+
+        //for (int i = 0; i < badCaptures.Count; i++) {
+        //    if (!sorted.Contains(badCaptures[i]))
+        //        sorted[cur++] = badCaptures[i];
+        //}
 
         return sorted;
     }

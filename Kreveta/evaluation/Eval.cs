@@ -15,13 +15,6 @@ internal static class Eval {
 
     private const ulong Center = 0x00007E7E7E7E0000;
 
-    // any score above this threshold is considered "mate score"
-    private const int MateScoreThreshold       = 9000;
-
-    // default mate score from which is then subtracted
-    // some amount to prefer shorter mates (M1 = 9998)
-    private const int MateScoreDefault         = 9999;
-
     // the side to play gets a small bonus
     private const int SideToMoveBonus          = 5;
 
@@ -38,6 +31,7 @@ internal static class Eval {
 
     private const int OpenFileRookBonus        = 18;
     private const int SemiOpenFileRookBonus    = 7;
+    private const int SeventhRankRookBonus     = 3;
 
     internal const int KingInCheckPenalty      = 72;
 
@@ -55,14 +49,52 @@ internal static class Eval {
         }
     }
 
+    // any score above this threshold is considered "mate score"
+    private const int MateScoreThreshold = 9000;
+
+    // default mate score from which is then subtracted
+    // some amount to prefer shorter mates (M1 = 9998)
+    private const int MateScoreDefault = 9999;
+
+    // creates a new mate score depending on the number of plies
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short GetMateScore(Color col, int ply)
         => (short)((col == Color.WHITE ? -1 : 1) * (MateScoreDefault - ply));
 
+    // checks whether the score falls above the mate score threshold
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsMateScore(int s)
-        => Math.Abs(s) > MateScoreThreshold;
+    internal static bool IsMateScore(int score)
+        => Math.Abs(score) > MateScoreThreshold;
 
+    // maximum non-mate score that can be achieved (in centipawns)
+    private const int NonMateScoreLimit = 1000;
+
+    // some GUIs (such as Cutechess) are unable to print really large
+    // scores that aren't mate, e.g. Cutechess only shows evaluation
+    // below 15 pawns correctly, and above that all scores look the
+    // same. for this reason, when printing a score (that is not a mate
+    // score), we use a kind of like sigmoid function to make all scores
+    // fall into a set interval.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int LimitScore(int score)
+        => (int)Math.Round(NonMateScoreLimit * (float)Math.Tanh((double)score / 1125), 0);
+
+    // when printing a mate score, we prefer the "mate in X" format,
+    // so we convert the score to the number of plies until mate
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int GetMateInX(int score) {
+        int x = MateScoreDefault - Math.Abs(score);
+        return x * Math.Sign(score);
+    }
+
+    // returns the static evaluation of a position. static eval is used
+    // in the leaf nodes of the search tree or is some pruning cases. it
+    // doesn't implement any searches, so it is purely static. the point
+    // of this method is to give the engine a very rough estimate of how
+    // good a position is. it evaluates material, piece position, pawn
+    // structure, king safety, etc. the score returned is color relative,
+    // so a positive score means the position is likely to be winning for
+    // white, and a negative score should be better for black
     internal static short StaticEval([NotNull] in Board board) {
 
         ulong wOccupied = board.WOccupied;
@@ -72,11 +104,17 @@ internal static class Eval {
 
         short wEval = 0, bEval = 0;
 
+        // loop all piece types
         for (int i = 0; i < 6; i++) {
 
+            // copy the respective piece bitboards for both colors
             ulong wCopy = board.Pieces[(byte)Color.WHITE, i];
             ulong bCopy = board.Pieces[(byte)Color.BLACK, i];
 
+            // here for each color we add the table value of the piece. the tables
+            // are in EvalTables.cs, and they give both material and position values.
+            // although this code isn't really clean, it is much faster than putting
+            // the color into a loop as well
             while (wCopy != 0) {
                 int sq = BB.LS1BReset(ref wCopy);
                 wEval += GetTableValue((PType)i, Color.WHITE, sq, pieceCount);
@@ -94,13 +132,14 @@ internal static class Eval {
         // 
         // 1. penalties for doubled, tripled, and more stacked pawns
         // 2. penalties for isolated pawns (no friendly pawns on adjacent files)
-        // 3. bonus for connected pawns in the other half of the board
+        // 3. bonuses for connected pawns in the other half of the board
+        // 4. penalties for pawns blocked by friendly pieces
         eval += PawnStructureEval(board, board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE);
         eval -= PawnStructureEval(board, board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK);
 
         // knight eval:
         //
-        // 1. decreasing value in the endgame
+        // 1. decreasing value with fewer pawns on the board
         eval += KnightEval(board, pieceCount);
 
         // bishop eval:
@@ -110,8 +149,9 @@ internal static class Eval {
 
         // rook eval:
         //
-        // 1. increasing value in the endgame
+        // 1. increasing value with fewer pieces on the board
         // 2. bonuses for rooks on open or semi-open files
+        // 3. bonuses for rooks on the seventh rank
         eval += RookEval(board, pieceCount);
 
         // king eval:
@@ -186,15 +226,12 @@ internal static class Eval {
             eval += file_occ != adj_occ ? 0 : (IsolatedPawnPenalty + isolani) * colMult;
         }
 
-        // pawns in the opponent's half of the board. not really
-        // passed pawns by definition, but these pawns should have
-        // a good chance of promoting
         ulong copy = p;
-
         while (copy != 0) {
             int sq = BB.LS1BReset(ref copy);
 
             if (col == Color.WHITE ? sq < 40 : sq > 23) {
+
                 // add a bonus for connected pawns in the opponent's half of the board.
                 // this should (and hopefully does) increase the playing strength in
                 // endgames and also allow better progressing into endgames
@@ -202,6 +239,9 @@ internal static class Eval {
                 eval += BB.Popcount(targets) * ConnectedPassedPawnBonus;
             }
 
+            // penalize blocked pawns - pawns that have a friendly piece directly in
+            // front of them and thus cannot push further. in order to push this pawn,
+            // you first have to move the other piece, which makes it worse.
             if (col == Color.WHITE && (Consts.SqMask[sq - 8] & board.WOccupied) != 0)
                 eval += BlockedPawnPenalty;
 
@@ -216,7 +256,7 @@ internal static class Eval {
     private static short KnightEval([NotNull] in Board board, int pawnCount) {
         short eval = 0;
 
-        // knights are less valuable if be have fewer pieces on the board.
+        // knights are less valuable if there are fewer pawns on the board.
         // number of white knights and black knights on the board:
         int wKnights = BB.Popcount(board.Pieces[0, 1]);
         int bKnights = BB.Popcount(board.Pieces[1, 1]);
@@ -235,9 +275,9 @@ internal static class Eval {
 
         short eval = 0;
 
-        // accidental bishop pairs may appear in the endgame - a side can
-        // have two bishops, but of the same color, so it isn't really
-        // a bishop pair. this error should, however, be rare and inconsequential
+        // accidental bishop pairs may appear in endgames - a player can
+        // have two bishops of the same color, so it isn't really a bishop
+        // pair. this error should, however, be rare and inconsequential
 
         // i did some testing with checking the colors of the bishops and it
         // slows down the eval quite a lot, that's why it isn't implemented
@@ -255,7 +295,9 @@ internal static class Eval {
     private static short RookEval([NotNull] in Board board, int pieceCount) {
         short eval = 0;
 
-        // rooks are, as opposed to knights, more valuable if be have fewer pieces on the board.
+        // rooks are, as opposed to knights, more valuable if there are
+        // fewer pieces on the board. this should motivate the engine into
+        // protecting and keeping its rooks as it goes into the endgame.
         // number of white rooks and black rooks on the board:
         int wRooksCount = BB.Popcount(board.Pieces[0, 3]);
         int bRooksCount = BB.Popcount(board.Pieces[1, 3]);
@@ -266,10 +308,13 @@ internal static class Eval {
         // subtract some eval for black it has rooks
         eval -= (short)(bRooksCount * (32 - pieceCount) / 2);
 
+        // all pawns
         ulong wPawns = board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN];
         ulong bPawns = board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN];
 
-        // here we try to add bonuses for rooks on open files
+        // here we try to add bonuses for rooks on open files. a file
+        // is open if there aren't any pawns on it, regardless of color.
+        // other minor and major pieces are not taken into account
         ulong wCopy = board.Pieces[(byte)Color.WHITE, (byte)PType.ROOK];
         while (wCopy != 0) {
             int sq = BB.LS1BReset(ref wCopy);
@@ -277,14 +322,19 @@ internal static class Eval {
             // number of friendly pawns on the same file as the rook
             int ownPawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns));
 
-            // total number of pawns (regardless of color) on the same file
+            // total number of pawns on the same file
             int pawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
 
-            if (pawnCount == 0) {
+            // there are no pawns on this file => add the bonus
+            if (pawnCount == 0) 
                 eval += OpenFileRookBonus;
-            } else if (ownPawnCount == 0) {
+            
+            // we also add bonuses for rooks on semi-open files (smaller than
+            // those for open files). a file is semi-open only if there aren't
+            // any friendly pawns on it. we assume this file might open in the
+            // future since we can always capture the opposite pawns
+            else if (ownPawnCount == 0) 
                 eval += SemiOpenFileRookBonus;
-            }
         }
 
         // the same exact principle as above, but for black. although repeating
@@ -297,13 +347,26 @@ internal static class Eval {
             int pawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
             int ownPawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (bPawns));
 
-            // we subtract the value this time for black
-            if (pawnCount == 0) {
+            // we subtract this time for black
+            if (pawnCount == 0)
                 eval -= OpenFileRookBonus;
-            } else if (ownPawnCount == 0) {
+
+            else if (ownPawnCount == 0)
                 eval -= SemiOpenFileRookBonus;
-            }
         }
+
+        // rooks on the seventh rank (or second rank for black) are considered very
+        // powerful, since they can typically "eat" undeveloped enemy pawns quite
+        // easily and also threaten the king on the eighth (or first) rank. you can
+        // read that this rook is worth almost a pawn, but i've tested larger bonuses
+        // and it doesn't work as well, so we only use smaller ones. the bonuses also
+        // decrease when progressing into the endgame, because undeveloped pawns are
+        // less likely
+        if ((board.Pieces[(byte)Color.WHITE, (byte)PType.ROOK] & 0x000000000000FF00) != 0)
+            eval += (short)Math.Min(pieceCount >> 3, SeventhRankRookBonus);
+
+        if ((board.Pieces[(byte)Color.BLACK, (byte)PType.ROOK] & 0x00FF000000000000) != 0)
+            eval -= (short)Math.Min(pieceCount >> 3, SeventhRankRookBonus);
 
         return eval;
     }
@@ -311,8 +374,6 @@ internal static class Eval {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short QueenEval(ulong q, Color col, int piece_count) {
         int eval = 0;
-
-        //eval += PiecesTableEval(q, 4, col, piece_count);
 
         return (short)eval;
     }

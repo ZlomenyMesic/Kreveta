@@ -49,7 +49,7 @@ internal static class NMP {
         int R = ply <= 4 ? RBase - 1 : RBase;
 
         // do the reduced search
-        score = PVSearch.ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowBeta).Score;
+        score = PVSearch.ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowBeta, default).Score;
 
         // if we failed high, that means the score is above beta and is "too good" to be
         // allowed by the opponent. if we don't fail high, we just continue the expansion

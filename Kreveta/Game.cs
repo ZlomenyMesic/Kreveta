@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.opening_book;
 using Kreveta.search;
@@ -219,6 +220,7 @@ internal static class Game {
     }
 
     internal static void TestingFunction() {
-
+        //for (int score = 0; score <= 3000; score++)
+        //    Console.WriteLine($"{score} {Eval.LimitScore(score)}");
     }
 }

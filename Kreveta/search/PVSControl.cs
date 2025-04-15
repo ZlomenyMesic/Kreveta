@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
 using System.Diagnostics;
@@ -89,18 +90,24 @@ namespace Kreveta.search {
             TotalNodes += PVSearch.CurNodes;
 
             // pv score relative to the engine
-            int engRelScore = PVSearch.PVScore;
+            //float colRelScore = Eval.IsMateScore(PVSearch.PVScore) 
+            //    ? PVSearch.PVScore 
+            //    : ;
 
-            // pv score relative to color (this gets printed to the gui)
-            // although we probably don't need this, it is a common way to do so
-            int colRelScore = engRelScore * (Game.color == Color.WHITE ? 1 : -1);
+            //// pv score relative to color (this gets printed to the gui)
+            //// although we probably don't need this, it is a common way to do so
+            //float engRelScore = (int)colRelScore ;
+
+            string score = Eval.IsMateScore(PVSearch.PVScore) 
+                ? $"mate {Eval.GetMateInX(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}"
+                : $"cp {Eval.LimitScore(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}";
 
             // nodes per second - a widely used measure to approximate an
             // engine's strength or efficiency. we need to maximize nps.
             // if the time is too low (less than a millisecond), we simply
             // divide as if it took us 1 millisecond.
-            long divisor = _curElapsed != 0 ? _curElapsed : 1;
-            int nps = (int)((float)PVSearch.CurNodes / divisor * 1000);
+            long nodesDivisor = _curElapsed != 0 ? _curElapsed : 1;
+            int nps = (int)((float)PVSearch.CurNodes / nodesDivisor * 1000);
 
             // we print the search info to the console
             string info = "info " +
@@ -125,7 +132,7 @@ namespace Kreveta.search {
 
                 // pv score relative to color
                 // measured in centipawns (cp)
-                $"score cp {colRelScore} " +
+                $"score {score} " +
 
                 // principal variation
                 $"pv";
