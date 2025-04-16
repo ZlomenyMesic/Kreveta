@@ -109,7 +109,13 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPosition(string[] toks) {
+        //Game.board = new();
+        //return;
         switch (toks[1]) {
+
+            // we don't use the startpos constructor, because we can have a list
+            // of moves played from the starting position, which would be quite
+            // difficult and unnecessary to implement
             case "startpos": Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' '), ..toks]); break;
             case "fen":      Game.SetPosFEN(toks);                                              break;
 

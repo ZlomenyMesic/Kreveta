@@ -87,7 +87,7 @@ namespace Kreveta.search {
             StorePVinTT(PV, CurDepth);
 
             // actual start of the search tree
-            (PVScore, PV) = Search(Game.board, 0, CurDepth, Window.Infinite, default);
+            (PVScore, PV) = Search(Game.board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default);
         }
 
         // completely reset everything
@@ -121,7 +121,7 @@ namespace Kreveta.search {
             for (int i = 0; i < pv.Length; i++) {
 
                 // store the pv-node
-                TT.Store(b, (sbyte)--depth, i, Window.Infinite, PVScore, pv[i]);
+                TT.Store(b, (sbyte)--depth, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
                 // play along the pv to store corrent positions as well
                 b.PlayMove(pv[i]);
