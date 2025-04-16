@@ -7,7 +7,6 @@ using Kreveta.movegen;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
@@ -52,6 +51,29 @@ internal sealed class Board {
     // the side to move
     [EnumDataType(typeof(Color))]
     internal Color color = 0;
+
+    internal Board() {
+        Pieces[(byte)Color.BLACK, (byte)PType.PAWN]   = 0x000000000000FF00;
+        Pieces[(byte)Color.BLACK, (byte)PType.KNIGHT] = 0x0000000000000042;
+        Pieces[(byte)Color.BLACK, (byte)PType.BISHOP] = 0x0000000000000024;
+        Pieces[(byte)Color.BLACK, (byte)PType.ROOK]   = 0x0000000000000081;
+        Pieces[(byte)Color.BLACK, (byte)PType.QUEEN]  = 0x0000000000000008;
+        Pieces[(byte)Color.BLACK, (byte)PType.KING]   = 0x0000000000000010;
+
+        Pieces[(byte)Color.WHITE, (byte)PType.PAWN]   = 0x00FF000000000000;
+        Pieces[(byte)Color.WHITE, (byte)PType.KNIGHT] = 0x42FF000000000000;
+        Pieces[(byte)Color.WHITE, (byte)PType.BISHOP] = 0x2400000000000000;
+        Pieces[(byte)Color.WHITE, (byte)PType.ROOK]   = 0x81FF000000000000;
+        Pieces[(byte)Color.WHITE, (byte)PType.QUEEN]  = 0x0800000000000000;
+        Pieces[(byte)Color.WHITE, (byte)PType.KING]   = 0x1000000000000000;
+
+        WOccupied = 0xFFFF000000000000;
+        BOccupied = 0x000000000000FFFF;
+
+        enPassantSq = 64;
+        castRights  = CastlingRights.ALL;
+        color       = Color.WHITE;
+    }
 
     internal void Clear() {
         Pieces      = new ulong[2, 6];

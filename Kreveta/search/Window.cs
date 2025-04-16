@@ -10,8 +10,7 @@ using System.Runtime.InteropServices;
 namespace Kreveta.search;
 
 [StructLayout(LayoutKind.Explicit, Size = 2 * sizeof(short))]
-internal struct Window {
-    internal static readonly Window Infinite = new(short.MinValue, short.MaxValue);
+internal ref struct Window {
 
     // floor/lower bound
     // moves under alpha are too bad

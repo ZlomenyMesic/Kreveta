@@ -29,7 +29,8 @@ internal enum CastlingRights : byte {
     K    = 1, // white kingside
     Q    = 2, // white queenside
     k    = 4, // black kingside
-    q    = 8  // black queenside
+    q    = 8,  // black queenside
+    ALL  = 15
 }
 
 internal static class Consts {
