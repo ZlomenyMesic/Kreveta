@@ -230,22 +230,22 @@ namespace Kreveta.search {
             }
 
             if (PruningOptions.AllowReverseFutilityPruning
-                && ply >= RFP.MinPly
-                && depth >= RFP.MinDepth
-                && depth <= RFP.MaxDepth
+                && ply >= ReverseFutilityPruning.MinPly
+                && depth >= ReverseFutilityPruning.MinDepth
+                && depth <= ReverseFutilityPruning.MaxDepth
                 && !inCheck
                 && !Score.IsMateScore(PVScore)) {
 
                 // if we failed high
-                if (RFP.TryPrune(board, depth, col, window, out short rfpScore)) {
+                if (ReverseFutilityPruning.TryPrune(board, depth, col, window, out short rfpScore)) {
                     return (rfpScore, []);
                 }
             }
 
             // are the conditions for nmp satisfied?
             if (PruningOptions.AllowNullMovePruning
-                && depth >= NMP.MinDepth
-                && ply >= NMP.CurMinPly
+                && depth >= NullMovePruning.MinDepth
+                && ply >= NullMovePruning.CurMinPly
                 && !inCheck
                 && !Score.IsMateScore(PVScore)
 
@@ -254,7 +254,7 @@ namespace Kreveta.search {
                     : (window.Alpha > short.MinValue))) {
 
                 // we try the reduced search and check for failing high
-                if (NMP.TryPrune(board, depth, ply, window, col, out short score)) {
+                if (NullMovePruning.TryPrune(board, depth, ply, window, col, out short score)) {
 
                     // we failed high - prune this branch
                     return (score, []);
@@ -304,12 +304,12 @@ namespace Kreveta.search {
 
                 // have to meet certain conditions for fp
                 if (PruningOptions.AllowFutilityPruning
-                    && ply >= FP.MinPly
-                    && depth <= FP.MaxDepth
+                    && ply >= FutilityPruning.MinPly
+                    && depth <= FutilityPruning.MaxDepth
                     && !interesting) {
 
                     // we check for failing low despite the margin
-                    if (FP.TryPrune(child, depth, col, s_eval, window)) {
+                    if (FutilityPruning.TryPrune(child, depth, col, s_eval, window)) {
 
                         // prune this branch
                         continue;
@@ -319,11 +319,11 @@ namespace Kreveta.search {
                 // more conditions
                 if ((PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                     && !interesting
-                    && ply >= LMR.MinPly
-                    && depth >= LMR.MinDepth
-                    && expNodes >= LMR.MinExpNodes) {
+                    && ply >= LateMoveReductions.MinPly
+                    && depth >= LateMoveReductions.MinDepth
+                    && expNodes >= LateMoveReductions.MinExpNodes) {
 
-                    (bool prune, bool reduce) = LMR.TryPrune(board, child, curMove, ply, depth, col, expNodes, window);
+                    (bool prune, bool reduce) = LateMoveReductions.TryPrune(board, child, curMove, ply, depth, col, expNodes, window);
 
                     // we failed low - prune this branch completely
                     if (prune) {
@@ -333,7 +333,7 @@ namespace Kreveta.search {
 
                     // we failed low with a margin - only reduce, don't prune
                     if (reduce) {
-                        int R = LMR.R;
+                        int R = LateMoveReductions.R;
 
                         depth -= R;
                         ply += R;
@@ -497,9 +497,9 @@ namespace Kreveta.search {
                 // delta pruning
                 if (PruningOptions.AllowDeltaPruning
                     && !inCheck
-                    && ply >= CurDepth + DP.MinPly) {
+                    && ply >= CurDepth + DeltaPruning.MinPly) {
 
-                    if (DP.TryPrune(ply, CurQSDepth, col, window, standPat, captured)) {
+                    if (DeltaPruning.TryPrune(ply, CurQSDepth, col, window, standPat, captured)) {
                         continue;
                     }
                 }

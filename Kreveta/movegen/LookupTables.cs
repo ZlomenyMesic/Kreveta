@@ -3,9 +3,11 @@
 // started 4-3-2025
 //
 
+using System.Runtime.InteropServices;
+
 namespace Kreveta.movegen;
 
-internal static class LookupTables {
+internal static unsafe class LookupTables {
     // Move generators in modern engines generate moves with lookup tables, which
     // are indexed by the square of the slider and a bitboard representing
     // occupied (impassable) squares that might block the movement of the piece.
@@ -15,12 +17,12 @@ internal static class LookupTables {
     // bitboard by 'magic' numbers, which are chosen because they empirically
     // map the set of possible occupancy bitboards into a dense range.
 
-    internal static readonly ulong[]   KingTargets     = new ulong[64];
-    internal static readonly ulong[]   KnightTargets   = new ulong[64];
-    internal static readonly ulong[][] RankTargets     = new ulong[64][];
-    internal static readonly ulong[][] FileTargets     = new ulong[64][];
-    internal static readonly ulong[][] AntidiagTargets = new ulong[64][];
-    internal static readonly ulong[][] DiagTargets     = new ulong[64][];
+    internal static readonly ulong*  KingTargets     = (ulong*) NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
+    internal static readonly ulong*  KnightTargets   = (ulong*) NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
+    internal static readonly ulong** RankTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
+    internal static readonly ulong** FileTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
+    internal static readonly ulong** AntidiagTargets = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
+    internal static readonly ulong** DiagTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
 
     // initializes all lookup tables when starting the engine
     static LookupTables() {
@@ -32,7 +34,7 @@ internal static class LookupTables {
         InitDiagTargets();
     }
 
-    private static void InitKingTargets() {
+    internal static void InitKingTargets() {
         for (int i = 0; i < 64; i++) {
             ulong king = Consts.SqMask[i];
 
@@ -73,7 +75,7 @@ internal static class LookupTables {
 
     private static void InitRankTargets() {
         for (int i = 0; i < 64; i++) {
-            RankTargets[i] = new ulong[64];
+            RankTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 ulong occ = (ulong)o << 1;
@@ -103,7 +105,7 @@ internal static class LookupTables {
     }
     private static void InitFileTargets() {
         for (int i = 0; i < 64; i++) {
-            FileTargets[i] = new ulong[64];
+            FileTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 ulong targets = 0;
@@ -123,7 +125,7 @@ internal static class LookupTables {
 
     private static void InitAntidiagTargets() {
         for (int i = 0; i < 64; i++) {
-            AntidiagTargets[i] = new ulong[64];
+            AntidiagTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 int diag = (i >> 3) - (i & 7);
@@ -161,7 +163,7 @@ internal static class LookupTables {
 
     private static void InitDiagTargets() {
         for (int i = 0; i < 64; i++) {
-            DiagTargets[i] = new ulong[64];
+            DiagTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 int diag = (i >> 3) + (i & 7);

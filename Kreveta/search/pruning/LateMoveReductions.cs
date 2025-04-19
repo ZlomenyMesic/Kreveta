@@ -16,7 +16,7 @@ namespace Kreveta.search.pruning;
 // a margin (this only applies to moves with bad history rep). if we fail low
 // with a margin, we only reduce the search depth. if we don't fail low at all
 // despite the margin, we do a full re-search
-internal static class LMR {
+internal static class LateMoveReductions {
 
     // once again we set a minimum ply and depth
     internal const int MinPly   = 4;

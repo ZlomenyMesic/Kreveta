@@ -6,7 +6,7 @@
 namespace Kreveta.movegen.pieces;
 
 internal static class Rook {
-    internal static ulong GetRookTargets(ulong rook, ulong free, ulong occupied) {
+    internal static unsafe ulong GetRookTargets(ulong rook, ulong free, ulong occupied) {
         ulong targets = 0;
 
         int sq = BB.LS1B(rook);

@@ -20,7 +20,7 @@ internal static class King {
     private const ulong oooMask = 0x000000000000000E;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ulong GetKingTargets(ulong king, ulong free) {
+    internal static unsafe ulong GetKingTargets(ulong king, ulong free) {
         ulong targets = LookupTables.KingTargets[BB.LS1B(king)];
         return targets & free;
     }

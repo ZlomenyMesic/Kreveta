@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Kreveta.search.moveorder;
@@ -17,13 +18,13 @@ internal static class MoveOrder {
     // least make a rough guess.
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static Move[] GetSortedMoves([NotNull] Board board, int depth, Move previous) {
+    internal static Move[] GetSortedMoves([NotNull][ReadOnly(true)] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
-        List<Move> legal = Movegen.GetLegalMoves(board).ToList();
+        Move[] legal = [ ..Movegen.GetLegalMoves(board)];
 
-        Move[] sorted = new Move[legal.Count];
+        Move[] sorted = new Move[legal.Length];
         int cur = 0;
 
         // the first move is, obviously, the best move saved in the
@@ -36,7 +37,8 @@ internal static class MoveOrder {
         // stands for Most Valuable Victim - Lest Valuable Aggressor.
         // see the actual MVV_LVA class for more information
         List<Move> capts = [];
-        for (int i = 0; i < legal.Count; i++) {
+
+        for (int i = 0; i < legal.Length; i++) {
 
             // only add captures
             if (!sorted.Contains(legal[i]) 
@@ -91,7 +93,7 @@ internal static class MoveOrder {
         // which are sorted by their history values. see History
         List<(Move, int)> quiets = [];
 
-        for (int i = 0; i < legal.Count; i++) {
+        for (int i = 0; i < legal.Length; i++) {
             if (sorted.Contains(legal[i]))
                 continue;
 

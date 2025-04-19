@@ -6,7 +6,7 @@
 namespace Kreveta.movegen.pieces;
 
 internal static class Bishop {
-    internal static ulong GetBishopTargets(ulong bishop, ulong free, ulong occupied) {
+    internal static unsafe ulong GetBishopTargets(ulong bishop, ulong free, ulong occupied) {
         ulong targets = 0;
 
         int sq = BB.LS1B(bishop);

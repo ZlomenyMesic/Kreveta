@@ -6,15 +6,12 @@
 using Kreveta;
 using Kreveta.evaluation;
 using Kreveta.search;
-using Kreveta.search.pruning;
-using System.Runtime.CompilerServices;
-using static System.Formats.Asn1.AsnWriter;
 
 // REVERSE FUTILITY PRUNING:
 // apart from futility pruning, we also use reverse futility pruning - it's
 // basically the same as fp but we subtract the margin from the static eval
 // and prune the branch if we fail high (so it's quite the opposite)
-internal static class RFP {
+internal static class ReverseFutilityPruning {
 
     // minimum ply and maximum depth to allow rfp
     internal const int MinPly   = 5;

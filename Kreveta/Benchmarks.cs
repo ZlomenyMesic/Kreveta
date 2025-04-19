@@ -4,6 +4,7 @@
 //
 
 using BenchmarkDotNet.Attributes;
+using Kreveta.movegen;
 
 namespace Kreveta;
 
@@ -14,5 +15,10 @@ public class Benchmarks {
 
     [GlobalSetup]
     public void Setup() {
+    }
+
+    [Benchmark]
+    public void KingMovesInit() {
+        LookupTables.InitKingTargets();
     }
 }

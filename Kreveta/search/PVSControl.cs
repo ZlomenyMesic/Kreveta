@@ -47,7 +47,7 @@ namespace Kreveta.search {
             sw = Stopwatch.StartNew();
 
             int pieceCount = BB.Popcount(Game.board.Occupied);
-            NMP.UpdateMinPly(pieceCount);
+            NullMovePruning.UpdateMinPly(pieceCount);
 
             // we still have time and are allowed to search deeper
             while (PVSearch.CurDepth < MaxDepth 

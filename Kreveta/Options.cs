@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -66,17 +67,14 @@ internal static class Options {
         },
     ];
 
-    internal static bool OwnBook {
-        get => options[0].Value == "true";
-    }
+    [ReadOnly(true)]
+    internal static bool OwnBook => options[0].Value == "true";
 
-    internal static int Hash {
-        get => int.Parse(options[1].Value);
-    }
+    [ReadOnly(true)]
+    internal static int Hash => int.Parse(options[1].Value);
 
-    internal static bool NKLogs {
-        get => options[2].Value == "true";
-    }
+    [ReadOnly(true)]
+    internal static bool NKLogs => options[2].Value == "true";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string OTypeToString(OptionType type) {
