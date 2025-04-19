@@ -52,9 +52,9 @@ internal static class TT {
     private static int TableSize = GetTableSize();
 
     // how many items are currently stored
-    private static int Stored = 0;
+    private static volatile int Stored = 0;
 
-    private static Entry[] Table = new Entry[TableSize];
+    private static volatile Entry[] Table = new Entry[TableSize];
 
     //private static long tt_lookups = 0;
 

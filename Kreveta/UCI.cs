@@ -19,36 +19,42 @@ internal static class UCI {
     }
 
     [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private const int InputBufferSize = 4096;
+
+    [ReadOnly(true)]
     private static readonly TextReader Input;
 
     [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly TextWriter Output;
 
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly StreamWriter NKOutput;
+    [ReadOnly(true)]
+    private static readonly StreamWriter? NKOutput;
 
     internal static string NKLogFilePath = "./out.log";
 
     static UCI() {
-        Input = Console.In;
-        Output = Console.Out;
 
-        //try {
-        //    NKOutput = new StreamWriter(NKLogFilePath);
+        // the default Console.ReadLine buffer is quite small and cannot
+        // handle long move lines, thus we use a larger buffer size
+        Input = new StreamReader(Console.OpenStandardInput(InputBufferSize));
+        Output = Console.Out; ;
 
-        //    NeoKolors.Console.Debug.Output = NKOutput;
-        //    NeoKolors.Console.Debug.SimpleMessages = true;
-        //} catch {
-        //    Log("NKLogger initialization failed", LogLevel.ERROR);
-        //}
+        try {
+            NKOutput = new StreamWriter(NKLogFilePath);
+
+            NeoKolors.Console.NKDebug.Logger.Output         = NKOutput;
+            NeoKolors.Console.NKDebug.Logger.SimpleMessages = true;
+        } catch {
+            Log("NKLogger initialization failed", LogLevel.ERROR);
+        }
     }
 
     internal static void UCILoop() {
         while (true) {
 
-            string input = Input.ReadLine() ?? string.Empty;
+            string input = Input.ReadLine() 
+                ?? string.Empty;
+
             string[] tokens = input.Split(' ');
 
             // we log the input commands as well
@@ -213,14 +219,13 @@ internal static class UCI {
         //    // this option can be toggled via the FancyLogs option
         //    try {
         //        switch (level) {
-        //            case LogLevel.INFO:    NeoKolors.Console.Debug.Info(msg);  break;
-        //            case LogLevel.WARNING: NeoKolors.Console.Debug.Warn(msg);  break;
-        //            case LogLevel.ERROR:   NeoKolors.Console.Debug.Error(msg); break;
+        //            case LogLevel.INFO: NeoKolors.Console.NKDebug.Info(msg); break;
+        //            case LogLevel.WARNING: NeoKolors.Console.NKDebug.Warn(msg); break;
+        //            case LogLevel.ERROR: NeoKolors.Console.NKDebug.Error(msg); break;
 
-        //            default: NeoKolors.Console.Debug.Log(msg); break;
+        //            default: NeoKolors.Console.NKDebug.Logger.Info(msg); break;
         //        }
-        //    }
-        //    catch {
+        //    } catch {
         //        Console.WriteLine($"failed to open the log file");
         //    }
         //}

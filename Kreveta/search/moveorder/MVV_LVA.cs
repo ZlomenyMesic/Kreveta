@@ -35,7 +35,7 @@ internal static class MVV_LVA {
         // if there's only a single available capture,
         // don't bother wasting time on this thing
         if (capts.Length <= 1) 
-            return capts;
+            return [ ..capts];
 
         // add each capture and its score into a list
         (Move, int)[] scores = new (Move, int)[capts.Length];

@@ -14,7 +14,7 @@ namespace Kreveta.search.pruning;
 // if we add this margin to the static eval of the position and still don't raise
 // alpha, we can prune this branch. we assume there probably isn't a phenomenal move
 // that could save this position
-internal static class FP {
+internal static class FutilityPruning {
 
     // minimum ply and maximum depth to allow futility pruning
     internal const int MinPly   = 3;
