@@ -17,8 +17,8 @@ public class Benchmarks {
     public void Setup() {
     }
 
-    [Benchmark]
-    public void KingMovesInit() {
-        LookupTables.InitKingTargets();
-    }
+    //[Benchmark]
+    //public void KingMovesInit() {
+    //    LookupTables.InitKingTargets();
+    //}
 }

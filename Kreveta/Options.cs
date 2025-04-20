@@ -12,8 +12,8 @@ namespace Kreveta;
 internal static class Options {
 
     private const bool DefaultOwnBook = true;
-    private const bool DefaultNKLogs = true;
-    private const long DefaultHash = 40;
+    private const bool DefaultNKLogs  = true;
+    private const long DefaultHash    = 40;
 
     internal enum OptionType {
         CHECK, SPIN, BUTTON, STRING
@@ -34,7 +34,7 @@ internal static class Options {
 
         // should the engine use its own opening book?
         new() {
-            Name = "OwnBook",
+            Name = nameof(OwnBook),
             Type = OptionType.CHECK,
 
             // standard ToString returns True and False, which
@@ -45,7 +45,7 @@ internal static class Options {
 
         // modify the size of the hash table (transpositions)
         new() {
-            Name = "Hash",
+            Name = nameof(Hash),
             Type = OptionType.SPIN,
 
             MinValue = "1",
@@ -59,7 +59,7 @@ internal static class Options {
         // special fancy info, warning and error logs
         // using the NeoKolors library by KryKom
         new() {
-            Name = "NKLogs",
+            Name = nameof(NKLogs),
             Type = OptionType.CHECK,
 
             DefaultValue = DefaultNKLogs ? "true" : "false",
@@ -67,6 +67,10 @@ internal static class Options {
         },
     ];
 
+    // changing the names of these properties also changes
+    // the name of the actual option, which isn't great.
+    // non-custom options (OwnBook and Hash) need to keep
+    // their names in order to be used properly by the GUI
     [ReadOnly(true)]
     internal static bool OwnBook => options[0].Value == "true";
 

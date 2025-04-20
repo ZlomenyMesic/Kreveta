@@ -5,7 +5,7 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.opening_book;
+using Kreveta.openingbook;
 using Kreveta.search;
 
 namespace Kreveta;

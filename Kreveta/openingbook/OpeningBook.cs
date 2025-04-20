@@ -6,7 +6,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 
-namespace Kreveta.opening_book;
+namespace Kreveta.openingbook;
 
 internal static class OpeningBook {
 

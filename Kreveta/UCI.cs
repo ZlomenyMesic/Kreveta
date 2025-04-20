@@ -4,7 +4,7 @@
 //
 
 using BenchmarkDotNet.Running;
-using Kreveta.opening_book;
+using Kreveta.openingbook;
 using Kreveta.search;
 using System.ComponentModel;
 using System.Diagnostics;

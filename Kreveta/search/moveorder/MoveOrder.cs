@@ -82,12 +82,12 @@ internal static class MoveOrder {
             }
         }
 
-        //if (depth < 2) {
-        //    Move counter = CounterMoveHistory.Get(board.color, previous);
-        //    if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
-        //        sorted[cur++] = counter;
-        //    }
-        //}
+        if (depth < 2) {
+            Move counter = CounterMoveHistory.Get(board.color, previous);
+            if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
+                sorted[cur++] = counter;
+            }
+        }
 
         // last and probably least are the remaining quiet moves,
         // which are sorted by their history values. see History
@@ -103,7 +103,7 @@ internal static class MoveOrder {
         }
 
         // sort them
-        OrderQuiets(quiets);
+        OrderQuiets([ ..quiets]);
 
         // and add them to the final list
         for (int i = 0; i < quiets.Count; i++)
@@ -119,7 +119,7 @@ internal static class MoveOrder {
 
     // this is just a wrapper for a sorting loop, didn't
     // want to nest and create a mess in the ordering function
-    internal static void OrderQuiets(List<(Move, int)> quiets) {
+    internal static void OrderQuiets((Move, int)[] quiets) {
 
         // very primitive sorting algorithm for quiet moves,
         // sorts by their history value
@@ -127,7 +127,7 @@ internal static class MoveOrder {
         while (sortsMade) {
             sortsMade = false;
 
-            for (int i = 1; i < quiets.Count; i++) {
+            for (int i = 1; i < quiets.Length; i++) {
                 if (quiets[i].Item2 > quiets[i - 1].Item2) {
 
                     // switch places
