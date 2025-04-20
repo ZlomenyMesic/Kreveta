@@ -145,8 +145,9 @@ namespace Kreveta.search {
             (short Score, Move[] PV) search = Search(board, ply, depth - R, window, previous);
             TT.Store(board, (sbyte)(depth), ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
-            //if (search.PV.Length > 0)
-            //    CounterMoveHistory.Add(board.color, previous, search.PV[0]);
+            if (search.PV.Length > 0 && depth > 4) {
+                CounterMoveHistory.Add(board.color, previous, search.PV[0]);
+            }
 
             PawnCorrectionHistory.Update(board, search.Score, depth);
 

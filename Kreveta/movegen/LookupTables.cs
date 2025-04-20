@@ -34,7 +34,7 @@ internal static unsafe class LookupTables {
         InitDiagTargets();
     }
 
-    internal static void InitKingTargets() {
+    private static void InitKingTargets() {
         for (int i = 0; i < 64; i++) {
             ulong king = Consts.SqMask[i];
 
