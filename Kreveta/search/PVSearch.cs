@@ -88,6 +88,8 @@ namespace Kreveta.search {
             // this should hopefully allow some faster lookups
             StorePVinTT(PV, CurDepth);
 
+            improvStack.Expand(CurDepth);
+
             // actual start of the search tree
             (PVScore, PV) = Search(Game.board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default);
         }
@@ -101,7 +103,7 @@ namespace Kreveta.search {
             PVScore = 0;
             PV = [];
 
-            improvStack.Clear();
+            improvStack.Expand(0);
 
             Killers.Clear();
             QuietHistory.Clear();
@@ -334,7 +336,7 @@ namespace Kreveta.search {
                     && depth >= LateMoveReductions.MinDepth
                     && expNodes >= LateMoveReductions.MinExpNodes) {
 
-                    (bool prune, bool reduce) = LateMoveReductions.TryPrune(board, child, curMove, ply, depth, col, expNodes, window);
+                    (bool prune, bool reduce) = LateMoveReductions.TryPrune(board, child, curMove, ply, depth, col, expNodes, improving, window);
 
                     // we failed low - prune this branch completely
                     if (prune) {
