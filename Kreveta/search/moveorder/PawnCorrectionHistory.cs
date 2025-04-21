@@ -8,65 +8,116 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search.moveorder;
 
+// this class is based on the idea of pawn correction history, but the uses are
+// slightly different. static eval correction history records the differences
+// between the static eval and the search scores of different positions. the
+// boards are indexed by a feature, which in our case is the pawn structure
+// (we hash the pawns). the values stored are then usually used to slightly
+// adjust the static eval of future positions with the same feature. however,
+// i figured that modifying the static eval directly doesn't really work well,
+// so we use the stored values for stuff such as modifying the futility margin.
 internal static class PawnCorrectionHistory {
 
+    // the size of the hash table
     private const int CorrTableSize = 1048576;
 
-    private const int DepthOffset   = 2;
-    private const int MaxShift      = 12;
-    private const int ShiftDivisor  = 256;
+    // maximum correction that can be stored. this needs
+    // to stay in range of "short", as the whole table
+    // is a short array
+    private const short MaxCorrection = 2048;
 
-    private const int MaxCorrection = 2048;
-    private const int CorrScale     = 128;
+    // a scale which lowers the corrections when retrieving
+    private const short CorrScale     = 128;
 
+    // the table itself
     [ReadOnly(true)]
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly int[,] PawnCorrHist = new int[2, CorrTableSize];
+    private static readonly short[,] CorrectionTable = new short[2, CorrTableSize];
 
+    // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Clear() => Array.Clear(PawnCorrHist);
+    internal static void Clear() => Array.Clear(CorrectionTable);
 
-    internal static void Update([NotNull] in Board board, int score, int depth) {
+    // update the pawn correction - takes a board with its score evaluated
+    // by an actual search and the depth at which the search was performed.
+    internal static void Update([NotNull][In][ReadOnly(true)] in Board board, int score, int depth) {
         if (depth <= DepthOffset) return;
 
+        // hash the pawns on the current position.
+        // each side has it's own pawn hash
         ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
 
+        // get the indices for both sides
         int wIndex = (int)(wHash % CorrTableSize);
         int bIndex = (int)(bHash % CorrTableSize);
 
+        // get the static eval of the current position and the
+        // absolute difference between it and the search score
         short staticEval = Eval.StaticEval(board);
-        int diff = Math.Abs(score - staticEval);
-        int shift = Shift(diff, depth);
+        short diff       = (short)Math.Abs(score - staticEval);
 
+        // compute the shift depending on the depth
+        // of the search and the size of the difference
+        short shift = Shift(diff, depth);
+
+        // don't bother wasting time with a zero shift
         if (shift == 0) return;
 
-        PawnCorrHist[(byte)Color.WHITE, wIndex] += score > staticEval ? shift : -shift;
-        PawnCorrHist[(byte)Color.BLACK, bIndex] += score > staticEval ? -shift : shift;
+        // first we add or subtract the shift depending
+        // on the color and the whether the search score
+        // was higher or lower than the static eval
+        CorrectionTable[(byte)Color.WHITE, wIndex] += (short)(score > staticEval ? shift : -shift);
+        CorrectionTable[(byte)Color.BLACK, bIndex] += (short)(score > staticEval ? -shift : shift);
 
-        PawnCorrHist[(byte)Color.WHITE, wIndex] 
-            = Math.Min(MaxCorrection, Math.Max(PawnCorrHist[(byte)Color.WHITE, wIndex], -MaxCorrection));
+        // only after we added the shift we check whether
+        // the new stored value is outside the bounds. we
+        // limit this using min and max functions
+        CorrectionTable[(byte)Color.WHITE, wIndex] 
+            = Math.Min(MaxCorrection,
+                Math.Max(CorrectionTable[(byte)Color.WHITE, wIndex],
+                    (short)-MaxCorrection
+                )
+              );
 
-        PawnCorrHist[(byte)Color.BLACK, bIndex] 
-            = Math.Min(MaxCorrection, Math.Max(PawnCorrHist[(byte)Color.BLACK, bIndex], -MaxCorrection));
+        // and for black the same
+        CorrectionTable[(byte)Color.BLACK, bIndex] 
+            = Math.Min(MaxCorrection,
+                Math.Max(CorrectionTable[(byte)Color.BLACK, bIndex],
+                    (short)-MaxCorrection
+                )
+              );
     }
 
-    internal static int GetCorrection([NotNull] in Board board) {
+    // try to retrieve a correction of the static eval of a position
+    internal static int GetCorrection([NotNull][In][ReadOnly(true)] in Board board) {
+
+        // once again the same stuff, hash the pawns
+        // and get the indices for both sides
         ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
 
         int wIndex = (int)(wHash % CorrTableSize);
         int bIndex = (int)(bHash % CorrTableSize);
 
-        int correction = (PawnCorrHist[(byte)Color.WHITE, wIndex] + PawnCorrHist[(byte)Color.BLACK, bIndex]) / CorrScale;
-        return correction;
+        // the resulting correction is the white correction
+        // minus the black correction (each color has its own)
+        return (CorrectionTable[(byte)Color.WHITE, wIndex] + CorrectionTable[(byte)Color.BLACK, bIndex]) / CorrScale;
     }
 
+    // values used when calculating shifts
+    private const int DepthOffset = 2;
+    private const int MaxShift = 12;
+    private const int ShiftDivisor = 256;
+
+    // the shift that should be used to adjust the corrections.
+    // higher depths and higher diffs obviously have stronger impact
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Shift(int diff, int depth) {
-        return Math.Min(MaxShift, diff * (depth - DepthOffset) / ShiftDivisor);
+    private static short Shift(int diff, int depth) {
+        return (short)Math.Min(MaxShift, diff * (depth - DepthOffset) / ShiftDivisor);
     }
 }

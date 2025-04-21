@@ -10,9 +10,16 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.moveorder;
 
+// a very simple move-ordering heuristic only used for captures. the name
+// stands for "Most Valuable Victim - Least Valuable Aggressor". the idea
+// is that capturing a more valuable piece with a less valuable piece is
+// usually a good move, while the opposite is often bad, e.g. capturing
+// a queen with a pawn is usually prosperous, while capturing a pawn with
+// a queen would most often be a terrible sacrifice. it is important to
+// note that since we search all moves (not just the "obvious" ones), this 
+// technique is actually much more useful than it seems.
 internal static class MVV_LVA {
 
-    // very simple values of pieces
     // the values don't have to be perfect, but they should
     // help determine which captures are good, e.g. trading 
     // a bishop and a knight for a rook and a pawn usually
@@ -25,11 +32,7 @@ internal static class MVV_LVA {
     private static readonly int[] PieceValues 
         = [100, 315, 330, 520, 930, 10000, -1];
 
-    // takes a list of captures, sorts it from best to worst and
-    // returns it. the technique is called MVV-LVA and stands for
-    // Most Valuable Victim - Least Valuable Aggressor. this gives
-    // us a rough guess of how good a capture is, e.g. capturing
-    // a queen with a pawn is usually a really good move.
+    // takes a list of captures, sorts it by MVV-LVA and returns it.
     internal static Move[] OrderCaptures(Move[] capts) {
 
         // if there's only a single available capture,
@@ -90,7 +93,7 @@ internal static class MVV_LVA {
         if (victim >> 31 == 1) {
 
             // en passant always captures a pawn
-            victim = 100;
+            victim = PieceValues[(byte)PType.PAWN];
         }
 
         // calculate the difference - positive diff means the move is
