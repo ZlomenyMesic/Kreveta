@@ -220,7 +220,6 @@ internal static class Game {
     }
 
     internal static void TestingFunction() {
-        //for (int score = 0; score <= 3000; score++)
-        //    Console.WriteLine($"{score} {Eval.LimitScore(score)}");
+
     }
 }

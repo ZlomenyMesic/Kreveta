@@ -4,7 +4,9 @@
 //
 
 using Kreveta.search.moveorder;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search.pruning;
 
@@ -25,20 +27,20 @@ internal static class FutilityPruning {
     private const int FutilityMarginBase       = 66;
     private const int FutilityMarginMultiplier = 102;
 
-    // if not improving we make the margin smaller
-    private const int ImprovingPenalty = -10;
+    // if improving we make the margin smaller
+    private const int ImprovingMargin          = 70;
 
     // try futility pruning
-    internal static bool TryPrune([NotNull] in Board board, int depth, Color col, short staticEval, Window window) {
+    internal static bool TryPrune([NotNull][In][ReadOnly(true)] in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
 
         int pawnCorrection = PawnCorrectionHistory.GetCorrection(board) * (col == Color.WHITE ? -2 : 2);
+        int _improving = ImprovingMargin / (improving ? 2 : -3);
 
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at
         // depth 2 it should be more like the value of a rook."
-        //
-        // however, a lower margin increases search speed and thus our futility margin stays low
-        int margin = (FutilityMarginBase + pawnCorrection + FutilityMarginMultiplier * depth) * (col == Color.WHITE ? 1 : -1);
+        // we don't really follow this exactly but our approach is kind of similar
+        int margin = (FutilityMarginBase + pawnCorrection - _improving + FutilityMarginMultiplier * depth) * (col == Color.WHITE ? 1 : -1);
 
         // if we failed low (fell under alpha). this means we already know of a better
         // alternative somewhere else in the search tree, and we can prune this branch.
