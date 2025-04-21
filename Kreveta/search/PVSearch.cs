@@ -47,6 +47,8 @@ namespace Kreveta.search {
         // pv node is also the move the engine is going to play
         internal static Move[] PV = [];
 
+        internal static ImprovingStack improvStack = new();
+
         //private static Stack<Move> SearchStack = [];
 
         // after this time the engine aborts the search
@@ -98,7 +100,8 @@ namespace Kreveta.search {
             CurNodes = 0L;
             PVScore = 0;
             PV = [];
-            //SearchStack = [];
+
+            improvStack.Clear();
 
             Killers.Clear();
             QuietHistory.Clear();
@@ -200,6 +203,13 @@ namespace Kreveta.search {
                     return (Score.GetMateScore(col, ply + 1), []);
             }
 
+
+            // if the position is saved as a 3-fold repetition draw, return 0.
+            // we have to check at ply 2 as well to prevent a forced draw by the opponent
+            if ((ply is 1 or 2 or 3) && Game.Draws.Contains(Zobrist.GetHash(board))) {
+                return (0, []);
+            }
+
             // we reached depth = 0, we evaluate the leaf node though the qsearch
             if (depth <= 0) {
                 short qEval = QSearch(board, ply, window);
@@ -210,14 +220,11 @@ namespace Kreveta.search {
                 return (qEval, []);
             }
 
-            // if the position is saved as a 3-fold repetition draw, return 0.
-            // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply is 1 or 2 or 3) && Game.Draws.Contains(Zobrist.GetHash(board))) {
-                return (0, []);
-            }
-
             // is the color to play currently in check?
             bool inCheck = Movegen.IsKingInCheck(board, col);
+
+            short staticEval = Eval.StaticEval(board);
+            improvStack.AddStaticEval(staticEval, ply);
 
             // razoring
             if (PruningOptions.AllowRazoring
@@ -302,8 +309,9 @@ namespace Kreveta.search {
                     //|| (depth >= 6 && is_capture)
                     || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
-                short s_eval = Eval.StaticEval(child);
-
+                short childStaticEval = Eval.StaticEval(child);
+                improvStack.AddStaticEval(childStaticEval, ply + 1);
+                bool improving = improvStack.IsImproving(ply + 1, col);
 
                 // have to meet certain conditions for fp
                 if (PruningOptions.AllowFutilityPruning
@@ -312,7 +320,7 @@ namespace Kreveta.search {
                     && !interesting) {
 
                     // we check for failing low despite the margin
-                    if (FutilityPruning.TryPrune(child, depth, col, s_eval, window)) {
+                    if (FutilityPruning.TryPrune(child, depth, col, childStaticEval, improving, window)) {
 
                         // prune this branch
                         continue;
