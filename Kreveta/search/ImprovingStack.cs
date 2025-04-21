@@ -8,12 +8,17 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.search;
 
 internal class ImprovingStack {
-    private readonly short[] _stack = new short[64];
+    private short[] _stack;
+
+    internal ImprovingStack() => _stack = [];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Clear() => Array.Clear(_stack);
+    internal void Expand(int depth) 
+        => _stack = new short[depth];
 
     internal void AddStaticEval(short staticEval, int ply) {
+        if (ply >= _stack.Length) return;
+
         for (int i = ply; i < _stack.Length; i++) {
             _stack[i] = default;
         }
@@ -22,7 +27,8 @@ internal class ImprovingStack {
     }
 
     internal bool IsImproving(int ply, Color col) {
-        if (ply <= 1) return false;
+        if (ply <= 1 || ply >= _stack.Length) 
+            return false;
 
         short prevSE = _stack[ply - 2];
         short curSE  = _stack[ply];

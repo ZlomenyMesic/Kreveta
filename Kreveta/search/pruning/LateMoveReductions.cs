@@ -46,12 +46,14 @@ internal static class LateMoveReductions {
     private const int ReductionDepth = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune(in Board board, in Board child, Move move, int ply, int depth, Color col, int expNodes, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune(in Board board, in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
 
         // depth reduce is larger with bad quiet history
         int R = (move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold)
             ? InternalBadHistR
             : InternalR;
+
+        if (!improving) R--;
 
         // null window around alpha
         Window nullAlphaWindow = col == Color.WHITE 
@@ -74,7 +76,7 @@ internal static class LateMoveReductions {
 
             return (true, false);
 
-        if (!PruningOptions.AllowLateMoveReductions) 
+        if (!PruningOptions.AllowLateMoveReductions || depth != ReductionDepth) 
             return (false, false);
 
         // REDUCTIONS PART:
@@ -82,10 +84,14 @@ internal static class LateMoveReductions {
         int windowSize = Math.Abs(window.Beta - window.Alpha);
 
         // one tenth of the window is the margin
-        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) 
-            * (col == Color.WHITE ? 1 : -1) / MarginDivisor + expNodes);
+        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor);
 
-        if (margin == 0 || (depth != ReductionDepth)) 
+        margin += (short)expNodes;
+        margin += (short)(improving ? -12 : 0);
+
+        margin *= (short)(col == Color.WHITE ? 1 : -1);
+
+        if (margin == 0) 
             return (false, false);
 
         // we didn't fail low, but if the history rep is bad, we try to fail low
@@ -98,12 +104,5 @@ internal static class LateMoveReductions {
                 : (score >= window.Beta);
 
         return (false, shouldReduce);
-    }
-
-    [Obsolete("No need for a method.", true)]
-    internal static int GetReduce(int ply, int depth, int expNodes) {
-        return 2;
-        //return Math.Min(ReductionDepth - 1, Math.Max(2, 
-        //    (int)(Math.Log2(expNodes) + depth / 4f)));
     }
 }
