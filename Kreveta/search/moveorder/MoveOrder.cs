@@ -82,7 +82,7 @@ internal static class MoveOrder {
             }
         }
 
-        if (depth < 2) {
+        if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.color, previous);
             if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
                 sorted[cur++] = counter;

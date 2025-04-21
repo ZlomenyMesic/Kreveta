@@ -143,9 +143,11 @@ namespace Kreveta.search {
 
             // in case the position is not yet stored, we fully search it and then store it
             (short Score, Move[] PV) search = Search(board, ply, depth - R, window, previous);
-            TT.Store(board, (sbyte)(depth), ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
+            TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
-            if (search.PV.Length > 0 && depth > 4) {
+            // store the current two-move sequence in countermove history - the previously
+            // played move and the best response (counter) to this move found by the search
+            if (search.PV.Length != 0 && depth > CounterMoveHistory.MinStoreDepth) {
                 CounterMoveHistory.Add(board.color, previous, search.PV[0]);
             }
 
