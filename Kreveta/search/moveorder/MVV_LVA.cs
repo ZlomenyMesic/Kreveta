@@ -27,8 +27,7 @@ internal static class MVV_LVA {
     // also isn't a very good idea. the king is given a lot
     // of point to avoid some bugs, although i think there
     // shouldn't be any
-    [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly int[] PieceValues 
         = [100, 315, 330, 520, 930, 10000, -1];
 

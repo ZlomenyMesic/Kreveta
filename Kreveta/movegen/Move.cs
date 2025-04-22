@@ -3,7 +3,9 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
@@ -60,27 +62,22 @@ internal readonly struct Move {
         => !(a._flags == b._flags);
 
     // index of the starting sqaure
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int Start
         => _flags & StartMask;
 
     // index of the ending sqaure
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly int End
         => (_flags & EndMask) >> EndOffset;
 
     // the moved piece type
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly PType Piece
         => (PType)((_flags & PieceMask) >> PieceOffset);
 
     // captured piece (6 if no capture)
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly PType Capture
         => (PType)((_flags & CaptMask) >> CaptOffset);
 
     // piece promoted to (6 if no promotion)
-    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly PType Promotion
         => (PType)((_flags & PromMask) >> PromOffset);
 
@@ -113,7 +110,7 @@ internal readonly struct Move {
     }
 
     // converts a string to a move object
-    internal static Move FromString(Board board, string str) {
+    internal static Move FromString([NotNull, In, ReadOnly(true)] in Board board, string str) {
 
         // the move in the string is stored using a form of Long Algebraic Notation (LAN),
         // which is used by UCI. there is no information about the piece moved, only the starting square

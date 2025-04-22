@@ -3,6 +3,10 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
+
 namespace Kreveta.search.pruning;
 
 internal static class Razoring {
@@ -12,7 +16,7 @@ internal static class Razoring {
     private const int QSPly  = 2;
     private const int MarginBase = 165;
 
-    internal static bool TryReduce(in Board board, int depth, Color col, Window window) {
+    internal static bool TryReduce([NotNull, In, ReadOnly(true)]in Board board, int depth, Color col, Window window) {
         short qEval = PVSearch.QSearch(board, QSPly, col == Color.WHITE 
             ? new(window.Alpha, (short)(window.Alpha + 1)) 
             : new((short)(window.Beta - 1), window.Beta));

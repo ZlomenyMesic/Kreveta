@@ -9,8 +9,8 @@ internal static class TimeMan {
     private static long WhiteTime;
     private static long BlackTime;
 
-    private static int whiteIncrement;
-    private static int blackIncrement;
+    private static int WhiteIncrement;
+    private static int BlackIncrement;
 
     private static int MovesToGo;
 
@@ -21,8 +21,8 @@ internal static class TimeMan {
     private static readonly int DefaultMovestogo = 40;
     private static readonly long DefaultTimeBudget = 8000;
 
-    internal static void ProcessTime(string[] toks) {
-        WhiteTime = BlackTime = MoveTime = whiteIncrement = blackIncrement = MovesToGo = 0;
+    internal static void ProcessTimeTokens(string[] toks) {
+        WhiteTime = BlackTime = MoveTime = WhiteIncrement = BlackIncrement = MovesToGo = 0;
 
         for (int i = 1; i < toks.Length; ) {
 

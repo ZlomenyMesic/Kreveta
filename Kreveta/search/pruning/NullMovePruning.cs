@@ -3,8 +3,11 @@
 // started 4-3-2025
 //
 
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search.pruning;
 
@@ -41,7 +44,7 @@ internal static class NullMovePruning {
     }
 
     // try null move pruning
-    internal static bool TryPrune(in Board board, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune([NotNull, In, ReadOnly(true)] in Board board, int depth, int ply, Window window, Color col, out short score) {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 

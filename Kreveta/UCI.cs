@@ -30,7 +30,7 @@ internal static class UCI {
     [ReadOnly(true)]
     private static readonly StreamWriter? NKOutput;
 
-    internal static string NKLogFilePath = "./out.log";
+    internal static string NKLogFilePath = @".\out.log";
 
     static UCI() {
 
@@ -49,10 +49,10 @@ internal static class UCI {
         }
     }
 
-    internal static void UCILoop() {
+    internal static void InputLoop() {
         while (true) {
 
-            string input = Input.ReadLine() 
+            string input = Input.ReadLine()
                 ?? string.Empty;
 
             string[] tokens = input.Split(' ');
@@ -72,11 +72,12 @@ internal static class UCI {
                 case "stop":       CmdStop();            break;
 
 #if DEBUG
-                case "test": CmdTest(); break;
+                case "test":       CmdTest();            break;
 #endif
 
                 case "quit":       goto quit;
-                default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); break;
+                default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); 
+                         break;
             }
 
             Console.WriteLine();
@@ -86,8 +87,11 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUCI() {
-        Log("id name Kreveta\nid author ZlomenyMesic\n");
+        Log($"id name {Engine.Name} {Engine.Version}\n" +
+            $"id author {Engine.Author}\n");
+
         Options.Print();
+
         Log("uciok");
     }
 
@@ -98,8 +102,8 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUciNewGame() {
-        TT.Clear();
         Game.FullGame = true;
+        TT.Clear();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -154,7 +158,7 @@ internal static class UCI {
 
     private static void CmdGo(string[] toks) {
 
-        TimeMan.ProcessTime(toks);
+        TimeMan.ProcessTimeTokens(toks);
 
         int depth = 50;
         int depthIndex = Array.IndexOf(toks, "depth");
@@ -195,8 +199,7 @@ internal static class UCI {
         PVSControl.StartSearch(depth);
     }
 
-    [Conditional("DEBUG")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Conditional("DEBUG"), MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdTest() {
         BenchmarkRunner.Run<Benchmarks>();
     }

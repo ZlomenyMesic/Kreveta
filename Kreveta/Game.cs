@@ -3,7 +3,6 @@
 // started 4-3-2025
 //
 
-using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.openingbook;
 using Kreveta.search;
@@ -26,7 +25,7 @@ internal static class Game {
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
     internal static List<ulong> HistoryPositions = [];
-    internal static List<ulong> Draws = [];
+    internal static List<ulong> Draws            = [];
 
     internal static void SetPosFEN(string[] toks) {
 
@@ -35,7 +34,7 @@ internal static class Game {
 
         // erase the draw counters
         HistoryPositions = [];
-        Draws = [];
+        Draws            = [];
 
         // 1. POSITION
         // starting from rank 8 to rank 1, ranks are separated by a "/". on each rank, pieces are
@@ -45,7 +44,8 @@ internal static class Game {
             char c = toks[2][i];
 
             // increase the square counter (empty squares)
-            if (char.IsDigit(c)) sq += c - '0';
+            if (char.IsDigit(c)) 
+                sq += c - '0';
 
             else if (char.IsLetter(c)) {
 
@@ -68,7 +68,7 @@ internal static class Game {
                 board.Pieces[(byte)col, piece] |= Consts.SqMask[sq];
 
                 if (col == Color.WHITE) board.WOccupied |= Consts.SqMask[sq];
-                else board.BOccupied |= Consts.SqMask[sq];
+                else                    board.BOccupied |= Consts.SqMask[sq];
 
                 sq++;
             }
@@ -84,9 +84,9 @@ internal static class Game {
             // black
             case "b": color = Color.BLACK; break;
 
-            default: UCI.Log($"invalid side to move: {toks[3]}", UCI.LogLevel.ERROR); 
-                     board.Clear(); 
-                     return;
+            default:  UCI.Log($"invalid side to move: {toks[3]}", UCI.LogLevel.ERROR); 
+                      board.Clear(); 
+                      return;
         }
         board.color = color;
 
@@ -113,7 +113,7 @@ internal static class Game {
 
                 default:
                     if (toks[4][i] != '-') {
-                        UCI.Log($"invalid castling availiability: {toks[2][i]}", UCI.LogLevel.ERROR);
+                        UCI.Log($"invalid castling availability: {toks[2][i]}", UCI.LogLevel.ERROR);
 
                         board.Clear();
                         return;

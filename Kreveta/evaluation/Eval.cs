@@ -34,8 +34,7 @@ internal static class Eval {
 
     internal const int KingInCheckPenalty      = 72;
 
-    [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly ulong[] AdjFiles = new ulong[8];
 
     static Eval() {
@@ -56,7 +55,7 @@ internal static class Eval {
     // structure, king safety, etc. the score returned is color relative,
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
-    internal static short StaticEval([NotNull][In][ReadOnly(true)] in Board board) {
+    internal static short StaticEval([NotNull, In, ReadOnly(true)] in Board board) {
 
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
@@ -154,7 +153,7 @@ internal static class Eval {
 
     // bonuses or penalties for pawn structure
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short PawnStructureEval([NotNull][In][ReadOnly(true)] in Board board, ulong p, Color col) {
+    private static short PawnStructureEval([NotNull, In, ReadOnly(true)] in Board board, ulong p, Color col) {
 
         int eval = 0;
 
@@ -214,7 +213,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KnightEval([NotNull][In][ReadOnly(true)] in Board board, int pawnCount) {
+    private static short KnightEval([NotNull, In, ReadOnly(true)] in Board board, int pawnCount) {
         short eval = 0;
 
         // knights are less valuable if there are fewer pawns on the board.
@@ -232,7 +231,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short BishopEval([NotNull][In][ReadOnly(true)] in Board board) {
+    private static short BishopEval([NotNull, In, ReadOnly(true)] in Board board) {
 
         short eval = 0;
 
@@ -253,7 +252,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short RookEval([NotNull][In][ReadOnly(true)] in Board board, int pieceCount) {
+    private static short RookEval([NotNull, In, ReadOnly(true)] in Board board, int pieceCount) {
         short eval = 0;
 
         // rooks are, as opposed to knights, more valuable if there are
@@ -340,7 +339,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval([NotNull][In][ReadOnly(true)] in Board board, int pieceCount) {
+    private static short KingEval([NotNull, In, ReadOnly(true)] in Board board, int pieceCount) {
         int eval = 0;
 
         // same color pieces around the king - protection

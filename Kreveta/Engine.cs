@@ -9,30 +9,32 @@ using System.Diagnostics;
 
 namespace Kreveta;
 
-internal static class Program {
+internal static class Engine {
 
     [DataType(DataType.Text)]
-    private const string Version = "INDEV";
+    internal const string Name    = "Kreveta";
 
     [DataType(DataType.Text)]
-    private const string HeaderText = $"Kreveta {Version} by ZlomenyMesic";
+    internal const string Version = "INDEV";
+
+    [DataType(DataType.Text)]
+    internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
 
-        using (Process p = Process.GetCurrentProcess()) {
-            p.PriorityClass = ProcessPriorityClass.RealTime;
-        }
+        using Process cur = Process.GetCurrentProcess();
+        cur.PriorityClass = ProcessPriorityClass.RealTime;
 
         Killers.Clear();
         QuietHistory.Clear();
 
-        UCI.Log(HeaderText, UCI.LogLevel.RAW);
+        UCI.Log($"{Name} {Version} by {Author}", UCI.LogLevel.RAW);
 
 #if DEBUG
         Game.TestingFunction();
 #endif
 
-        UCI.UCILoop();
+        UCI.InputLoop();
 
         return 0;
     }

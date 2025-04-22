@@ -3,14 +3,19 @@
 // started 4-3-2025
 //
 
-using Kreveta.evaluation;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using static System.Formats.Asn1.AsnWriter;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
 
 internal static class Zobrist {
+
+    //
+    //
+    // TODO - REWRITE THIS AS POINTERS
+    //
+    //
 
     [ReadOnly(true)]
     private static readonly ulong[,] Pieces     = new ulong[64, 12];
@@ -53,7 +58,7 @@ internal static class Zobrist {
         }
     }
 
-    internal static ulong GetHash([NotNull] in Board board) {
+    internal static ulong GetHash([NotNull, In, ReadOnly(true)] in Board board) {
         ulong hash = SideToMove[(byte)board.color];
 
         hash ^= Castling[(byte)board.castRights];
@@ -80,7 +85,7 @@ internal static class Zobrist {
         return hash;
     }
 
-    internal static ulong GetPawnHash([NotNull] in Board board, Color col) {
+    internal static ulong GetPawnHash([NotNull, In, ReadOnly(true)] in Board board, Color col) {
         ulong hash = 0;
 
         ulong copy = board.Pieces[(byte)col, (byte)PType.PAWN];
@@ -101,7 +106,7 @@ internal static class Zobrist {
         return Pieces[square, index];
     }
 
-    private static ulong RandUInt64([NotNull] in Random rand) {
+    private static ulong RandUInt64([NotNull, In, ReadOnly(true)] in Random rand) {
         byte[] bytes = new byte[
             sizeof(ulong) / sizeof(byte)
         ];

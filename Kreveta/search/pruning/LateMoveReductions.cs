@@ -6,6 +6,9 @@
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.moveorder;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search.pruning;
 
@@ -36,17 +39,18 @@ internal static class LateMoveReductions {
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.
-    private const int InternalR     = 3;
-    private const int InternalBadHistR = 4;
+    private const int InternalR         = 3;
+    private const int InternalBadHistR  = 4;
 
     private const int MaxReduceMargin   = 66;
     private const int WindowSizeDivisor = 9;
     private const int MarginDivisor     = 6;
+    private const int ImprovingMargin   = 12;
 
-    private const int ReductionDepth = 4;
+    private const int ReductionDepth    = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune(in Board board, in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune([NotNull, In, ReadOnly(true)] in Board board, [NotNull, In, ReadOnly(true)] in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
 
         // depth reduce is larger with bad quiet history
         int R = (move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold)
@@ -83,11 +87,11 @@ internal static class LateMoveReductions {
         // size of the window
         int windowSize = Math.Abs(window.Beta - window.Alpha);
 
-        // one tenth of the window is the margin
+        // a fraction of the window is the margin
         short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor);
 
         margin += (short)expNodes;
-        margin += (short)(improving ? -12 : 0);
+        margin += (short)(improving ? -ImprovingMargin : 0);
 
         margin *= (short)(col == Color.WHITE ? 1 : -1);
 
