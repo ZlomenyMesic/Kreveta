@@ -208,11 +208,11 @@ namespace Kreveta.search {
 
             // if the position is saved as a 3-fold repetition draw, return 0.
             // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply is 1 or 2 or 3) && Game.Draws.Contains(Zobrist.GetHash(board))) {
+            if ((ply is not 0 and < 6) && Game.Draws.Contains(Zobrist.GetHash(board))) {
                 return (0, []);
             }
 
-            // we reached depth = 0, we evaluate the leaf node though the qsearch
+            // we reached depth zero or lower => evaluate the leaf node though qsearch
             if (depth <= 0) {
                 short qEval = QSearch(board, ply, window);
 
@@ -297,7 +297,7 @@ namespace Kreveta.search {
                 child.PlayMove(curMove);
 
                 // did this move capture a piece?
-                bool is_capture = curMove.Capture != PType.NONE;
+                bool isCapture = curMove.Capture != PType.NONE;
 
                 // if a position is "interesting", we avoid pruning and reductions
                 // a child node is marked as interesting if we:
@@ -312,6 +312,7 @@ namespace Kreveta.search {
                     || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
                 short childStaticEval = Eval.StaticEval(child);
+
                 improvStack.AddStaticEval(childStaticEval, ply + 1);
                 bool improving = improvStack.IsImproving(ply + 1, col);
 
@@ -336,20 +337,15 @@ namespace Kreveta.search {
                     && depth >= LateMoveReductions.MinDepth
                     && expNodes >= LateMoveReductions.MinExpNodes) {
 
-                    (bool prune, bool reduce) = LateMoveReductions.TryPrune(board, child, curMove, ply, depth, col, expNodes, improving, window);
+                    (bool Prune, bool Reduce) = LateMoveReductions.TryPrune(board, child, curMove, ply, depth, col, expNodes, improving, window);
 
                     // we failed low - prune this branch completely
-                    if (prune) {
-
-                        continue;
-                    }
+                    if (Prune) continue;
 
                     // we failed low with a margin - only reduce, don't prune
-                    if (reduce) {
-                        int R = LateMoveReductions.R;
-
-                        depth -= R;
-                        ply += R;
+                    if (Reduce) {
+                        depth -= LateMoveReductions.R;
+                        ply += LateMoveReductions.R;
                     }
                 }
 
@@ -363,6 +359,8 @@ namespace Kreveta.search {
                     : (fullSearch.Score >= window.Beta)) {
 
                     // decrease the move's reputation
+                    // (although we are modifying quiet history, not caring
+                    // whether or not this move is a capture yields better results)
                     QuietHistory.DecreaseRep(board, curMove, depth);
                 }
 
@@ -381,7 +379,7 @@ namespace Kreveta.search {
                     if (window.TryCutoff(fullSearch.Score, col)) {
 
                         // is it quiet?
-                        if (!is_capture) {
+                        if (!isCapture) {
 
                             // if a quiet move caused a beta cutoff, we increase it's
                             // reputation in history and save it as a killer move on this depth
