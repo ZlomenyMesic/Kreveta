@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen.pieces;
 
@@ -25,7 +26,7 @@ internal static class King {
         return targets & free;
     }
 
-    internal static ulong GetCastlingTargets([NotNull] in Board board, Color col) {
+    internal static ulong GetCastlingTargets([NotNull, In, ReadOnly(true)] in Board board, Color col) {
         ulong occ = board.Occupied;
 
         bool kingside =  ((byte)board.castRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k

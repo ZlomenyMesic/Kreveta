@@ -4,7 +4,9 @@
 //
 
 using Kreveta.movegen.pieces;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
 
@@ -25,13 +27,9 @@ internal static class Movegen {
         else GetPseudoLegalMoves(board, col, moves);
 
         // remove the illegal ones
-        //List<Move> legal = [];
         for (int i = 0; i < moves.Count; i++) {
-
-            if (board.IsMoveLegal(moves[i], col)) {
+            if (board.IsMoveLegal(moves[i], col))
                 yield return moves[i];
-                //legal.Add(moves[i]);
-            }
         }
     }
 
@@ -62,7 +60,7 @@ internal static class Movegen {
         }
     }
 
-    internal static void GetPseudoLegalCaptures([NotNull] in Board board, Color col, [NotNull] in List<Move> moves) {
+    internal static void GetPseudoLegalCaptures([NotNull, In, ReadOnly(true)] in Board board, Color col, [NotNull, In, ReadOnly(true)] in List<Move> moves) {
 
         ulong occupied = board.Occupied;
 
@@ -79,7 +77,7 @@ internal static class Movegen {
         // no need to generate castling moves - they can never be a capture
     }
 
-    internal static bool IsKingInCheck([NotNull] in Board board, Color col) {
+    internal static bool IsKingInCheck([NotNull, In, ReadOnly(true)] in Board board, Color col) {
 
         ulong kingSq = board.Pieces[(byte)col, (byte)PType.KING];
 
@@ -119,7 +117,7 @@ internal static class Movegen {
         return false;
     }
 
-    private static void LoopPiecesBB([NotNull] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, [NotNull] in List<Move> moves, bool onlyCaptures = false) {
+    private static void LoopPiecesBB([NotNull, In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, [NotNull, In, ReadOnly(true)] in List<Move> moves, bool onlyCaptures = false) {
         ulong targets;
         int start;
 
@@ -138,7 +136,7 @@ internal static class Movegen {
         }
     }
 
-    private static ulong GetTargets([NotNull] in Board board, ulong sq, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures) {
+    private static ulong GetTargets([NotNull, In, ReadOnly(true)] in Board board, ulong sq, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures) {
 
         // return a bitboard of possible moves depending on the piece type
         return type switch {
@@ -159,7 +157,7 @@ internal static class Movegen {
         }; ;
     }
 
-    private static void LoopTargets([NotNull] in Board board, int start, ulong targets, PType type, Color col, [NotNull] in List<Move> moves) {
+    private static void LoopTargets([NotNull, In, ReadOnly(true)] in Board board, int start, ulong targets, PType type, Color col, [NotNull, In, ReadOnly(true)] in List<Move> moves) {
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
@@ -190,7 +188,7 @@ internal static class Movegen {
         }
     }
 
-    private static void AddMovesToList(PType type, Color col, int start, int end, PType capt, [NotNull] in List<Move> moves, int enPassantSq) {
+    private static void AddMovesToList(PType type, Color col, int start, int end, PType capt, [NotNull, In, ReadOnly(true)] in List<Move> moves, int enPassantSq) {
 
         // add the generated move to the list
         switch (type) {

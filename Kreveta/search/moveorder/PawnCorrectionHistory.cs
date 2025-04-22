@@ -34,8 +34,7 @@ internal static class PawnCorrectionHistory {
     private const short CorrScale     = 128;
 
     // the table itself
-    [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly short[,] CorrectionTable = new short[2, CorrTableSize];
 
     // clear the table
@@ -44,7 +43,7 @@ internal static class PawnCorrectionHistory {
 
     // update the pawn correction - takes a board with its score evaluated
     // by an actual search and the depth at which the search was performed.
-    internal static void Update([NotNull][In][ReadOnly(true)] in Board board, int score, int depth) {
+    internal static void Update([NotNull, In, ReadOnly(true)] in Board board, int score, int depth) {
         if (depth <= DepthOffset) return;
 
         // hash the pawns on the current position.
@@ -94,7 +93,7 @@ internal static class PawnCorrectionHistory {
     }
 
     // try to retrieve a correction of the static eval of a position
-    internal static int GetCorrection([NotNull][In][ReadOnly(true)] in Board board) {
+    internal static int GetCorrection([NotNull, In, ReadOnly(true)] in Board board) {
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides

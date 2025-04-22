@@ -6,6 +6,9 @@
 using Kreveta;
 using Kreveta.evaluation;
 using Kreveta.search;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 // REVERSE FUTILITY PRUNING:
 // apart from futility pruning, we also use reverse futility pruning - it's
@@ -26,7 +29,7 @@ internal static class ReverseFutilityPruning {
 
     private const int SQPly = 4;
 
-    internal static bool TryPrune(in Board board, int depth, Color col, Window window, out short retScore) {
+    internal static bool TryPrune([NotNull, In, ReadOnly(true)] in Board board, int depth, Color col, Window window, out short retScore) {
         retScore = default;
 
         short staticEval = Eval.StaticEval(board);

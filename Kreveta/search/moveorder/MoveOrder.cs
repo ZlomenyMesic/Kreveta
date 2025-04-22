@@ -18,7 +18,7 @@ internal static class MoveOrder {
     // least make a rough guess.
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static Move[] GetSortedMoves([NotNull][ReadOnly(true)] Board board, int depth, Move previous) {
+    internal static Move[] GetSortedMoves([NotNull, ReadOnly(true)] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History

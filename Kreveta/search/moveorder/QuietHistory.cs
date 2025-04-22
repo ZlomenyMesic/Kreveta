@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search.moveorder;
 
@@ -76,7 +77,7 @@ internal static class QuietHistory {
     }
 
     // increases the history rep of a quiet move
-    internal static void IncreaseRep([NotNull] in Board board, [NotNull] Move move, int depth) {
+    internal static void IncreaseRep([NotNull, In, ReadOnly(true)] in Board board, [NotNull] Move move, int depth) {
         int i = PieceIndex(board, move);
         int end = move.End;
 
@@ -87,7 +88,7 @@ internal static class QuietHistory {
     }
 
     // decreases the history rep of a quiet move
-    internal static void DecreaseRep([NotNull] in Board board, [NotNull] Move move, int depth) {
+    internal static void DecreaseRep([NotNull, In, ReadOnly(true)] in Board board, [NotNull] Move move, int depth) {
         int i = PieceIndex(board, move);
         int end = move.End;
 

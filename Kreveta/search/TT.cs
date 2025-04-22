@@ -5,6 +5,7 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -58,6 +59,14 @@ internal static class TT {
 
     //private static long tt_lookups = 0;
 
+    // hashfull tells us how filled is the hash table
+    // in permill (entries per thousand). this number
+    // is sent regularly to the GUI, which allows it
+    // sent us a hash table clearing command (option)
+    // in case we are too full to free some memory
+    internal static int Hashfull =>
+        (int)((float)Stored / TableSize * 1000);
+
     // tt array size = megabytes * bytes_in_mb / entry_size
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
@@ -95,7 +104,7 @@ internal static class TT {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Store([NotNull] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
+    internal static void Store([NotNull, In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
         Store(Zobrist.GetHash(board), depth, ply, window, score, bestMove);
     }
 
@@ -151,7 +160,7 @@ internal static class TT {
         Table[i] = entry;
     }
 
-    internal static bool GetBestMove([NotNull] in Board board, out Move bestMove) {
+    internal static bool GetBestMove([NotNull, In, ReadOnly(true)] in Board board, out Move bestMove) {
         ulong hash = Zobrist.GetHash(board);
         bestMove = default;
 
@@ -166,7 +175,7 @@ internal static class TT {
         return bestMove != default;
     }
 
-    internal static bool GetScore([NotNull] in Board board, int depth, int ply, Window window, out short score) {
+    internal static bool GetScore([NotNull, In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {
         ulong hash = Zobrist.GetHash(board);
         score = 0;
 
@@ -193,19 +202,8 @@ internal static class TT {
 
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        return (entry.Type == ScoreType.EXACT 
-            || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha) 
-            || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta));
-    }
-
-
-    // hashfull tells us how filled is the hash table
-    // in permill (entries per thousand). this number
-    // is sent regularly to the GUI, which allows it
-    // sent us a hash table clearing command (option)
-    // in case we are too full to free some memory
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int Hashfull() {
-        return (int)((float)Stored / TableSize * 1000);
-    }
+        return entry.Type == ScoreType.EXACT 
+           || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha) 
+           || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta);
+    }    
 }

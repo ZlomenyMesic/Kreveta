@@ -30,8 +30,7 @@ internal static class CounterMoveHistory {
     // indexed [color, starting_square, ending_square]
     // !!! the color is of the side that is to play the counter, while
     // the starting and targets squares are of the other side's move !!!
-    [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly Move[,,] CounterMoves = new Move[2, 64, 64];
 
     // clear the table

@@ -28,13 +28,14 @@ internal static class FutilityPruning {
     private const int FutilityMarginMultiplier = 102;
 
     // if improving we make the margin smaller
-    private const int ImprovingMargin          = 70;
+    private const int ImprovingMargin          = 35;
+    private const int NotImprovingMargin       = -23; 
 
     // try futility pruning
-    internal static bool TryPrune([NotNull][In][ReadOnly(true)] in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
+    internal static bool TryPrune([NotNull, In, ReadOnly(true)] in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
 
         int pawnCorrection = PawnCorrectionHistory.GetCorrection(board) * (col == Color.WHITE ? -2 : 2);
-        int _improving = ImprovingMargin / (improving ? 2 : -3);
+        int _improving = improving ? ImprovingMargin : NotImprovingMargin;
 
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at

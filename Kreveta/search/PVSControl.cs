@@ -141,7 +141,7 @@ namespace Kreveta.search {
                 $"time {sw.ElapsedMilliseconds} " +
 
                 // how full is the hash table (permill)
-                $"hashfull {TT.Hashfull()} " +
+                $"hashfull {TT.Hashfull} " +
 
                 // pv score relative to color
                 // measured in centipawns (cp)
@@ -152,7 +152,7 @@ namespace Kreveta.search {
 
             // print the actual moves in the pv. Move.ToString()
             // is overriden so there's no need to explicitly type it
-            foreach (Move move in GetFullPV(PVSearch.AchievedDepth))
+            foreach (Move move in TryExpandPV(PVSearch.AchievedDepth))
                 info += $" {move}";
 
             // as per the convention, the engine's response
@@ -161,7 +161,7 @@ namespace Kreveta.search {
         }
 
         // tries to find the pv outside of just the stored array
-        private static Move[] GetFullPV(int depth) {
+        private static Move[] TryExpandPV(int depth) {
             List<Move> pvList = new(PVSearch.PV);
 
             // if we want to go deeper than just the saved pv

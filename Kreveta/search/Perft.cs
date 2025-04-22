@@ -4,11 +4,14 @@
 //
 
 using Kreveta.movegen;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
 
 internal static class Perft {
-    internal static long Run(in Board board, int depth) {
+    internal static long Run([NotNull, In, ReadOnly(true)] in Board board, int depth) {
 
         if (depth == 1) {
             return Movegen.GetLegalMoves(board).Count();
