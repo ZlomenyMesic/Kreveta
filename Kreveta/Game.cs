@@ -6,6 +6,9 @@
 using Kreveta.movegen;
 using Kreveta.openingbook;
 using Kreveta.search;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Kreveta;
 
@@ -24,10 +27,10 @@ internal static class Game {
     internal static bool FullGame = false;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
-    internal static List<ulong> HistoryPositions = [];
-    internal static List<ulong> Draws            = [];
+    internal static List<ulong>    HistoryPositions = [];
+    internal static HashSet<ulong> Draws            = [];
 
-    internal static void SetPosFEN(string[] toks) {
+    internal static void SetPosFEN([NotNull, In, ReadOnly(true)] in string[] toks) {
 
         // clear the board from previous game/search
         board.Clear();
@@ -44,34 +47,41 @@ internal static class Game {
             char c = toks[2][i];
 
             // increase the square counter (empty squares)
-            if (char.IsDigit(c)) 
+            if (char.IsDigit(c)) {
                 sq += c - '0';
-
-            else if (char.IsLetter(c)) {
-
-                // wrong letter?
-                if (!Consts.Pieces.Contains(char.ToLower(toks[2][i]))) {
-                    UCI.Log($"invalid piece in FEN: {toks[2][i]}", UCI.LogLevel.ERROR);
-
-                    // clear the board to prevent chaos
-                    board.Clear();
-                    return;
-                }
-
-                // color (white = uppercase, black = lowercase)
-                Color col = char.IsUpper(c) ? Color.WHITE : Color.BLACK;
-
-                // piece type (0-5)
-                int piece = Consts.Pieces.IndexOf(char.ToLower(c));
-
-                // add the piece to the board
-                board.Pieces[(byte)col, piece] |= Consts.SqMask[sq];
-
-                if (col == Color.WHITE) board.WOccupied |= Consts.SqMask[sq];
-                else                    board.BOccupied |= Consts.SqMask[sq];
-
-                sq++;
+                continue;
             }
+
+            // wrong letter or character?
+            if (!Consts.Pieces.Contains(char.ToLower(c))) {
+
+                // this character is used to indicate another
+                // rank. we don't need this information, though
+                if (c is '\\' or '/')
+                    continue;
+
+                UCI.Log($"invalid character in FEN: {c}", UCI.LogLevel.ERROR);
+
+                // clear the board to prevent chaos
+                board.Clear();
+                return;
+            }
+
+            // color (white = uppercase, black = lowercase)
+            Color col = char.IsUpper(c)
+                ? Color.WHITE
+                : Color.BLACK;
+
+            // piece type (0-5)
+            int piece = Consts.Pieces.IndexOf(char.ToLower(c));
+
+            // add the piece to the board
+            board.Pieces[(byte)col, piece] |= Consts.SqMask[sq];
+
+            if (col == Color.WHITE) board.WOccupied |= Consts.SqMask[sq];
+            else board.BOccupied |= Consts.SqMask[sq];
+
+            sq++;
         }
 
         // 2. ACTIVE COLOR
@@ -84,7 +94,8 @@ internal static class Game {
             // black
             case "b": color = Color.BLACK; break;
 
-            default:  UCI.Log($"invalid side to move: {toks[3]}", UCI.LogLevel.ERROR); 
+            default:  UCI.Log($"invalid side to move: {toks[3]}", UCI.LogLevel.ERROR);
+
                       board.Clear(); 
                       return;
         }
@@ -94,8 +105,6 @@ internal static class Game {
         // if neither side can castle, this is "-". otherwise, we can have up to 4 letters.
         // "k" and "q" marks kingside and queenside castling rights respectively. just to clarify, this has nothing 
         // to do with the legality of castling in the next move, it denotes the castling rights availability.
-        board.castRights = 0;
-
         for (int i = 0; i < toks[4].Length; i++) {
             switch (toks[4][i]) {
 
@@ -128,22 +137,21 @@ internal static class Game {
         // spec has since made it so the target square is only recorded if a legal en passant move is possible but
         // the old version of the standard is the one most commonly used.
 
-        if (toks[5].Length == 2 
-            && char.IsDigit(toks[3][0]) 
-            && char.IsDigit(toks[3][1]))
+        if (toks[5].Length == 2 && byte.TryParse(toks[5], out byte enPassantSq))
+            board.enPassantSq = enPassantSq;
 
-            board.enPassantSq = (byte)int.Parse(toks[3]);
-
-        else if (toks[5].Length == 1 
-            && toks[5][0] == '-')
-
+        else if (toks[5].Length == 1 && toks[5][0] == '-')
             board.enPassantSq = 64;
+
         else {
-            UCI.Log($"invalid en passant square: {toks[3]}", UCI.LogLevel.ERROR);
+            UCI.Log($"invalid en passant square: {toks[5]}", UCI.LogLevel.ERROR);
 
             board.Clear();
             return;
         }
+
+        // the initial board hash
+        //board.Hash = Zobrist.GetHash(board);
 
         // we don't need the fullmove number, the halfmove number will be done soon
 
@@ -193,6 +201,7 @@ internal static class Game {
         // save drawing positions in "draws"
         List3FoldDraws();
 
+        //board.Hash = Zobrist.GetHash(board);
         board.Print();
     }
 

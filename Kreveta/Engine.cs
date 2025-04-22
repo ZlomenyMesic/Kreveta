@@ -28,7 +28,7 @@ internal static class Engine {
         Killers.Clear();
         QuietHistory.Clear();
 
-        UCI.Log($"{Name} {Version} by {Author}", UCI.LogLevel.RAW);
+        UCI.Log($"{Name}-{Version} by {Author}", UCI.LogLevel.RAW);
 
 #if DEBUG
         Game.TestingFunction();

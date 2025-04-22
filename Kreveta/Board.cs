@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+using Kreveta.search;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
@@ -18,8 +19,7 @@ internal sealed class Board {
     // the pieces are stored as one-bits in these large bbs.
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
-    [Required]
-    [DebuggerDisplay("indexed [color, piece_type]")]
+    [Required, DebuggerDisplay("indexed [color, piece_type]")]
     internal ulong[,] Pieces = new ulong[2, 6];
 
     // these two bitboards simply represent all occupied
@@ -30,13 +30,11 @@ internal sealed class Board {
     internal ulong BOccupied = 0;
 
     // all occupied squares
-    [ReadOnly(true)]
-    [DefaultValue(0UL)]
+    [ReadOnly(true), DefaultValue(0UL)]
     internal ulong Occupied => WOccupied | BOccupied;
 
     // all empty squares (bitwise inverse of occupied)
-    [ReadOnly(true)]
-    [DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
+    [ReadOnly(true), DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
     internal ulong Empty => ~Occupied;
 
     // square over which a double pushing
@@ -51,6 +49,8 @@ internal sealed class Board {
     // the side to move
     [EnumDataType(typeof(Color))]
     internal Color color = 0;
+
+    //internal ulong Hash = 0;
 
     internal Board() {
         Pieces[(byte)Color.BLACK, (byte)PType.PAWN]   = 0x000000000000FF00;
@@ -73,16 +73,21 @@ internal sealed class Board {
         enPassantSq = 64;
         castRights  = CastlingRights.ALL;
         color       = Color.WHITE;
+
+        //Hash = Zobrist.GetHash(this);
     }
 
     internal void Clear() {
-        Pieces      = new ulong[2, 6];
-        WOccupied   = 0;
-        BOccupied   = 0;
+        Array.Clear(Pieces);
+
+        WOccupied   = 0UL;
+        BOccupied   = 0UL;
 
         enPassantSq = 64;
         castRights  = CastlingRights.NONE;
         color       = Color.NONE;
+
+        //Hash        = 0UL;
     }
 
     // returns the piece at a certain square
@@ -189,7 +194,7 @@ internal sealed class Board {
             Pieces[(byte)col, (byte)prom]  ^= end;
 
             if (col == Color.WHITE) WOccupied ^= start | end;
-            else BOccupied ^= start | end;
+            else                    BOccupied ^= start | end;
         } 
 
         // regular move
@@ -209,7 +214,7 @@ internal sealed class Board {
                     : start << 8);
 
             if (col == Color.WHITE) WOccupied ^= start | end;
-            else BOccupied ^= start | end;
+            else                    BOccupied ^= start | end;
         }
 
         // capture
@@ -217,7 +222,7 @@ internal sealed class Board {
             Pieces[(byte)colOpp, (byte)capt] ^= end;
 
             if (col == Color.WHITE) BOccupied ^= end;
-            else WOccupied ^= end;
+            else                    WOccupied ^= end;
         }
 
         if (castRights != CastlingRights.NONE && piece == PType.KING) {
@@ -237,7 +242,7 @@ internal sealed class Board {
                 ? start32
                 : end32;
 
-            int mask = rookSq switch {
+            byte mask = rookSq switch {
                 63 => 0xE, // all except K
                 56 => 0xD, // all except Q
                 7  => 0xB, // all except k
@@ -248,17 +253,15 @@ internal sealed class Board {
             // remove castling rights after a rook moves
             castRights &= (CastlingRights)mask;
         }
+
+        //Hash = Zobrist.GetHash(this);
     }
 
     internal void PlayReversibleMove(Move move, Color col) {
 
-        color = color == Color.WHITE 
-            ? Color.BLACK 
-            : Color.WHITE;
-
         // start & end squares
         ulong start = Consts.SqMask[move.Start];
-        ulong end  = Consts.SqMask[move.End];
+        ulong end   = Consts.SqMask[move.End];
 
         // opposite color
         Color colOpp = col == Color.WHITE 
@@ -293,28 +296,16 @@ internal sealed class Board {
         if (capt != PType.NONE) {
             Pieces[(byte)colOpp, (byte)capt] ^= end;
 
-            if (colOpp == Color.WHITE) WOccupied ^= end;
-            else BOccupied ^= end;
+            // this might cause some trouble, but perft results
+            // are okay even after removing these two lines of code.
+            // (if problems fix en passant as well)
+
+            //if (colOpp == Color.WHITE) WOccupied ^= end;
+            //else BOccupied ^= end;
         }
 
         if (col == Color.WHITE) WOccupied ^= start | end;
-        else BOccupied ^= start | end;
-    }
-
-    internal List<Board> GetChildren() {
-
-        List<Move> moves = Movegen.GetLegalMoves(this).ToList();
-
-        List<Board> children = [];
-
-        for (int i = 0; i < moves.Count; i++) {
-
-            Board child = Clone();
-            child.PlayMove(moves[i]);
-            children.Add(child);
-        }
-
-        return children;
+        else                    BOccupied ^= start | end;
     }
 
     // no move
@@ -325,6 +316,8 @@ internal sealed class Board {
         @null.color = @null.color == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
+
+        //@null.Hash = Zobrist.GetHash(@null);
 
         return @null;
     }
@@ -341,19 +334,22 @@ internal sealed class Board {
     }
 
     internal Board Clone() {
+        const int PiecesArrSize = 2 * 6 * sizeof(ulong);
+
         Board @new = new() {
             WOccupied   = WOccupied,
             BOccupied   = BOccupied,
 
             castRights  = castRights,
             enPassantSq = enPassantSq,
-            color       = color
+            color       = color,
+
+            //Hash        = Hash
         };
 
-        for (int i = 0; i < 6; i++) {
-            @new.Pieces[(byte)Color.WHITE, i] = Pieces[(byte)Color.WHITE, i];
-            @new.Pieces[(byte)Color.BLACK, i] = Pieces[(byte)Color.BLACK, i];
-        }
+        // according to a StackOverflow post, this should be the best way
+        // to copy a 2D array in terms of performace, and it seems to be true
+        Buffer.BlockCopy(Pieces, 0, @new.Pieces, 0, PiecesArrSize);
 
         return @new;
     }

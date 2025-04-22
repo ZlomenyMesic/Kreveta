@@ -37,7 +37,7 @@ internal static class UCI {
         // the default Console.ReadLine buffer is quite small and cannot
         // handle long move lines, thus we use a larger buffer size
         Input = new StreamReader(Console.OpenStandardInput(InputBufferSize));
-        Output = Console.Out; ;
+        Output = Console.Out;
 
         try {
             NKOutput = new StreamWriter(NKLogFilePath);
@@ -75,29 +75,33 @@ internal static class UCI {
                 case "test":       CmdTest();            break;
 #endif
 
-                case "quit":       goto quit;
+                case "quit":       return;
+
                 default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); 
                          break;
             }
 
             Console.WriteLine();
         }
-        quit: return;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUCI() {
-        Log($"id name {Engine.Name} {Engine.Version}\n" +
+        const string UCIOK = "uciok";
+
+        Log($"id name {Engine.Name}-{Engine.Version}\n" +
             $"id author {Engine.Author}\n");
 
         Options.Print();
 
-        Log("uciok");
+        Log(UCIOK);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdIsReady() {
-        Log("readyok");
+        const string ReadyOK = "readyok";
+
+        Log(ReadyOK);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -129,7 +133,7 @@ internal static class UCI {
             case "startpos": Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' '), ..toks]); break;
             case "fen":      Game.SetPosFEN(toks);                                              break;
 
-            default: Log($"invalid argument: {toks[1]}", LogLevel.ERROR); return;
+            default:         Log($"invalid argument: {toks[1]}", LogLevel.ERROR);               return;
         }
     }
 

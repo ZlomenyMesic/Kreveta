@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+using System.Buffers;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
@@ -22,9 +23,10 @@ internal static class MoveOrder {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
-        Move[] legal = [ ..Movegen.GetLegalMoves(board)];
 
+        Move[] legal  = [..Movegen.GetLegalMoves(board)];
         Move[] sorted = new Move[legal.Length];
+
         int cur = 0;
 
         // the first move is, obviously, the best move saved in the

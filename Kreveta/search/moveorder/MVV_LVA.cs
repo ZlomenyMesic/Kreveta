@@ -36,8 +36,9 @@ internal static class MVV_LVA {
 
         // if there's only a single available capture,
         // don't bother wasting time on this thing
-        if (capts.Length <= 1) 
+        if (capts.Length <= 1) {
             return [ ..capts];
+        }
 
         // add each capture and its score into a list
         (Move, int)[] scores = new (Move, int)[capts.Length];
@@ -68,6 +69,7 @@ internal static class MVV_LVA {
         }
 
         //add the sorted captures to the final list
+        //Span<Move> sorted = stackalloc Move[scores.Length];
         Move[] sorted = new Move[scores.Length];
 
         for (int i = 0; i < scores.Length; i++) {
