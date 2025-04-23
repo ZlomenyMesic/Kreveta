@@ -6,5 +6,5 @@ using System.Threading.Tasks;
 
 namespace Kreveta.search.perft;
 
-internal class PerftTT {
+internal static class PerftTT {
 }

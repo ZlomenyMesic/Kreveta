@@ -32,6 +32,9 @@ internal static class UCI {
 
     internal static string NKLogFilePath = @".\out.log";
 
+    private static Thread? SearchThread = null;
+    internal static bool AbortSearch = false;
+
     static UCI() {
 
         // the default Console.ReadLine buffer is quite small and cannot
@@ -112,8 +115,16 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdStop() {
-        Game.FullGame = false;
+        //Game.FullGame = false;
+
+        AbortSearch = true;
+
+        SearchThread?.Join();
+        SearchThread = null;
+
         TT.Clear();
+
+        AbortSearch = false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -200,7 +211,10 @@ internal static class UCI {
         // position startpos moves d2d4 d7d5 c1f4 c8f5 b1c3 b8c6 a1c1 a8c8 g2g3 e7e6 g1f3 f8d6 f4d6 c7d6 f1g2 g8e7 e1g1 e8g8 e2e3 e6e5 f3h4 f5e6 a2a3 e5d4 e3d4 d8b6 c1b1 b6d4 h4f3 d4d1 b1d1 c8d8 f3g5 e6g4 f2f3 g4f5 c3d5 f5c2 d5e7 c6e7 d1c1 c2d3 f1e1 e7f5 c1d1 d3c2 d1d2 c2a4 g2h3 f5h6 f3f4 d6d5 h3g2 a4c6 e1d1 c6a4 d1e1 a4b3 e1e7 b7b5 e7a7 h6f5 a7a5 h7h6 a5b5 b3c4 g5f7 g8f7 b5b7 f7g6 b2b3 c4a6 b7a7 a6b5 g2d5 d8e8 g3g4 e8e1 g1g2 f5e3 g2f3 e3d5 d2d5 b5c6 f4f5 g6f6 f3f2 c6d5 f2e1 d5b3 h2h3 b3f7 a3a4 f6g5 e1f2 g5h4 f2g2 h6h5 g4h5 h4h5 g2g3 h5g5 a7a5 f8c8 h3h4 g5f6 a5a7 f7e8 a4a5 e8b5 a7b7 b5c6 b7b6 f6f5 a5a6 c6d5 a6a7 c8c3 g3f2 c3a3 b6b5 f5e5 a7a8q a3a8 b5d5 e5d5 h4h5 a8h8 h5h6 g7h6 f2g3 d5e5 g3g4 h6h5 g4g5 h5h4 g5g4 h4h3 g4g3 h3h2 g3g2 h2h1q
         Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
 
-        PVSControl.StartSearch(depth);
+        SearchThread = new(() => PVSControl.StartSearch(depth)) {
+            Priority = ThreadPriority.Highest
+        };
+        SearchThread.Start();
     }
 
     [Conditional("DEBUG"), MethodImpl(MethodImplOptions.AggressiveInlining)]

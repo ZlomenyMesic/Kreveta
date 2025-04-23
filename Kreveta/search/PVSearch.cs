@@ -56,7 +56,9 @@ namespace Kreveta.search {
 
         [ReadOnly(true)]
         [DefaultValue(false)]
-        internal static bool Abort => CurNodes >= MaxNodes 
+        internal static bool Abort 
+            => UCI.AbortSearch
+            || CurNodes >= MaxNodes 
             || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
 
         // increase the depth and do a re-search
@@ -208,7 +210,7 @@ namespace Kreveta.search {
 
             // if the position is saved as a 3-fold repetition draw, return 0.
             // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply is not 0 and < 6) && Game.Draws.Contains(Zobrist.GetHash(board))) {
+            if ((ply is not 0 and < 4) && Game.Draws.Contains(Zobrist.GetHash(board))) {
                 return (0, []);
             }
 
@@ -229,30 +231,30 @@ namespace Kreveta.search {
             improvStack.AddStaticEval(staticEval, ply);
 
             // razoring
-            if (PruningOptions.AllowRazoring
-                && !inCheck
-                && ply >= Razoring.MinPly
-                && depth == Razoring.Depth) {
+            //if (PruningOptions.AllowRazoring
+            //    && !inCheck
+            //    && ply >= Razoring.MinPly
+            //    && depth == Razoring.Depth) {
 
-                // if we fail low, we reduce this search by 2 ply
-                if (Razoring.TryReduce(board, depth, col, window)) {
-                    depth -= 2;
-                    ply += 2;
-                }
-            }
+            //    // if we fail low, we reduce this search by 2 ply
+            //    if (Razoring.TryReduce(board, depth, col, window)) {
+            //        depth -= 2;
+            //        ply += 2;
+            //    }
+            //}
 
-            if (PruningOptions.AllowReverseFutilityPruning
-                && ply >= ReverseFutilityPruning.MinPly
-                && depth >= ReverseFutilityPruning.MinDepth
-                && depth <= ReverseFutilityPruning.MaxDepth
-                && !inCheck
-                && !Score.IsMateScore(PVScore)) {
+            //if (PruningOptions.AllowReverseFutilityPruning
+            //    && ply >= ReverseFutilityPruning.MinPly
+            //    && depth >= ReverseFutilityPruning.MinDepth
+            //    && depth <= ReverseFutilityPruning.MaxDepth
+            //    && !inCheck
+            //    && !Score.IsMateScore(PVScore)) {
 
-                // if we failed high
-                if (ReverseFutilityPruning.TryPrune(board, depth, col, window, out short rfpScore)) {
-                    return (rfpScore, []);
-                }
-            }
+            //    // if we failed high
+            //    if (ReverseFutilityPruning.TryPrune(board, depth, col, window, out short rfpScore)) {
+            //        return (rfpScore, []);
+            //    }
+            //}
 
             // are the conditions for nmp satisfied?
             if (PruningOptions.AllowNullMovePruning
