@@ -7,7 +7,6 @@ using Kreveta.movegen.pieces;
 
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -31,9 +30,9 @@ internal static class Eval {
 
     private const int OpenFileRookBonus        = 18;
     private const int SemiOpenFileRookBonus    = 7;
-    private const int SeventhRankRookBonus     = 3;
+    //private const int SeventhRankRookBonus     = 3;
 
-    internal const int KingInCheckPenalty      = 72;
+    //internal const int KingInCheckPenalty      = 72;
 
     [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static readonly ulong[] AdjFiles = new ulong[8];
@@ -56,7 +55,7 @@ internal static class Eval {
     // structure, king safety, etc. the score returned is color relative,
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
-    internal static short StaticEval([NotNull, In, ReadOnly(true)] in Board board) {
+    internal static short StaticEval([In, ReadOnly(true)] in Board board) {
 
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
@@ -118,18 +117,18 @@ internal static class Eval {
         // king eval:
         //
         // 1. bonuses for friendly pieces protecting the king
-        eval += KingEval(board, pieceCount);
+        eval += KingEval(board);
 
         // side to move should also get a slight advantage
-        eval += (short)(board.color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
 
         //eval += (short)History.GetPawnCorrection(board);
 
-        return (short)(eval/* + r.Next(-6, 6)*/);
+        return eval;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetTableValue(PType type, Color col, int sq, int pieceCount) {
+    private static short GetTableValue(PType type, Color col, int sq, int pieceCount) {
         // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
         // there are two tables - midgame and endgame, this is important, because the pieces should be
         // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
@@ -137,24 +136,24 @@ internal static class Eval {
 
         // we have to index the piece and position correctly. white
         // pieces are simple, but black piece have to be mirrored
-        int i = ((byte)type * 64) + (col == Color.WHITE
-            ? (63 - sq) 
+        int i = (byte)type * 64 + (col == Color.WHITE
+            ? 63 - sq
             : (sq >> 3) * 8 + (7 - (sq & 7)));
 
         // we grab both the midgame and endgame table values
-        int mg_value = EvalTables.Midgame[i];
-        int eg_value = EvalTables.Endgame[i];
+        int mgValue = EvalTables.Midgame[i];
+        int egValue = EvalTables.Endgame[i];
 
         // a very rough attempt for tapering evaluation - instead of
         // just switching straight from midgame into endgame, the table
         // value of the piece is always somewhere in between depending
         // on the number of pieces left on the board.
-        return (short)(mg_value * pieceCount / 32 + eg_value * (32 - pieceCount) / 32);
+        return (short)(mgValue * pieceCount / 32 + egValue * (32 - pieceCount) / 32);
     }
 
     // bonuses or penalties for pawn structure
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short PawnStructureEval([NotNull, In, ReadOnly(true)] in Board board, ulong p, Color col) {
+    private static short PawnStructureEval([In, ReadOnly(true)] in Board board, ulong p, Color col) {
 
         int eval = 0;
 
@@ -164,12 +163,12 @@ internal static class Eval {
             ulong file = Consts.RelevantFileMask[i];
 
             // count the number of pawns on the file
-            int file_occ = BB.Popcount(file & p);
-            if (file_occ == 0) continue;
+            int fileOcc = BB.Popcount(file & p);
+            if (fileOcc == 0) continue;
 
             // penalties for doubled pawns. by subtracting 1 we can simultaneously
             // penalize all sorts of stacked pawns while not checking single ones
-            eval += (file_occ - 1) * DoubledPawnPenalty * colMult;
+            eval += (fileOcc - 1) * DoubledPawnPenalty * colMult;
 
             //if (BB.Popcount(file & board.Pieces[(byte)(col == Color.WHITE ? Color.BLACK : Color.WHITE), (byte)PType.PAWN]) == 0)
             //    eval += OpenPawnBonus * colMult;
@@ -179,12 +178,12 @@ internal static class Eval {
 
             // if the number of pawns on current file is equal to the number of pawns
             // on the current plus adjacent files, we know the pawn/s are isolated
-            int adj_occ = BB.Popcount(adj & p);
+            int adjOcc = BB.Popcount(adj & p);
 
             // isolani is an isolated pawn on the d-file. this usually tends
             // to be the worst isolated pawn, so there's a higher penalty
             int isolani = i == 3 ? IsolaniAddPenalty : 0;
-            eval += file_occ != adj_occ ? 0 : (IsolatedPawnPenalty + isolani) * colMult;
+            eval += fileOcc != adjOcc ? 0 : (IsolatedPawnPenalty + isolani) * colMult;
         }
 
         ulong copy = p;
@@ -214,7 +213,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KnightEval([NotNull, In, ReadOnly(true)] in Board board, int pawnCount) {
+    private static short KnightEval([In, ReadOnly(true)] in Board board, int pawnCount) {
         short eval = 0;
 
         // knights are less valuable if there are fewer pawns on the board.
@@ -232,7 +231,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short BishopEval([NotNull, In, ReadOnly(true)] in Board board) {
+    private static short BishopEval([In, ReadOnly(true)] in Board board) {
 
         short eval = 0;
 
@@ -240,7 +239,7 @@ internal static class Eval {
         // have two bishops of the same color, so it isn't really a bishop
         // pair. this error should, however, be rare and inconsequential
 
-        // i did some testing with checking the colors of the bishops and it
+        // i did some testing with checking the colors of the bishops, and it
         // slows down the eval quite a lot, that's why it isn't implemented
 
         // does white have two (or more) bishops?
@@ -253,7 +252,7 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short RookEval([NotNull, In, ReadOnly(true)] in Board board, int pieceCount) {
+    private static short RookEval([In, ReadOnly(true)] in Board board, int pieceCount) {
         short eval = 0;
 
         // rooks are, as opposed to knights, more valuable if there are
@@ -319,7 +318,7 @@ internal static class Eval {
         // rooks on the seventh rank (or second rank for black) are considered very
         // powerful, since they can typically "eat" undeveloped enemy pawns quite
         // easily and also threaten the king on the eighth (or first) rank. you can
-        // read that this rook is worth almost a pawn, but i've tested larger bonuses
+        // read that this rook is worth almost a pawn, but i've tested larger bonuses,
         // and it doesn't work as well, so we only use smaller ones. the bonuses also
         // decrease when progressing into the endgame, because undeveloped pawns are
         // less likely
@@ -332,15 +331,15 @@ internal static class Eval {
         return eval;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short QueenEval(ulong q, Color col, int piece_count) {
-        int eval = 0;
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //private static short QueenEval(ulong q, Color col, int piece_count) {
+    //    int eval = 0;
+    //
+    //    return (short)eval;
+    //}
 
-        return (short)eval;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval([NotNull, In, ReadOnly(true)] in Board board, int pieceCount) {
+    private static short KingEval([In, ReadOnly(true)] in Board board) {
         int eval = 0;
 
         // same color pieces around the king - protection

@@ -69,25 +69,23 @@ internal static class TimeMan {
                 goto arg_fail;
 
             // parsed numbers successfully and got to the last argument
-            if (success && i == toks.Length) {
-
-                if (MovesToGo == 0 && MoveTime == 0) {
-                    UCI.Log($"info string using default movestogo {DefaultMovestogo}", UCI.LogLevel.WARNING);
-                    MovesToGo = DefaultMovestogo;
-                }
-
-                CalculateTimeBudget();
-                return;
+            if (i != toks.Length) 
+                continue;
+            
+            if (MovesToGo == 0 && MoveTime == 0) {
+                UCI.Log($"info string using default movestogo {DefaultMovestogo}", UCI.LogLevel.WARNING);
+                MovesToGo = DefaultMovestogo;
             }
-        }
 
-        arg_fail: {
-            TimeBudget = DefaultTimeBudget;
+            CalculateTimeBudget();
             return;
         }
+
+        arg_fail: 
+        TimeBudget = DefaultTimeBudget;
     }
 
-    internal static void CalculateTimeBudget() {
+    private static void CalculateTimeBudget() {
 
         // either infinite time or strictly set time per move
         if (MoveTime != 0) {
@@ -95,6 +93,7 @@ internal static class TimeMan {
             return;
         }
 
-        TimeBudget = (int)((Game.color == Color.WHITE ? WhiteTime : BlackTime) / MovesToGo / 1.1f);
+        TimeBudget = (int)((Game.color == Color.WHITE 
+            ? (float)WhiteTime : BlackTime) / MovesToGo / 1.1f);
     }
 }

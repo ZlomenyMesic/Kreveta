@@ -8,13 +8,13 @@ using Kreveta.movegen;
 using Kreveta.search.pruning;
 
 using System.Diagnostics;
+// ReSharper disable InconsistentNaming
 
-#nullable enable
 namespace Kreveta.search {
     internal static class PVSControl {
 
         // best move found so far
-        internal static Move BestMove;
+        private static Move BestMove;
 
         // maximum search depth allowed
         private static int MaxDepth;
@@ -22,14 +22,12 @@ namespace Kreveta.search {
         internal static Stopwatch sw = null!;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private static long CurElapsed  = 0L;
+        private static long CurElapsed;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private static long PrevElapsed = 0L;
+        private static long PrevElapsed;
 
         private static ulong TotalNodes;
-
-        //private static Thread? thread;
 
         internal static void StartSearch(int depth) {
             MaxDepth = depth;
@@ -77,7 +75,7 @@ namespace Kreveta.search {
             UCI.Log($"bestmove {BestMove}\n");
 
             // reset all counters for the next search
-            // NEXT SEARCH, not the next iteration of the current one
+            // not the next iteration of the current one
             sw.Stop();
             PVSearch.Reset();
             TotalNodes = 0UL;
@@ -108,7 +106,7 @@ namespace Kreveta.search {
             // while also multiplying it to make it relative to the engine, not color
             mateScore /= Game.color == Color.WHITE ? 2 : -2;
 
-            // all of the stuff above is done even if the score isn't mate. i'm just
+            // all the stuff above is done even if the score isn't mate. i'm just
             // too lazy to care, but i might modify it a bit in the future. so here
             // we just check whether the pv score is mate or not, and based on that
             // we either print the "mate in X" or the score in centipawns
@@ -161,7 +159,7 @@ namespace Kreveta.search {
             UCI.Log(info, UCI.LogLevel.INFO);
         }
 
-        // tries to find the pv outside of just the stored array
+        // try to find the pv outside the stored array
         private static Move[] TryExpandPV(int depth) {
             List<Move> pvList = new(PVSearch.PV);
 

@@ -20,7 +20,7 @@ internal sealed class Board {
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
     [Required, DebuggerDisplay("indexed [color, piece_type]")]
-    internal ulong[][] Pieces = new ulong[2][];
+    internal readonly ulong[][] Pieces = new ulong[2][];
 
     // these two bitboards simply represent all occupied
     // squares by a certain color. it turns out to be a little
@@ -39,16 +39,16 @@ internal sealed class Board {
 
     // square over which a double pushing
     // pawn has passed one move ago
-    internal byte enPassantSq = 64;
+    internal byte EnPassantSq = 64;
 
     // the current state of castling rights
     // 0 0 0 0 q k Q K
     [EnumDataType(typeof(CastlingRights))]
-    internal CastlingRights castRights = 0;
+    internal CastlingRights CastlingRights = 0;
 
     // the side to move
     [EnumDataType(typeof(Color))]
-    internal Color color = 0;
+    internal Color Color = 0;
 
     //internal ulong Hash = 0;
 
@@ -63,9 +63,9 @@ internal sealed class Board {
         WOccupied   = 0UL;
         BOccupied   = 0UL;
 
-        enPassantSq = 64;
-        castRights  = CastlingRights.NONE;
-        color       = Color.NONE;
+        EnPassantSq = 64;
+        CastlingRights  = CastlingRights.NONE;
+        Color       = Color.NONE;
 
         //Hash        = 0UL;
     }
@@ -97,8 +97,8 @@ internal sealed class Board {
     // performs a move on the board
     internal void PlayMove(Move move) {
 
-        enPassantSq = 64;
-        color = color == Color.WHITE 
+        EnPassantSq = 64;
+        Color = Color == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
 
@@ -189,7 +189,7 @@ internal sealed class Board {
 
                 // en passant square is the square over which the
                 // pawn has double pushed, not the capture square
-                enPassantSq = (byte)BB.LS1B(col == Color.WHITE 
+                EnPassantSq = (byte)BB.LS1B(col == Color.WHITE 
                     ? start >> 8 
                     : start << 8);
 
@@ -205,15 +205,15 @@ internal sealed class Board {
             else                    WOccupied ^= end;
         }
 
-        if (castRights != CastlingRights.NONE && piece == PType.KING) {
+        if (CastlingRights != CastlingRights.NONE && piece == PType.KING) {
 
             // remove castling rights after a king moves
-            castRights &= (CastlingRights)(col == Color.WHITE 
+            CastlingRights &= (CastlingRights)(col == Color.WHITE 
                 ? 0xC   // all except KQ
                 : 0x3); // all except kq
         }
 
-        if (castRights != CastlingRights.NONE 
+        if (CastlingRights != CastlingRights.NONE 
             && (piece == PType.ROOK || capt == PType.ROOK)) {
 
             // if rook moved we need the starting square
@@ -231,13 +231,13 @@ internal sealed class Board {
             };
 
             // remove castling rights after a rook moves
-            castRights &= (CastlingRights)mask;
+            CastlingRights &= (CastlingRights)mask;
         }
 
         //Hash = Zobrist.GetHash(this);
     }
 
-    internal void PlayReversibleMove(Move move, Color col) {
+    private void PlayReversibleMove(Move move, Color col) {
 
         // start & end squares
         ulong start = Consts.SqMask[move.Start];
@@ -292,8 +292,8 @@ internal sealed class Board {
     internal Board GetNullChild() {
         Board @null = Clone();
 
-        @null.enPassantSq = 64;
-        @null.color = @null.color == Color.WHITE 
+        @null.EnPassantSq = 64;
+        @null.Color = @null.Color == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
 
@@ -319,9 +319,9 @@ internal sealed class Board {
             WOccupied   = WOccupied,
             BOccupied   = BOccupied,
 
-            castRights  = castRights,
-            enPassantSq = enPassantSq,
-            color       = color,
+            CastlingRights  = CastlingRights,
+            EnPassantSq = EnPassantSq,
+            Color       = Color,
 
             //Hash        = Hash
         };

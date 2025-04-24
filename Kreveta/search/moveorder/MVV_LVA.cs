@@ -9,6 +9,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta.search.moveorder;
 
 // a very simple move-ordering heuristic only used for captures. the name
@@ -42,7 +44,7 @@ internal static class MVV_LVA {
         }
 
         // add each capture and its score into a list
-        (Move, int)[] scores = new (Move, int)[capts.Length];
+        var scores = new (Move, int)[capts.Length];
         int cur = 0;
 
         for (int i = 0; i < capts.Length; i++) {
@@ -83,7 +85,7 @@ internal static class MVV_LVA {
     // this method calculates the score for a single move
     // positive score = likely a better move
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int GetCaptureScore(Move capt) {
+    private static int GetCaptureScore(Move capt) {
 
         // piece moved and piece captured (aggressor and victim)
         int aggressor = PieceValues[(byte)capt.Piece];

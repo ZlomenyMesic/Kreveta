@@ -29,8 +29,8 @@ internal static class King {
     internal static ulong GetCastlingTargets([NotNull, In, ReadOnly(true)] in Board board, Color col) {
         ulong occ = board.Occupied;
 
-        bool kingside =  ((byte)board.castRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
-        bool queenside = ((byte)board.castRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
+        bool kingside =  ((byte)board.CastlingRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
+        bool queenside = ((byte)board.CastlingRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
 
         kingside  &= (occ & (col == Color.WHITE ? OOMask  : ooMask))  == 0;
         queenside &= (occ & (col == Color.WHITE ? OOOMask : oooMask)) == 0;

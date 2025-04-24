@@ -112,10 +112,12 @@ internal static unsafe class LookupTables {
                 ulong rankTargets = RankTargets[7 - (i / 8)][o];
 
                 // rotate rank targets
-                for (int bit = 0; bit < 8; bit++) {
-                    if (BB.IsBitSet(rankTargets, bit)) {
-                        targets |= Consts.SqMask[(i & 7) + 8 * (7 - bit)];
-                    }
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    if (!BB.IsBitSet(rankTargets, bit))
+                        continue;
+                    
+                    targets |= Consts.SqMask[(i & 7) + 8 * (7 - bit)];
                 }
 
                 FileTargets[i][o] = targets;
@@ -136,23 +138,24 @@ internal static unsafe class LookupTables {
                     : RankTargets[i / 8][o];
 
                 for (int bit = 0; bit < 8; bit++) {
-                    int rank, file;
 
                     // rotate rank moves
-                    if (BB.IsBitSet(rankTargets, bit)) {
+                    if (!BB.IsBitSet(rankTargets, bit))
+                        continue;
+                    
+                    int file, rank;
+                        
+                    if (diag >= 0) {
+                        rank = diag + bit;
+                        file = bit;
+                    } 
+                    else {
+                        file = bit - diag;
+                        rank = bit;
+                    }
 
-                        if (diag >= 0) {
-                            rank = diag + bit;
-                            file = bit;
-                        } 
-                        else {
-                            file = bit - diag;
-                            rank = bit;
-                        }
-
-                        if ((file >= 0) && (file <= 7) && (rank >= 0) && (rank <= 7)) {
-                            targets |= Consts.SqMask[file + 8 * rank];
-                        }
+                    if (file is >= 0 and <= 7 && rank is >= 0 and <= 7) {
+                        targets |= Consts.SqMask[file + 8 * rank];
                     }
                 }
 
@@ -174,23 +177,24 @@ internal static unsafe class LookupTables {
                     : RankTargets[i % 8][o];
 
                 for (int bit = 0; bit < 8; bit++) {
-                    int rank; int file;
-
+                    
                     // rotate rank moves
-                    if (BB.IsBitSet(rankTargets, bit)) {
+                    if (!BB.IsBitSet(rankTargets, bit))
+                        continue;
+                    
+                    int rank, file;
+                        
+                    if (diag >= 7) {
+                        rank = 7 - bit;
+                        file = diag - 7 + bit;
+                    } 
+                    else {
+                        rank = diag - bit;
+                        file = bit;
+                    }
 
-                        if (diag >= 7) {
-                            rank = 7 - bit;
-                            file = diag - 7 + bit;
-                        } 
-                        else {
-                            rank = diag - bit;
-                            file = bit;
-                        }
-
-                        if ((file >= 0) && (file <= 7) && (rank >= 0) && (rank <= 7)) {
-                            targets |= Consts.SqMask[file + 8 * rank];
-                        }
+                    if (file is >= 0 and <= 7 && rank is >= 0 and <= 7) {
+                        targets |= Consts.SqMask[file + 8 * rank];
                     }
                 }
 

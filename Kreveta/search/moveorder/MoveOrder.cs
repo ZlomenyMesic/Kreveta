@@ -6,7 +6,6 @@
 using Kreveta.movegen;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Kreveta.search.moveorder;
 
@@ -19,7 +18,7 @@ internal static class MoveOrder {
     // least make a rough guess.
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static Move[] GetSortedMoves([NotNull, ReadOnly(true)] Board board, int depth, Move previous) {
+    internal static Move[] GetSortedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
@@ -85,7 +84,7 @@ internal static class MoveOrder {
         }
 
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
-            Move counter = CounterMoveHistory.Get(board.color, previous);
+            Move counter = CounterMoveHistory.Get(board.Color, previous);
             if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
                 sorted[cur++] = counter;
             }
@@ -121,7 +120,7 @@ internal static class MoveOrder {
 
     // this is just a wrapper for a sorting loop, didn't
     // want to nest and create a mess in the ordering function
-    internal static void OrderQuiets((Move, int)[] quiets) {
+    private static void OrderQuiets((Move, int)[] quiets) {
 
         // very primitive sorting algorithm for quiet moves,
         // sorts by their history value

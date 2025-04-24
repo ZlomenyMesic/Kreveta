@@ -8,8 +8,9 @@ using Kreveta.movegen;
 using Kreveta.search.moveorder;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.pruning;
 
@@ -51,7 +52,7 @@ internal static class LateMoveReductions {
     private const int ReductionDepth    = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune([NotNull, In, ReadOnly(true)] in Board board, [NotNull, In, ReadOnly(true)] in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune([In, ReadOnly(true)] in Board board, [In, ReadOnly(true)] in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
 
         // depth reduce is larger with bad quiet history
         int R = (move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold)

@@ -23,7 +23,7 @@ internal static class Engine {
 
     internal static int Main(string[] args) {
 
-        using Process cur = Process.GetCurrentProcess();
+        using var cur = Process.GetCurrentProcess();
         cur.PriorityClass = ProcessPriorityClass.RealTime;
 
         Killers.Clear();

@@ -15,7 +15,7 @@ namespace Kreveta.search.moveorder;
 // that many moves have a natural response irrespective to the position (e.g. certain
 // trades can be waiting to happen through many plies, but the way they are performed
 // stays the same). we have a board indexed by the color, starting and ending squares of
-// a move and we store the best response (counter) to this moves. when ordering moves, we
+// a move, and we store the best response (counter) to this move. when ordering moves, we
 // check if the counter is stored for the previous move, and we place it a little higher
 internal static class CounterMoveHistory {
 

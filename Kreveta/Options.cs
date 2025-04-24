@@ -12,6 +12,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta;
 
@@ -21,11 +22,11 @@ internal static class Options {
     private const bool DefaultNKLogs  = true;
     private const long DefaultHash    = 40;
 
-    internal enum OptionType {
+    private enum OptionType {
         CHECK, SPIN, BUTTON, STRING
     }
 
-    internal struct Option {
+    private struct Option {
 
         internal string Name;
         internal OptionType Type;
@@ -112,7 +113,7 @@ internal static class Options {
                 sb.Append($" default {opt.DefaultValue} min {opt.MinValue} max {opt.MaxValue}");
             }
 
-            UCI.Log(sb.ToString(), UCI.LogLevel.RAW);
+            UCI.Log(sb.ToString());
         }
     }
 
@@ -122,16 +123,17 @@ internal static class Options {
         }
 
         for (int i = 0; i < options.Length; i++) {
-            if (options[i].Name == tokens[2]) {
-
-                if (options[i].Type == OptionType.BUTTON) {
+            if (options[i].Name != tokens[2]) 
+                continue;
+            
+            switch (options[i].Type) {
+                case OptionType.BUTTON: {
                     //
                     //
                     //
                     return;
                 }
-
-                if (options[i].Type == OptionType.CHECK) {
+                case OptionType.CHECK: {
                     //if (tokens.Length == 5 && tokens[3] == "value"
                     //    && (tokens[4] == "true" || tokens[4] == "false")) {
 
@@ -140,10 +142,10 @@ internal static class Options {
                     //    return;
 
                     //} else goto invalid_syntax;
+                    break;
                 }
-
-                if (options[i].Type == OptionType.SPIN) {
-                    if (tokens.Length == 5 && tokens[3] == "value") {
+                case OptionType.SPIN: {
+                    if (tokens is [_, _, _, "value", _]) {
 
                         if (!long.TryParse(tokens[4], out _))
                             goto invalid_syntax;
@@ -151,21 +153,20 @@ internal static class Options {
                         options[i].Value = tokens[4];
                         return;
 
-                    } else goto invalid_syntax;
+                    } goto invalid_syntax;
                 }
+                case OptionType.STRING: {
+                    if (tokens is [_, _, _, "value", _, ..]) {
 
-                if (options[i].Type == OptionType.STRING) {
-                    if (tokens.Length >= 5 && tokens[3] == "value") {
-
-                        options[i].Value = "";
-                        for (int j = 3; j < tokens.Length; j++) {
+                        options[i].Value = string.Empty;
+                        for (byte j = 3; j < tokens.Length; j++) {
 
                             options[i].Value += $" {tokens[j]}";
                             options[i].Value = options[i].Value.Trim();
                         }
                         return;
 
-                    } else goto invalid_syntax;
+                    } goto invalid_syntax;
                 }
             }
         }
@@ -175,7 +176,6 @@ internal static class Options {
 
         invalid_syntax:
         UCI.Log("invalid setoption syntax", UCI.LogLevel.ERROR);
-        return;
     }
 }
 

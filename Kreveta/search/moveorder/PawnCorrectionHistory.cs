@@ -7,7 +7,6 @@ using Kreveta.evaluation;
 
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -51,11 +50,11 @@ internal static class PawnCorrectionHistory {
 
     // update the pawn correction - takes a board with its score evaluated
     // by an actual search and the depth at which the search was performed.
-    internal static void Update([NotNull, In, ReadOnly(true)] in Board board, int score, int depth) {
+    internal static void Update([In, ReadOnly(true)] in Board board, int score, int depth) {
         if (depth <= DepthOffset) return;
 
         // hash the pawns on the current position.
-        // each side has it's own pawn hash
+        // each side has its own pawn hash
         ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
 
@@ -76,7 +75,7 @@ internal static class PawnCorrectionHistory {
         if (shift == 0) return;
 
         // first we add or subtract the shift depending
-        // on the color and the whether the search score
+        // on the color and whether the search score
         // was higher or lower than the static eval
         CorrectionTable[(byte)Color.WHITE][wIndex] += (short)(score > staticEval ? shift : -shift);
         CorrectionTable[(byte)Color.BLACK][bIndex] += (short)(score > staticEval ? -shift : shift);
@@ -101,7 +100,7 @@ internal static class PawnCorrectionHistory {
     }
 
     // try to retrieve a correction of the static eval of a position
-    internal static int GetCorrection([NotNull, In, ReadOnly(true)] in Board board) {
+    internal static int GetCorrection([In, ReadOnly(true)] in Board board) {
 
         if (CorrectionTable[0] == null) InitArrays();
 
@@ -119,14 +118,13 @@ internal static class PawnCorrectionHistory {
     }
 
     // values used when calculating shifts
-    private const int DepthOffset = 2;
-    private const int MaxShift = 12;
+    private const int DepthOffset  = 2;
+    private const int MaxShift     = 12;
     private const int ShiftDivisor = 256;
 
     // the shift that should be used to adjust the corrections.
     // higher depths and higher diffs obviously have stronger impact
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short Shift(int diff, int depth) {
-        return (short)Math.Min(MaxShift, diff * (depth - DepthOffset) / ShiftDivisor);
-    }
+    private static short Shift(int diff, int depth)
+        => (short)Math.Min(MaxShift, diff * (depth - DepthOffset) / ShiftDivisor);
 }

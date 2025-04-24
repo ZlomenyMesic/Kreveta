@@ -8,6 +8,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta.search.perft;
 
 internal static class PerftTT {
@@ -44,7 +46,7 @@ internal static class PerftTT {
         return (int)(hash32 % TableSize);
     }
 
-    internal static void Store([NotNull, In, ReadOnly(true)] in Board board, int depth, ulong nodes) {
+    internal static void Store([In, ReadOnly(true)] in Board board, int depth, ulong nodes) {
         ulong hash = Zobrist.GetHash(board);
         int i = HashIndex(hash);
 
@@ -58,7 +60,7 @@ internal static class PerftTT {
         Table[i] = entry;
     }
 
-    internal static bool TryGetNodes([NotNull, In, ReadOnly(true)] in Board board, int depth, out ulong nodes) {
+    internal static bool TryGetNodes([In, ReadOnly(true)] in Board board, int depth, out ulong nodes) {
         ulong hash = Zobrist.GetHash(board);
         int i = HashIndex(hash);
 

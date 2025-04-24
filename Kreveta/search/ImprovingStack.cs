@@ -5,6 +5,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search;
 

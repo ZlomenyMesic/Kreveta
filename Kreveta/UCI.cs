@@ -12,9 +12,10 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Kreveta.search.perft;
 
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta;
 
-#nullable enable
 internal static class UCI {
     internal enum LogLevel : byte {
         INFO, WARNING, ERROR, RAW
@@ -29,12 +30,9 @@ internal static class UCI {
     [ReadOnly(true)]
     private static readonly TextWriter Output;
 
-    [ReadOnly(true)]
-    private static readonly StreamWriter? NKOutput;
+    private const string NKLogFilePath = @".\out.log";
 
-    internal static string NKLogFilePath = @".\out.log";
-
-    private static Thread? SearchThread = null!;
+    private static Thread? SearchThread;
     internal static bool AbortSearch;
 
 // Remove unnecessary suppression
@@ -44,7 +42,7 @@ internal static class UCI {
 #pragma warning disable CA1810
 
     static UCI() {
-
+        
 #pragma warning restore CA1810
 
         // the default Console.ReadLine buffer is quite small and cannot
@@ -53,9 +51,9 @@ internal static class UCI {
         Output = Console.Out;
 
         try {
-            NKOutput = new StreamWriter(NKLogFilePath);
+            var nkOutput = new StreamWriter(NKLogFilePath);
 
-            NeoKolors.Console.NKDebug.Logger.Output         = NKOutput;
+            NeoKolors.Console.NKDebug.Logger.Output         = nkOutput;
             NeoKolors.Console.NKDebug.Logger.SimpleMessages = true;
         }
 
@@ -82,7 +80,7 @@ internal static class UCI {
             string[] tokens = input.Split(' ');
 
             // we log the input commands as well
-            LogIntoFile(input, LogLevel.RAW);
+            LogIntoFile(input);
 
             switch (tokens[0]) {
                 case "uci":        CmdUCI();             break;
@@ -172,7 +170,7 @@ internal static class UCI {
     private static void CmdPerft(string[] toks) {
         if (toks.Length == 2) {
 
-            Stopwatch sw = Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();
 
             if (!int.TryParse(toks[1], out int depth))
                 goto invalid_syntax;
@@ -252,7 +250,7 @@ internal static class UCI {
         Output.WriteLine(msg);
     }
 
-    internal static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
+    private static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
         //if (Options.NKLogs) {
 
         //    // using KryKom's NeoKolors library for fancy logs
