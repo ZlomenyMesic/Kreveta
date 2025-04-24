@@ -6,16 +6,17 @@
 using Kreveta.movegen.pieces;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.movegen;
 
 internal static class Movegen {
 
-    internal static IEnumerable<Move> GetLegalMoves([NotNull] Board board, bool onlyCaptures = false) {
+    internal static IEnumerable<Move> GetLegalMoves(Board board, bool onlyCaptures = false) {
 
-        Color col = board.color;
+        Color col = board.Color;
 
         List<Move> moves = [];
 
@@ -34,7 +35,7 @@ internal static class Movegen {
         }
     }
 
-    internal static void GetPseudoLegalMoves([NotNull] in Board board, Color col, [NotNull] in List<Move> moves) {
+    internal static void GetPseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col, [In, ReadOnly(true)] in List<Move> moves) {
 
         // all occupied squares and squares occupied by opponent
         ulong occupied = board.Occupied;
@@ -61,7 +62,7 @@ internal static class Movegen {
         }
     }
 
-    internal static void GetPseudoLegalCaptures([NotNull, In, ReadOnly(true)] in Board board, Color col, [NotNull, In, ReadOnly(true)] in List<Move> moves) {
+    private static void GetPseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col, [In, ReadOnly(true)] in List<Move> moves) {
 
         ulong occupied = board.Occupied;
 
@@ -78,7 +79,7 @@ internal static class Movegen {
         // no need to generate castling moves - they can never be a capture
     }
 
-    internal static bool IsKingInCheck([NotNull, In, ReadOnly(true)] in Board board, Color col) {
+    internal static bool IsKingInCheck([In, ReadOnly(true)] in Board board, Color col) {
 
         ulong kingSq = board.Pieces[(byte)col][(byte)PType.KING];
 
@@ -118,32 +119,30 @@ internal static class Movegen {
         return false;
     }
 
-    private static void LoopPiecesBB([NotNull, In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, [NotNull, In, ReadOnly(true)] in List<Move> moves, bool onlyCaptures = false) {
-        ulong targets;
-        int start;
+    private static void LoopPiecesBB([In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, [In, ReadOnly(true)] in List<Move> moves, bool onlyCaptures = false) {
 
         // iteratively remove the pieces from the bitboard and generate their moves
         while (pieces != 0) {
 
             // "bit scan forward reset" also removes the least significant bit
-            start = BB.LS1BReset(ref pieces);
+            int start = BB.LS1BReset(ref pieces);
             ulong sq = Consts.SqMask[start];
 
             // generate the moves
-            targets = GetTargets(board, sq, type, col, occupiedOpp, occupied, empty, free, onlyCaptures);
+            ulong targets = GetTargets(board, sq, type, col, occupiedOpp, occupied, empty, free, onlyCaptures);
 
             // loop the found moves and add them
             LoopTargets(board, start, targets, type, col, moves);
         }
     }
 
-    private static ulong GetTargets([NotNull, In, ReadOnly(true)] in Board board, ulong sq, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures) {
+    private static ulong GetTargets([In, ReadOnly(true)] in Board board, ulong sq, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures) {
 
         // return a bitboard of possible moves depending on the piece type
         return type switch {
 
             PType.PAWN => (onlyCaptures ? 0 : Pawn.GetPawnPushTargets(sq, col, empty)) 
-                          | Pawn.GetPawnCaptureTargets(sq, board.enPassantSq, col, occupiedOpp),
+                          | Pawn.GetPawnCaptureTargets(sq, board.EnPassantSq, col, occupiedOpp),
 
             PType.KNIGHT => Knight.GetKnightTargets(sq, free),
             PType.BISHOP => Bishop.GetBishopTargets(sq, free, occupied),
@@ -155,22 +154,21 @@ internal static class Movegen {
 
             PType.KING => King.GetKingTargets(sq, free),
             _ => 0
-        }; ;
+        };
     }
 
-    private static void LoopTargets([NotNull, In, ReadOnly(true)] in Board board, int start, ulong targets, PType type, Color col, [NotNull, In, ReadOnly(true)] in List<Move> moves) {
+    private static void LoopTargets([In, ReadOnly(true)] in Board board, int start, ulong targets, PType type, Color col, [In, ReadOnly(true)] in List<Move> moves) {
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
-
-        int end;
-
+        
         // same principle as above
         while (targets != 0) {
-            end = BB.LS1BReset(ref targets);
+            int end = BB.LS1BReset(ref targets);
 
             PType capt = PType.NONE;
 
+            // get the potential capture type
             if (type != PType.NONE) {
                 for (int i = 0; i < 5; i++) {
                     if ((board.Pieces[(byte)colOpp][i] & Consts.SqMask[end]) != 0) {
@@ -179,23 +177,19 @@ internal static class Movegen {
                     }
                 }
             }
-
-            // get the potential capture piece type
-            //PType capt = type != PType.NONE
-            //    ? board.PieceAt(end).type : PType.NONE;
-
+            
             // add the move
-            AddMovesToList(type, col, start, end, capt, moves, board.enPassantSq);
+            AddMovesToList(type, col, start, end, capt, moves, board.EnPassantSq);
         }
     }
 
-    private static void AddMovesToList(PType type, Color col, int start, int end, PType capt, [NotNull, In, ReadOnly(true)] in List<Move> moves, int enPassantSq) {
+    private static void AddMovesToList(PType type, Color col, int start, int end, PType capt, [In, ReadOnly(true)] in List<Move> moves, int enPassantSq) {
 
         // add the generated move to the list
         switch (type) {
 
             // pawns have a special designated method to prevent nesting (promotions)
-            case PType.PAWN:
+            case PType.PAWN: {
                 if ((end < 8 && col == Color.WHITE) | (end > 55 && col == Color.BLACK)) {
 
                     // all four possible promotions
@@ -203,28 +197,32 @@ internal static class Movegen {
                     moves.Add(new(start, end, PType.PAWN, capt, PType.BISHOP));
                     moves.Add(new(start, end, PType.PAWN, capt, PType.ROOK));
                     moves.Add(new(start, end, PType.PAWN, capt, PType.QUEEN));
-                } 
+                }
                 else if (end == enPassantSq) {
 
                     // en passant - "pawn promotion"
                     moves.Add(new(start, end, PType.PAWN, PType.NONE, PType.PAWN));
-                } 
+                }
                 else {
 
                     // regular moves
                     moves.Add(new(start, end, PType.PAWN, capt, PType.NONE));
                 }
+
                 return;
+            }
 
             // special case for castling
-            case PType.NONE: 
+            case PType.NONE: {
                 moves.Add(new(start, end, PType.KING, PType.NONE, PType.KING)); 
                 return;
+            }
 
             // any other move
-            default: 
+            default: {
                 moves.Add(new(start, end, type, capt, PType.NONE)); 
                 return;
+            }
         }
     }
 }

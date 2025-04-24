@@ -4,6 +4,7 @@
 //
 
 using System.ComponentModel;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta;
 
@@ -100,7 +101,7 @@ internal static class Consts {
         ];
 
     [ReadOnly(true)]
-    internal static ulong[] SqMask = [
+    internal static readonly ulong[] SqMask = [
             0x0000000000000001,
             0x0000000000000002,
             0x0000000000000004,

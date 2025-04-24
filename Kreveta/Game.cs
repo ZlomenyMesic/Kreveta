@@ -14,8 +14,8 @@ using Kreveta.openingbook;
 using Kreveta.search;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta;
 
@@ -34,10 +34,10 @@ internal static class Game {
     internal static bool FullGame;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
-    internal static List<ulong>    HistoryPositions = [];
+    private static List<ulong>     HistoryPositions = [];
     internal static HashSet<ulong> Draws            = [];
 
-    internal static void SetPosFEN([NotNull, In, ReadOnly(true)] in string[] toks) {
+    internal static void SetPosFEN([In, ReadOnly(true)] in string[] toks) {
 
         // clear the board from previous game/search
         board = new();
@@ -106,7 +106,7 @@ internal static class Game {
                       board.Clear(); 
                       return;
         }
-        board.color = color;
+        board.Color = color;
 
         // 3. CASTLING RIGHTS
         // if neither side can castle, this is "-". otherwise, we can have up to 4 letters.
@@ -116,16 +116,16 @@ internal static class Game {
             switch (toks[4][i]) {
 
                 // white kingside
-                case 'K': board.castRights |= CastlingRights.K; break;
+                case 'K': board.CastlingRights |= CastlingRights.K; break;
 
                 // white queenside
-                case 'Q': board.castRights |= CastlingRights.Q; break;
+                case 'Q': board.CastlingRights |= CastlingRights.Q; break;
 
                 // black kingside
-                case 'k': board.castRights |= CastlingRights.k; break;
+                case 'k': board.CastlingRights |= CastlingRights.k; break;
 
                 // black queenside
-                case 'q': board.castRights |= CastlingRights.q; break;
+                case 'q': board.CastlingRights |= CastlingRights.q; break;
 
                 default:
                     if (toks[4][i] != '-') {
@@ -133,7 +133,7 @@ internal static class Game {
 
                         board.Clear();
                         return;
-                    } else continue;
+                    } continue;
             }
         }
 
@@ -145,10 +145,10 @@ internal static class Game {
         // the old version of the standard is the one most commonly used.
 
         if (toks[5].Length == 2 && byte.TryParse(toks[5], out byte enPassantSq))
-            board.enPassantSq = enPassantSq;
+            board.EnPassantSq = enPassantSq;
 
         else if (toks[5].Length == 1 && toks[5][0] == '-')
-            board.enPassantSq = 64;
+            board.EnPassantSq = 64;
 
         else {
             UCI.Log($"invalid en passant square: {toks[5]}", UCI.LogLevel.ERROR);
@@ -171,7 +171,7 @@ internal static class Game {
         // TODO: FINISH FEN
 
         // position command can be followed by a sequence of moves
-        int moveSeqStart = toks.ToList().IndexOf("moves");
+        int moveSeqStart = Array.IndexOf(toks, "moves");
 
         // we save the previous positions as 3-fold repetition exists
         HistoryPositions.Add(Zobrist.GetHash(board));
@@ -213,12 +213,12 @@ internal static class Game {
     }
 
     // save all positions that would cause a 3-fold repetition draw in
-    // the next move. all previous positions are save in history_positions
+    // the next move. all previous positions are saved in HistoryPositions
     // and those which occur twice (or more) are considered as drawing.
     private static void List3FoldDraws() {
         Dictionary<ulong, int> occurences = [];
 
-        foreach (ulong hash in HistoryPositions) {
+        foreach (var hash in HistoryPositions) {
 
             // the position has already occured
             if (occurences.TryGetValue(hash, out _)) {

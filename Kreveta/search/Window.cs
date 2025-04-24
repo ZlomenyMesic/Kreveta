@@ -47,16 +47,14 @@ internal ref struct Window {
         }
 
         // reducing beta (ceiling)
-        else {
+        
+        // fail high
+        if (score >= Beta)
+            return false; 
 
-            // fail high
-            if (score >= Beta)
-                return false; 
+        Beta = score;
 
-            Beta = score;
-
-            // cutoff?
-            return Beta <= Alpha;
-        }
+        // cutoff?
+        return Beta <= Alpha;
     }
 }

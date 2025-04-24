@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search;
 
@@ -54,7 +55,7 @@ internal static class TT {
     private static int TableSize = GetTableSize();
 
     // how many items are currently stored
-    private static volatile int Stored;
+    private static int Stored;
 
     private static volatile Entry[] Table = new Entry[TableSize];
 
@@ -104,13 +105,8 @@ internal static class TT {
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Store([NotNull, In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
-        Store(Zobrist.GetHash(board), depth, ply, window, score, bestMove);
-    }
-
-    internal static void Store(ulong hash, sbyte depth, int ply, Window window, short score, Move bestMove) {
-
+    internal static void Store([In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
+        ulong hash = Zobrist.GetHash(board);
         int i = HashIndex(hash);
 
         // maybe an entry is already saved
@@ -161,7 +157,7 @@ internal static class TT {
         Table[i] = entry;
     }
 
-    internal static bool TryGetBestMove([NotNull, In, ReadOnly(true)] in Board board, out Move bestMove) {
+    internal static bool TryGetBestMove([In, ReadOnly(true)] in Board board, out Move bestMove) {
         ulong hash = Zobrist.GetHash(board);
         bestMove = default;
 
@@ -176,7 +172,7 @@ internal static class TT {
         return bestMove != default;
     }
 
-    internal static bool TryGetScore([NotNull, In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {
+    internal static bool TryGetScore([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {
         ulong hash = Zobrist.GetHash(board);
         score = 0;
 

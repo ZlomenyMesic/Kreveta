@@ -7,7 +7,8 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.moveorder;
 using Kreveta.search.pruning;
-using System.Diagnostics.CodeAnalysis;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search;
 
@@ -21,7 +22,7 @@ internal static class QSearch {
     internal static int CurQSDepth;
 
     // same idea as ProbeTT, but used in qsearch
-    internal static short QProbeTT([NotNull] Board board, int ply, Window window) {
+    internal static short QProbeTT(Board board, int ply, Window window) {
 
         int depth = QSDepth - ply - PVSearch.CurDepth;
 
@@ -40,7 +41,7 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where we can for instance lose a queen in the next move
-    internal static short Search([NotNull] Board board, int ply, Window window, bool onlyCaptures = false) {
+    internal static short Search(Board board, int ply, Window window, bool onlyCaptures = false) {
 
         if (PVSearch.Abort)
             return 0;
@@ -55,7 +56,7 @@ internal static class QSearch {
         if (ply >= CurQSDepth)
             return Eval.StaticEval(board);
 
-        Color col = board.color;
+        Color col = board.Color;
 
         // is the side to move in check?
         //
@@ -87,7 +88,7 @@ internal static class QSearch {
         if (moves.Length == 0) {
 
             // if we aren't checked, it means there just aren't
-            // any more captures and we can return the stand pat
+            // any more captures, and we can return the stand pat
             // (we also might be in stalemate - FIX THIS)
             if (onlyCaptures) {
                 return standPat;

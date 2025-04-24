@@ -4,7 +4,6 @@
 //
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
@@ -19,8 +18,7 @@ internal static class Zobrist {
 
     [ReadOnly(true)]
     private static readonly ulong[][] Pieces     = new ulong[64][];
-
-    // TODO - MAKE THIS SMALLER
+    
     [ReadOnly(true)]
     private static readonly ulong[]  EnPassant  = new ulong[8];
 
@@ -60,13 +58,13 @@ internal static class Zobrist {
         }
     }
 
-    internal static ulong GetHash([NotNull, In, ReadOnly(true)] in Board board) {
-        ulong hash = SideToMove[(byte)board.color];
+    internal static ulong GetHash([In, ReadOnly(true)] in Board board) {
+        ulong hash = SideToMove[(byte)board.Color];
 
-        hash ^= Castling[(byte)board.castRights];
+        hash ^= Castling[(byte)board.CastlingRights];
 
-        if (board.enPassantSq != 64)
-            hash ^= EnPassant[board.enPassantSq & 7];
+        if (board.EnPassantSq != 64)
+            hash ^= EnPassant[board.EnPassantSq & 7];
 
         for (int i = 0; i < 6; i++) {
 
@@ -87,7 +85,7 @@ internal static class Zobrist {
         return hash;
     }
 
-    internal static ulong GetPawnHash([NotNull, In, ReadOnly(true)] in Board board, Color col) {
+    internal static ulong GetPawnHash([In, ReadOnly(true)] in Board board, Color col) {
         ulong hash = 0;
 
         ulong copy = board.Pieces[(byte)col][(byte)PType.PAWN];
@@ -108,7 +106,7 @@ internal static class Zobrist {
         return Pieces[square][index];
     }
 
-    private static ulong RandUInt64([NotNull, In, ReadOnly(true)] in Random rand) {
+    private static ulong RandUInt64([In, ReadOnly(true)] in Random rand) {
         byte[] bytes = new byte[
             sizeof(ulong) / sizeof(byte)
         ];

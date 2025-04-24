@@ -9,10 +9,9 @@ using Kreveta.search.moveorder;
 using Kreveta.search.pruning;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 
-#nullable enable
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta.search {
     internal static class PVSearch {
 
@@ -27,9 +26,6 @@ namespace Kreveta.search {
         // total nodes searched this iteration
         internal static ulong CurNodes;
 
-        // limit for the amount of nodes allowed to be searched
-        internal static ulong MaxNodes = ulong.MaxValue;
-
         // evaluated final score of the principal variation
         internal static short PVScore;
 
@@ -40,7 +36,7 @@ namespace Kreveta.search {
         // pv node is also the move the engine is going to play
         internal static Move[] PV = [];
 
-        internal static ImprovingStack improvStack = new();
+        private static readonly ImprovingStack improvStack = new();
 
         //private static Stack<Move> SearchStack = [];
 
@@ -50,7 +46,6 @@ namespace Kreveta.search {
         [ReadOnly(true), DefaultValue(false)]
         internal static bool Abort 
             => UCI.AbortSearch
-            || CurNodes >= MaxNodes 
             || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
 
         // increase the depth and do a re-search
@@ -75,7 +70,7 @@ namespace Kreveta.search {
             // erasing them completely would, however, slow down the search
             QuietHistory.Shrink();
 
-            // these ones need to be erased, though
+            // these need to be erased, though
             PawnCorrectionHistory.Clear();
 
             // store the pv from the previous iteration in tt
@@ -130,7 +125,7 @@ namespace Kreveta.search {
 
         // first check the transposition table for the score, if it's not there
         // just continue the regular search. parameters need to be the same as in the search method itself
-        internal static (short Score, Move[] PV) ProbeTT([NotNull] Board board, int ply, int depth, Window window, Move previous) {
+        internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window, Move previous) {
 
             // did we find the position and score?
             // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -139,16 +134,16 @@ namespace Kreveta.search {
                 // only return the score, no pv
                 return (ttScore, []);
 
-            int R = 0;// (CurDepth < 6 && depth == 2) ? 1 : 0;
+            //int R = 0;// (CurDepth < 6 && depth == 2) ? 1 : 0;
 
             // in case the position is not yet stored, we fully search it and then store it
-            (short Score, Move[] PV) search = Search(board, ply, depth - R, window, previous);
+            (short Score, Move[] PV) search = Search(board, ply, depth, window, previous);
             TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
             // store the current two-move sequence in countermove history - the previously
             // played move and the best response (counter) to this move found by the search
             if (search.PV.Length != 0 && depth > CounterMoveHistory.MinStoreDepth) {
-                CounterMoveHistory.Add(board.color, previous, search.PV[0]);
+                CounterMoveHistory.Add(board.Color, previous, search.PV[0]);
             }
 
             PawnCorrectionHistory.Update(board, search.Score, depth);
@@ -163,14 +158,14 @@ namespace Kreveta.search {
         // depth, on the other hand, starts at the highest value and decreases over time.
         // once we get to depth = 0, we drop into the qsearch. the search window contains 
         // the alpha and beta values, which are the pillars to this thing
-        private static (short Score, Move[] PV) Search([NotNull] Board board, int ply, int depth, Window window, Move previous) {
+        private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
 
             // either crossed the time budget or maximum nodes
             // we cannot abort the first iteration - no bestmove
             if (Abort && CurDepth > 1)
                 return (0, []);
 
-            Color col = board.color;
+            Color col = board.Color;
 
             // if we found a mate score in the previous iteration, we return if
             // the ply we are currently in is larger than the already found mate
@@ -203,7 +198,7 @@ namespace Kreveta.search {
 
             // if the position is saved as a 3-fold repetition draw, return 0.
             // we have to check at ply 2 as well to prevent a forced draw by the opponent
-            if ((ply is not 0 and < 4) && Game.Draws.Contains(Zobrist.GetHash(board))) {
+            if (ply is not 0 and < 4 && Game.Draws.Contains(Zobrist.GetHash(board))) {
                 return (0, []);
             }
 
@@ -251,14 +246,13 @@ namespace Kreveta.search {
 
             // are the conditions for nmp satisfied?
             if (PruningOptions.AllowNullMovePruning
-                && depth >= NullMovePruning.MinDepth
                 && ply >= NullMovePruning.CurMinPly
                 && !inCheck
                 && !Score.IsMateScore(PVScore)
 
                 && (col == Color.WHITE
-                    ? (window.Beta < short.MaxValue)
-                    : (window.Alpha > short.MinValue))) {
+                    ? window.Beta  < short.MaxValue
+                    : window.Alpha > short.MinValue)) {
 
                 // we try the reduced search and check for failing high
                 if (NullMovePruning.TryPrune(board, depth, ply, window, col, out short score)) {
@@ -354,12 +348,11 @@ namespace Kreveta.search {
                     : (fullSearch.Score >= window.Beta)) {
 
                     // decrease the move's reputation
-                    // (although we are modifying quiet history, not caring
-                    // whether or not this move is a capture yields better results)
+                    // (although we are modifying quiet history, regardless of
+                    // whether this move is a capture yields better results)
                     QuietHistory.DecreaseRep(board, curMove, depth);
                 }
-
-
+                
                 // we didn't fail low => we have a new best move for this position
                 else {
 
@@ -372,13 +365,13 @@ namespace Kreveta.search {
                     pv[0] = curMove;
 
                     // if we got a beta cutoff (alpha grew over beta).
-                    // this means this move is really good
+                    // this means this move is probably good
                     if (window.TryCutoff(fullSearch.Score, col)) {
 
                         // is it quiet?
                         if (!isCapture) {
 
-                            // if a quiet move caused a beta cutoff, we increase it's
+                            // if a quiet move caused a beta cutoff, we increase its
                             // reputation in history and save it as a killer move on this depth
                             QuietHistory.IncreaseRep(board, curMove, depth);
                             Killers.Add(curMove, depth);

@@ -8,7 +8,6 @@
 
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
@@ -20,7 +19,8 @@ namespace Kreveta.movegen;
 #pragma warning disable CS0661
 
 [StructLayout(LayoutKind.Explicit, Size = 4)]
-internal readonly struct Move {
+internal readonly struct Move : IEquatable<Move>
+{
 
 #pragma warning restore CS0660
 #pragma warning restore CS0661
@@ -62,26 +62,35 @@ internal readonly struct Move {
         => a._flags == b._flags;
 
     public static bool operator !=(Move a, Move b)
-        => !(a._flags == b._flags);
+        => a._flags != b._flags;
+    
+    public bool Equals(Move other)
+        => _flags == other._flags;
+
+    public override bool Equals(object? obj)
+        => obj is Move other && Equals(other);
+
+    public override int GetHashCode()
+        => _flags;
 
     // index of the starting sqaure
-    internal readonly int Start
+    internal int Start
         => _flags & StartMask;
 
     // index of the ending sqaure
-    internal readonly int End
+    internal int End
         => (_flags & EndMask) >> EndOffset;
 
     // the moved piece type
-    internal readonly PType Piece
+    internal PType Piece
         => (PType)((_flags & PieceMask) >> PieceOffset);
 
     // captured piece (6 if no capture)
-    internal readonly PType Capture
+    internal PType Capture
         => (PType)((_flags & CaptMask) >> CaptOffset);
 
     // piece promoted to (6 if no promotion)
-    internal readonly PType Promotion
+    internal PType Promotion
         => (PType)((_flags & PromMask) >> PromOffset);
 
 
@@ -106,8 +115,8 @@ internal readonly struct Move {
         // Specify IFormatProvider
 #pragma warning disable CA1305
 
-        string str_start = Consts.Files[start % 8] + (8 - start / 8).ToString();
-        string str_end   = Consts.Files[end   % 8] + (8 - end   / 8).ToString();
+        string strStart = Consts.Files[start % 8] + (8 - start / 8).ToString();
+        string strEnd   = Consts.Files[end   % 8] + (8 - end   / 8).ToString();
 
 #pragma warning restore CA1305 
 
@@ -115,19 +124,19 @@ internal readonly struct Move {
         string promotion = (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE) 
             ? Consts.Pieces[(byte)prom].ToString() : "";
 
-        return $"{str_start}{str_end}{promotion}";
+        return $"{strStart}{strEnd}{promotion}";
     }
 
     // converts a string to a move object
-    internal static Move FromString([NotNull, In, ReadOnly(true)] in Board board, string str) {
+    internal static Move FromString([In, ReadOnly(true)] in Board board, string str) {
 
         // the move in the string is stored using a form of Long Algebraic Notation (LAN),
         // which is used by UCI. there is no information about the piece moved, only the starting square
         // and the destination (e.g. "e2e4"), or an additional character for the promotion (e.g. "e7e8q").
 
         // indices of starting and ending squares
-        int start = ((8 - (str[1] - '0')) * 8) + Consts.Files.IndexOf(str[0], StringComparison.Ordinal);
-        int end   = ((8 - (str[3] - '0')) * 8) + Consts.Files.IndexOf(str[2], StringComparison.Ordinal);
+        int start = (8 - (str[1] - '0')) * 8 + Consts.Files.IndexOf(str[0], StringComparison.Ordinal);
+        int end   = (8 - (str[3] - '0')) * 8 + Consts.Files.IndexOf(str[2], StringComparison.Ordinal);
 
         // find the piece types
         (_, PType piece) = board.PieceAt(start);
@@ -140,7 +149,7 @@ internal readonly struct Move {
 
         // overriding promotion:
         // castling (prom = king)
-        if (piece == PType.KING && (str == "e8c8" || str == "e8g8" || str == "e1c1" || str == "e1g1")) 
+        if (piece == PType.KING && str is "e8c8" or "e8g8" or "e1c1" or "e1g1") 
             prom = PType.KING;
 
         // en passant (prom = pawn)

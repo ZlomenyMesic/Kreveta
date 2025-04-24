@@ -7,9 +7,10 @@ using Kreveta.movegen;
 
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.moveorder;
 
@@ -27,7 +28,7 @@ internal static class QuietHistory {
 
     // this array stores history values of quiet moves - no captures
     [ReadOnly(true)]
-    private static readonly int[][] QuietScores;
+    private static readonly int[][] QuietScores = new int[64][];
 
 
 
@@ -49,17 +50,12 @@ internal static class QuietHistory {
     // that, the engine performs better when i do the exact opposite,
     // so the history value is multiplied by the common log of bf score
     [ReadOnly(true)]
-    private static readonly int[][] ButterflyScores;
+    private static readonly int[][] ButterflyScores = new int[64][];
 
     [ReadOnly(true)]
     private const int RelHHScale = 12;
 
-    static QuietHistory() {
-        QuietScores = new int[64][];
-        ButterflyScores = new int[64][];
-
-        InitArrays();
-    }
+    static QuietHistory() => InitArrays();
 
     private static void InitArrays() {
         for (int i = 0; i < 64; i++) {
@@ -94,7 +90,7 @@ internal static class QuietHistory {
     }
 
     // increases the history rep of a quiet move
-    internal static void IncreaseRep([NotNull, In, ReadOnly(true)] in Board board, [NotNull] Move move, int depth) {
+    internal static void IncreaseRep([In, ReadOnly(true)] in Board board, Move move, int depth) {
         int i = PieceIndex(board, move);
         int end = move.End;
 
@@ -105,7 +101,7 @@ internal static class QuietHistory {
     }
 
     // decreases the history rep of a quiet move
-    internal static void DecreaseRep([NotNull, In, ReadOnly(true)] in Board board, [NotNull] Move move, int depth) {
+    internal static void DecreaseRep([In, ReadOnly(true)] in Board board, Move move, int depth) {
         int i = PieceIndex(board, move);
         int end = move.End;
 
@@ -116,7 +112,7 @@ internal static class QuietHistory {
     }
 
     // calculate the reputation of a move
-    internal static int GetRep([NotNull] in Board board, [NotNull] Move move) {
+    internal static int GetRep(in Board board, Move move) {
         int i = PieceIndex(board, move);
         int end = move.End;
 
@@ -148,7 +144,7 @@ internal static class QuietHistory {
     // calculate the index of a piece in the boards
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PieceIndex([NotNull] in Board board, [NotNull] Move move) {
+    private static int PieceIndex([In, ReadOnly(true)] in Board board, Move move) {
 
         PType piece = move.Piece;
         Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ Consts.SqMask[move.Start]) == 0

@@ -5,9 +5,9 @@
 
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.pruning;
 
@@ -21,13 +21,12 @@ namespace Kreveta.search.pruning;
 // NMP for this reason failes in zugzwangs or sometimes endgames
 internal static class NullMovePruning {
 
-    // minimum depth and ply needed for nmp
-    internal const  int MinDepth  = 0;
-    internal static int CurMinPly = 3;
-
     // the absolute minimum ply required for nmp
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const int AbsMinPly = 3;
+    
+    // current minimum ply needed for nmp
+    internal static int CurMinPly = 3;
 
     private const int PlySubtract     = 2;
     private const int ReductionBase   = 2;
@@ -39,12 +38,11 @@ internal static class NullMovePruning {
     // less with fewer pieces on the board - we achieve this by progressively
     // raising the minimum ply required for nmp
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void UpdateMinPly(int pieceCount) {
-        CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / 7);
-    }
+    internal static void UpdateMinPly(int pieceCount)
+        => CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / 7);
 
     // try null move pruning
-    internal static bool TryPrune([NotNull, In, ReadOnly(true)] in Board board, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, Color col, out short score) {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 
@@ -56,7 +54,7 @@ internal static class NullMovePruning {
 
         // the reduction is based on ply, depth, etc.
         int R = Math.Min(ply - PlySubtract,
-                         ReductionBase + (PVSearch.CurDepth / CurDepthDivisor));
+                         ReductionBase + PVSearch.CurDepth / CurDepthDivisor);
 
         // once we reach a certain depth iteration, we start pruning
         // a bit more aggressively - it isn't as important to be careful
@@ -74,7 +72,7 @@ internal static class NullMovePruning {
         // currently we are returning the null search score, but returning beta
         // may also work. this needs some testing
         return col == Color.WHITE
-            ? (score >= window.Beta)
-            : (score <= window.Alpha);
+            ? score >= window.Beta
+            : score <= window.Alpha;
     }
 }

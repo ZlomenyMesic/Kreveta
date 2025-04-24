@@ -6,8 +6,9 @@
 using Kreveta.search.moveorder;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.pruning;
 
@@ -33,7 +34,7 @@ internal static class FutilityPruning {
     private const int NotImprovingMargin       = -23; 
 
     // try futility pruning
-    internal static bool TryPrune([NotNull, In, ReadOnly(true)] in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
+    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
 
         int pawnCorrection = PawnCorrectionHistory.GetCorrection(board) * (col == Color.WHITE ? -2 : 2);
         int _improving = improving ? ImprovingMargin : NotImprovingMargin;
@@ -48,7 +49,7 @@ internal static class FutilityPruning {
         // alternative somewhere else in the search tree, and we can prune this branch.
         staticEval += (short)margin;
         return col == Color.WHITE
-            ? (staticEval <= window.Alpha)
-            : (staticEval >= window.Beta);
+            ? staticEval <= window.Alpha
+            : staticEval >= window.Beta;
     }
 }

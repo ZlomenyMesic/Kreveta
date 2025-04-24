@@ -5,6 +5,8 @@
 
 using System.Runtime.CompilerServices;
 
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta.search.pruning;
 
 // DELTA PRUNING:
@@ -31,7 +33,7 @@ internal static class DeltaPruning {
 
         // check for failing low
         return col == Color.WHITE
-            ? (standPat <= window.Alpha)
-            : (standPat >= window.Beta);
+            ? standPat <= window.Alpha
+            : standPat >= window.Beta;
     }
 }

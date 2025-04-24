@@ -4,15 +4,14 @@
 //
 
 using Kreveta.movegen;
-using Kreveta.search.perft;
+
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
-namespace Kreveta.search;
+namespace Kreveta.search.perft;
 
 internal static class Perft {
-    internal static ulong Run([NotNull, In, ReadOnly(true)] in Board board, int depth) {
+    internal static ulong Run([In, ReadOnly(true)] in Board board, int depth) {
 
         if (depth == 1) {
             return (ulong)Movegen.GetLegalMoves(board).Count();
@@ -25,7 +24,7 @@ internal static class Perft {
         nodes = 0UL;
 
         List<Move> moves = [];
-        Movegen.GetPseudoLegalMoves(board, board.color, moves);
+        Movegen.GetPseudoLegalMoves(board, board.Color, moves);
 
         for (int i = 0; i < moves.Count; i++) {
 
@@ -33,7 +32,7 @@ internal static class Perft {
             child.PlayMove(moves[i]);
 
             // the move is illegal
-            if (Movegen.IsKingInCheck(child, board.color))
+            if (Movegen.IsKingInCheck(child, board.Color))
                 continue;
 
             nodes += Run(child, depth - 1);

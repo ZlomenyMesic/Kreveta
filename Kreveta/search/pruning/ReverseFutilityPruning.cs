@@ -3,17 +3,18 @@
 // started 4-3-2025
 //
 
-using Kreveta;
 using Kreveta.evaluation;
-using Kreveta.search;
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+
+// ReSharper disable InconsistentNaming
+
+namespace Kreveta.search.pruning;
 
 // REVERSE FUTILITY PRUNING:
 // apart from futility pruning, we also use reverse futility pruning - it's
-// basically the same as fp but we subtract the margin from the static eval
+// basically the same as fp, but we subtract the margin from the static eval
 // and prune the branch if we fail high (so it's quite the opposite)
 internal static class ReverseFutilityPruning {
 
@@ -30,7 +31,7 @@ internal static class ReverseFutilityPruning {
 
     private const int SQPly = 4;
 
-    internal static bool TryPrune([NotNull, In, ReadOnly(true)] in Board board, int depth, Color col, Window window, out short retScore) {
+    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, Color col, Window window, out short retScore) {
         retScore = default;
 
         short staticEval = Eval.StaticEval(board);
@@ -42,8 +43,8 @@ internal static class ReverseFutilityPruning {
         // we failed high (above beta). our opponent already has an alternative which
         // wouldn't allow this move/node/score to happen
         if (col == Color.WHITE
-            ? (staticEval >= window.Beta)
-            : (staticEval <= window.Alpha)) {
+            ? staticEval >= window.Beta
+            : staticEval <= window.Alpha) {
 
             retScore = QSearch.Search(board, SQPly, window);
             return true;
