@@ -3,6 +3,12 @@
 // started 4-3-2025
 //
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
+// Specify IFormatProvider
+#pragma warning disable CA1305
+
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -52,7 +58,7 @@ internal static class Options {
             MaxValue = "2048",
 
             DefaultValue = DefaultHash.ToString(),
-            Value = DefaultHash.ToString()
+            Value        = DefaultHash.ToString()
         },
 
 
@@ -172,3 +178,6 @@ internal static class Options {
         return;
     }
 }
+
+#pragma warning restore CA1305
+#pragma warning restore IDE0079

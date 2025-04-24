@@ -4,7 +4,7 @@
 //
 
 using Kreveta.movegen;
-using System.Buffers;
+
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
@@ -31,7 +31,7 @@ internal static class MoveOrder {
 
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
-        if (TT.GetBestMove(board, out Move bestMove) && legal.Contains(bestMove)) {
+        if (TT.TryGetBestMove(board, out Move bestMove) && legal.Contains(bestMove)) {
             sorted[cur++] = bestMove;
         }
 

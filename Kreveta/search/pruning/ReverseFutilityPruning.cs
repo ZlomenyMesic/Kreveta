@@ -6,6 +6,7 @@
 using Kreveta;
 using Kreveta.evaluation;
 using Kreveta.search;
+
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
@@ -44,7 +45,7 @@ internal static class ReverseFutilityPruning {
             ? (staticEval >= window.Beta)
             : (staticEval <= window.Alpha)) {
 
-            retScore = PVSearch.QSearch(board, SQPly, window);
+            retScore = QSearch.Search(board, SQPly, window);
             return true;
         }
 

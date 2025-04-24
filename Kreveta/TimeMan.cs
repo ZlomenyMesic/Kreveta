@@ -6,6 +6,10 @@
 namespace Kreveta;
 
 internal static class TimeMan {
+
+    private const int  DefaultMovestogo  = 40;
+    private const long DefaultTimeBudget = 8000;
+
     private static long WhiteTime;
     private static long BlackTime;
 
@@ -14,12 +18,9 @@ internal static class TimeMan {
 
     private static int MovesToGo;
 
-    internal static long MoveTime = 0;
+    internal static long MoveTime;
 
     internal static long TimeBudget;
-
-    private static readonly int DefaultMovestogo = 40;
-    private static readonly long DefaultTimeBudget = 8000;
 
     internal static void ProcessTimeTokens(string[] toks) {
         WhiteTime = BlackTime = MoveTime = WhiteIncrement = BlackIncrement = MovesToGo = 0;

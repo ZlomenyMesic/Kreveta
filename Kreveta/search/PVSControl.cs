@@ -6,6 +6,7 @@
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
+
 using System.Diagnostics;
 
 #nullable enable
@@ -18,15 +19,15 @@ namespace Kreveta.search {
         // maximum search depth allowed
         private static int MaxDepth;
 
-        internal static Stopwatch sw = new();
+        internal static Stopwatch sw = null!;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private static long _curElapsed  = 0L;
+        private static long CurElapsed  = 0L;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private static long _prevElapsed = 0L;
+        private static long PrevElapsed = 0L;
 
-        private static long TotalNodes;
+        private static ulong TotalNodes;
 
         //private static Thread? thread;
 
@@ -42,7 +43,7 @@ namespace Kreveta.search {
         // previoud iterations are stored in the tt, killers, and history, which
         // makes new iterations not take too much time.
         private static void IterativeDeepeningLoop() {
-            _prevElapsed = 0L;
+            PrevElapsed = 0L;
 
             sw = Stopwatch.StartNew();
 
@@ -59,12 +60,12 @@ namespace Kreveta.search {
                 // didn't abort (yet?)
                 if (!PVSearch.Abort) {
 
-                    _curElapsed = sw.ElapsedMilliseconds - _prevElapsed;
+                    CurElapsed = sw.ElapsedMilliseconds - PrevElapsed;
 
                     // print the results to the console and save the first pv node
                     GetResult();
 
-                    _prevElapsed = sw.ElapsedMilliseconds;
+                    PrevElapsed = sw.ElapsedMilliseconds;
 
                 } else break;
             }
@@ -73,13 +74,13 @@ namespace Kreveta.search {
             UCI.Log($"info string total nodes {TotalNodes}", UCI.LogLevel.INFO);
 
             // the final response of the engine to the gui
-            UCI.Log($"bestmove {BestMove}");
+            UCI.Log($"bestmove {BestMove}\n");
 
             // reset all counters for the next search
             // NEXT SEARCH, not the next iteration of the current one
             sw.Stop();
             PVSearch.Reset();
-            TotalNodes = 0;
+            TotalNodes = 0UL;
         }
 
         private static void GetResult() {
@@ -119,7 +120,7 @@ namespace Kreveta.search {
             // engine's strength or efficiency. we need to maximize nps.
             // if the time is too low (less than a millisecond), we simply
             // divide as if it took us 1 millisecond.
-            long nodesDivisor = _curElapsed != 0 ? _curElapsed : 1;
+            long nodesDivisor = CurElapsed != 0 ? CurElapsed : 1;
             int nps = (int)((float)PVSearch.CurNodes / nodesDivisor * 1000);
 
             // we print the search info to the console
@@ -175,7 +176,7 @@ namespace Kreveta.search {
                     board.PlayMove(move);
 
                 // try going deeper through the transposition table
-                while (pvList.Count < depth && TT.GetBestMove(board, out Move next)) {
+                while (pvList.Count < depth && TT.TryGetBestMove(board, out Move next)) {
                     board.PlayMove(next);
                     pvList.Add(next);
                 }

@@ -17,7 +17,7 @@ internal static class Razoring {
     private const int MarginBase = 165;
 
     internal static bool TryReduce([NotNull, In, ReadOnly(true)]in Board board, int depth, Color col, Window window) {
-        short qEval = PVSearch.QSearch(board, QSPly, col == Color.WHITE 
+        short qEval = QSearch.Search(board, QSPly, col == Color.WHITE 
             ? new(window.Alpha, (short)(window.Alpha + 1)) 
             : new((short)(window.Beta - 1), window.Beta));
 

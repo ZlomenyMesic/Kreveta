@@ -4,7 +4,6 @@
 //
 
 using BenchmarkDotNet.Attributes;
-using Kreveta.movegen;
 
 namespace Kreveta;
 

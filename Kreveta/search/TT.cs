@@ -5,6 +5,7 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
+
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -26,19 +27,19 @@ internal static class TT {
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {
         // 8 bytes
-        [field: FieldOffset(0)]  
+        [field: FieldOffset(0)]
         internal ulong Hash;
 
         // 2 bytes
-        [field: FieldOffset(sizeof(ulong))]  
+        [field: FieldOffset(sizeof(ulong))]
         internal short Score;
 
         // 1 byte
-        [field: FieldOffset(sizeof(ulong) + sizeof(short))] 
+        [field: FieldOffset(sizeof(ulong) + sizeof(short))]
         internal sbyte Depth;
 
         // 1 byte
-        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte))] 
+        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte))]
         internal ScoreType Type;
 
         // 4 bytes
@@ -53,7 +54,7 @@ internal static class TT {
     private static int TableSize = GetTableSize();
 
     // how many items are currently stored
-    private static volatile int Stored = 0;
+    private static volatile int Stored;
 
     private static volatile Entry[] Table = new Entry[TableSize];
 
@@ -153,14 +154,14 @@ internal static class TT {
         }
 
         // if we aren't overwriting an existing entry, increase the counter
-        if (existing.Hash == default) 
+        if (existing.Hash == default)
             Stored++;
 
         // store the new entry or overwrite the old one if allowed
         Table[i] = entry;
     }
 
-    internal static bool GetBestMove([NotNull, In, ReadOnly(true)] in Board board, out Move bestMove) {
+    internal static bool TryGetBestMove([NotNull, In, ReadOnly(true)] in Board board, out Move bestMove) {
         ulong hash = Zobrist.GetHash(board);
         bestMove = default;
 
@@ -175,7 +176,7 @@ internal static class TT {
         return bestMove != default;
     }
 
-    internal static bool GetScore([NotNull, In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {
+    internal static bool TryGetScore([NotNull, In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {
         ulong hash = Zobrist.GetHash(board);
         score = 0;
 
@@ -202,8 +203,8 @@ internal static class TT {
 
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        return entry.Type == ScoreType.EXACT 
-           || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha) 
+        return entry.Type == ScoreType.EXACT
+           || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha)
            || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta);
-    }    
+    }
 }

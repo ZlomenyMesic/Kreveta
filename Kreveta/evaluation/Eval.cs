@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen.pieces;
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -68,8 +69,8 @@ internal static class Eval {
         for (int i = 0; i < 6; i++) {
 
             // copy the respective piece bitboards for both colors
-            ulong wCopy = board.Pieces[(byte)Color.WHITE, i];
-            ulong bCopy = board.Pieces[(byte)Color.BLACK, i];
+            ulong wCopy = board.Pieces[(byte)Color.WHITE][i];
+            ulong bCopy = board.Pieces[(byte)Color.BLACK][i];
 
             // here for each color we add the table value of the piece. the tables
             // are in EvalTables.cs, and they give both material and position values.
@@ -94,8 +95,8 @@ internal static class Eval {
         // 2. penalties for isolated pawns (no friendly pawns on adjacent files)
         // 3. bonuses for connected pawns in the other half of the board
         // 4. penalties for pawns blocked by friendly pieces
-        eval += PawnStructureEval(board, board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN], Color.WHITE);
-        eval -= PawnStructureEval(board, board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN], Color.BLACK);
+        eval += PawnStructureEval(board, board.Pieces[(byte)Color.WHITE][(byte)PType.PAWN], Color.WHITE);
+        eval -= PawnStructureEval(board, board.Pieces[(byte)Color.BLACK][(byte)PType.PAWN], Color.BLACK);
 
         // knight eval:
         //
@@ -218,8 +219,8 @@ internal static class Eval {
 
         // knights are less valuable if there are fewer pawns on the board.
         // number of white knights and black knights on the board:
-        int wKnights = BB.Popcount(board.Pieces[0, 1]);
-        int bKnights = BB.Popcount(board.Pieces[1, 1]);
+        int wKnights = BB.Popcount(board.Pieces[(byte)Color.WHITE][(byte)PType.KNIGHT]);
+        int bKnights = BB.Popcount(board.Pieces[(byte)Color.BLACK][(byte)PType.KNIGHT]);
 
         // subtract some eval for white if it has knights
         eval -= (short)(wKnights * (pawnCount / 2));
@@ -243,10 +244,10 @@ internal static class Eval {
         // slows down the eval quite a lot, that's why it isn't implemented
 
         // does white have two (or more) bishops?
-        eval += (short)(BB.Popcount(board.Pieces[0, 2]) > 1 ? BishopPairBonus : 0);
+        eval += (short)(BB.Popcount(board.Pieces[(byte)Color.WHITE][(byte)PType.BISHOP]) > 1 ? BishopPairBonus : 0);
 
         // does black have two (or more) bishops?
-        eval -= (short)(BB.Popcount(board.Pieces[1, 2]) > 1 ? BishopPairBonus : 0);
+        eval -= (short)(BB.Popcount(board.Pieces[(byte)Color.BLACK][(byte)PType.BISHOP]) > 1 ? BishopPairBonus : 0);
 
         return eval;
     }
@@ -259,8 +260,8 @@ internal static class Eval {
         // fewer pieces on the board. this should motivate the engine into
         // protecting and keeping its rooks as it goes into the endgame.
         // number of white rooks and black rooks on the board:
-        int wRooksCount = BB.Popcount(board.Pieces[0, 3]);
-        int bRooksCount = BB.Popcount(board.Pieces[1, 3]);
+        int wRooksCount = BB.Popcount(board.Pieces[(byte)Color.WHITE][(byte)PType.ROOK]);
+        int bRooksCount = BB.Popcount(board.Pieces[(byte)Color.BLACK][(byte)PType.ROOK]);
 
         // add some eval for white if it has rooks
         eval += (short)(wRooksCount * (32 - pieceCount) / 2);
@@ -269,13 +270,13 @@ internal static class Eval {
         eval -= (short)(bRooksCount * (32 - pieceCount) / 2);
 
         // all pawns
-        ulong wPawns = board.Pieces[(byte)Color.WHITE, (byte)PType.PAWN];
-        ulong bPawns = board.Pieces[(byte)Color.BLACK, (byte)PType.PAWN];
+        ulong wPawns = board.Pieces[(byte)Color.WHITE][(byte)PType.PAWN];
+        ulong bPawns = board.Pieces[(byte)Color.BLACK][(byte)PType.PAWN];
 
         // here we try to add bonuses for rooks on open files. a file
         // is open if there aren't any pawns on it, regardless of color.
         // other minor and major pieces are not taken into account
-        ulong wCopy = board.Pieces[(byte)Color.WHITE, (byte)PType.ROOK];
+        ulong wCopy = board.Pieces[(byte)Color.WHITE][(byte)PType.ROOK];
         while (wCopy != 0) {
             int sq = BB.LS1BReset(ref wCopy);
 
@@ -301,7 +302,7 @@ internal static class Eval {
         // code isn't clean code and certainly not good coding practice, in this
         // case a loop or a separate function would slow everything down and time
         // is very precious and expensive
-        ulong bCopy = board.Pieces[(byte)Color.BLACK, (byte)PType.ROOK];
+        ulong bCopy = board.Pieces[(byte)Color.BLACK][(byte)PType.ROOK];
         while (bCopy != 0) {
             int sq = BB.LS1BReset(ref bCopy);
             int pawnCount = BB.Popcount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
@@ -343,8 +344,8 @@ internal static class Eval {
         int eval = 0;
 
         // same color pieces around the king - protection
-        ulong wProtection = King.GetKingTargets(board.Pieces[(byte)Color.WHITE, (byte)PType.KING], board.WOccupied);
-        ulong bProtection = King.GetKingTargets(board.Pieces[(byte)Color.BLACK, (byte)PType.KING], board.BOccupied);
+        ulong wProtection = King.GetKingTargets(board.Pieces[(byte)Color.WHITE][(byte)PType.KING], board.WOccupied);
+        ulong bProtection = King.GetKingTargets(board.Pieces[(byte)Color.BLACK][(byte)PType.KING], board.BOccupied);
 
         // bonus for the number of friendly pieces protecting the king
         short wProtBonus = (short)(BB.Popcount(wProtection) * 2);

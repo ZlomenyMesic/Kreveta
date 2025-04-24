@@ -18,7 +18,7 @@ internal static class Zobrist {
     //
 
     [ReadOnly(true)]
-    private static readonly ulong[,] Pieces     = new ulong[64, 12];
+    private static readonly ulong[][] Pieces     = new ulong[64][];
 
     // TODO - MAKE THIS SMALLER
     [ReadOnly(true)]
@@ -41,8 +41,10 @@ internal static class Zobrist {
         Random rand = new(Seed);
 
         for (int sq = 0; sq < 64; sq++) {
+            Pieces[sq] = new ulong[12];
+
             for (int p = 0; p < 12; p++) {
-                Pieces[sq, p] = RandUInt64(rand);
+                Pieces[sq][p] = RandUInt64(rand);
             }
         }
 
@@ -68,8 +70,8 @@ internal static class Zobrist {
 
         for (int i = 0; i < 6; i++) {
 
-            ulong wCopy = board.Pieces[(byte)Color.WHITE, i];
-            ulong bCopy = board.Pieces[(byte)Color.BLACK, i];
+            ulong wCopy = board.Pieces[(byte)Color.WHITE][i];
+            ulong bCopy = board.Pieces[(byte)Color.BLACK][i];
 
             while (wCopy != 0) {
                 int sq = BB.LS1BReset(ref wCopy);
@@ -88,7 +90,7 @@ internal static class Zobrist {
     internal static ulong GetPawnHash([NotNull, In, ReadOnly(true)] in Board board, Color col) {
         ulong hash = 0;
 
-        ulong copy = board.Pieces[(byte)col, (byte)PType.PAWN];
+        ulong copy = board.Pieces[(byte)col][(byte)PType.PAWN];
 
         while (copy != 0) {
             int sq = BB.LS1BReset(ref copy);
@@ -103,7 +105,7 @@ internal static class Zobrist {
             return 0;
 
         int index = (byte)piece + (col == Color.WHITE ? 6 : 0);
-        return Pieces[square, index];
+        return Pieces[square][index];
     }
 
     private static ulong RandUInt64([NotNull, In, ReadOnly(true)] in Random rand) {
@@ -111,7 +113,17 @@ internal static class Zobrist {
             sizeof(ulong) / sizeof(byte)
         ];
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
+// Do not use insecure randomness
+#pragma warning disable CA5394
+
         rand.NextBytes(bytes);
+
+#pragma warning restore CA5394
+#pragma warning restore IDE0079
+
         return BitConverter.ToUInt64(bytes, 0);
     }
 }

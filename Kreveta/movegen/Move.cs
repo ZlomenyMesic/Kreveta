@@ -3,6 +3,9 @@
 // started 4-3-2025
 //
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -31,7 +34,7 @@ internal readonly struct Move {
 
     */
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    [FieldOffset(0)] 
+    [field: FieldOffset(0)] 
     private readonly int _flags = 0;
 
     private const int EndOffset   = 6;
@@ -87,8 +90,8 @@ internal readonly struct Move {
 
         // checks if the move from the user input makes sense (doesn't check legality)
         // caution: don't try to understand this mess
-        return str.Length >= 4 && Consts.Files.Contains(str[0]) && char.IsDigit(str[1]) && Consts.Files.Contains(str[2]) && char.IsDigit(str[3])
-            && (str.Length == 4 || (str.Length == 5 && Consts.Pieces.Contains(str[4])));
+        return str.Length >= 4 && Consts.Files.Contains(str[0], StringComparison.Ordinal) && char.IsDigit(str[1]) && Consts.Files.Contains(str[2], StringComparison.Ordinal) && char.IsDigit(str[3])
+            && (str.Length == 4 || (str.Length == 5 && Consts.Pieces.Contains(str[4], StringComparison.Ordinal)));
     }
 
     // converts a move back to a string, see the method below for more information
@@ -97,10 +100,16 @@ internal readonly struct Move {
         int   start = Start;
         int   end   = End;
         PType prom  = Promotion;
-        
+
         // convert starting and ending squares to standard format, e.g. "e4"
+
+        // Specify IFormatProvider
+#pragma warning disable CA1305
+
         string str_start = Consts.Files[start % 8] + (8 - start / 8).ToString();
         string str_end   = Consts.Files[end   % 8] + (8 - end   / 8).ToString();
+
+#pragma warning restore CA1305 
 
         // if no promotion => empty string
         string promotion = (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE) 
@@ -117,8 +126,8 @@ internal readonly struct Move {
         // and the destination (e.g. "e2e4"), or an additional character for the promotion (e.g. "e7e8q").
 
         // indices of starting and ending squares
-        int start = ((8 - (str[1] - '0')) * 8) + Consts.Files.IndexOf(str[0]);
-        int end   = ((8 - (str[3] - '0')) * 8) + Consts.Files.IndexOf(str[2]);
+        int start = ((8 - (str[1] - '0')) * 8) + Consts.Files.IndexOf(str[0], StringComparison.Ordinal);
+        int end   = ((8 - (str[3] - '0')) * 8) + Consts.Files.IndexOf(str[2], StringComparison.Ordinal);
 
         // find the piece types
         (_, PType piece) = board.PieceAt(start);
@@ -126,7 +135,7 @@ internal readonly struct Move {
 
         // potential promotion?
         PType prom = str.Length == 5 
-            ? (PType)Consts.Pieces.IndexOf(str[4]) 
+            ? (PType)Consts.Pieces.IndexOf(str[4], StringComparison.Ordinal) 
             : PType.NONE;
 
         // overriding promotion:
@@ -141,3 +150,5 @@ internal readonly struct Move {
         return new Move(start, end, piece, capt, prom);
     }
 }
+
+#pragma warning restore IDE0079

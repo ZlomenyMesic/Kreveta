@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;

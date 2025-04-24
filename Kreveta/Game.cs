@@ -3,9 +3,16 @@
 // started 4-3-2025
 //
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
+// Specify CultureInfo
+#pragma warning disable CA1304
+
 using Kreveta.movegen;
 using Kreveta.openingbook;
 using Kreveta.search;
+
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
@@ -18,13 +25,13 @@ internal static class Game {
     internal static Board board = new();
 
     // the side the engine plays on
-    internal static Color color = 0;
+    internal static Color color;
 
     // if the engine receives the "ucinewgame" command, we know
     // we will be playing a whole game rather than just analyzing
     // a single position. this allows us to implement some stuff,
     // such as keeping the tt from the previous turn
-    internal static bool FullGame = false;
+    internal static bool FullGame;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
     internal static List<ulong>    HistoryPositions = [];
@@ -33,7 +40,7 @@ internal static class Game {
     internal static void SetPosFEN([NotNull, In, ReadOnly(true)] in string[] toks) {
 
         // clear the board from previous game/search
-        board.Clear();
+        board = new();
 
         // erase the draw counters
         HistoryPositions = [];
@@ -53,7 +60,7 @@ internal static class Game {
             }
 
             // wrong letter or character?
-            if (!Consts.Pieces.Contains(char.ToLower(c))) {
+            if (!Consts.Pieces.Contains(char.ToLower(c), StringComparison.Ordinal)) {
 
                 // this character is used to indicate another
                 // rank. we don't need this information, though
@@ -73,10 +80,10 @@ internal static class Game {
                 : Color.BLACK;
 
             // piece type (0-5)
-            int piece = Consts.Pieces.IndexOf(char.ToLower(c));
+            int piece = Consts.Pieces.IndexOf(char.ToLower(c), StringComparison.Ordinal);
 
             // add the piece to the board
-            board.Pieces[(byte)col, piece] |= Consts.SqMask[sq];
+            board.Pieces[(byte)col][piece] |= Consts.SqMask[sq];
 
             if (col == Color.WHITE) board.WOccupied |= Consts.SqMask[sq];
             else board.BOccupied |= Consts.SqMask[sq];
@@ -232,3 +239,6 @@ internal static class Game {
 
     }
 }
+
+#pragma warning restore CA1304
+#pragma warning restore IDE0079

@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen.pieces;
+
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
@@ -50,13 +51,13 @@ internal static class Movegen {
 
         // loop through every piece type and add start the respective move search loop
         for (int i = 0; i < 6; i++) {
-            LoopPiecesBB(board, board.Pieces[(byte)col, i], (PType)i, col, occupiedOpp, occupied, empty, free, moves);
+            LoopPiecesBB(board, board.Pieces[(byte)col][i], (PType)i, col, occupiedOpp, occupied, empty, free, moves);
         }
 
         // castling when in check is illegal
         if (!IsKingInCheck(board, col)) {
             ulong cast = King.GetCastlingTargets(board, col);
-            LoopTargets(board, BB.LS1B(board.Pieces[(byte)col, (byte)PType.KING]), cast, PType.NONE, col, moves);
+            LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col, moves);
         }
     }
 
@@ -71,7 +72,7 @@ internal static class Movegen {
         // loop through every piece (same as above)
         // we only generate captures, though
         for (int i = 0; i < 6; i++) {
-            LoopPiecesBB(board, board.Pieces[(byte)col, i], (PType)i, col, occupiedOpp, occupied, occupiedOpp, occupiedOpp, moves, true);
+            LoopPiecesBB(board, board.Pieces[(byte)col][i], (PType)i, col, occupiedOpp, occupied, occupiedOpp, occupiedOpp, moves, true);
         }
 
         // no need to generate castling moves - they can never be a capture
@@ -79,7 +80,7 @@ internal static class Movegen {
 
     internal static bool IsKingInCheck([NotNull, In, ReadOnly(true)] in Board board, Color col) {
 
-        ulong kingSq = board.Pieces[(byte)col, (byte)PType.KING];
+        ulong kingSq = board.Pieces[(byte)col][(byte)PType.KING];
 
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
@@ -92,26 +93,26 @@ internal static class Movegen {
             : board.BOccupied;
 
         ulong targets = Pawn.GetPawnCaptureTargets(kingSq, 0, col, occupiedOpp);
-        if ((targets & board.Pieces[(byte)colOpp, (byte)PType.PAWN]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.PAWN]) != 0) 
             return true;
 
         targets = Knight.GetKnightTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[(byte)colOpp, (byte)PType.KNIGHT]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KNIGHT]) != 0) 
             return true;
 
         targets = Bishop.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
-        if ((targets & board.Pieces[(byte)colOpp, (byte)PType.BISHOP]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.BISHOP]) != 0) 
             return true;
 
         ulong rookTargets = Rook.GetRookTargets(kingSq, ulong.MaxValue, occupied);
-        if ((rookTargets & board.Pieces[(byte)colOpp, (byte)PType.ROOK]) != 0) 
+        if ((rookTargets & board.Pieces[(byte)colOpp][(byte)PType.ROOK]) != 0) 
             return true;
 
-        if (((targets | rookTargets) & board.Pieces[(byte)colOpp, (byte)PType.QUEEN]) != 0) 
+        if (((targets | rookTargets) & board.Pieces[(byte)colOpp][(byte)PType.QUEEN]) != 0) 
             return true;
 
         targets = King.GetKingTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[(byte)colOpp, (byte)PType.KING]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KING]) != 0) 
             return true;
 
         return false;
@@ -172,7 +173,7 @@ internal static class Movegen {
 
             if (type != PType.NONE) {
                 for (int i = 0; i < 5; i++) {
-                    if ((board.Pieces[(byte)colOpp, i] & Consts.SqMask[end]) != 0) {
+                    if ((board.Pieces[(byte)colOpp][i] & Consts.SqMask[end]) != 0) {
                         capt = (PType)i;
                         break;
                     }
