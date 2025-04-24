@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+using Kreveta.search.perft;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
@@ -11,13 +12,17 @@ using System.Runtime.InteropServices;
 namespace Kreveta.search;
 
 internal static class Perft {
-    internal static long Run([NotNull, In, ReadOnly(true)] in Board board, int depth) {
+    internal static ulong Run([NotNull, In, ReadOnly(true)] in Board board, int depth) {
 
         if (depth == 1) {
-            return Movegen.GetLegalMoves(board).Count();
+            return (ulong)Movegen.GetLegalMoves(board).Count();
         }
 
-        long nodes = 0;
+        if (PerftTT.TryGetNodes(board, depth, out ulong nodes)) {
+            return nodes;
+        }
+
+        nodes = 0UL;
 
         List<Move> moves = [];
         Movegen.GetPseudoLegalMoves(board, board.color, moves);
@@ -33,6 +38,8 @@ internal static class Perft {
 
             nodes += Run(child, depth - 1);
         }
+
+        PerftTT.Store(board, depth, nodes);
 
         return nodes;
     }

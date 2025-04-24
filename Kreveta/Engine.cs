@@ -4,6 +4,7 @@
 //
 
 using Kreveta.search.moveorder;
+
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 

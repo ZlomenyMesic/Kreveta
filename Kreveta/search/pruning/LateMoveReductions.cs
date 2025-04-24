@@ -6,6 +6,7 @@
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.moveorder;
+
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;

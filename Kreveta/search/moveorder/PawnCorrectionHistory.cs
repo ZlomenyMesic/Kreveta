@@ -4,6 +4,7 @@
 //
 
 using Kreveta.evaluation;
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -35,7 +36,14 @@ internal static class PawnCorrectionHistory {
 
     // the table itself
     [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly short[,] CorrectionTable = new short[2, CorrTableSize];
+    private static readonly short[][] CorrectionTable = new short[2][];
+
+    static PawnCorrectionHistory() => InitArrays();
+
+    private static void InitArrays() {
+        CorrectionTable[(byte)Color.WHITE] = new short[CorrTableSize];
+        CorrectionTable[(byte)Color.BLACK] = new short[CorrTableSize];
+    }
 
     // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -70,23 +78,23 @@ internal static class PawnCorrectionHistory {
         // first we add or subtract the shift depending
         // on the color and the whether the search score
         // was higher or lower than the static eval
-        CorrectionTable[(byte)Color.WHITE, wIndex] += (short)(score > staticEval ? shift : -shift);
-        CorrectionTable[(byte)Color.BLACK, bIndex] += (short)(score > staticEval ? -shift : shift);
+        CorrectionTable[(byte)Color.WHITE][wIndex] += (short)(score > staticEval ? shift : -shift);
+        CorrectionTable[(byte)Color.BLACK][bIndex] += (short)(score > staticEval ? -shift : shift);
 
         // only after we added the shift we check whether
         // the new stored value is outside the bounds. we
         // limit this using min and max functions
-        CorrectionTable[(byte)Color.WHITE, wIndex] 
+        CorrectionTable[(byte)Color.WHITE][wIndex] 
             = Math.Min(MaxCorrection,
-                Math.Max(CorrectionTable[(byte)Color.WHITE, wIndex],
+                Math.Max(CorrectionTable[(byte)Color.WHITE][wIndex],
                     (short)-MaxCorrection
                 )
               );
 
         // and for black the same
-        CorrectionTable[(byte)Color.BLACK, bIndex] 
+        CorrectionTable[(byte)Color.BLACK][bIndex] 
             = Math.Min(MaxCorrection,
-                Math.Max(CorrectionTable[(byte)Color.BLACK, bIndex],
+                Math.Max(CorrectionTable[(byte)Color.BLACK][bIndex],
                     (short)-MaxCorrection
                 )
               );
@@ -94,6 +102,8 @@ internal static class PawnCorrectionHistory {
 
     // try to retrieve a correction of the static eval of a position
     internal static int GetCorrection([NotNull, In, ReadOnly(true)] in Board board) {
+
+        if (CorrectionTable[0] == null) InitArrays();
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides
@@ -105,7 +115,7 @@ internal static class PawnCorrectionHistory {
 
         // the resulting correction is the white correction
         // minus the black correction (each color has its own)
-        return (CorrectionTable[(byte)Color.WHITE, wIndex] + CorrectionTable[(byte)Color.BLACK, bIndex]) / CorrScale;
+        return (CorrectionTable[(byte)Color.WHITE][wIndex] + CorrectionTable[(byte)Color.BLACK][bIndex]) / CorrScale;
     }
 
     // values used when calculating shifts

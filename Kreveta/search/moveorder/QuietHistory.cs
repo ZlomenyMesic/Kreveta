@@ -4,6 +4,7 @@
 //
 
 using Kreveta.movegen;
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -26,7 +27,7 @@ internal static class QuietHistory {
 
     // this array stores history values of quiet moves - no captures
     [ReadOnly(true)]
-    private static readonly int[,] QuietScores = new int[64, 12];
+    private static readonly int[][] QuietScores;
 
 
 
@@ -48,24 +49,40 @@ internal static class QuietHistory {
     // that, the engine performs better when i do the exact opposite,
     // so the history value is multiplied by the common log of bf score
     [ReadOnly(true)]
-    private static readonly int[,] ButterflyScores = new int[64, 12];
+    private static readonly int[][] ButterflyScores;
 
     [ReadOnly(true)]
     private const int RelHHScale = 12;
+
+    static QuietHistory() {
+        QuietScores = new int[64][];
+        ButterflyScores = new int[64][];
+
+        InitArrays();
+    }
+
+    private static void InitArrays() {
+        for (int i = 0; i < 64; i++) {
+            QuietScores[i] = new int[12];
+            ButterflyScores[i] = new int[12];
+        }
+    }
 
     // before each new iterated depth, we "shrink" the stored values.
     // they are still quite relevant, but the new values coming are
     // more important, so we want them to have a stronger effect
     internal static void Shrink() {
+        if (QuietScores[0] == null) InitArrays();
+
         for (int i = 0; i < 64; i++) {
             for (int j = 0; j < 12; j++) {
 
                 // history reputation is straightforward
-                QuietScores[i, j] /= 2;
+                QuietScores[i][j] /= 2;
 
                 // this for an unexplainable reason works
                 // out to be the best option available
-                ButterflyScores[i, j] = Math.Min(1, ButterflyScores[i, j]);
+                ButterflyScores[i][j] = Math.Min(1, ButterflyScores[i][j]);
             }
         }
     }
@@ -81,10 +98,10 @@ internal static class QuietHistory {
         int i = PieceIndex(board, move);
         int end = move.End;
 
-        QuietScores[end, i] += Shift(depth);
+        QuietScores[end][i] += Shift(depth);
 
         // add the move as visited, too
-        ButterflyScores[end, i]++;
+        ButterflyScores[end][i]++;
     }
 
     // decreases the history rep of a quiet move
@@ -92,10 +109,10 @@ internal static class QuietHistory {
         int i = PieceIndex(board, move);
         int end = move.End;
 
-        QuietScores[end, i] -= Shift(depth);
+        QuietScores[end][i] -= Shift(depth);
 
         // also the same, add the move as visited
-        ButterflyScores[end, i]++;
+        ButterflyScores[end][i]++;
     }
 
     // calculate the reputation of a move
@@ -104,8 +121,8 @@ internal static class QuietHistory {
         int end = move.End;
 
         // quiet score and butterfly score
-        int q  = QuietScores[end, i];
-        int bf = ButterflyScores[end, i];
+        int q  = QuietScores[end][i];
+        int bf = ButterflyScores[end][i];
 
         if (bf == 0) return 0;
 
@@ -134,7 +151,7 @@ internal static class QuietHistory {
     private static int PieceIndex([NotNull] in Board board, [NotNull] Move move) {
 
         PType piece = move.Piece;
-        Color col = (board.Pieces[(byte)Color.WHITE, (byte)piece] ^ Consts.SqMask[move.Start]) == 0
+        Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ Consts.SqMask[move.Start]) == 0
             ? Color.BLACK
             : Color.WHITE;
 

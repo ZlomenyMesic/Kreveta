@@ -4,7 +4,7 @@
 //
 
 using Kreveta.movegen;
-using Kreveta.search;
+
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
@@ -20,14 +20,14 @@ internal sealed class Board {
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
     [Required, DebuggerDisplay("indexed [color, piece_type]")]
-    internal ulong[,] Pieces = new ulong[2, 6];
+    internal ulong[][] Pieces = new ulong[2][];
 
     // these two bitboards simply represent all occupied
     // squares by a certain color. it turns out to be a little
     // faster than OR the bitboards above, although it takes
     // 16 additional bytes of memory.
-    internal ulong WOccupied = 0;
-    internal ulong BOccupied = 0;
+    internal ulong WOccupied;
+    internal ulong BOccupied;
 
     // all occupied squares
     [ReadOnly(true), DefaultValue(0UL)]
@@ -53,28 +53,8 @@ internal sealed class Board {
     //internal ulong Hash = 0;
 
     internal Board() {
-        Pieces[(byte)Color.BLACK, (byte)PType.PAWN]   = 0x000000000000FF00;
-        Pieces[(byte)Color.BLACK, (byte)PType.KNIGHT] = 0x0000000000000042;
-        Pieces[(byte)Color.BLACK, (byte)PType.BISHOP] = 0x0000000000000024;
-        Pieces[(byte)Color.BLACK, (byte)PType.ROOK]   = 0x0000000000000081;
-        Pieces[(byte)Color.BLACK, (byte)PType.QUEEN]  = 0x0000000000000008;
-        Pieces[(byte)Color.BLACK, (byte)PType.KING]   = 0x0000000000000010;
-
-        Pieces[(byte)Color.WHITE, (byte)PType.PAWN]   = 0x00FF000000000000;
-        Pieces[(byte)Color.WHITE, (byte)PType.KNIGHT] = 0x42FF000000000000;
-        Pieces[(byte)Color.WHITE, (byte)PType.BISHOP] = 0x2400000000000000;
-        Pieces[(byte)Color.WHITE, (byte)PType.ROOK]   = 0x81FF000000000000;
-        Pieces[(byte)Color.WHITE, (byte)PType.QUEEN]  = 0x0800000000000000;
-        Pieces[(byte)Color.WHITE, (byte)PType.KING]   = 0x1000000000000000;
-
-        WOccupied = 0xFFFF000000000000;
-        BOccupied = 0x000000000000FFFF;
-
-        enPassantSq = 64;
-        castRights  = CastlingRights.ALL;
-        color       = Color.WHITE;
-
-        //Hash = Zobrist.GetHash(this);
+        Pieces[(byte)Color.WHITE] = new ulong[6];
+        Pieces[(byte)Color.BLACK] = new ulong[6];
     }
 
     internal void Clear() {
@@ -102,11 +82,11 @@ internal sealed class Board {
         for (int i = 0; i < 6; i++) {
             
             // white
-            if ((Pieces[(byte)Color.WHITE, i] & sq) != 0)
+            if ((Pieces[(byte)Color.WHITE][i] & sq) != 0)
                 return (Color.WHITE, (PType)i);
 
             // black
-            if ((Pieces[(byte)Color.BLACK, i] & sq) != 0)
+            if ((Pieces[(byte)Color.BLACK][i] & sq) != 0)
                 return (Color.BLACK, (PType)i);
         }
 
@@ -153,8 +133,8 @@ internal sealed class Board {
                 : end >> 8;
 
             // xor the captured pawn and move our pawn
-            Pieces[(byte)colOpp, (byte)PType.PAWN] ^= captureSq;
-            Pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
+            Pieces[(byte)colOpp][(byte)PType.PAWN] ^= captureSq;
+            Pieces[(byte)col   ][(byte)PType.PAWN] ^= start | end;
 
             if (col == Color.WHITE) {
                 WOccupied ^= start | end;
@@ -179,10 +159,10 @@ internal sealed class Board {
             };
 
             // king
-            Pieces[(byte)col, (byte)PType.KING] ^= start | end;
+            Pieces[(byte)col][(byte)PType.KING] ^= start | end;
 
             // rook
-            Pieces[(byte)col, (byte)PType.ROOK] ^= rook;
+            Pieces[(byte)col][(byte)PType.ROOK] ^= rook;
 
             if (col == Color.WHITE) WOccupied ^= rook | start | end;
             else BOccupied ^= rook | start | end;
@@ -190,8 +170,8 @@ internal sealed class Board {
 
         // promotion
         else if (prom != PType.NONE) {
-            Pieces[(byte)col, (byte)piece] ^= start;
-            Pieces[(byte)col, (byte)prom]  ^= end;
+            Pieces[(byte)col][(byte)piece] ^= start;
+            Pieces[(byte)col][(byte)prom]  ^= end;
 
             if (col == Color.WHITE) WOccupied ^= start | end;
             else                    BOccupied ^= start | end;
@@ -200,7 +180,7 @@ internal sealed class Board {
         // regular move
         else {
             //Console.WriteLine($"{col} {piece} {prom}");
-            Pieces[(byte)col, (byte)piece] ^= start | end;
+            Pieces[(byte)col][(byte)piece] ^= start | end;
 
             // if we double pushed a pawn, set the en passant square
             if (piece == PType.PAWN && (col == Color.WHITE 
@@ -219,7 +199,7 @@ internal sealed class Board {
 
         // capture
         if (capt != PType.NONE) {
-            Pieces[(byte)colOpp, (byte)capt] ^= end;
+            Pieces[(byte)colOpp][(byte)capt] ^= end;
 
             if (col == Color.WHITE) BOccupied ^= end;
             else                    WOccupied ^= end;
@@ -279,22 +259,22 @@ internal sealed class Board {
                 ? end << 8
                 : end >> 8;
 
-            Pieces[(byte)colOpp, (byte)PType.PAWN] ^= captureSq;
-            Pieces[(byte)col,    (byte)PType.PAWN] ^= start | end;
+            Pieces[(byte)colOpp][(byte)PType.PAWN] ^= captureSq;
+            Pieces[(byte)col   ][(byte)PType.PAWN] ^= start | end;
         }
 
         // promotion
         else if (prom != PType.KING && prom != PType.NONE) {
-            Pieces[(byte)col, (byte)piece] ^= start;
-            Pieces[(byte)col, (byte)prom]  ^= end;
+            Pieces[(byte)col][(byte)piece] ^= start;
+            Pieces[(byte)col][(byte)prom]  ^= end;
         }
 
         // regular move
-        else Pieces[(byte)col, (byte)piece] ^= start | end;
+        else Pieces[(byte)col][(byte)piece] ^= start | end;
 
         // capture
         if (capt != PType.NONE) {
-            Pieces[(byte)colOpp, (byte)capt] ^= end;
+            Pieces[(byte)colOpp][(byte)capt] ^= end;
 
             // this might cause some trouble, but perft results
             // are okay even after removing these two lines of code.
@@ -334,7 +314,6 @@ internal sealed class Board {
     }
 
     internal Board Clone() {
-        const int PiecesArrSize = 2 * 6 * sizeof(ulong);
 
         Board @new = new() {
             WOccupied   = WOccupied,
@@ -347,9 +326,8 @@ internal sealed class Board {
             //Hash        = Hash
         };
 
-        // according to a StackOverflow post, this should be the best way
-        // to copy a 2D array in terms of performace, and it seems to be true
-        Buffer.BlockCopy(Pieces, 0, @new.Pieces, 0, PiecesArrSize);
+        Array.Copy(Pieces[(byte)Color.WHITE], @new.Pieces[(byte)Color.WHITE], 6);
+        Array.Copy(Pieces[(byte)Color.BLACK], @new.Pieces[(byte)Color.BLACK], 6);
 
         return @new;
     }
@@ -360,14 +338,25 @@ internal sealed class Board {
 
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 6; j++) {
-                ulong copy = Pieces[i, j];
+                ulong copy = Pieces[i][j];
 
                 while (true) {
                     int index = BB.LS1BReset(ref copy);
                     if (index == -1) break;
 
                     chars[index] = Consts.Pieces[j];
+
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
+// Specify CultureInfo
+#pragma warning disable CA1304
+
                     if (i == 0) chars[index] = char.ToUpper(chars[index]);
+
+#pragma warning restore CA1304
+#pragma warning restore IDE0079
+
                 }
             }
         }

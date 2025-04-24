@@ -3,6 +3,9 @@
 // started 4-3-2025
 //
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
 using System.ComponentModel;
 using System.Diagnostics;
 
@@ -10,9 +13,15 @@ namespace Kreveta.openingbook;
 
 internal static class OpeningBook {
 
-    internal static string BookMove = "";
+    internal static string BookMove = string.Empty;
+
+// Initialize reference type static fields inline
+#pragma warning disable CA1810
 
     static OpeningBook() {
+
+#pragma warning restore CA1810
+
         BookSplit = new string[Book.Length][];
 
         for (int i = 0; i < Book.Length; i++) {
@@ -37,8 +46,15 @@ internal static class OpeningBook {
             foreach (string[] opening in BookSplit)
                 possible.Add(opening[0]);
 
+
+// Do not use insecure randomness
+#pragma warning disable CA5394
+
             // choose a random first move from the book
             BookMove = possible[new Random().Next(0, possible.Count)];
+
+#pragma warning restore CA5394
+
             return;
         }
 
@@ -69,7 +85,14 @@ internal static class OpeningBook {
         // we have at least one book move
         if (possible.Count > 0) {
             BookMove = possible[
+
+// Do not use insecure randomness
+#pragma warning disable CA5394
+
                 new Random(Guid.NewGuid().GetHashCode()).Next(0, possible.Count)
+
+#pragma warning restore CA5394
+
             ];
         }
     }
@@ -202,3 +225,5 @@ internal static class OpeningBook {
         ////"a2a3",
     ];
 }
+
+#pragma warning restore IDE0079

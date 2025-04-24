@@ -3,12 +3,14 @@
 // started 4-3-2025
 //
 
-using BenchmarkDotNet.Running;
 using Kreveta.openingbook;
 using Kreveta.search;
+
+using BenchmarkDotNet.Running;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Kreveta.search.perft;
 
 namespace Kreveta;
 
@@ -32,10 +34,18 @@ internal static class UCI {
 
     internal static string NKLogFilePath = @".\out.log";
 
-    private static Thread? SearchThread = null;
-    internal static bool AbortSearch = false;
+    private static Thread? SearchThread = null!;
+    internal static bool AbortSearch;
+
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
+// Initialize reference type static fields inline
+#pragma warning disable CA1810
 
     static UCI() {
+
+#pragma warning restore CA1810
 
         // the default Console.ReadLine buffer is quite small and cannot
         // handle long move lines, thus we use a larger buffer size
@@ -47,9 +57,20 @@ internal static class UCI {
 
             NeoKolors.Console.NKDebug.Logger.Output         = NKOutput;
             NeoKolors.Console.NKDebug.Logger.SimpleMessages = true;
-        } catch {
-            Log("NKLogger initialization failed", LogLevel.ERROR);
         }
+
+// Do not catch general exception types
+#pragma warning disable CA1031
+
+        // we are catching a "general exception type", because we have
+        // zero idea which type of exception NeoKolors might throw.
+        catch (Exception e) {
+            Log($"NKLogger initialization failed: {e.Message}", LogLevel.ERROR);
+        }
+
+#pragma warning restore CA1031
+#pragma warning restore IDE0079
+
     }
 
     internal static void InputLoop() {
@@ -83,8 +104,6 @@ internal static class UCI {
                 default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); 
                          break;
             }
-
-            Console.WriteLine();
         }
     }
 
@@ -97,14 +116,14 @@ internal static class UCI {
 
         Options.Print();
 
-        Log(UCIOK);
+        Log($"{UCIOK}\n");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdIsReady() {
         const string ReadyOK = "readyok";
 
-        Log(ReadyOK);
+        Log($"{ReadyOK}\n");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -146,6 +165,8 @@ internal static class UCI {
 
             default:         Log($"invalid argument: {toks[1]}", LogLevel.ERROR);               return;
         }
+
+        Console.WriteLine();
     }
 
     private static void CmdPerft(string[] toks) {
@@ -153,14 +174,13 @@ internal static class UCI {
 
             Stopwatch sw = Stopwatch.StartNew();
 
-            int depth;
-
-            try {
-                depth = int.Parse(toks[1]);
-            } catch { goto invalid_syntax; }
+            if (!int.TryParse(toks[1], out int depth))
+                goto invalid_syntax;
 
             Log($"nodes: {Perft.Run(Game.board, depth)}", LogLevel.INFO);
             Log($"time spent: {sw.Elapsed}", LogLevel.INFO);
+
+            PerftTT.Clear();
 
             sw.Stop();
             return;
@@ -168,7 +188,6 @@ internal static class UCI {
 
         invalid_syntax:
         Log($"invalid perft command syntax", LogLevel.ERROR);
-        
     }
 
     private static void CmdGo(string[] toks) {
@@ -180,15 +199,15 @@ internal static class UCI {
 
         // the depth keyword should be directly followed by a parsable token
         if (depthIndex != -1) {
-            try {
-                depth = int.Parse(toks[depthIndex + 1]);
+            if (int.TryParse(toks[depthIndex + 1], out depth)) {
                 TimeMan.TimeBudget = long.MaxValue;
-            } catch { Log("invalid depth argument", LogLevel.ERROR); }
+            } 
+            else Log("invalid depth argument", LogLevel.ERROR);
         }
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
-        if (depthIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook && OpeningBook.BookMove != "") {
+        if (depthIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook && !string.IsNullOrEmpty(OpeningBook.BookMove)) {
             Log($"bestmove {OpeningBook.BookMove}");
             return;
         }
