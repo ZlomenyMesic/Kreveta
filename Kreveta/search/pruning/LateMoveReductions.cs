@@ -76,8 +76,8 @@ internal static class LateMoveReductions {
 
         // we failed low, we prune this branch. it is not good enough
         if (col == Color.WHITE
-            ? (score <= window.Alpha)
-            : (score >= window.Beta) 
+            ? score <= window.Alpha
+            : score >= window.Beta 
             && PruningOptions.AllowNullMovePruning)
 
             return (true, false);

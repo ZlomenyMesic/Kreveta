@@ -39,7 +39,7 @@ internal static class PawnCorrectionHistory {
 
     static PawnCorrectionHistory() => InitArrays();
 
-    internal static void InitArrays() {
+    private static void InitArrays() {
         CorrectionTable[(byte)Color.WHITE] = new short[CorrTableSize];
         CorrectionTable[(byte)Color.BLACK] = new short[CorrTableSize];
     }
@@ -104,8 +104,6 @@ internal static class PawnCorrectionHistory {
 
     // try to retrieve a correction of the static eval of a position
     internal static int GetCorrection([In, ReadOnly(true)] in Board board) {
-
-        //if (CorrectionTable[0] == null) InitArrays();
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides

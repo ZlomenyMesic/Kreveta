@@ -12,9 +12,8 @@ namespace Kreveta;
 
 internal static class BB {
 
-    [ReadOnly(true)]
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly int[] DeBruijnTable = [
+    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private static readonly sbyte[] DeBruijnTable = [
         0,  47, 1, 56,  48, 27, 2,  60,
         57, 49, 41, 37, 28, 16, 3,  61,
         54, 58, 35, 52, 50, 42, 21, 44,
@@ -32,22 +31,22 @@ internal static class BB {
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int LS1B(ulong bb) {
+    internal static sbyte LS1B(ulong bb) {
         if (bb == 0) return -1;
         return DeBruijnTable[((bb ^ (bb - 1)) * 0x03f79d71b4cb0a89) >> 58];
     }
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int LS1BReset(ref ulong bb) {
-        int index = LS1B(bb);
+    internal static sbyte LS1BReset(ref ulong bb) {
+        sbyte index = LS1B(bb);
         bb &= bb - 1;
         return index;
     }
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int Popcount(ulong bb) {
-        return (int)ulong.PopCount(bb);
+    internal static byte Popcount(ulong bb) {
+        return (byte)ulong.PopCount(bb);
     }
 }

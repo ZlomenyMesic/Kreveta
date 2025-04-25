@@ -22,19 +22,19 @@ internal static class QSearch {
     internal static int CurQSDepth;
 
     // same idea as ProbeTT, but used in qsearch
-    internal static short QProbeTT(Board board, int ply, Window window) {
-
-        int depth = QSDepth - ply - PVSearch.CurDepth;
-
-        // did we find the position and score?
-        if (ply >= PVSearch.CurDepth + 3 && TT.TryGetScore(board, depth, ply, window, out short ttScore))
-            return ttScore;
-
-        // if the position is not yet stored, we continue the qsearch and then store it
-        short score = Search(board, ply, window);
-        TT.Store(board, (sbyte)depth, ply, window, score, default);
-        return score;
-    }
+    // internal static short QProbeTT(Board board, int ply, Window window) {
+    //
+    //     int depth = QSDepth - ply - PVSearch.CurDepth;
+    //
+    //     // did we find the position and score?
+    //     if (ply >= PVSearch.CurDepth + 3 && TT.TryGetScore(board, depth, ply, window, out short ttScore))
+    //         return ttScore;
+    //
+    //     // if the position is not yet stored, we continue the qsearch and then store it
+    //     short score = Search(board, ply, window);
+    //     TT.Store(board, (sbyte)depth, ply, window, score, default);
+    //     return score;
+    // }
 
     // QUIESCENCE SEARCH:
     // instead of immediately returning the static eval of leaf nodes in the main

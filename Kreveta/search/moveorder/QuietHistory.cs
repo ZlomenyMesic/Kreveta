@@ -57,7 +57,7 @@ internal static class QuietHistory {
 
     static QuietHistory() => InitArrays();
 
-    internal static void InitArrays() {
+    private static void InitArrays() {
         for (int i = 0; i < 64; i++) {
             QuietScores[i] = new int[12];
             ButterflyScores[i] = new int[12];
@@ -68,8 +68,6 @@ internal static class QuietHistory {
     // they are still quite relevant, but the new values coming are
     // more important, so we want them to have a stronger effect
     internal static void Shrink() {
-        //if (QuietScores[0] == null) InitArrays();
-
         for (int i = 0; i < 64; i++) {
             for (int j = 0; j < 12; j++) {
 

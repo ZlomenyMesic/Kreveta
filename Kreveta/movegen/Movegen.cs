@@ -56,10 +56,11 @@ internal static class Movegen {
         }
 
         // castling when in check is illegal
-        if (!IsKingInCheck(board, col)) {
-            ulong cast = King.GetCastlingTargets(board, col);
-            LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col, moves);
-        }
+        if (IsKingInCheck(board, col)) 
+            return;
+        
+        ulong cast = King.GetCastlingTargets(board, col);
+        LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col, moves);
     }
 
     private static void GetPseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col, [In, ReadOnly(true)] in List<Move> moves) {
