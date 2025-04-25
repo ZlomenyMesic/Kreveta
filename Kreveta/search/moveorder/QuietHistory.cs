@@ -57,7 +57,7 @@ internal static class QuietHistory {
 
     static QuietHistory() => InitArrays();
 
-    private static void InitArrays() {
+    internal static void InitArrays() {
         for (int i = 0; i < 64; i++) {
             QuietScores[i] = new int[12];
             ButterflyScores[i] = new int[12];
@@ -68,7 +68,7 @@ internal static class QuietHistory {
     // they are still quite relevant, but the new values coming are
     // more important, so we want them to have a stronger effect
     internal static void Shrink() {
-        if (QuietScores[0] == null) InitArrays();
+        //if (QuietScores[0] == null) InitArrays();
 
         for (int i = 0; i < 64; i++) {
             for (int j = 0; j < 12; j++) {
@@ -85,8 +85,10 @@ internal static class QuietHistory {
 
     // clears all history data
     internal static void Clear() {
-        Array.Clear(QuietScores);
-        Array.Clear(ButterflyScores);
+        for (int i = 0; i < 64; i++) {
+            Array.Clear(QuietScores[i]);
+            Array.Clear(ButterflyScores[i]);
+        }
     }
 
     // increases the history rep of a quiet move

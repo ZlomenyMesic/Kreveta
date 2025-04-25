@@ -236,7 +236,6 @@ internal static class Game {
     }
 
     internal static void TestingFunction() {
-
     }
 }
 
