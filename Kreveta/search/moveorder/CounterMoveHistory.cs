@@ -36,7 +36,7 @@ internal static class CounterMoveHistory {
 
     static CounterMoveHistory() => InitArrays();
 
-    internal static void InitArrays() {
+    private static void InitArrays() {
         CounterMoves[(byte)Color.WHITE] = new Move[64][];
         CounterMoves[(byte)Color.BLACK] = new Move[64][];
 
@@ -69,8 +69,6 @@ internal static class CounterMoveHistory {
     // try to retrieve a counter using the previously played move
     // and the color that is currently on turn
     internal static Move Get(Color col, Move previous) {
-        //if (CounterMoves[0] == null) InitArrays();
-
         int start = previous.Start;
         int end   = previous.End;
 

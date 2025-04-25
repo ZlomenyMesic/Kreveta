@@ -71,12 +71,12 @@ internal static class Zobrist {
             ulong wCopy = board.Pieces[(byte)Color.WHITE][i];
             ulong bCopy = board.Pieces[(byte)Color.BLACK][i];
 
-            while (wCopy != 0) {
+            while (wCopy != 0UL) {
                 int sq = BB.LS1BReset(ref wCopy);
                 hash ^= GetPieceHash((PType)i, Color.WHITE, sq);
             }
 
-            while (bCopy != 0) {
+            while (bCopy != 0UL) {
                 int sq = BB.LS1BReset(ref bCopy);
                 hash ^= GetPieceHash((PType)i, Color.BLACK, sq);
             }
@@ -90,7 +90,7 @@ internal static class Zobrist {
 
         ulong copy = board.Pieces[(byte)col][(byte)PType.PAWN];
 
-        while (copy != 0) {
+        while (copy != 0UL) {
             int sq = BB.LS1BReset(ref copy);
             hash ^= GetPieceHash(PType.PAWN, col, sq);
         }

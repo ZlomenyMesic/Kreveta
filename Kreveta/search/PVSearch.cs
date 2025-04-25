@@ -297,7 +297,7 @@ namespace Kreveta.search {
                 // 4 - are checking the opposite king
                 bool interesting = expNodes == 1
                     || inCheck 
-                    //|| (depth >= 6 && is_capture)
+                    || (ply <= 4 && isCapture)
                     || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
                 short childStaticEval = Eval.StaticEval(child);
