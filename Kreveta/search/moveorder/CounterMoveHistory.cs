@@ -36,7 +36,7 @@ internal static class CounterMoveHistory {
 
     static CounterMoveHistory() => InitArrays();
 
-    private static void InitArrays() {
+    internal static void InitArrays() {
         CounterMoves[(byte)Color.WHITE] = new Move[64][];
         CounterMoves[(byte)Color.BLACK] = new Move[64][];
 
@@ -48,7 +48,12 @@ internal static class CounterMoveHistory {
 
     // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Clear() => Array.Clear(CounterMoves);
+    internal static void Clear() {
+        for (int i = 0; i < 64; i++) {
+            Array.Clear(CounterMoves[(byte)Color.WHITE][i]);
+            Array.Clear(CounterMoves[(byte)Color.BLACK][i]);
+        }
+    }
 
     // store a new counter - we don't give higher priority to counters
     // found at higher depths (might change this later), so when there's
@@ -64,7 +69,7 @@ internal static class CounterMoveHistory {
     // try to retrieve a counter using the previously played move
     // and the color that is currently on turn
     internal static Move Get(Color col, Move previous) {
-        if (CounterMoves[0] == null) InitArrays();
+        //if (CounterMoves[0] == null) InitArrays();
 
         int start = previous.Start;
         int end   = previous.End;
