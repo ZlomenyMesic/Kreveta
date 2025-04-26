@@ -15,6 +15,7 @@ using Kreveta.search;
 
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
@@ -37,7 +38,7 @@ internal static class Game {
     private static List<ulong>     HistoryPositions = [];
     internal static HashSet<ulong> Draws            = [];
 
-    internal static void SetPosFEN([In, ReadOnly(true)] in string[] toks) {
+    internal static void SetPosFEN([In, ReadOnly(true)] in string[] tokens) {
 
         // clear the board from previous game/search
         board = new();
@@ -50,8 +51,8 @@ internal static class Game {
         // starting from rank 8 to rank 1, ranks are separated by a "/". on each rank, pieces are
         // denoted as per the standard algebraic notation (PNBRQK-pnbrqk). one or more empty squares
         // between pieces are denoted by a single digit (1-8), corresponding to the number of squares
-        for (int i = 0, sq = 0; i < toks[2].Length; i++) {
-            char c = toks[2][i];
+        for (int i = 0, sq = 0; i < tokens[2].Length; i++) {
+            char c = tokens[2][i];
 
             // increase the square counter (empty squares)
             if (char.IsDigit(c)) {
@@ -83,17 +84,17 @@ internal static class Game {
             int piece = Consts.Pieces.IndexOf(char.ToLower(c), StringComparison.Ordinal);
 
             // add the piece to the board
-            board.Pieces[(byte)col][piece] |= Consts.SqMask[sq];
+            board.Pieces[(byte)col][piece] |= 1UL << sq;
 
-            if (col == Color.WHITE) board.WOccupied |= Consts.SqMask[sq];
-            else board.BOccupied |= Consts.SqMask[sq];
+            if (col == Color.WHITE) board.WOccupied |= 1UL << sq;
+            else board.BOccupied |= 1UL << sq;
 
             sq++;
         }
 
         // 2. ACTIVE COLOR
         // which color's turn is it
-        switch (toks[3]) {
+        switch (tokens[3]) {
 
             // white
             case "w": color = Color.WHITE; break;
@@ -101,7 +102,7 @@ internal static class Game {
             // black
             case "b": color = Color.BLACK; break;
 
-            default:  UCI.Log($"invalid side to move: {toks[3]}", UCI.LogLevel.ERROR);
+            default:  UCI.Log($"invalid side to move: {tokens[3]}", UCI.LogLevel.ERROR);
 
                       board.Clear(); 
                       return;
@@ -112,8 +113,8 @@ internal static class Game {
         // if neither side can castle, this is "-". otherwise, we can have up to 4 letters.
         // "k" and "q" marks kingside and queenside castling rights respectively. just to clarify, this has nothing 
         // to do with the legality of castling in the next move, it denotes the castling rights availability.
-        for (int i = 0; i < toks[4].Length; i++) {
-            switch (toks[4][i]) {
+        for (int i = 0; i < tokens[4].Length; i++) {
+            switch (tokens[4][i]) {
 
                 // white kingside
                 case 'K': board.CastlingRights |= CastlingRights.K; break;
@@ -128,8 +129,8 @@ internal static class Game {
                 case 'q': board.CastlingRights |= CastlingRights.q; break;
 
                 default:
-                    if (toks[4][i] != '-') {
-                        UCI.Log($"invalid castling availability: {toks[2][i]}", UCI.LogLevel.ERROR);
+                    if (tokens[4][i] != '-') {
+                        UCI.Log($"invalid castling availability: {tokens[2][i]}", UCI.LogLevel.ERROR);
 
                         board.Clear();
                         return;
@@ -144,14 +145,14 @@ internal static class Game {
         // spec has since made it so the target square is only recorded if a legal en passant move is possible but
         // the old version of the standard is the one most commonly used.
 
-        if (toks[5].Length == 2 && byte.TryParse(toks[5], out byte enPassantSq))
+        if (tokens[5].Length == 2 && byte.TryParse(tokens[5], out byte enPassantSq))
             board.EnPassantSq = enPassantSq;
 
-        else if (toks[5].Length == 1 && toks[5][0] == '-')
+        else if (tokens[5].Length == 1 && tokens[5][0] == '-')
             board.EnPassantSq = 64;
 
         else {
-            UCI.Log($"invalid en passant square: {toks[5]}", UCI.LogLevel.ERROR);
+            UCI.Log($"invalid en passant square: {tokens[5]}", UCI.LogLevel.ERROR);
 
             board.Clear();
             return;
@@ -171,7 +172,7 @@ internal static class Game {
         // TODO: FINISH FEN
 
         // position command can be followed by a sequence of moves
-        int moveSeqStart = Array.IndexOf(toks, "moves");
+        int moveSeqStart = Array.IndexOf(tokens, "moves");
 
         // we save the previous positions as 3-fold repetition exists
         HistoryPositions.Add(Zobrist.GetHash(board));
@@ -182,17 +183,17 @@ internal static class Game {
         if (moveSeqStart != -1) {
 
             // play the sequence of moves
-            for (int i = moveSeqStart + 1; i < toks.Length; i++) {
-                sequence.Add(toks[i]);
+            for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
+                sequence.Add(tokens[i]);
 
-                if (!Move.IsCorrectFormat(toks[i])) {
-                    UCI.Log($"invalid move: {toks[i]}", UCI.LogLevel.ERROR);
+                if (!Move.IsCorrectFormat(tokens[i])) {
+                    UCI.Log($"invalid move: {tokens[i]}", UCI.LogLevel.ERROR);
 
                     board.Clear();
                     return;
                 }
 
-                board.PlayMove(Move.FromString(board, toks[i]));
+                board.PlayMove(Move.FromString(board, tokens[i]));
                 HistoryPositions.Add(Zobrist.GetHash(board));
 
                 // switch the engine's color
@@ -203,7 +204,7 @@ internal static class Game {
         }
 
         // try to save a book move
-        OpeningBook.SaveSequence([.. sequence], toks[2]);
+        OpeningBook.SaveSequence([.. sequence], tokens[2]);
 
         // save drawing positions in "draws"
         List3FoldDraws();

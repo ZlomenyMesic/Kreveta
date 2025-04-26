@@ -74,7 +74,7 @@ internal static class TT {
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
         const int MaxSize = int.MaxValue / EntrySize;
-        return (int)Math.Min((long)Options.Hash * 1048576 / EntrySize, MaxSize);
+        return (int)Math.Min((long)Options.Hash * 1_048_576 / EntrySize, MaxSize);
     }
 
     // generate an index in the tt for a specific board hash

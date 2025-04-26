@@ -56,16 +56,15 @@ namespace Kreveta.search {
                 PVSearch.SearchDeeper();
 
                 // didn't abort (yet?)
-                if (!PVSearch.Abort) {
+                if (PVSearch.Abort) 
+                    break;
+                
+                CurElapsed = sw.ElapsedMilliseconds - PrevElapsed;
 
-                    CurElapsed = sw.ElapsedMilliseconds - PrevElapsed;
+                // print the results to the console and save the first pv node
+                GetResult();
 
-                    // print the results to the console and save the first pv node
-                    GetResult();
-
-                    PrevElapsed = sw.ElapsedMilliseconds;
-
-                } else break;
+                PrevElapsed = sw.ElapsedMilliseconds;
             }
 
             UCI.Log($"info string time spent {sw.Elapsed}",  UCI.LogLevel.INFO);

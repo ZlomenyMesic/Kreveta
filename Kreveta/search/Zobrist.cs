@@ -17,7 +17,7 @@ internal static class Zobrist {
     //
 
     [ReadOnly(true)]
-    private static readonly ulong[][] Pieces     = new ulong[64][];
+    private static readonly ulong[][] Pieces    = new ulong[64][];
     
     [ReadOnly(true)]
     private static readonly ulong[]  EnPassant  = new ulong[8];

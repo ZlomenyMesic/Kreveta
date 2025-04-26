@@ -95,26 +95,26 @@ internal static class Movegen {
             : board.BOccupied;
 
         ulong targets = Pawn.GetPawnCaptureTargets(kingSq, 0, col, occupiedOpp);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.PAWN]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.PAWN]) != 0UL) 
             return true;
 
         targets = Knight.GetKnightTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KNIGHT]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KNIGHT]) != 0UL) 
             return true;
 
         targets = Bishop.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.BISHOP]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.BISHOP]) != 0UL) 
             return true;
 
         ulong rookTargets = Rook.GetRookTargets(kingSq, ulong.MaxValue, occupied);
-        if ((rookTargets & board.Pieces[(byte)colOpp][(byte)PType.ROOK]) != 0) 
+        if ((rookTargets & board.Pieces[(byte)colOpp][(byte)PType.ROOK]) != 0UL) 
             return true;
 
-        if (((targets | rookTargets) & board.Pieces[(byte)colOpp][(byte)PType.QUEEN]) != 0) 
+        if (((targets | rookTargets) & board.Pieces[(byte)colOpp][(byte)PType.QUEEN]) != 0UL) 
             return true;
 
         targets = King.GetKingTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KING]) != 0) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KING]) != 0UL) 
             return true;
 
         return false;
@@ -126,8 +126,8 @@ internal static class Movegen {
         while (pieces != 0) {
 
             // "bit scan forward reset" also removes the least significant bit
-            int start = BB.LS1BReset(ref pieces);
-            ulong sq = Consts.SqMask[start];
+            sbyte start = BB.LS1BReset(ref pieces);
+            ulong sq = 1UL << start;
 
             // generate the moves
             ulong targets = GetTargets(board, sq, type, col, occupiedOpp, occupied, empty, free, onlyCaptures);
@@ -142,40 +142,42 @@ internal static class Movegen {
         // return a bitboard of possible moves depending on the piece type
         return type switch {
 
-            PType.PAWN => (onlyCaptures ? 0 : Pawn.GetPawnPushTargets(sq, col, empty)) 
+            PType.PAWN => (onlyCaptures ? 0UL 
+                          : Pawn.GetPawnPushTargets(sq, col, empty)) 
                           | Pawn.GetPawnCaptureTargets(sq, board.EnPassantSq, col, occupiedOpp),
 
             PType.KNIGHT => Knight.GetKnightTargets(sq, free),
             PType.BISHOP => Bishop.GetBishopTargets(sq, free, occupied),
-            PType.ROOK => Rook.GetRookTargets(sq, free, occupied),
+            PType.ROOK =>   Rook.GetRookTargets(sq, free, occupied),
 
             // queen = bishop + rook
-            PType.QUEEN => Bishop.GetBishopTargets(sq, free, occupied)
+            PType.QUEEN =>  Bishop.GetBishopTargets(sq, free, occupied)
                           | Rook.GetRookTargets(sq, free, occupied),
 
-            PType.KING => King.GetKingTargets(sq, free),
-            _ => 0
+            PType.KING =>   King.GetKingTargets(sq, free),
+            _ => 0UL
         };
     }
 
-    private static void LoopTargets([In, ReadOnly(true)] in Board board, int start, ulong targets, PType type, Color col, [In, ReadOnly(true)] in List<Move> moves) {
+    private static void LoopTargets([In, ReadOnly(true)] in Board board, sbyte start, ulong targets, PType type, Color col, [In, ReadOnly(true)] in List<Move> moves) {
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
         
         // same principle as above
         while (targets != 0) {
-            int end = BB.LS1BReset(ref targets);
+            sbyte end = BB.LS1BReset(ref targets);
 
             PType capt = PType.NONE;
 
             // get the potential capture type
             if (type != PType.NONE) {
                 for (int i = 0; i < 5; i++) {
-                    if ((board.Pieces[(byte)colOpp][i] & Consts.SqMask[end]) != 0) {
-                        capt = (PType)i;
-                        break;
-                    }
+                    if ((board.Pieces[(byte)colOpp][i] & (1UL << end)) == 0UL)
+                        continue;
+                    
+                    capt = (PType)i;
+                    break;
                 }
             }
             
@@ -184,7 +186,7 @@ internal static class Movegen {
         }
     }
 
-    private static void AddMovesToList(PType type, Color col, int start, int end, PType capt, [In, ReadOnly(true)] in List<Move> moves, int enPassantSq) {
+    private static void AddMovesToList(PType type, Color col, sbyte start, sbyte end, PType capt, [In, ReadOnly(true)] in List<Move> moves, int enPassantSq) {
 
         // add the generated move to the list
         switch (type) {

@@ -12,6 +12,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
@@ -19,7 +20,7 @@ namespace Kreveta;
 internal static class Options {
 
     private const bool DefaultOwnBook = true;
-    private const bool DefaultNKLogs  = true;
+    private const bool DefaultNKLogs  = false;
     private const long DefaultHash    = 40;
 
     private enum OptionType {
@@ -79,13 +80,16 @@ internal static class Options {
     // non-custom options (OwnBook and Hash) need to keep
     // their names in order to be used properly by the GUI
     [ReadOnly(true)]
-    internal static bool OwnBook => options[0].Value == "true";
+    internal static bool OwnBook 
+        => options[0].Value == "true";
 
     [ReadOnly(true)]
-    internal static int Hash => int.Parse(options[1].Value);
+    internal static int Hash 
+        => int.Parse(options[1].Value);
 
     [ReadOnly(true)]
-    internal static bool NKLogs => options[2].Value == "true";
+    internal static bool NKLogs 
+        => options[2].Value == "true";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string OTypeToString(OptionType type) {
@@ -94,23 +98,26 @@ internal static class Options {
             OptionType.SPIN   => "spin",
             OptionType.BUTTON => "button",
             OptionType.STRING => "string",
-            _ => ""
+            _ => string.Empty
         };
     }
 
     internal static void Print() {
-        foreach (Option opt in options) {
+        foreach (var opt in options) {
             StringBuilder sb = new();
 
             sb.Append($"option name {opt.Name}");
+            
+            sb.Append($" type {OTypeToString(opt.Type)}");
 
-            string type = OTypeToString(opt.Type);
-            sb.Append($" type {type}");
-
-            if (opt.Type == OptionType.CHECK || opt.Type == OptionType.STRING) {
-                sb.Append($" default {opt.DefaultValue}");
-            } else if (opt.Type == OptionType.SPIN) {
-                sb.Append($" default {opt.DefaultValue} min {opt.MinValue} max {opt.MaxValue}");
+            switch (opt.Type) {
+                case OptionType.CHECK or OptionType.STRING:
+                    sb.Append($" default {opt.DefaultValue}");
+                    break;
+                
+                case OptionType.SPIN:
+                    sb.Append($" default {opt.DefaultValue} min {opt.MinValue} max {opt.MaxValue}");
+                    break;
             }
 
             UCI.Log(sb.ToString());

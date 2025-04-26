@@ -4,7 +4,6 @@
 //
 
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -14,8 +13,11 @@ namespace Kreveta.search.perft;
 
 internal static class PerftTT {
 
+    // size of a single entry in bytes
     private const int EntrySize = 17;
-    private const int TableSize = 1048576;
+    
+    // MUST be a power of 2 in order to allow & instead of modulo indexing
+    private const int TableSize = 1_048_576;
 
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {
@@ -43,7 +45,7 @@ internal static class PerftTT {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int HashIndex(ulong hash) {
         uint hash32 = (uint)hash ^ (uint)(hash >> 32);
-        return (int)(hash32 % TableSize);
+        return (int)(hash32 & (TableSize - 1));
     }
 
     internal static void Store([In, ReadOnly(true)] in Board board, int depth, ulong nodes) {

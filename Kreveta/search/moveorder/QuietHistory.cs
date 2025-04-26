@@ -147,7 +147,7 @@ internal static class QuietHistory {
     private static int PieceIndex([In, ReadOnly(true)] in Board board, Move move) {
 
         PType piece = move.Piece;
-        Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ Consts.SqMask[move.Start]) == 0
+        Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ (1UL << move.Start)) == 0
             ? Color.BLACK
             : Color.WHITE;
 

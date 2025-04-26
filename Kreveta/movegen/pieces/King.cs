@@ -41,7 +41,12 @@ internal static class King {
         if (kingside)  kingside  &= board.IsMoveLegal(new(start, col == Color.WHITE ? 61 : 5, PType.KING, PType.NONE, PType.NONE), col);
         if (queenside) queenside &= board.IsMoveLegal(new(start, col == Color.WHITE ? 59 : 3, PType.KING, PType.NONE, PType.NONE), col);
 
-        return (kingside ? (col == Color.WHITE ? Consts.SqMask[62] : Consts.SqMask[6]) : 0)
-            | (queenside ? (col == Color.WHITE ? Consts.SqMask[58] : Consts.SqMask[2]) : 0);
+        return (kingside  ? (col == Color.WHITE 
+            ? 0x4000000000000000UL 
+            : 0x0000000000000020) : 0UL)
+
+             | (queenside ? (col == Color.WHITE 
+            ? 0x0400000000000000UL 
+            : 0x0000000000000002) : 0UL);
     }
 }

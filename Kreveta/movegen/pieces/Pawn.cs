@@ -38,7 +38,7 @@ internal static class Pawn {
             : pawn << 9 & 0xFEFEFEFEFEFEFEFE;
 
         ulong enPassantMask = enPassantSq != 64 
-            ? Consts.SqMask[enPassantSq] : 0;
+            ? 1UL << enPassantSq : 0;
 
         // & with occupied sqaures of opposite color and en passant square
         return (left | right) & (occupiedOpp | enPassantMask);

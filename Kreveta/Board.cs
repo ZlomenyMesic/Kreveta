@@ -11,7 +11,8 @@ using System.Diagnostics;
 
 namespace Kreveta;
 
-internal sealed class Board {
+// can be neither readonly nor record
+internal struct Board {
 
     // all pieces are saved here in so called bitboards.
     // we have 12 different ulongs (bitboards) which represent
@@ -31,11 +32,11 @@ internal sealed class Board {
 
     // all occupied squares
     [ReadOnly(true), DefaultValue(0UL)]
-    internal ulong Occupied => WOccupied | BOccupied;
+    internal readonly ulong Occupied => WOccupied | BOccupied;
 
     // all empty squares (bitwise inverse of occupied)
     [ReadOnly(true), DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
-    internal ulong Empty => ~Occupied;
+    internal readonly ulong Empty => ~Occupied;
 
     // square over which a double pushing
     // pawn has passed one move ago
@@ -52,7 +53,7 @@ internal sealed class Board {
 
     //internal ulong Hash = 0;
 
-    internal Board() {
+    public Board() {
         Pieces[(byte)Color.WHITE] = new ulong[6];
         Pieces[(byte)Color.BLACK] = new ulong[6];
     }
@@ -63,9 +64,9 @@ internal sealed class Board {
         WOccupied   = 0UL;
         BOccupied   = 0UL;
 
-        EnPassantSq = 64;
-        CastlingRights  = CastlingRights.NONE;
-        Color       = Color.NONE;
+        EnPassantSq    = 64;
+        CastlingRights = CastlingRights.NONE;
+        Color          = Color.NONE;
 
         //Hash        = 0UL;
     }
@@ -74,7 +75,7 @@ internal sealed class Board {
     // (color, piece_type)
     [Obsolete("PieceAt is fairly slow, try a different approach", false)]
     internal (Color col, PType type) PieceAt(int index) {
-        ulong sq = Consts.SqMask[index];
+        ulong sq = 1UL << index;
 
         if ((Empty & sq) != 0) 
             return (Color.NONE, PType.NONE);
@@ -82,11 +83,11 @@ internal sealed class Board {
         for (int i = 0; i < 6; i++) {
             
             // white
-            if ((Pieces[(byte)Color.WHITE][i] & sq) != 0)
+            if ((Pieces[(byte)Color.WHITE][i] & sq) != 0UL)
                 return (Color.WHITE, (PType)i);
 
             // black
-            if ((Pieces[(byte)Color.BLACK][i] & sq) != 0)
+            if ((Pieces[(byte)Color.BLACK][i] & sq) != 0UL)
                 return (Color.BLACK, (PType)i);
         }
 
@@ -103,21 +104,23 @@ internal sealed class Board {
             : Color.WHITE;
 
         // start and end squares
-        int start32 = move.Start;
-        int end32   = move.End;
+        byte start8 = (byte)move.Start;
+        byte end8   = (byte)move.End;
 
         // start and end squares represented as bitboards
-        ulong start = Consts.SqMask[start32];
-        ulong end   = Consts.SqMask[end32];
+        ulong start = 1UL << start8;
+        ulong end   = 1UL << end8;
 
         // TODO - TRY TO GET COLOR FROM SIDETOMOVE
 
         // color and opposite color
-        Color col = (WOccupied & start) == 0 
+        Color col = (WOccupied & start) == 0UL
             ? Color.BLACK 
             : Color.WHITE;
 
-        Color colOpp = col == Color.WHITE ? Color.BLACK : Color.WHITE;
+        Color colOpp = col == Color.WHITE 
+            ? Color.BLACK 
+            : Color.WHITE;
 
         // other stuff
         PType prom  = move.Promotion;
@@ -155,7 +158,7 @@ internal sealed class Board {
                 0x0000000000000040 => 0x00000000000000A0, // k
                 0x0400000000000000 => 0x0900000000000000, // Q
                 0x4000000000000000 => 0xA000000000000000, // K
-                _ => 0
+                _ => 0UL
             };
 
             // king
@@ -184,8 +187,8 @@ internal sealed class Board {
 
             // if we double pushed a pawn, set the en passant square
             if (piece == PType.PAWN && (col == Color.WHITE 
-                ? (start >> 16 == end) 
-                : (start << 16 == end)))
+                ? start >> 16 == end 
+                : start << 16 == end))
 
                 // en passant square is the square over which the
                 // pawn has double pushed, not the capture square
@@ -199,7 +202,7 @@ internal sealed class Board {
 
         // capture
         if (capt != PType.NONE) {
-            Pieces[(byte)colOpp][(byte)capt] ^= end;
+            Pieces[(byte)colOpp][(byte)capt]  ^= end;
 
             if (col == Color.WHITE) BOccupied ^= end;
             else                    WOccupied ^= end;
@@ -218,9 +221,9 @@ internal sealed class Board {
 
             // if rook moved we need the starting square
             // if rook was captured we need the ending square
-            int rookSq = piece == PType.ROOK
-                ? start32
-                : end32;
+            byte rookSq = piece == PType.ROOK
+                ? start8
+                : end8;
 
             byte mask = rookSq switch {
                 63 => 0xE, // all except K
@@ -240,8 +243,8 @@ internal sealed class Board {
     private void PlayReversibleMove(Move move, Color col) {
 
         // start & end squares
-        ulong start = Consts.SqMask[move.Start];
-        ulong end   = Consts.SqMask[move.End];
+        ulong start = 1UL << move.Start;
+        ulong end   = 1UL << move.End;
 
         // opposite color
         Color colOpp = col == Color.WHITE 
@@ -264,7 +267,7 @@ internal sealed class Board {
         }
 
         // promotion
-        else if (prom != PType.KING && prom != PType.NONE) {
+        else if (prom is not PType.KING and not PType.NONE) {
             Pieces[(byte)col][(byte)piece] ^= start;
             Pieces[(byte)col][(byte)prom]  ^= end;
         }
