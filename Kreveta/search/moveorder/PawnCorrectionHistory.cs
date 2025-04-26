@@ -24,7 +24,7 @@ internal static class PawnCorrectionHistory {
 
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
-    private const int CorrTableSize = 1_048_576;
+    private const int CorrTableSize = 524_288;
 
     // maximum correction that can be stored. this needs
     // to stay in range of "short", as the whole table
@@ -55,12 +55,16 @@ internal static class PawnCorrectionHistory {
     // update the pawn correction - takes a board with its score evaluated
     // by an actual search and the depth at which the search was performed.
     internal static void Update([In, ReadOnly(true)] in Board board, int score, int depth) {
-        if (depth <= DepthOffset) return;
+        if (depth <= DepthOffset) 
+            return;
 
         // hash the pawns on the current position.
         // each side has its own pawn hash
         ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
+
+        wHash &= wHash >> 32;
+        bHash &= bHash >> 32;
 
         // get the indices for both sides
         int wIndex = (int)(wHash & (CorrTableSize - 1));
@@ -111,6 +115,9 @@ internal static class PawnCorrectionHistory {
         // and get the indices for both sides
         ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
+
+        wHash &= wHash >> 32;
+        bHash &= bHash >> 32;
 
         int wIndex = (int)(wHash & (CorrTableSize - 1));
         int bIndex = (int)(bHash & (CorrTableSize - 1));

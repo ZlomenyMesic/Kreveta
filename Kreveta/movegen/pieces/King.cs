@@ -47,6 +47,6 @@ internal static class King {
 
              | (queenside ? (col == Color.WHITE 
             ? 0x0400000000000000UL 
-            : 0x0000000000000002) : 0UL);
+            : 0x0000000000000004) : 0UL);
     }
 }
