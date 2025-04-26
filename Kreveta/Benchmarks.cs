@@ -6,44 +6,34 @@
 // Remove unnecessary suppression
 #pragma warning disable IDE0079
 
+// Consider making public types internal
+#pragma warning disable CA1515
+
 // Mark members as static
 #pragma warning disable CA1822
 
 using BenchmarkDotNet.Attributes;
+using System.Diagnostics;
 
 namespace Kreveta;
+
+#if DEBUG
 
 [MemoryDiagnoser]
 [Orderer(BenchmarkDotNet.Order.SummaryOrderPolicy.FastestToSlowest)]
 [RankColumn]
 public class Benchmarks {
 
+    [Conditional("DEBUG")]
     [GlobalSetup]
     public void Setup() {
-    }
 
-    static int K() => 10;
-
-    [Benchmark]
-    public void INT() {
-        int x = K();
-
-        x += 128;
-        x /= 2;
-        x -= K() * 4;
-        x *= 12 - K();
-    }
-
-    [Benchmark]
-    public void BYTE() {
-        byte x = (byte)K();
-
-        x += 128;
-        x /= 2;
-        x -= (byte)(K() * 4);
-        x *= (byte)(12 - K());
     }
 }
 
+#endif
+
 #pragma warning restore CA1822
+#pragma warning restore CA1515
+
 #pragma warning restore IDE0079
