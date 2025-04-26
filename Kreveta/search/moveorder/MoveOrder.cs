@@ -30,9 +30,8 @@ internal static class MoveOrder {
 
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
-        if (TT.TryGetBestMove(board, out Move bestMove) && legal.Contains(bestMove)) {
-            sorted[cur++] = bestMove;
-        }
+        if (TT.TryGetBestMove(board, out Move ttMove) && legal.Contains(ttMove))
+            sorted[cur++] = ttMove;
 
         // after that go all captures, sorted by MVV-LVA, which
         // stands for Most Valuable Victim - Lest Valuable Aggressor.
@@ -42,10 +41,11 @@ internal static class MoveOrder {
         for (int i = 0; i < legal.Length; i++) {
 
             // only add captures
-            if (!sorted.Contains(legal[i]) 
-                && legal[i].Capture != PType.NONE)
+            if (!sorted.Contains(legal[i])
+                && legal[i].Capture != PType.NONE) {
 
                 capts.Add(legal[i]);
+            }
         }
 
         // get the captures ordered and add them to the list
@@ -75,9 +75,9 @@ internal static class MoveOrder {
 
             // since killer moves are stored independently of
             // the position, we have to check a couple thing
-            if (legal.Contains(killers[i])                           // illegal
-                && !sorted.Contains(killers[i])                      // already added
-                && ((empty & Consts.SqMask[killers[i].End]) != 0)) { // quiet
+            if (legal.Contains(killers[i])                       // illegal
+                && !sorted.Contains(killers[i])                  // already added
+                && ((empty & (1UL << killers[i].End)) != 0UL)) { // quiet
 
                 sorted[cur++] = killers[i];
             }

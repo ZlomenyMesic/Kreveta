@@ -33,7 +33,7 @@ internal static class BB {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static sbyte LS1B(ulong bb) {
         if (bb == 0) return -1;
-        return DeBruijnTable[((bb ^ (bb - 1)) * 0x03f79d71b4cb0a89) >> 58];
+        return DeBruijnTable[((bb ^ (bb - 1)) * 0x03F79D71B4CB0A89) >> 58];
     }
 
 

@@ -22,8 +22,9 @@ namespace Kreveta.search.moveorder;
 // so we use the stored values for stuff such as modifying the futility margin.
 internal static class PawnCorrectionHistory {
 
-    // the size of the hash table
-    private const int CorrTableSize = 1048576;
+    // size of the hash table; MUST be a power of 2
+    // in order to allow & instead of modulo indexing
+    private const int CorrTableSize = 1_048_576;
 
     // maximum correction that can be stored. this needs
     // to stay in range of "short", as the whole table
@@ -62,8 +63,8 @@ internal static class PawnCorrectionHistory {
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
 
         // get the indices for both sides
-        int wIndex = (int)(wHash % CorrTableSize);
-        int bIndex = (int)(bHash % CorrTableSize);
+        int wIndex = (int)(wHash & (CorrTableSize - 1));
+        int bIndex = (int)(bHash & (CorrTableSize - 1));
 
         // get the static eval of the current position and the
         // absolute difference between it and the search score
@@ -75,7 +76,8 @@ internal static class PawnCorrectionHistory {
         short shift = Shift(diff, depth);
 
         // don't bother wasting time with a zero shift
-        if (shift == 0) return;
+        if (shift == 0) 
+            return;
 
         // first we add or subtract the shift depending
         // on the color and whether the search score
@@ -110,8 +112,8 @@ internal static class PawnCorrectionHistory {
         ulong wHash = Zobrist.GetPawnHash(board, Color.WHITE);
         ulong bHash = Zobrist.GetPawnHash(board, Color.BLACK);
 
-        int wIndex = (int)(wHash % CorrTableSize);
-        int bIndex = (int)(bHash % CorrTableSize);
+        int wIndex = (int)(wHash & (CorrTableSize - 1));
+        int bIndex = (int)(bHash & (CorrTableSize - 1));
 
         // the resulting correction is the white correction
         // minus the black correction (each color has its own)

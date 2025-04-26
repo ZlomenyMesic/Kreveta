@@ -36,7 +36,7 @@ internal static unsafe class LookupTables {
 
     private static void InitKingTargets() {
         for (int i = 0; i < 64; i++) {
-            ulong king = Consts.SqMask[i];
+            ulong king = 1UL << i;
 
             // starting, right and left square
             ulong sides = (king << 1 & 0xFEFEFEFEFEFEFEFE) | (king >> 1 & 0x7F7F7F7F7F7F7F7F);
@@ -50,7 +50,7 @@ internal static unsafe class LookupTables {
 
     private static void InitKnightTargets() {
         for (int i = 0; i < 64; i++) {
-            ulong knight = Consts.SqMask[i];
+            ulong knight = 1UL << i;
 
             // right and left sqaures
             // again make sure we're not jumping across the whole board
@@ -84,7 +84,7 @@ internal static unsafe class LookupTables {
                 // sliding to the right until we hit a blocker
                 int slider = (i & 7) + 1;
                 while (slider <= 7) {
-                    targets |= Consts.SqMask[slider];
+                    targets |= 1UL << slider;
                     if (BB.IsBitSet(occ, slider)) break;
                     slider++;
                 }
@@ -92,7 +92,7 @@ internal static unsafe class LookupTables {
                 // sliding to the left
                 slider = (i & 7) - 1;
                 while (slider >= 0) {
-                    targets |= Consts.SqMask[slider];
+                    targets |= 1UL << slider;
                     if (BB.IsBitSet(occ, slider)) break;
                     slider--;
                 }
@@ -117,7 +117,7 @@ internal static unsafe class LookupTables {
                     if (!BB.IsBitSet(rankTargets, bit))
                         continue;
                     
-                    targets |= Consts.SqMask[(i & 7) + 8 * (7 - bit)];
+                    targets |= 1UL << ((i & 7) + 8 * (7 - bit));
                 }
 
                 FileTargets[i][o] = targets;
@@ -155,7 +155,7 @@ internal static unsafe class LookupTables {
                     }
 
                     if (file is >= 0 and <= 7 && rank is >= 0 and <= 7) {
-                        targets |= Consts.SqMask[file + 8 * rank];
+                        targets |= 1UL << (file + 8 * rank);
                     }
                 }
 
@@ -194,7 +194,7 @@ internal static unsafe class LookupTables {
                     }
 
                     if (file is >= 0 and <= 7 && rank is >= 0 and <= 7) {
-                        targets |= Consts.SqMask[file + 8 * rank];
+                        targets |= 1UL << (file + 8 * rank);
                     }
                 }
 

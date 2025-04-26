@@ -3,6 +3,9 @@
 // started 4-3-2025
 //
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
 using Kreveta.openingbook;
 using Kreveta.search;
 
@@ -35,9 +38,6 @@ internal static class UCI {
     private static Thread? SearchThread;
     internal static bool AbortSearch;
 
-// Remove unnecessary suppression
-#pragma warning disable IDE0079
-
 // Initialize reference type static fields inline
 #pragma warning disable CA1810
 
@@ -57,18 +57,10 @@ internal static class UCI {
             NeoKolors.Console.NKDebug.Logger.SimpleMessages = true;
         }
 
-// Do not catch general exception types
-#pragma warning disable CA1031
-
         // we are catching a "general exception type", because we have
         // zero idea which type of exception NeoKolors might throw.
-        catch (Exception e) {
-            Log($"NKLogger initialization failed: {e.Message}", LogLevel.ERROR);
-        }
-
-#pragma warning restore CA1031
-#pragma warning restore IDE0079
-
+        catch (Exception ex) 
+            when (LogException("NKLogger initialization failed", ex)) {}
     }
 
     internal static void InputLoop() {
@@ -77,10 +69,13 @@ internal static class UCI {
             string input = Input.ReadLine()
                 ?? string.Empty;
 
+            if (string.IsNullOrWhiteSpace(input))
+                continue;
+
             string[] tokens = input.Split(' ');
 
             // we log the input commands as well
-            LogIntoFile(input);
+            LogIntoFile($"USER COMMAND: {input}");
 
             switch (tokens[0]) {
                 case "uci":        CmdUCI();             break;
@@ -245,27 +240,38 @@ internal static class UCI {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Log(string msg, LogLevel level = LogLevel.RAW) {
-        LogIntoFile(msg, level);
+    internal static void Log(string msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
+        if (logIntoFile)
+            LogIntoFile(msg, level);
+        
         Output.WriteLine(msg);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // ReSharper disable once MemberCanBePrivate.Global
+    internal static bool LogException(string context, Exception ex, bool logIntoFile = true) {
+        Log($"{context}: {ex.Message}", LogLevel.ERROR, logIntoFile);
+        return true;
+    }
+
     private static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
-        //if (Options.NKLogs) {
+        if (!Options.NKLogs) 
+            return;
+        
+        // using KryKom's NeoKolors library for fancy logs
+        // this option can be toggled via the FancyLogs option
+        try {
+            switch (level) {
+                case LogLevel.INFO:    NeoKolors.Console.NKDebug.Info(msg);  break;
+                case LogLevel.WARNING: NeoKolors.Console.NKDebug.Warn(msg);  break;
+                case LogLevel.ERROR:   NeoKolors.Console.NKDebug.Error(msg); break;
 
-        //    // using KryKom's NeoKolors library for fancy logs
-        //    // this option can be toggled via the FancyLogs option
-        //    try {
-        //        switch (level) {
-        //            case LogLevel.INFO: NeoKolors.Console.NKDebug.Info(msg); break;
-        //            case LogLevel.WARNING: NeoKolors.Console.NKDebug.Warn(msg); break;
-        //            case LogLevel.ERROR: NeoKolors.Console.NKDebug.Error(msg); break;
-
-        //            default: NeoKolors.Console.NKDebug.Logger.Info(msg); break;
-        //        }
-        //    } catch {
-        //        Console.WriteLine($"failed to open the log file");
-        //    }
-        //}
+                default:               NeoKolors.Console.NKDebug.Info(msg);  break;
+            }
+        }
+        catch (Exception ex) 
+            when (LogException("NKLogger failed when logging into file", ex, false)) {}
     }
 }
+
+#pragma warning restore IDE0079

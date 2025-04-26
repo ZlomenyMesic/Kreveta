@@ -194,17 +194,17 @@ internal static class Eval {
                 // add a bonus for connected pawns in the opponent's half of the board.
                 // this should (and hopefully does) increase the playing strength in
                 // endgames and also allow better progressing into endgames
-                ulong targets = Pawn.GetPawnCaptureTargets(Consts.SqMask[sq], 64, col, p);
+                ulong targets = Pawn.GetPawnCaptureTargets(1UL << sq, 64, col, p);
                 eval += (short)(BB.Popcount(targets) * ConnectedPassedPawnBonus);
             }
 
             // penalize blocked pawns - pawns that have a friendly piece directly in
             // front of them and thus cannot push further. in order to push this pawn,
             // you first have to move the other piece, which makes it worse.
-            if (col == Color.WHITE && (Consts.SqMask[sq - 8] & board.WOccupied) != 0UL)
+            if (col == Color.WHITE && ((1UL << (sq - 8)) & board.WOccupied) != 0UL)
                 eval += BlockedPawnPenalty;
 
-            else if (col == Color.BLACK && (Consts.SqMask[sq + 8] & board.BOccupied) != 0UL)
+            else if (col == Color.BLACK && ((1UL << (sq + 8)) & board.BOccupied) != 0UL)
                 eval -= BlockedPawnPenalty;
         }
 
