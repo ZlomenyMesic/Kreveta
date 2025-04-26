@@ -13,11 +13,13 @@ using System.Diagnostics;
 namespace Kreveta.search {
     internal static class PVSControl {
 
+        internal const int DefaultMaxDepth = 50;
+
+        // maximum search depth allowed in this search
+        private static int CurMaxDepth;
+        
         // best move found so far
         private static Move BestMove;
-
-        // maximum search depth allowed
-        private static int MaxDepth;
 
         internal static Stopwatch sw = null!;
 
@@ -29,8 +31,8 @@ namespace Kreveta.search {
 
         private static ulong TotalNodes;
 
-        internal static void StartSearch(int depth) {
-            MaxDepth = depth;
+        internal static void StartSearch(int depth = DefaultMaxDepth) {
+            CurMaxDepth = depth;
 
             // start iterative deepening
             IterativeDeepeningLoop();
@@ -49,7 +51,7 @@ namespace Kreveta.search {
             NullMovePruning.UpdateMinPly(pieceCount);
 
             // we still have time and are allowed to search deeper
-            while (PVSearch.CurDepth < MaxDepth 
+            while (PVSearch.CurDepth < CurMaxDepth 
                 && sw.ElapsedMilliseconds < TimeMan.TimeBudget) {
 
                 // search at a larger depth
@@ -113,11 +115,11 @@ namespace Kreveta.search {
                 ? $"mate {mateScore}"
                 : $"cp {Score.LimitScore(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}";
 
-            // nodes per second - a widely used measure to approximate an
-            // engine's strength or efficiency. we need to maximize nps.
-            // if the time is too low (less than a millisecond), we simply
-            // divide as if it took us 1 millisecond.
-            long nodesDivisor = CurElapsed != 0 ? CurElapsed : 1;
+            // nodes per second (searched) - a widely used measure to approximate
+            // an engine's strength or efficiency. we need to maximize these. in
+            // early iterations the time may actually be less than a millisecond,
+            // so we handle that by setting in to 1
+            long nodesDivisor = CurElapsed != 0L ? CurElapsed : 1L;
             int nps = (int)((float)PVSearch.CurNodes / nodesDivisor * 1000);
 
             // we print the search info to the console
@@ -150,7 +152,7 @@ namespace Kreveta.search {
 
             // print the actual moves in the pv. Move.ToString()
             // is overriden so there's no need to explicitly type it
-            foreach (Move move in TryExpandPV(PVSearch.AchievedDepth))
+            foreach (Move move in ElongatePV())
                 info += $" {move}";
 
             // as per the convention, the engine's response
@@ -159,28 +161,30 @@ namespace Kreveta.search {
         }
 
         // try to find the pv outside the stored array
-        private static Move[] TryExpandPV(int depth) {
-            List<Move> pvList = new(PVSearch.PV);
+        private static IEnumerable<Move> ElongatePV() {
+            
+            Board board = Game.board.Clone();
 
-            // if we want to go deeper than just the saved pv
-            if (pvList.Count < depth) {
-
-                Board board = Game.board.Clone();
-
-                // play along the principal variation
-                // the correct position is needed for correct tt lookups
-                foreach (Move move in PVSearch.PV)
-                    board.PlayMove(move);
-
-                // try going deeper through the transposition table
-                while (pvList.Count < depth && TT.TryGetBestMove(board, out Move next)) {
-                    board.PlayMove(next);
-                    pvList.Add(next);
-                }
+            // play along the principal variation.
+            // the correct position is needed for correct tt lookups
+            foreach (Move move in PVSearch.PV) {
+                yield return move;
+                board.PlayMove(move);
             }
+            
+            int curDepth = PVSearch.PV.Length;
 
-            // return the (hopefully) elongated pv
-            return [.. pvList];
+            // try going deeper through the transposition table
+            while (TT.TryGetBestMove(board, out Move ttMove)) {
+                
+                // we don't want to expand the pv beyond the searched
+                // depth, because the results might get too unreliable
+                if (curDepth++ > PVSearch.CurDepth)
+                    yield break;
+                
+                yield return ttMove;
+                board.PlayMove(ttMove);
+            }
         }
     }
 }

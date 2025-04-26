@@ -38,6 +38,11 @@ internal static class Game {
     private static List<ulong>     HistoryPositions = [];
     internal static HashSet<ulong> Draws            = [];
 
+    private static readonly Action<string> InvalidFENCallback = delegate(string context) {
+        board.Clear();
+        UCI.Log($"invalid position - {context}", UCI.LogLevel.ERROR);
+    };
+
     internal static void SetPosFEN([In, ReadOnly(true)] in string[] tokens) {
 
         // clear the board from previous game/search
@@ -68,10 +73,7 @@ internal static class Game {
                 if (c is '\\' or '/')
                     continue;
 
-                UCI.Log($"invalid character in FEN: {c}", UCI.LogLevel.ERROR);
-
-                // clear the board to prevent chaos
-                board.Clear();
+                InvalidFENCallback($"invalid character in FEN: {c}");
                 return;
             }
 
@@ -102,11 +104,9 @@ internal static class Game {
             // black
             case "b": color = Color.BLACK; break;
 
-            default:  UCI.Log($"invalid side to move: {tokens[3]}", UCI.LogLevel.ERROR);
-
-                      board.Clear(); 
-                      return;
+            default:  InvalidFENCallback($"invalid side to move in FEN: {tokens[3]}"); return;
         }
+        
         board.Color = color;
 
         // 3. CASTLING RIGHTS
@@ -128,13 +128,13 @@ internal static class Game {
                 // black queenside
                 case 'q': board.CastlingRights |= CastlingRights.q; break;
 
-                default:
-                    if (tokens[4][i] != '-') {
-                        UCI.Log($"invalid castling availability: {tokens[2][i]}", UCI.LogLevel.ERROR);
-
-                        board.Clear();
-                        return;
-                    } continue;
+                default: {
+                    if (tokens[4][i] == '-') 
+                        continue;
+                    
+                    InvalidFENCallback($"invalid castling availability in FEN: {tokens[4][i]}"); 
+                    return;
+                }
             }
         }
 
@@ -152,9 +152,7 @@ internal static class Game {
             board.EnPassantSq = 64;
 
         else {
-            UCI.Log($"invalid en passant square: {tokens[5]}", UCI.LogLevel.ERROR);
-
-            board.Clear();
+            InvalidFENCallback($"invalid en passant square in FEN: {tokens[5]}");
             return;
         }
 
@@ -187,9 +185,7 @@ internal static class Game {
                 sequence.Add(tokens[i]);
 
                 if (!Move.IsCorrectFormat(tokens[i])) {
-                    UCI.Log($"invalid move: {tokens[i]}", UCI.LogLevel.ERROR);
-
-                    board.Clear();
+                    InvalidFENCallback($"invalid move: {tokens[i]}");
                     return;
                 }
 

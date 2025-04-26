@@ -8,12 +8,13 @@
 
 using Kreveta.openingbook;
 using Kreveta.search;
+using Kreveta.search.perft;
 
 using BenchmarkDotNet.Running;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Kreveta.search.perft;
+using NeoKolors.Console;
 
 // ReSharper disable InconsistentNaming
 
@@ -53,8 +54,8 @@ internal static class UCI {
         try {
             var nkOutput = new StreamWriter(NKLogFilePath);
 
-            NeoKolors.Console.NKDebug.Logger.Output         = nkOutput;
-            NeoKolors.Console.NKDebug.Logger.SimpleMessages = true;
+            NKDebug.Logger.Output         = nkOutput;
+            NKDebug.Logger.SimpleMessages = true;
         }
 
         // we are catching a "general exception type", because we have
@@ -75,7 +76,7 @@ internal static class UCI {
             string[] tokens = input.Split(' ');
 
             // we log the input commands as well
-            LogIntoFile($"USER COMMAND: {input}");
+            Task.Run(() => LogIntoFile($"USER COMMAND: {input}"));
 
             switch (tokens[0]) {
                 case "uci":        CmdUCI();             break;
@@ -140,35 +141,36 @@ internal static class UCI {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdSetOption(string[] toks) {
-        Options.SetOption(toks);
-    }
+    private static void CmdSetOption(string[] tokens)
+        => Options.SetOption(tokens);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdPosition(string[] toks) {
+    private static void CmdPosition(string[] tokens) {
         //Game.board = new();
         //return;
-        switch (toks[1]) {
+        switch (tokens[1]) {
 
             // we don't use the startpos constructor, because we can have a list
             // of moves played from the starting position, which would be quite
             // difficult and unnecessary to implement
-            case "startpos": Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' '), ..toks]); break;
-            case "fen":      Game.SetPosFEN(toks);                                              break;
+            case "startpos": Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' '), ..tokens]); break;
+            case "fen":      Game.SetPosFEN(tokens);                                                    break;
 
-            default:         Log($"invalid argument: {toks[1]}", LogLevel.ERROR);               return;
+            default:         Log($"invalid argument: {tokens[1]}", LogLevel.ERROR);                     return;
         }
 
         Console.WriteLine();
     }
 
-    private static void CmdPerft(string[] toks) {
-        if (toks.Length == 2) {
+    private static void CmdPerft(string[] tokens) {
+        if (tokens.Length == 2) {
 
             var sw = Stopwatch.StartNew();
 
-            if (!int.TryParse(toks[1], out int depth))
+            if (!int.TryParse(tokens[1], out int depth))
                 goto invalid_syntax;
+            
+            // TODO - perft could maybe be a separate thread
 
             Log($"nodes: {Perft.Run(Game.board, depth)}", LogLevel.INFO);
             Log($"time spent: {sw.Elapsed}", LogLevel.INFO);
@@ -183,19 +185,24 @@ internal static class UCI {
         Log($"invalid perft command syntax", LogLevel.ERROR);
     }
 
-    private static void CmdGo(string[] toks) {
+    private static void CmdGo(string[] tokens) {
+        
+        // abort the currently running search first in order to
+        // run a new one, since there is a single search thread.
+        // TODO - don't use cmdstop, define a new function instead
+        CmdStop();
 
-        TimeMan.ProcessTimeTokens(toks);
+        TimeMan.ProcessTimeTokens(tokens);
 
-        int depth = 50;
-        int depthIndex = Array.IndexOf(toks, "depth");
+        int depth = PVSControl.DefaultMaxDepth;
+        int depthIndex = Array.IndexOf(tokens, "depth");
 
         // the depth keyword should be directly followed by a parsable token
         if (depthIndex != -1) {
-            if (int.TryParse(toks[depthIndex + 1], out depth)) {
+            if (int.TryParse(tokens[depthIndex + 1], out depth)) {
                 TimeMan.TimeBudget = long.MaxValue;
             } 
-            else Log("invalid depth argument", LogLevel.ERROR);
+            else Log($"invalid depth: {tokens[depthIndex + 1]}", LogLevel.ERROR);
         }
 
         // don't use book moves when we want an actual search at a specified depth
@@ -224,6 +231,7 @@ internal static class UCI {
         Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
 
         SearchThread = new(() => PVSControl.StartSearch(depth)) {
+            Name     = $"{Engine.Name}-{Engine.Version}.Search",
             Priority = ThreadPriority.Highest
         };
         SearchThread.Start();
@@ -235,14 +243,13 @@ internal static class UCI {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdPrint() {
-        Game.board.Print();
-    }
+    private static void CmdPrint() 
+        => Game.board.Print();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
         if (logIntoFile)
-            LogIntoFile(msg, level);
+            Task.Run(() => LogIntoFile(msg, level));
         
         Output.WriteLine(msg);
     }
@@ -254,22 +261,26 @@ internal static class UCI {
         return true;
     }
 
-    private static void LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
+    // combining sync and async code is generally a bad idea, but we must avoid slowing
+    // down the code if something takes too long in NK (although it's probably unlikely)
+    private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
         if (!Options.NKLogs) 
             return;
-        
+
         // using KryKom's NeoKolors library for fancy logs
         // this option can be toggled via the FancyLogs option
         try {
+                
+            // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
             switch (level) {
-                case LogLevel.INFO:    NeoKolors.Console.NKDebug.Info(msg);  break;
-                case LogLevel.WARNING: NeoKolors.Console.NKDebug.Warn(msg);  break;
-                case LogLevel.ERROR:   NeoKolors.Console.NKDebug.Error(msg); break;
+                case LogLevel.INFO:    await Task.Run(() => NKDebug.Info(msg)).ConfigureAwait(false);  break;
+                case LogLevel.WARNING: await Task.Run(() => NKDebug.Warn(msg)).ConfigureAwait(false);  break;
+                case LogLevel.ERROR:   await Task.Run(() => NKDebug.Error(msg)).ConfigureAwait(false); break;
 
-                default:               NeoKolors.Console.NKDebug.Info(msg);  break;
+                default:               await Task.Run(() => NKDebug.Info(msg)).ConfigureAwait(false);  break;
             }
         }
-        catch (Exception ex) 
+        catch (Exception ex)
             when (LogException("NKLogger failed when logging into file", ex, false)) {}
     }
 }

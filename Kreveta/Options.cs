@@ -20,7 +20,7 @@ namespace Kreveta;
 internal static class Options {
 
     private const bool DefaultOwnBook = true;
-    private const bool DefaultNKLogs  = false;
+    private const bool DefaultNKLogs  = true;
     private const long DefaultHash    = 40;
 
     private enum OptionType {
