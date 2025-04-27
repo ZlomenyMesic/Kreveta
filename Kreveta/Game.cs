@@ -9,6 +9,7 @@
 // Specify CultureInfo
 #pragma warning disable CA1304
 
+using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.openingbook;
 using Kreveta.search;
@@ -43,7 +44,7 @@ internal static class Game {
         UCI.Log($"invalid position - {context}", UCI.LogLevel.ERROR);
     };
 
-    internal static void SetPosFEN([In, ReadOnly(true)] in string[] tokens) {
+    internal static void SetPosFEN([In, ReadOnly(true)] in ReadOnlySpan<string> tokens) {
 
         // clear the board from previous game/search
         board = new();
@@ -170,7 +171,7 @@ internal static class Game {
         // TODO: FINISH FEN
 
         // position command can be followed by a sequence of moves
-        int moveSeqStart = Array.IndexOf(tokens, "moves");
+        int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
         // we save the previous positions as 3-fold repetition exists
         HistoryPositions.Add(Zobrist.GetHash(board));
@@ -189,7 +190,7 @@ internal static class Game {
                     return;
                 }
 
-                board.PlayMove(Move.FromString(board, tokens[i]));
+                board.PlayMove(tokens[i].ToMove(board));
                 HistoryPositions.Add(Zobrist.GetHash(board));
 
                 // switch the engine's color
@@ -233,6 +234,7 @@ internal static class Game {
     }
 
     internal static void TestingFunction() {
+
     }
 }
 

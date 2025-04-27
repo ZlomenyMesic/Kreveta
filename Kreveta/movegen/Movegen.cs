@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System.ComponentModel;
@@ -12,30 +13,63 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
 
-internal static class Movegen {
+internal static unsafe class Movegen {
 
-    internal static IEnumerable<Move> GetLegalMoves(Board board, bool onlyCaptures = false) {
+
+    private const int MaxMoveCount = 110;
+
+    private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 16);
+    private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 16);
+
+    private static byte _curPL;
+    private static byte _curL;
+
+    internal static Span<Move> GetLegalMoves(Board board, bool onlyCaptures = false) {
 
         Color col = board.Color;
 
-        List<Move> moves = [];
+        _curPL = 0;
+        _curL  = 0;
 
         // only generate captures (used in qsearch)
         if (onlyCaptures) {
-            GetPseudoLegalCaptures(board, col, moves);
+            GetPseudoLegalCaptures(board, col);
         }
 
         // otherwise all possible moves
-        else GetPseudoLegalMoves(board, col, moves);
+        else GetPseudoLegalMoves(board, col);
 
         // remove the illegal ones
-        for (int i = 0; i < moves.Count; i++) {
-            if (board.IsMoveLegal(moves[i], col))
-                yield return moves[i];
+        for (int i = 0; i < _curPL; i++) {
+            if (board.IsMoveLegal(_pseudoLegalMoveBuffer[i], col)) {
+                _legalMoveBuffer[_curL++] = _pseudoLegalMoveBuffer[i];
+            }
         }
+
+        Move[] result = new Move[_curL];
+        for (int i = 0; i < _curL; i++) {
+            result[i] = _legalMoveBuffer[i];
+        }
+
+        return result;
     }
 
-    internal static void GetPseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col, [In, ReadOnly(true)] in List<Move> moves) {
+    internal static Span<Move> GetPseudoLegalMoves(Board board) {
+        Color col = board.Color;
+
+        _curPL = 0;
+
+        GetPseudoLegalMoves(board, col);
+
+        Move[] result = new Move[_curPL];
+        for (int i = 0; i < _curPL; i++) {
+            result[i] = _pseudoLegalMoveBuffer[i];
+        }
+
+        return result;
+    }
+
+    private static void GetPseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col) {
 
         // all occupied squares and squares occupied by opponent
         ulong occupied = board.Occupied;
@@ -52,7 +86,7 @@ internal static class Movegen {
 
         // loop through every piece type and add start the respective move search loop
         for (int i = 0; i < 6; i++) {
-            LoopPiecesBB(board, board.Pieces[(byte)col][i], (PType)i, col, occupiedOpp, occupied, empty, free, moves);
+            LoopPiecesBB(board, board.Pieces[(byte)col][i], (PType)i, col, occupiedOpp, occupied, empty, free);
         }
 
         // castling when in check is illegal
@@ -60,10 +94,10 @@ internal static class Movegen {
             return;
         
         ulong cast = King.GetCastlingTargets(board, col);
-        LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col, moves);
+        LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col);
     }
 
-    private static void GetPseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col, [In, ReadOnly(true)] in List<Move> moves) {
+    private static void GetPseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col) {
 
         ulong occupied = board.Occupied;
 
@@ -74,7 +108,7 @@ internal static class Movegen {
         // loop through every piece (same as above)
         // we only generate captures, though
         for (int i = 0; i < 6; i++) {
-            LoopPiecesBB(board, board.Pieces[(byte)col][i], (PType)i, col, occupiedOpp, occupied, occupiedOpp, occupiedOpp, moves, true);
+            LoopPiecesBB(board, board.Pieces[(byte)col][i], (PType)i, col, occupiedOpp, occupied, occupiedOpp, occupiedOpp, true);
         }
 
         // no need to generate castling moves - they can never be a capture
@@ -120,10 +154,10 @@ internal static class Movegen {
         return false;
     }
 
-    private static void LoopPiecesBB([In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, [In, ReadOnly(true)] in List<Move> moves, bool onlyCaptures = false) {
+    private static void LoopPiecesBB([In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures = false) {
 
         // iteratively remove the pieces from the bitboard and generate their moves
-        while (pieces != 0) {
+        while (pieces != 0UL) {
 
             // "bit scan forward reset" also removes the least significant bit
             sbyte start = BB.LS1BReset(ref pieces);
@@ -133,7 +167,7 @@ internal static class Movegen {
             ulong targets = GetTargets(board, sq, type, col, occupiedOpp, occupied, empty, free, onlyCaptures);
 
             // loop the found moves and add them
-            LoopTargets(board, start, targets, type, col, moves);
+            LoopTargets(board, start, targets, type, col);
         }
     }
 
@@ -159,13 +193,13 @@ internal static class Movegen {
         };
     }
 
-    private static void LoopTargets([In, ReadOnly(true)] in Board board, sbyte start, ulong targets, PType type, Color col, [In, ReadOnly(true)] in List<Move> moves) {
+    private static void LoopTargets([In, ReadOnly(true)] in Board board, sbyte start, ulong targets, PType type, Color col) {
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
         
         // same principle as above
-        while (targets != 0) {
+        while (targets != 0UL) {
             sbyte end = BB.LS1BReset(ref targets);
 
             PType capt = PType.NONE;
@@ -182,11 +216,11 @@ internal static class Movegen {
             }
             
             // add the move
-            AddMovesToList(type, col, start, end, capt, moves, board.EnPassantSq);
+            AddMovesToList(type, col, start, end, capt, board.EnPassantSq);
         }
     }
 
-    private static void AddMovesToList(PType type, Color col, sbyte start, sbyte end, PType capt, [In, ReadOnly(true)] in List<Move> moves, int enPassantSq) {
+    private static void AddMovesToList(PType type, Color col, sbyte start, sbyte end, PType capt, int enPassantSq) {
 
         // add the generated move to the list
         switch (type) {
@@ -196,20 +230,20 @@ internal static class Movegen {
                 if ((end < 8 && col == Color.WHITE) | (end > 55 && col == Color.BLACK)) {
 
                     // all four possible promotions
-                    moves.Add(new(start, end, PType.PAWN, capt, PType.KNIGHT));
-                    moves.Add(new(start, end, PType.PAWN, capt, PType.BISHOP));
-                    moves.Add(new(start, end, PType.PAWN, capt, PType.ROOK));
-                    moves.Add(new(start, end, PType.PAWN, capt, PType.QUEEN));
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.KNIGHT);
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.BISHOP);
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.ROOK);
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.QUEEN);
                 }
                 else if (end == enPassantSq) {
 
                     // en passant - "pawn promotion"
-                    moves.Add(new(start, end, PType.PAWN, PType.NONE, PType.PAWN));
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, PType.NONE, PType.PAWN);
                 }
                 else {
 
                     // regular moves
-                    moves.Add(new(start, end, PType.PAWN, capt, PType.NONE));
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.NONE);
                 }
 
                 return;
@@ -217,13 +251,13 @@ internal static class Movegen {
 
             // special case for castling
             case PType.NONE: {
-                moves.Add(new(start, end, PType.KING, PType.NONE, PType.KING)); 
+                _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.KING, PType.NONE, PType.KING); 
                 return;
             }
 
             // any other move
             default: {
-                moves.Add(new(start, end, type, capt, PType.NONE)); 
+                _pseudoLegalMoveBuffer[_curPL++] = new(start, end, type, capt, PType.NONE); 
                 return;
             }
         }

@@ -14,7 +14,7 @@ internal static class Perft {
     internal static ulong Run([In, ReadOnly(true)] in Board board, int depth) {
 
         if (depth == 1) {
-            return (ulong)Movegen.GetLegalMoves(board).Count();
+            return (ulong)Movegen.GetLegalMoves(board).Length;
         }
 
         if (PerftTT.TryGetNodes(board, depth, out ulong nodes)) {
@@ -23,15 +23,14 @@ internal static class Perft {
 
         nodes = 0UL;
 
-        List<Move> moves = [];
-        Movegen.GetPseudoLegalMoves(board, board.Color, moves);
+        Span<Move> moves = Movegen.GetPseudoLegalMoves(board);
 
-        for (int i = 0; i < moves.Count; i++) {
+        for (int i = 0; i < moves.Length; i++) {
 
             Board child = board.Clone();
             child.PlayMove(moves[i]);
 
-            // the move is illegal
+            // the move is illegal (we moved to or stayed in check)
             if (Movegen.IsKingInCheck(child, board.Color))
                 continue;
 

@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
@@ -73,7 +74,7 @@ namespace Kreveta.search {
             UCI.Log($"info string total nodes {TotalNodes}", UCI.LogLevel.INFO);
 
             // the final response of the engine to the gui
-            UCI.Log($"bestmove {BestMove}\n");
+            UCI.Log($"bestmove {BestMove.ToLogAlgNotation()}\n");
 
             // reset all counters for the next search
             // not the next iteration of the current one
@@ -153,7 +154,7 @@ namespace Kreveta.search {
             // print the actual moves in the pv. Move.ToString()
             // is overriden so there's no need to explicitly type it
             foreach (Move move in ElongatePV())
-                info += $" {move}";
+                info += $" {move.ToLogAlgNotation()}";
 
             // as per the convention, the engine's response
             // shall always end with a newline character
@@ -172,14 +173,14 @@ namespace Kreveta.search {
                 board.PlayMove(move);
             }
             
-            int curDepth = PVSearch.PV.Length;
+            int depth = PVSearch.PV.Length;
 
             // try going deeper through the transposition table
             while (TT.TryGetBestMove(board, out Move ttMove)) {
                 
                 // we don't want to expand the pv beyond the searched
                 // depth, because the results might get too unreliable
-                if (curDepth++ > PVSearch.CurDepth)
+                if (depth++ > PVSearch.CurDepth)
                     yield break;
                 
                 yield return ttMove;

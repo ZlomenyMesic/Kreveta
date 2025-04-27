@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
+
 namespace Kreveta.movegen.pieces;
 
 internal static class Rook {

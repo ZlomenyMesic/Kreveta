@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.moveorder;
@@ -158,7 +159,7 @@ namespace Kreveta.search {
         // depth, on the other hand, starts at the highest value and decreases over time.
         // once we get to depth = 0, we drop into the qsearch. the search window contains 
         // the alpha and beta values, which are the pillars to this thing
-        private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
+        private static unsafe (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
 
             // either crossed the time budget or maximum nodes
             // we cannot abort the first iteration - no bestmove
@@ -168,11 +169,11 @@ namespace Kreveta.search {
             Color col = board.Color;
 
             // if we found a mate score in the previous iteration, we return if
-            // the ply we are currently in is larger than the already found mate
+            // the ply we are currently at is larger than the already found mate
             // (if we found let's say mate in 7, it doesn't make any sense to
-            // searchpast ply 7 since whatever we find won't change anything).
+            // search past ply 7, since whatever we find won't matter anyway).
             // we do, however, still want to search at lower plies in case we
-            // find a shorter path mate
+            // find a shorter path to mate
             if (Score.IsMateScore(PVScore)) {
                 int matePly = Math.Abs(Score.GetMateInX(PVScore));
                 if (ply > matePly)
@@ -268,7 +269,8 @@ namespace Kreveta.search {
             // all legal moves sorted from best to worst (only a guess)
             // first the tt bestmove, then captures sorted by MVV-LVA,
             // then killer moves and last quiet moves sorted by history
-            Move[] moves = MoveOrder.GetSortedMoves(board, depth, previous);
+            //Span<Move> moves = new(MoveOrder.GetSortedMoves(board, depth, previous, out int length), length);
+            Span<Move> moves = MoveOrder.GetSortedMoves(board, depth, previous);
 
             // counter for expanded nodes
             int expNodes = 0;

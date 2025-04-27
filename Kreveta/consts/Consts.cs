@@ -4,35 +4,10 @@
 //
 
 using System.ComponentModel;
+
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta;
-
-internal enum Color : byte {
-    WHITE = 0,
-    BLACK = 1,
-    NONE  = 2
-}
-
-internal enum PType : byte {
-    PAWN   = 0,
-    KNIGHT = 1,
-    BISHOP = 2,
-    ROOK   = 3,
-    QUEEN  = 4,
-    KING   = 5,
-    NONE   = 6
-}
-
-[Flags]
-internal enum CastlingRights : byte {
-    NONE = 0,
-    K    = 1, // white kingside
-    Q    = 2, // white queenside
-    k    = 4, // black kingside
-    q    = 8, // black queenside
-    ALL  = 15
-}
+namespace Kreveta.consts;
 
 internal static class Consts {
 

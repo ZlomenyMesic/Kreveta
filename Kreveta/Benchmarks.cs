@@ -13,25 +13,24 @@
 #pragma warning disable CA1822
 
 using BenchmarkDotNet.Attributes;
-using System.Diagnostics;
 
 namespace Kreveta;
 
-#if DEBUG
+//#if DEBUG
 
 [MemoryDiagnoser]
 [Orderer(BenchmarkDotNet.Order.SummaryOrderPolicy.FastestToSlowest)]
 [RankColumn]
 public class Benchmarks {
 
-    [Conditional("DEBUG")]
+    //[Conditional("DEBUG")]
     [GlobalSetup]
     public void Setup() {
 
     }
 }
 
-#endif
+//#endif
 
 #pragma warning restore CA1822
 #pragma warning restore CA1515
