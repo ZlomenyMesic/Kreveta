@@ -15,6 +15,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using NeoKolors.Console;
+using Kreveta.consts;
+using Kreveta.movegen;
 
 // ReSharper disable InconsistentNaming
 
@@ -64,16 +66,16 @@ internal static class UCI {
             when (LogException("NKLogger initialization failed", ex)) {}
     }
 
-    internal static void InputLoop() {
+    internal static unsafe void InputLoop() {
         while (true) {
 
             string input = Input.ReadLine()
                 ?? string.Empty;
 
-            if (string.IsNullOrWhiteSpace(input))
+            if (string.IsNullOrWhiteSpace(input.ToString()))
                 continue;
 
-            string[] tokens = input.Split(' ');
+            ReadOnlySpan<string> tokens = input.ToString().Split(' ');
 
             // we log the input commands as well
             Task.Run(() => LogIntoFile($"USER COMMAND: {input}"));
@@ -141,11 +143,11 @@ internal static class UCI {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdSetOption(string[] tokens)
+    private static void CmdSetOption(ReadOnlySpan<string> tokens)
         => Options.SetOption(tokens);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdPosition(string[] tokens) {
+    private static void CmdPosition(ReadOnlySpan<string> tokens) {
         //Game.board = new();
         //return;
         switch (tokens[1]) {
@@ -162,7 +164,7 @@ internal static class UCI {
         Console.WriteLine();
     }
 
-    private static void CmdPerft(string[] tokens) {
+    private static void CmdPerft(ReadOnlySpan<string> tokens) {
         if (tokens.Length == 2) {
 
             var sw = Stopwatch.StartNew();
@@ -185,7 +187,7 @@ internal static class UCI {
         Log($"invalid perft command syntax", LogLevel.ERROR);
     }
 
-    private static void CmdGo(string[] tokens) {
+    private static void CmdGo(ReadOnlySpan<string> tokens) {
         
         // abort the currently running search first in order to
         // run a new one, since there is a single search thread.
@@ -194,20 +196,20 @@ internal static class UCI {
 
         TimeMan.ProcessTimeTokens(tokens);
 
-        int depth = PVSControl.DefaultMaxDepth;
-        int depthIndex = Array.IndexOf(tokens, "depth");
+        int depth           = PVSControl.DefaultMaxDepth;
+        int depthTokenIndex = MemoryExtensions.IndexOf(tokens, "depth");
 
         // the depth keyword should be directly followed by a parsable token
-        if (depthIndex != -1) {
-            if (int.TryParse(tokens[depthIndex + 1], out depth)) {
+        if (depthTokenIndex != -1) {
+            if (int.TryParse(tokens[depthTokenIndex + 1], out depth)) {
                 TimeMan.TimeBudget = long.MaxValue;
             } 
-            else Log($"invalid depth: {tokens[depthIndex + 1]}", LogLevel.ERROR);
+            else Log($"invalid depth: {tokens[depthTokenIndex + 1]}", LogLevel.ERROR);
         }
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
-        if (depthIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook && !string.IsNullOrEmpty(OpeningBook.BookMove)) {
+        if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook && !string.IsNullOrEmpty(OpeningBook.BookMove)) {
             Log($"bestmove {OpeningBook.BookMove}");
             return;
         }

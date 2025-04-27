@@ -22,20 +22,20 @@ internal static class Options {
     private const bool DefaultOwnBook = true;
     private const bool DefaultNKLogs  = true;
     private const long DefaultHash    = 40;
-
-    private enum OptionType {
+    
+    internal enum OptionType : byte {
         CHECK, SPIN, BUTTON, STRING
     }
 
     private struct Option {
 
-        internal string Name;
+        internal string     Name;
         internal OptionType Type;
 
-        internal string MinValue;
-        internal string MaxValue;
-        internal string DefaultValue;
-        internal string Value;
+        internal string     MinValue;
+        internal string     MaxValue;
+        internal string     DefaultValue;
+        internal string     Value;
     }
 
     private static readonly Option[] options = [
@@ -48,7 +48,7 @@ internal static class Options {
             // standard ToString returns True and False, which
             // isn't what we want. this works just fine
             DefaultValue = DefaultOwnBook ? "true" : "false",
-            Value = DefaultOwnBook ? "true" : "false"
+            Value        = DefaultOwnBook ? "true" : "false"
         },
 
         // modify the size of the hash table (transpositions)
@@ -71,7 +71,7 @@ internal static class Options {
             Type = OptionType.CHECK,
 
             DefaultValue = DefaultNKLogs ? "true" : "false",
-            Value = DefaultNKLogs ? "true" : "false"
+            Value        = DefaultNKLogs ? "true" : "false"
         },
     ];
 
@@ -90,17 +90,17 @@ internal static class Options {
     [ReadOnly(true)]
     internal static bool NKLogs 
         => options[2].Value == "true";
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string OTypeToString(OptionType type) {
-        return type switch {
+    
+    // we could just rename the items in the enum to be lowercase, but
+    // that doesn't look good at all, so we use an extension method instead
+    private static string GetName(this OptionType type)
+        => type switch {
             OptionType.CHECK  => "check",
             OptionType.SPIN   => "spin",
             OptionType.BUTTON => "button",
             OptionType.STRING => "string",
             _ => string.Empty
         };
-    }
 
     internal static void Print() {
         foreach (var opt in options) {
@@ -108,7 +108,7 @@ internal static class Options {
 
             sb.Append($"option name {opt.Name}");
             
-            sb.Append($" type {OTypeToString(opt.Type)}");
+            sb.Append($" type {opt.Type.GetName()}");
 
             switch (opt.Type) {
                 case OptionType.CHECK or OptionType.STRING:
@@ -124,7 +124,7 @@ internal static class Options {
         }
     }
 
-    internal static void SetOption(string[] tokens) {
+    internal static void SetOption(ReadOnlySpan<string> tokens) {
         if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;
         }
@@ -140,6 +140,7 @@ internal static class Options {
                     //
                     return;
                 }
+
                 case OptionType.CHECK: {
                     //if (tokens.Length == 5 && tokens[3] == "value"
                     //    && (tokens[4] == "true" || tokens[4] == "false")) {
@@ -151,6 +152,7 @@ internal static class Options {
                     //} else goto invalid_syntax;
                     break;
                 }
+
                 case OptionType.SPIN: {
                     if (tokens is [_, _, _, "value", _]) {
 
@@ -162,6 +164,7 @@ internal static class Options {
 
                     } goto invalid_syntax;
                 }
+
                 case OptionType.STRING: {
                     if (tokens is [_, _, _, "value", _, ..]) {
 

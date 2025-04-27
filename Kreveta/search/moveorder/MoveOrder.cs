@@ -3,9 +3,11 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.movegen;
 
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.moveorder;
 
@@ -18,13 +20,14 @@ internal static class MoveOrder {
     // least make a rough guess.
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static Move[] GetSortedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
+    internal static unsafe Move[] GetSortedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
 
         Move[] legal  = [..Movegen.GetLegalMoves(board)];
-        Move[] sorted = new Move[legal.Length];
+        //Move[] sorted = new Move[legal.Length];
+        Span<Move> sorted = stackalloc Move[legal.Length];
 
         int cur = 0;
 
@@ -115,7 +118,14 @@ internal static class MoveOrder {
         //        sorted[cur++] = badCaptures[i];
         //}
 
-        return sorted;
+        //length = sorted.Length;
+
+        //fixed (Move* ptr = sorted) {
+        //    return ptr;
+        //}
+
+        Move[] result = [..sorted];
+        return result;
     }
 
     // this is just a wrapper for a sorting loop, didn't

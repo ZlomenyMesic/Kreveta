@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.movegen;
 
 using System.ComponentModel;
@@ -94,7 +95,7 @@ internal static class MVV_LVA {
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as
         // negative one despite the captured pawn
-        if (victim >> 31 == 1) {
+        if (victim >>> 31 == 1) {
 
             // en passant always captures a pawn
             victim = PieceValues[(byte)PType.PAWN];

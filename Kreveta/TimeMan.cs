@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
+
 namespace Kreveta;
 
 internal static class TimeMan {
@@ -22,43 +24,43 @@ internal static class TimeMan {
 
     internal static long TimeBudget;
 
-    internal static void ProcessTimeTokens(string[] toks) {
+    internal static void ProcessTimeTokens(ReadOnlySpan<string> tokens) {
         WhiteTime = BlackTime = MoveTime = WhiteIncrement = BlackIncrement = MovesToGo = 0;
 
-        for (int i = 1; i < toks.Length; ) {
+        for (int i = 1; i < tokens.Length; ) {
 
             bool success = false;
 
-            if (toks[i] == "infinite") {
+            if (tokens[i] == "infinite") {
                 MoveTime = long.MaxValue;
                 success = true;
 
                 i++;
             } 
 
-            else if (toks[i] == "movetime") {
-                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out MoveTime)) {
+            else if (tokens[i] == "movetime") {
+                if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out MoveTime)) {
                     success = true;
 
                     i += 2;
                 }
             }
-            else if (toks[i] == "wtime") {
-                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out WhiteTime)) {
+            else if (tokens[i] == "wtime") {
+                if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out WhiteTime)) {
                     success = true;
                     i += 2;
                 }
             }
 
-            else if (toks[i] == "btime") {
-                if (i != toks.Length - 1 && long.TryParse(toks[i + 1], out BlackTime)) {
+            else if (tokens[i] == "btime") {
+                if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out BlackTime)) {
                     success = true;
                     i += 2;
                 }
             }
 
-            else if (toks[i] == "movestogo") {
-                if (i != toks.Length - 1 && int.TryParse(toks[i + 1], out MovesToGo)) {
+            else if (tokens[i] == "movestogo") {
+                if (i != tokens.Length - 1 && int.TryParse(tokens[i + 1], out MovesToGo)) {
                     success = true;
                     i += 2;
                 }
@@ -69,7 +71,7 @@ internal static class TimeMan {
                 goto arg_fail;
 
             // parsed numbers successfully and got to the last argument
-            if (i != toks.Length) 
+            if (i != tokens.Length) 
                 continue;
             
             if (MovesToGo == 0 && MoveTime == 0) {

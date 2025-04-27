@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
@@ -32,7 +33,7 @@ internal static class Score {
     // scores that aren't mate, e.g. Cutechess only shows evaluation
     // below 15 pawns correctly, and above that all scores look the
     // same. for this reason, when printing a score (that is not a mate
-    // score), we use a kind of like sigmoid function to make all scores
+    // score), we use the tangent hyperbolic function to make all scores
     // fall into a set interval.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int LimitScore(int score)

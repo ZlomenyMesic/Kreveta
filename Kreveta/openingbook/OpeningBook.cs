@@ -6,6 +6,7 @@
 // Remove unnecessary suppression
 #pragma warning disable IDE0079
 
+using Kreveta.consts;
 using System.ComponentModel;
 using System.Diagnostics;
 

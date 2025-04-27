@@ -6,9 +6,11 @@
 // Remove unnecessary suppression
 #pragma warning disable IDE0079
 
+using Kreveta.consts;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Kreveta.movegen;
 
@@ -99,36 +101,44 @@ internal readonly struct Move : IEquatable<Move>
 
         // checks if the move from the user input makes sense (doesn't check legality)
         // caution: don't try to understand this mess
-        return str.Length >= 4 && Consts.Files.Contains(str[0], StringComparison.Ordinal) && char.IsDigit(str[1]) && Consts.Files.Contains(str[2], StringComparison.Ordinal) && char.IsDigit(str[3])
-            && (str.Length == 4 || (str.Length == 5 && Consts.Pieces.Contains(str[4], StringComparison.Ordinal)));
+        return Consts.Files.Contains(str[0], StringComparison.Ordinal) && char.IsDigit(str[1]) 
+            && Consts.Files.Contains(str[2], StringComparison.Ordinal) && char.IsDigit(str[3])
+            && (str.Length == 4
+            || (str.Length == 5 && Consts.Pieces.Contains(str[4], StringComparison.Ordinal)));
     }
+}
 
-    // converts a move back to a string, see the method below for more information
-    public override string ToString() {
+internal static class MoveExtenstions {
+    
+    // converts a move back to the long algebraic notation
+    // format, see the next method for more information
+    internal static string ToLogAlgNotation(this Move move) {
 
-        int   start = Start;
-        int   end   = End;
-        PType prom  = Promotion;
+        int   start = move.Start;
+        int   end   = move.End;
+        PType prom  = move.Promotion;
 
-        // convert starting and ending squares to standard format, e.g. "e4"
+        StringBuilder sb = new();
 
         // Specify IFormatProvider
 #pragma warning disable CA1305
 
-        string strStart = Consts.Files[start % 8] + (8 - start / 8).ToString();
-        string strEnd   = Consts.Files[end   % 8] + (8 - end   / 8).ToString();
+        // convert starting and ending squares to standard format, e.g. "e4"
+
+        sb.Append(Consts.Files[start % 8] + (8 - start / 8).ToString());
+        sb.Append(Consts.Files[end   % 8] + (8 - end   / 8).ToString());
 
 #pragma warning restore CA1305 
 
         // if no promotion => empty string
-        string promotion = (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE) 
-            ? Consts.Pieces[(byte)prom].ToString() : "";
+        if (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE)
+            sb.Append(prom.ToChar());
 
-        return $"{strStart}{strEnd}{promotion}";
+        return sb.ToString();
     }
-
+    
     // converts a string to a move object
-    internal static Move FromString([In, ReadOnly(true)] in Board board, string str) {
+    internal static Move ToMove(this string str, [In, ReadOnly(true)] in Board board) {
 
         // the move in the string is stored using a form of Long Algebraic Notation (LAN),
         // which is used by UCI. there is no information about the piece moved, only the starting square
@@ -144,7 +154,7 @@ internal readonly struct Move : IEquatable<Move>
 
         // potential promotion?
         PType prom = str.Length == 5 
-            ? (PType)Consts.Pieces.IndexOf(str[4], StringComparison.Ordinal) 
+            ? str[4].ToPType() 
             : PType.NONE;
 
         // overriding promotion:
