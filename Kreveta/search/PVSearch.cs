@@ -159,7 +159,7 @@ namespace Kreveta.search {
         // depth, on the other hand, starts at the highest value and decreases over time.
         // once we get to depth = 0, we drop into the qsearch. the search window contains 
         // the alpha and beta values, which are the pillars to this thing
-        private static unsafe (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
+        private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
 
             // either crossed the time budget or maximum nodes
             // we cannot abort the first iteration - no bestmove
@@ -249,7 +249,6 @@ namespace Kreveta.search {
             if (PruningOptions.AllowNullMovePruning
                 && ply >= NullMovePruning.CurMinPly
                 && !inCheck
-                && !Score.IsMateScore(PVScore)
 
                 && (col == Color.WHITE
                     ? window.Beta  < short.MaxValue
@@ -262,6 +261,41 @@ namespace Kreveta.search {
                     return (score, []);
                 }
             }
+            
+            //bool improving = improvStack.IsImproving(ply, col);
+            //if (depth == 6 && !inCheck && !improving)
+            //{
+            //    // null window around beta
+            //    Window nullWindowAlpha = col == Color.BLACK
+            //        ? new((short)(window.Beta - 1), window.Beta) 
+            //        : new(window.Alpha, (short)(window.Alpha + 1));
+            
+            //    // child with no move played
+            //    Board nullChild = board.GetNullChild();
+            
+            //    // the reduction is based on ply, depth, etc.
+            //    //int R = Math.Min(ply - 2,
+            //    //    2 + PVSearch.CurDepth / 4);
+            
+            //    int R = 4;
+            
+            //    // once we reach a certain depth iteration, we start pruning
+            //    // a bit more aggressively - it isn't as important to be careful
+            //    // later than it is at the beginning. not adding this threshold
+            //    // causes some troubles in evaluation, though.
+            //    //if (PVSearch.CurDepth > MinAddRedDepth)
+            //    //    R += depth / AddDepthDivisor;
+            
+            //    // do the reduced search
+            //    short probCutScore = ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowAlpha, default).Score;
+                
+            //    if (col == Color.WHITE 
+            //            ? probCutScore + 100 <= window.Alpha
+            //            : probCutScore - 100 >= window.Beta)
+            //    {
+            //        depth -= 2;
+            //    }
+            //}
 
             // this gets incremented only if no qsearch, otherwise the node would count twice
             CurNodes++;
@@ -336,7 +370,7 @@ namespace Kreveta.search {
                     // we failed low with a margin - only reduce, don't prune
                     if (Reduce) {
                         depth -= LateMoveReductions.R;
-                        ply += LateMoveReductions.R;
+                        //ply += LateMoveReductions.R;
                     }
                 }
 
@@ -346,8 +380,8 @@ namespace Kreveta.search {
 
                 // we somehow still failed low
                 if (col == Color.WHITE 
-                    ? (fullSearch.Score <= window.Alpha) 
-                    : (fullSearch.Score >= window.Beta)) {
+                    ? fullSearch.Score <= window.Alpha
+                    : fullSearch.Score >= window.Beta) {
 
                     // decrease the move's reputation
                     // (although we are modifying quiet history, regardless of

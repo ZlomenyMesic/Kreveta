@@ -56,7 +56,7 @@ internal static class LateMoveReductions {
     internal static (bool Prune, bool Reduce) TryPrune([In, ReadOnly(true)] in Board board, [In, ReadOnly(true)] in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
 
         // depth reduce is larger with bad quiet history
-        int R = (move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold)
+        int R = move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold
             ? InternalBadHistR
             : InternalR;
 
@@ -107,8 +107,8 @@ internal static class LateMoveReductions {
         score -= margin;
         bool shouldReduce = R == InternalBadHistR 
             && col == Color.WHITE
-                ? (score <= window.Alpha)
-                : (score >= window.Beta);
+                ? score <= window.Alpha
+                : score >= window.Beta;
 
         return (false, shouldReduce);
     }
