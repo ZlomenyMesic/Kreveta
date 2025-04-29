@@ -9,10 +9,7 @@ internal static class PruningOptions {
     internal const bool AllowNullMovePruning        = true;
     internal const bool AllowProbCut                = true;
 
-    internal const bool AllowRazoring               = false;  // false
-
     internal const bool AllowFutilityPruning        = true;
-    internal const bool AllowReverseFutilityPruning = false; // false
 
     internal const bool AllowLateMovePruning        = true;
     internal const bool AllowLateMoveReductions     = true;

@@ -25,38 +25,38 @@ namespace Kreveta.search.pruning;
 internal static class LateMoveReductions {
 
     // once again we set a minimum ply and depth
-    internal const int MinPly   = 4;
-    internal const int MinDepth = 0;
+    internal const byte MinPly   = 4;
+    internal const byte MinDepth = 0;
 
     // minimum nodes expanded before lmr
     // (we obviously don't want to reduce the pv)
-    internal const int MinExpNodes = 3;
+    internal const byte MinExpNodes = 3;
 
     // the actual depth reduce within late move reductions
-    internal const int R = 2;
+    internal const byte R = 2;
 
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
-    private const int HistReductionThreshold = -720;
+    private const short HistReductionThreshold = -720;
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.
-    private const int InternalR         = 3;
-    private const int InternalBadHistR  = 4;
+    private const byte InternalR         = 3;
+    private const byte InternalBadHistR  = 4;
 
-    private const int MaxReduceMargin   = 66;
-    private const int WindowSizeDivisor = 9;
-    private const int MarginDivisor     = 6;
-    private const int ImprovingMargin   = 12;
+    private const byte MaxReduceMargin   = 66;
+    private const byte WindowSizeDivisor = 9;
+    private const byte MarginDivisor     = 6;
+    private const byte ImprovingMargin   = 12;
 
-    private const int ReductionDepth    = 4;
+    private const byte ReductionDepth    = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune([In, ReadOnly(true)] in Board board, [In, ReadOnly(true)] in Board child, Move move, int ply, int depth, Color col, int expNodes, bool improving, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune([In, ReadOnly(true)] in Board board, [In, ReadOnly(true)] in Board child, Move move, int ply, int depth, Color col, byte searchedMoves, bool improving, Window window) {
 
         // depth reduce is larger with bad quiet history
-        int R = move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold
+        byte R = move.Capture == PType.NONE && QuietHistory.GetRep(board, move) < HistReductionThreshold
             ? InternalBadHistR
             : InternalR;
 
@@ -93,7 +93,7 @@ internal static class LateMoveReductions {
         // a fraction of the window is the margin
         short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor);
 
-        margin += (short)expNodes;
+        margin += searchedMoves;
         margin += (short)(improving ? -ImprovingMargin : 0);
 
         margin *= (short)(col == Color.WHITE ? 1 : -1);
