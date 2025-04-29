@@ -174,7 +174,7 @@ internal static class UCI {
             
             // TODO - perft could maybe be a separate thread
 
-            Log($"nodes: {Perft.Run(Game.board, depth)}", LogLevel.INFO);
+            Log($"nodes: {Perft.Run(Game.Board, depth)}", LogLevel.INFO);
             Log($"time spent: {sw.Elapsed}", LogLevel.INFO);
 
             PerftTT.Clear();
@@ -246,7 +246,7 @@ internal static class UCI {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPrint() 
-        => Game.board.Print();
+        => Game.Board.Print();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
@@ -275,11 +275,11 @@ internal static class UCI {
                 
             // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
             switch (level) {
-                case LogLevel.INFO:    await Task.Run(() => NKDebug.Info(msg)).ConfigureAwait(false);  break;
-                case LogLevel.WARNING: await Task.Run(() => NKDebug.Warn(msg)).ConfigureAwait(false);  break;
-                case LogLevel.ERROR:   await Task.Run(() => NKDebug.Error(msg)).ConfigureAwait(false); break;
+                case LogLevel.INFO:    await Task.Run(() => NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
+                case LogLevel.WARNING: await Task.Run(() => NKDebug.Logger.Warn(msg)).ConfigureAwait(false);  break;
+                case LogLevel.ERROR:   await Task.Run(() => NKDebug.Logger.Error(msg)).ConfigureAwait(false); break;
 
-                default:               await Task.Run(() => NKDebug.Info(msg)).ConfigureAwait(false);  break;
+                default:               await Task.Run(() => NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
             }
         }
         catch (Exception ex)

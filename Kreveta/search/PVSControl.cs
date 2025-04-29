@@ -48,7 +48,7 @@ namespace Kreveta.search {
 
             sw = Stopwatch.StartNew();
 
-            int pieceCount = BB.Popcount(Game.board.Occupied);
+            int pieceCount = BB.Popcount(Game.Board.Occupied);
             NullMovePruning.UpdateMinPly(pieceCount);
 
             // we still have time and are allowed to search deeper
@@ -106,7 +106,7 @@ namespace Kreveta.search {
 
             // and then we divide the score by two to get the conventional "mate in X",
             // while also multiplying it to make it relative to the engine, not color
-            mateScore /= Game.color == Color.WHITE ? 2 : -2;
+            mateScore /= Game.EngineColor == Color.WHITE ? 2 : -2;
 
             // all the stuff above is done even if the score isn't mate. i'm just
             // too lazy to care, but i might modify it a bit in the future. so here
@@ -114,7 +114,7 @@ namespace Kreveta.search {
             // we either print the "mate in X" or the score in centipawns
             string score = Score.IsMateScore(PVSearch.PVScore) 
                 ? $"mate {mateScore}"
-                : $"cp {Score.LimitScore(PVSearch.PVScore) * (Game.color == Color.WHITE ? 1 : -1)}";
+                : $"cp {Score.LimitScore(PVSearch.PVScore) * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
 
             // nodes per second (searched) - a widely used measure to approximate
             // an engine's strength or efficiency. we need to maximize these. in
@@ -164,7 +164,7 @@ namespace Kreveta.search {
         // try to find the pv outside the stored array
         private static IEnumerable<Move> ElongatePV() {
             
-            Board board = Game.board.Clone();
+            Board board = Game.Board.Clone();
 
             // play along the principal variation.
             // the correct position is needed for correct tt lookups

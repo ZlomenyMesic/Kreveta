@@ -95,7 +95,7 @@ internal static class TimeMan {
             return;
         }
 
-        TimeBudget = (int)((Game.color == Color.WHITE 
+        TimeBudget = (int)((Game.EngineColor == Color.WHITE 
             ? (float)WhiteTime : BlackTime) / MovesToGo / 1.1f);
     }
 }

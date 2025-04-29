@@ -24,10 +24,10 @@ namespace Kreveta;
 internal static class Game {
 
     // current chessboard state is saved here (root node)
-    internal static Board board = new();
+    internal static Board Board = new();
 
     // the side the engine plays on
-    internal static Color color;
+    internal static Color EngineColor;
 
     // if the engine receives the "ucinewgame" command, we know
     // we will be playing a whole game rather than just analyzing
@@ -40,14 +40,14 @@ internal static class Game {
     internal static HashSet<ulong> Draws            = [];
 
     private static readonly Action<string> InvalidFENCallback = delegate(string context) {
-        board.Clear();
+        Board.Clear();
         UCI.Log($"invalid position - {context}", UCI.LogLevel.ERROR);
     };
 
     internal static void SetPosFEN([In, ReadOnly(true)] in ReadOnlySpan<string> tokens) {
 
         // clear the board from previous game/search
-        board = new();
+        Board = new();
 
         // erase the draw counters
         HistoryPositions = [];
@@ -87,10 +87,10 @@ internal static class Game {
             int piece = Consts.Pieces.IndexOf(char.ToLower(c), StringComparison.Ordinal);
 
             // add the piece to the board
-            board.Pieces[(byte)col][piece] |= 1UL << sq;
+            Board.Pieces[(byte)col][piece] |= 1UL << sq;
 
-            if (col == Color.WHITE) board.WOccupied |= 1UL << sq;
-            else board.BOccupied |= 1UL << sq;
+            if (col == Color.WHITE) Board.WOccupied |= 1UL << sq;
+            else Board.BOccupied |= 1UL << sq;
 
             sq++;
         }
@@ -100,15 +100,15 @@ internal static class Game {
         switch (tokens[3]) {
 
             // white
-            case "w": color = Color.WHITE; break;
+            case "w": EngineColor = Color.WHITE; break;
 
             // black
-            case "b": color = Color.BLACK; break;
+            case "b": EngineColor = Color.BLACK; break;
 
             default:  InvalidFENCallback($"invalid side to move in FEN: {tokens[3]}"); return;
         }
         
-        board.Color = color;
+        Board.Color = EngineColor;
 
         // 3. CASTLING RIGHTS
         // if neither side can castle, this is "-". otherwise, we can have up to 4 letters.
@@ -118,16 +118,16 @@ internal static class Game {
             switch (tokens[4][i]) {
 
                 // white kingside
-                case 'K': board.CastlingRights |= CastlingRights.K; break;
+                case 'K': Board.CastlingRights |= CastlingRights.K; break;
 
                 // white queenside
-                case 'Q': board.CastlingRights |= CastlingRights.Q; break;
+                case 'Q': Board.CastlingRights |= CastlingRights.Q; break;
 
                 // black kingside
-                case 'k': board.CastlingRights |= CastlingRights.k; break;
+                case 'k': Board.CastlingRights |= CastlingRights.k; break;
 
                 // black queenside
-                case 'q': board.CastlingRights |= CastlingRights.q; break;
+                case 'q': Board.CastlingRights |= CastlingRights.q; break;
 
                 default: {
                     if (tokens[4][i] == '-') 
@@ -147,10 +147,10 @@ internal static class Game {
         // the old version of the standard is the one most commonly used.
 
         if (tokens[5].Length == 2 && byte.TryParse(tokens[5], out byte enPassantSq))
-            board.EnPassantSq = enPassantSq;
+            Board.EnPassantSq = enPassantSq;
 
         else if (tokens[5].Length == 1 && tokens[5][0] == '-')
-            board.EnPassantSq = 64;
+            Board.EnPassantSq = 64;
 
         else {
             InvalidFENCallback($"invalid en passant square in FEN: {tokens[5]}");
@@ -174,7 +174,7 @@ internal static class Game {
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
         // we save the previous positions as 3-fold repetition exists
-        HistoryPositions.Add(Zobrist.GetHash(board));
+        HistoryPositions.Add(Zobrist.GetHash(Board));
 
         List<string> sequence = [];
 
@@ -190,11 +190,11 @@ internal static class Game {
                     return;
                 }
 
-                board.PlayMove(tokens[i].ToMove(board));
-                HistoryPositions.Add(Zobrist.GetHash(board));
+                Board.PlayMove(tokens[i].ToMove(Board));
+                HistoryPositions.Add(Zobrist.GetHash(Board));
 
                 // switch the engine's color
-                color = color == Color.WHITE 
+                EngineColor = EngineColor == Color.WHITE 
                     ? Color.BLACK 
                     : Color.WHITE;
             }
@@ -207,7 +207,7 @@ internal static class Game {
         List3FoldDraws();
 
         //board.Hash = Zobrist.GetHash(board);
-        board.Print();
+        Board.Print();
     }
 
     // save all positions that would cause a 3-fold repetition draw in
