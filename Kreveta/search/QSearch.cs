@@ -44,16 +44,19 @@ internal static class QSearch {
     // evaluating positions where we can for instance lose a queen in the next move
     internal static short Search(Board board, int ply, Window window, bool onlyCaptures = false) {
 
+        // exit the search if we should abort
         if (PVSearch.Abort)
             return 0;
 
+        // increment the node counter
         PVSearch.CurNodes++;
 
-        // this stores the highest achieved search depth in this iteration
+        // this stores the highest achieved search depth in this
+        // iteration. if we surpassed it, store it as the new one
         if (ply > PVSearch.AchievedDepth)
             PVSearch.AchievedDepth = ply;
 
-        // we reached the end, we return the static eval
+        // we reached the maximum allowed depth, return the static eval
         if (ply >= CurQSDepth)
             return Eval.StaticEval(board);
 
@@ -66,35 +69,47 @@ internal static class QSearch {
         //
         bool inCheck = Movegen.IsKingInCheck(board, col);
 
+        // stand pat is just a fancy word for static eval
         short standPat = Eval.StaticEval(board);
 
-        // can not use stand pat when in check
+        // don't try to cutoff when in check
         if (!inCheck) {
-
-            // stand pat is nothing more than a static eval
-
-            // if the stand pat fails high, we can return it
-            // if not, we use it as a lower bound (alpha)
+            
+            // if the stand pat fails high, we can return it.
+            // if not, we at least try to use it as the lower bound
             if (window.TryCutoff(standPat, col))
                 return col == Color.WHITE
                     ? window.Alpha
                     : window.Beta;
         }
 
+        // a bit complex idea - if we are checked, we generate all legal moves,
+        // not just captures. but once we get out of check, we no longer want
+        // to return to generating all legal moves, so we pass this as an argument
+        // to the next search, and we only generate captures from a certain point.
         onlyCaptures = !inCheck || onlyCaptures;
 
         // if we aren't in check we only generate captures
-        Move[] moves = [.. Movegen.GetLegalMoves(board, onlyCaptures)];
+        Span<Move> moves = Movegen.GetLegalMoves(board, onlyCaptures);
 
+        // no moves have been generated
         if (moves.Length == 0) {
 
             // if we aren't checked, it means there just aren't
-            // any more captures, and we can return the stand pat
-            // (we also might be in stalemate - FIX THIS)
+            // any more captures, and we can return the stand pat.
+            //
+            // as already mentioned, from a certain point we only
+            // generate captures, so we don't bother checking for
+            // checks right now, because we could encounter false
+            // mate scores
+            //
+            // we might be in stalemate, though.
+            // (there's nothing we can do...)
             if (onlyCaptures) {
                 return standPat;
             }
 
+            // otherwise return the mate score
             return inCheck
                 ? Score.GetMateScore(col, ply)
                 : (short)0;
@@ -105,9 +120,10 @@ internal static class QSearch {
 
             // sort the captures by MVV-LVA
             // (most valuable victim - least valuable aggressor)
-            moves = MVV_LVA.OrderCaptures(moves);
+            moves = MVV_LVA.OrderCaptures([..moves]);
         }
 
+        // loop the generated moves
         for (int i = 0; i < moves.Length; ++i) {
 
             Board child = board.Clone();
@@ -122,6 +138,8 @@ internal static class QSearch {
                 && !inCheck
                 && ply >= PVSearch.CurDepth + DeltaPruning.MinPly) {
 
+                // very similar to futility pruning but makes use
+                // of the value of the currently captured piece
                 if (DeltaPruning.TryPrune(ply, CurQSDepth, col, window, standPat, captured)) {
                     continue;
                 }
@@ -130,14 +148,20 @@ internal static class QSearch {
             // full search
             short score = Search(child, ply + 1, window, onlyCaptures);
 
+            // try to get a beta cutoff
             if (window.TryCutoff(score, col)) {
+                
+                // we want to store this in the tt not to retrieve the score,
+                // but to retrieve the best move for move ordering
                 if (ply <= PVSearch.CurDepth + 2)
                     TT.Store(board, -1, ply, window, score, moves[i]);
 
+                // exit the loop
                 break;
             }
         }
 
+        // return the bound score
         return col == Color.WHITE
             ? window.Alpha
             : window.Beta;
