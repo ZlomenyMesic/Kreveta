@@ -292,7 +292,7 @@ internal struct Board {
         else                    BOccupied ^= start | end;
     }
 
-    // no move
+    // null move used for 
     internal Board GetNullChild() {
         Board @null = Clone();
 

@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.pruning;

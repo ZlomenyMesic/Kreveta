@@ -7,6 +7,7 @@ namespace Kreveta.search.pruning;
 
 internal static class PruningOptions {
     internal const bool AllowNullMovePruning        = true;
+    internal const bool AllowProbCut                = true;
 
     internal const bool AllowRazoring               = false;  // false
 

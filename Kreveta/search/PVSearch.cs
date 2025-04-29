@@ -81,7 +81,7 @@ namespace Kreveta.search {
             improvStack.Expand(CurDepth);
 
             // actual start of the search tree
-            (PVScore, PV) = Search(Game.board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default);
+            (PVScore, PV) = Search(Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default);
         }
 
         // completely reset everything
@@ -111,7 +111,7 @@ namespace Kreveta.search {
         // stores the pv in the transposition table.
         // needs the starting depth in order to store trustworthy entries
         private static void StorePVinTT(Move[] pv, int depth) {
-            Board b = Game.board.Clone();
+            Board b = Game.Board.Clone();
 
             // loop all pv-nodes
             for (int i = 0; i < pv.Length; i++) {
@@ -126,7 +126,7 @@ namespace Kreveta.search {
 
         // first check the transposition table for the score, if it's not there
         // just continue the regular search. parameters need to be the same as in the search method itself
-        internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window, Move previous) {
+        internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window, Move previous = default) {
 
             // did we find the position and score?
             // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -262,42 +262,22 @@ namespace Kreveta.search {
                 }
             }
             
-            //bool improving = improvStack.IsImproving(ply, col);
-            //if (depth == 6 && !inCheck && !improving)
-            //{
-            //    // null window around beta
-            //    Window nullWindowAlpha = col == Color.BLACK
-            //        ? new((short)(window.Beta - 1), window.Beta) 
-            //        : new(window.Alpha, (short)(window.Alpha + 1));
+            bool improving = improvStack.IsImproving(ply, col);
             
-            //    // child with no move played
-            //    Board nullChild = board.GetNullChild();
-            
-            //    // the reduction is based on ply, depth, etc.
-            //    //int R = Math.Min(ply - 2,
-            //    //    2 + PVSearch.CurDepth / 4);
-            
-            //    int R = 4;
-            
-            //    // once we reach a certain depth iteration, we start pruning
-            //    // a bit more aggressively - it isn't as important to be careful
-            //    // later than it is at the beginning. not adding this threshold
-            //    // causes some troubles in evaluation, though.
-            //    //if (PVSearch.CurDepth > MinAddRedDepth)
-            //    //    R += depth / AddDepthDivisor;
-            
-            //    // do the reduced search
-            //    short probCutScore = ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowAlpha, default).Score;
-                
-            //    if (col == Color.WHITE 
-            //            ? probCutScore + 100 <= window.Alpha
-            //            : probCutScore - 100 >= window.Beta)
-            //    {
-            //        depth -= 2;
-            //    }
-            //}
+            if (PruningOptions.AllowProbCut
+                && Game.EngineColor == Color.WHITE
+                && CurDepth >= ProbCut.MinIterDepth
+                && depth == ProbCut.ReductionDepth
+                && !inCheck 
+                && !improving) {
 
-            // this gets incremented only if no qsearch, otherwise the node would count twice
+                if (ProbCut.TryReduce(board, ply, depth, window)) {
+                    depth -= ProbCut.R;
+                }
+            }
+
+            // this gets incremented only if no qsearch,
+            // otherwise the node would be counted twice
             CurNodes++;
 
             // all legal moves sorted from best to worst (only a guess)
@@ -339,7 +319,7 @@ namespace Kreveta.search {
                 short childStaticEval = Eval.StaticEval(child);
 
                 improvStack.AddStaticEval(childStaticEval, ply + 1);
-                bool improving = improvStack.IsImproving(ply + 1, col);
+                improving = improvStack.IsImproving(ply + 1, col);
 
                 // have to meet certain conditions for fp
                 if (PruningOptions.AllowFutilityPruning
