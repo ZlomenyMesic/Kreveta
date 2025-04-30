@@ -47,6 +47,11 @@ internal static class Game {
     };
 
     internal static void SetPosFEN([In, ReadOnly(true)] in ReadOnlySpan<string> tokens) {
+        
+        if (tokens[1] == "fen" && tokens.Length < 6) {
+            InvalidFENCallback("some tokens in fen may be missing. the fen needs to include the position, side to move, castling rights and en passant square");
+            return;
+        }
 
         // clear the board from previous game/search
         Board = new();
@@ -158,48 +163,38 @@ internal static class Game {
             InvalidFENCallback($"invalid en passant square in FEN: {tokens[5]}");
             return;
         }
-
-        // the initial board hash
-        //board.Hash = Zobrist.GetHash(board);
-
-        // we don't need the fullmove number, the halfmove number will be done soon
-
-        // 5. HALFMOVE CLOCK
-        // The number of halfmoves since the last capture or pawn advance, used for the fifty-move rule.
-
-        // 6 FULLMOVE NUMBER
-        // The number of full moves. It starts at 1 and is incremented after Black's move.
-
-        // TODO: FINISH FEN
+        
+        // after these tokens may also follow a fullmove and halfmove clock,
+        // but we don't need this information for anything
 
         // position command can be followed by a sequence of moves
+        // ReSharper disable once InvokeAsExtensionMethod
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
+
+        if (moveSeqStart == -1)
+            return;
 
         // we save the previous positions as 3-fold repetition exists
         HistoryPositions.Add(Zobrist.GetHash(Board));
 
         List<string> sequence = [];
 
-        // if the sequence exists
-        if (moveSeqStart != -1) {
+        // play the sequence of moves
+        for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
+            sequence.Add(tokens[i]);
 
-            // play the sequence of moves
-            for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
-                sequence.Add(tokens[i]);
-
-                if (!Move.IsCorrectFormat(tokens[i])) {
-                    InvalidFENCallback($"invalid move: {tokens[i]}");
-                    return;
-                }
-
-                Board.PlayMove(tokens[i].ToMove(Board));
-                HistoryPositions.Add(Zobrist.GetHash(Board));
-
-                // switch the engine's color
-                EngineColor = EngineColor == Color.WHITE 
-                    ? Color.BLACK 
-                    : Color.WHITE;
+            if (!Move.IsCorrectFormat(tokens[i])) {
+                InvalidFENCallback($"invalid move: {tokens[i]}");
+                return;
             }
+
+            Board.PlayMove(tokens[i].ToMove(Board));
+            HistoryPositions.Add(Zobrist.GetHash(Board));
+
+            // switch the engine's color
+            EngineColor = EngineColor == Color.WHITE 
+                ? Color.BLACK 
+                : Color.WHITE;
         }
 
         // try to save a book move
@@ -207,9 +202,6 @@ internal static class Game {
 
         // save drawing positions in "draws"
         List3FoldDraws();
-
-        //board.Hash = Zobrist.GetHash(board);
-        Board.Print();
     }
 
     // save all positions that would cause a 3-fold repetition draw in

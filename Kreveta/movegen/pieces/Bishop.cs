@@ -14,12 +14,18 @@ internal static class Bishop {
         int sq = BB.LS1B(bishop);
 
         int diag = 7 + (sq >> 3) - (sq & 7);
-        int occupancy = (int)((occupied & Consts.AntidiagMask[diag]) * Consts.AntidiagMagic[diag] >> 56);
-        targets |= LookupTables.AntidiagTargets[sq][(occupancy >> 1) & 63];
+        int occupancy = (int)((occupied & Consts.AntidiagMask[diag]) 
+            * Consts.AntidiagMagic[diag] >> 57);
+        
+        targets |= LookupTables.AntidiagTargets[sq][occupancy & 63];
 
         diag = (sq >> 3) + (sq & 7);
-        occupancy = (int)((occupied & Consts.DiagMask[diag]) * Consts.DiagMagic[diag] >> 56);
-        targets |= LookupTables.DiagTargets[sq][(occupancy >> 1) & 63];
+        
+        occupancy = (int)(
+            (occupied & Consts.DiagMask[diag]) 
+            * Consts.DiagMagic[diag] >> 57);
+        
+        targets |= LookupTables.DiagTargets[sq][occupancy & 63];
 
         return targets & free;
     }

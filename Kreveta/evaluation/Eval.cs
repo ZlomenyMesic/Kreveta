@@ -198,7 +198,7 @@ internal static class Eval {
                 ulong targets = Pawn.GetPawnCaptureTargets(1UL << sq, 64, col, p);
                 eval += (short)(BB.Popcount(targets) * ConnectedPassedPawnBonus);
             }
-
+            
             // penalize blocked pawns - pawns that have a friendly piece directly in
             // front of them and thus cannot push further. in order to push this pawn,
             // you first have to move the other piece, which makes it worse.

@@ -6,6 +6,8 @@
 using System;
 using System.Runtime.CompilerServices;
 
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta.consts;
 
 internal enum PType : byte {

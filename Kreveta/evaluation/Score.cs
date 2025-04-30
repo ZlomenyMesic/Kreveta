@@ -21,7 +21,7 @@ internal static class Score {
     // maximum non-mate score that can be achieved (in centipawns)
     private const int NonMateScoreLimit = 1000;
 
-    // creates a new mate score depending on the number of plies
+    // creates a new mate score relative to the number of plies
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short GetMateScore(Color col, int ply)
         => (short)((col == Color.WHITE ? -1 : 1) * (MateScoreDefault - ply));

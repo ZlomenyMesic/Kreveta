@@ -11,6 +11,7 @@ using Kreveta.search.pruning;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Microsoft.Diagnostics.Tracing.Parsers.MicrosoftAntimalwareEngine;
 
 // ReSharper disable InconsistentNaming
 
@@ -77,7 +78,7 @@ namespace Kreveta.search {
             UCI.Log($"info string total nodes {TotalNodes}", UCI.LogLevel.INFO);
 
             // the final response of the engine to the gui
-            UCI.Log($"bestmove {BestMove.ToLogAlgNotation()}\n");
+            UCI.Log($"bestmove {BestMove.ToLongAlgNotation()}");
 
             // reset all counters for the next search
             // not the next iteration of the current one
@@ -157,7 +158,7 @@ namespace Kreveta.search {
             // print the actual moves in the pv. Move.ToString()
             // is overriden so there's no need to explicitly type it
             foreach (Move move in ElongatePV())
-                info += $" {move.ToLogAlgNotation()}";
+                info += $" {move.ToLongAlgNotation()}";
 
             // as per the convention, the engine's response
             // shall always end with a newline character
