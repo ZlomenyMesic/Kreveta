@@ -5,6 +5,8 @@
 
 using Kreveta.consts;
 
+using System;
+
 namespace Kreveta;
 
 internal static class TimeMan {

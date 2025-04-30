@@ -9,6 +9,8 @@ using Kreveta.movegen;
 using Kreveta.search.moveorder;
 using Kreveta.search.pruning;
 
+using System;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search;

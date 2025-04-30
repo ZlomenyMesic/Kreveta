@@ -6,8 +6,10 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using System.Linq;
 
 namespace Kreveta.search.moveorder;
 
@@ -25,8 +27,7 @@ internal static class MoveOrder {
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
 
-        Move[] legal  = [..Movegen.GetLegalMoves(board)];
-        //Move[] sorted = new Move[legal.Length];
+        Span<Move> legal  = Movegen.GetLegalMoves(board);
         Span<Move> sorted = stackalloc Move[legal.Length];
 
         int cur = 0;
@@ -53,19 +54,9 @@ internal static class MoveOrder {
 
         // get the captures ordered and add them to the list
         Move[] mvvlva = MVV_LVA.OrderCaptures([ ..capts]);
-        //List<Move> badCaptures = [];
 
         for (int i = 0; i < mvvlva.Length; i++) {
             sorted[cur++] = mvvlva[i];
-            //if (PVSearch.CurDepth - depth < 3) sorted[cur++] = mvvlva[i];
-
-            //else if (MVV_LVA.GetCaptureScore(mvvlva[i]) >= -350)
-            //    sorted[cur++] = mvvlva[i];
-
-            //else {
-            //    //Console.WriteLine($"{mvvlva[i].Piece} {mvvlva[i].Capture}");
-            //    badCaptures.Add(mvvlva[i]);
-            //}
         }
 
         ulong empty = board.Empty;
@@ -112,17 +103,6 @@ internal static class MoveOrder {
         // and add them to the final list
         for (int i = 0; i < quiets.Count; i++)
             sorted[cur++] = quiets[i].Item1;
-
-        //for (int i = 0; i < badCaptures.Count; i++) {
-        //    if (!sorted.Contains(badCaptures[i]))
-        //        sorted[cur++] = badCaptures[i];
-        //}
-
-        //length = sorted.Length;
-
-        //fixed (Move* ptr = sorted) {
-        //    return ptr;
-        //}
 
         Move[] result = [..sorted];
         return result;

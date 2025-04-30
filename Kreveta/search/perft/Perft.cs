@@ -5,6 +5,7 @@
 
 using Kreveta.movegen;
 
+using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 

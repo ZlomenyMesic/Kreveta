@@ -8,7 +8,10 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
 
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search {

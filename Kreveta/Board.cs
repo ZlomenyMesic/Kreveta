@@ -6,9 +6,11 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 
+using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Diagnostics.Contracts;
 
 namespace Kreveta;
 
@@ -292,7 +294,8 @@ internal struct Board {
         else                    BOccupied ^= start | end;
     }
 
-    // null move used for 
+    // null move used for null move pruning
+    [Pure]
     internal Board GetNullChild() {
         Board @null = Clone();
 

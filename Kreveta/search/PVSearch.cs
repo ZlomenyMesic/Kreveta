@@ -9,7 +9,9 @@ using Kreveta.movegen;
 using Kreveta.search.moveorder;
 using Kreveta.search.pruning;
 
+using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 

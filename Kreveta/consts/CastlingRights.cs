@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+using System;
+
 namespace Kreveta.consts;
 
 [Flags]

@@ -7,6 +7,9 @@
 #pragma warning disable IDE0079
 
 using Kreveta.consts;
+
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 

@@ -5,6 +5,8 @@
 
 using Kreveta.movegen;
 
+using System;
+
 namespace Kreveta.search.moveorder;
 
 internal static class Killers {

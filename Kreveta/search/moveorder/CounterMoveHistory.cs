@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;

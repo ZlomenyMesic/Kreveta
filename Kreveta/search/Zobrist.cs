@@ -4,6 +4,8 @@
 //
 
 using Kreveta.consts;
+
+using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
