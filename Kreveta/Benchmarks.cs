@@ -12,7 +12,9 @@
 // Mark members as static
 #pragma warning disable CA1822
 
+using System;
 using System.Numerics;
+using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 
 namespace Kreveta;
@@ -63,7 +65,7 @@ internal class Experimental {
         BigInteger product1 = 1;
         BigInteger product2 = 1;
 
-        Parallel.For(2, n >> 1, i => product1 *= i);
+        Parallel.For(2, n >> 1,     i => product1 *= i);
         Parallel.For(n >> 1, n + 1, i => product2 *= i);
         
         return product1 * product2;

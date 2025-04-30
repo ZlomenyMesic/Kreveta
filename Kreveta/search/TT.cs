@@ -6,9 +6,11 @@
 using Kreveta.evaluation;
 using Kreveta.movegen;
 
+using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 
@@ -57,7 +59,7 @@ internal static class TT {
     // how many items are currently stored
     private static int Stored;
 
-    private static volatile Entry[] Table = new Entry[TableSize];
+    private static Entry[] Table = new Entry[TableSize];
 
     //private static long tt_lookups = 0;
 
@@ -86,9 +88,11 @@ internal static class TT {
 
     internal static void Clear() {
         Stored = 0;
-
+        
         TableSize = GetTableSize();
-        Table = new Entry[TableSize];
+        
+        Array.Clear(Table, 0, Table.Length);
+        Array.Resize(ref Table, TableSize);
     }
 
     // instead of using an age value, we decrement the depths
@@ -97,12 +101,12 @@ internal static class TT {
     internal static void ResetScores() {
         if (Stored == 0) return;
 
-        for (int i = 0; i < TableSize; i++) {
+        Parallel.For(0, Table.Length, i => {
             if (Table[i].Hash != default) {
                 Table[i].Score = default;
                 Table[i].Depth = default;
             }
-        }
+        });
     }
 
     internal static void Store([In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {

@@ -9,8 +9,8 @@
 // Specify IFormatProvider
 #pragma warning disable CA1305
 
+using System;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 // ReSharper disable InconsistentNaming

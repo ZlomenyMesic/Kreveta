@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using System;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.consts;

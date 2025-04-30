@@ -14,6 +14,8 @@ using Kreveta.movegen;
 using Kreveta.openingbook;
 using Kreveta.search;
 
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 

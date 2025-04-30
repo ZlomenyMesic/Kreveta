@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
+using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
@@ -15,11 +16,10 @@ namespace Kreveta.movegen;
 
 internal static unsafe class Movegen {
 
-
     private const int MaxMoveCount = 110;
 
-    private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 16);
-    private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 16);
+    private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 32);
+    private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 32);
 
     private static byte _curPL;
     private static byte _curL;
@@ -33,11 +33,11 @@ internal static unsafe class Movegen {
 
         // only generate captures (used in qsearch)
         if (onlyCaptures) {
-            GetPseudoLegalCaptures(board, col);
+            GeneratePseudoLegalCaptures(board, col);
         }
 
         // otherwise all possible moves
-        else GetPseudoLegalMoves(board, col);
+        else GeneratePseudoLegalMoves(board, col);
 
         // remove the illegal ones
         for (int i = 0; i < _curPL; i++) {
@@ -59,7 +59,7 @@ internal static unsafe class Movegen {
 
         _curPL = 0;
 
-        GetPseudoLegalMoves(board, col);
+        GeneratePseudoLegalMoves(board, col);
 
         Move[] result = new Move[_curPL];
         for (int i = 0; i < _curPL; i++) {
@@ -69,7 +69,7 @@ internal static unsafe class Movegen {
         return result;
     }
 
-    private static void GetPseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col) {
+    private static void GeneratePseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col) {
 
         // all occupied squares and squares occupied by opponent
         ulong occupied = board.Occupied;
@@ -97,7 +97,7 @@ internal static unsafe class Movegen {
         LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col);
     }
 
-    private static void GetPseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col) {
+    private static void GeneratePseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col) {
 
         ulong occupied = board.Occupied;
 
