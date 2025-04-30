@@ -6,9 +6,10 @@
 using Kreveta.consts;
 using System.ComponentModel;
 
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.movegen.pieces;
 
@@ -21,33 +22,48 @@ internal static class King {
     private const ulong ooMask  = 0x0000000000000060;
     private const ulong oooMask = 0x000000000000000E;
 
+    // returns a bitboard of all moves targets (ending squares)
+    // of a certain king (does not include castling)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static unsafe ulong GetKingTargets(ulong king, ulong free) {
+        
+        // same as with knights, the king targets are indexed
+        // directly by the square index and then & with empty
+        // and enemy-occupied squares to avoid friendly captures
         ulong targets = LookupTables.KingTargets[BB.LS1B(king)];
         return targets & free;
     }
 
-    internal static ulong GetCastlingTargets([NotNull, In, ReadOnly(true)] in Board board, Color col) {
+    // this returns the move targets for castling only
+    internal static ulong GetCastlingTargets([In, ReadOnly(true)] in Board board, Color col) {
         ulong occ = board.Occupied;
 
+        // first we check whether the side even holds
+        // the required castling rights at all
         bool kingside =  ((byte)board.CastlingRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
         bool queenside = ((byte)board.CastlingRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
 
-        kingside  &= (occ & (col == Color.WHITE ? OOMask  : ooMask))  == 0;
-        queenside &= (occ & (col == Color.WHITE ? OOOMask : oooMask)) == 0;
+        // now we ensure the squares between the king and the rooks are empty
+        kingside  &= (occ & (col == Color.WHITE ? OOMask  : ooMask))  == 0UL;
+        queenside &= (occ & (col == Color.WHITE ? OOOMask : oooMask)) == 0UL;
 
+        // starting squares of kings
         int start = col == Color.WHITE ? 60 : 4;
 
-        // check for check on square passed
+        // and last but not least we check whether castling
+        // would make us go through check, which is illegal
+        // (moving into check is handled elsewhere)
         if (kingside)  kingside  &= board.IsMoveLegal(new(start, col == Color.WHITE ? 61 : 5, PType.KING, PType.NONE, PType.NONE), col);
         if (queenside) queenside &= board.IsMoveLegal(new(start, col == Color.WHITE ? 59 : 3, PType.KING, PType.NONE, PType.NONE), col);
 
-        return (kingside  ? (col == Color.WHITE 
+        // for each side return the btiboard containing
+        // the target square of a certain castling move
+        return (kingside  ? col == Color.WHITE 
             ? 0x4000000000000000UL 
-            : 0x0000000000000020) : 0UL)
+            : 0x0000000000000020 : 0UL)
 
-             | (queenside ? (col == Color.WHITE 
+             | (queenside ? col == Color.WHITE 
             ? 0x0400000000000000UL 
-            : 0x0000000000000004) : 0UL);
+            : 0x0000000000000004 : 0UL);
     }
 }

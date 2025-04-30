@@ -114,16 +114,16 @@ namespace Kreveta.search {
         // stores the pv in the transposition table.
         // needs the starting depth in order to store trustworthy entries
         private static void StorePVinTT(Move[] pv, int depth) {
-            Board b = Game.Board.Clone();
+            Board board = Game.Board.Clone();
 
             // loop all pv-nodes
             Parallel.For(0, pv.Length, i => {
 
                 // store the pv-node
-                TT.Store(b, (sbyte)--depth, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
+                TT.Store(board, (sbyte)--depth, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
                 // play along the pv to store correct positions as well
-                b.PlayMove(pv[i]);
+                board.PlayMove(pv[i]);
             });
         }
 

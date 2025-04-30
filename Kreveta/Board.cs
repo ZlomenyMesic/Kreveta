@@ -74,28 +74,26 @@ internal struct Board {
         //Hash        = 0UL;
     }
 
-    // returns the piece at a certain square
-    // (color, piece_type)
-    [Obsolete("PieceAt is fairly slow, try a different approach", false)]
-    internal (Color col, PType type) PieceAt(int index) {
+    // returns the piece at a certain square. this method isn't
+    // really the fastest, but it's useful in the case where we
+    // generate piece types for input moves
+    [Pure]
+    internal PType PieceAt(int index) {
         ulong sq = 1UL << index;
 
-        if ((Empty & sq) != 0) 
-            return (Color.NONE, PType.NONE);
+        // empty square, return immediately
+        if ((Empty & sq) != 0UL) 
+            return PType.NONE;
 
+        // now we loop the piece types and check whether the
+        // square is occupied by any side
         for (int i = 0; i < 6; i++) {
-            
-            // white
-            if ((Pieces[(byte)Color.WHITE][i] & sq) != 0UL)
-                return (Color.WHITE, (PType)i);
-
-            // black
-            if ((Pieces[(byte)Color.BLACK][i] & sq) != 0UL)
-                return (Color.BLACK, (PType)i);
+            if (((Pieces[(byte)Color.WHITE][i] | Pieces[(byte)Color.BLACK][i]) & sq) != 0UL)
+                return (PType)i;
         }
 
-        // empty square
-        return (Color.NONE, PType.NONE);
+        // we shouldn't ever get here
+        return PType.NONE;
     }
 
     // performs a move on the board
@@ -303,9 +301,7 @@ internal struct Board {
         @null.Color = @null.Color == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
-
-        //@null.Hash = Zobrist.GetHash(@null);
-
+        
         return @null;
     }
 
@@ -319,18 +315,17 @@ internal struct Board {
 
         return isLegal;
     }
-
+    
+    [Pure]
     internal Board Clone() {
 
         Board @new = new() {
-            WOccupied   = WOccupied,
-            BOccupied   = BOccupied,
+            WOccupied       = WOccupied,
+            BOccupied       = BOccupied,
 
             CastlingRights  = CastlingRights,
-            EnPassantSq = EnPassantSq,
-            Color       = Color,
-
-            //Hash        = Hash
+            EnPassantSq     = EnPassantSq,
+            Color           = Color,
         };
 
         Array.Copy(Pieces[(byte)Color.WHITE], @new.Pieces[(byte)Color.WHITE], 6);

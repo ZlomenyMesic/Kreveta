@@ -16,36 +16,54 @@ using System.Threading.Tasks;
 
 namespace Kreveta.search;
 
+// TRANSPOSITION TABLE:
+// during the search, most positions are usually achievable many ways,
+// and they repeat themselves, which is obviously time-consuming. for
+// this reason we implement a table, where we store the already searched
+// positions along with their score and the best move from that position.
+// this data can be used to order moves or greatly decrease the number
+// of nodes in the tree.
 internal static class TT {
 
-    // minimum ply needed to use tt
+    // minimum ply needed to look up scores in tt
     internal const int MinProbingPly = 4;
 
+    // depending on where the score fell relatively
+    // to the window when saving, we store the score type
     private enum ScoreType : byte {
-        UPPER_BOUND,
-        LOWER_BOUND,
-        EXACT
+        UPPER_BOUND, // the score was above beta
+        LOWER_BOUND, // the score was below alpha
+        EXACT        // the score fell right into the window
     }
 
+    // this entry is stored for every position
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {
-        // 8 bytes
+        
+        // we store the board hash, because different hashes can
+        // result in the same table index due to its size.
+        // (8 bytes)
         [field: FieldOffset(0)]
         internal ulong Hash;
 
-        // 2 bytes
+        // the score of the position
+        // (2 bytes)
         [field: FieldOffset(sizeof(ulong))]
         internal short Score;
 
-        // 1 byte
+        // the depth at which the search was performed
+        // => higher depth means a more truthful score
+        // (1 byte)
         [field: FieldOffset(sizeof(ulong) + sizeof(short))]
         internal sbyte Depth;
 
-        // 1 byte
+        // the score type as explained above
+        // (1 byte)
         [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte))]
         internal ScoreType Type;
 
-        // 4 bytes
+        // the best move found in this position - used for move ordering
+        // (4 bytes)
         [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte) + sizeof(ScoreType))]
         internal Move BestMove;
     }
@@ -53,16 +71,15 @@ internal static class TT {
     // size of a single hash entry
     private const int EntrySize = 16;
 
-    // size of the tt array
+    // size of the table
     private static int TableSize = GetTableSize();
 
-    // how many items are currently stored
+    // how many entries are currently stored
     private static int Stored;
 
+    // the table itself
     private static Entry[] Table = new Entry[TableSize];
-
-    //private static long tt_lookups = 0;
-
+    
     // hashfull tells us how filled is the hash table
     // in permill (entries per thousand). this number
     // is sent regularly to the GUI, which allows it
@@ -79,13 +96,18 @@ internal static class TT {
     }
 
     // generate an index in the tt for a specific board hash
-    // key collisions can (and will) occur, so we later also check the correctness of this index
+    // key collisions can (and will) occur, so we later also
+    // check the correctness of this index by comparing hashes
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int HashIndex(ulong hash) {
+        
+        // method suggested somewhere online - to make the indices
+        // more evenly dispersed, XOR the two hash halves first
         uint hash32 = (uint)hash ^ (uint)(hash >> 32);
         return (int)(hash32 % TableSize);
     }
 
+    // delete all entries from the table
     internal static void Clear() {
         Stored = 0;
         
@@ -95,13 +117,19 @@ internal static class TT {
         Array.Resize(ref Table, TableSize);
     }
 
-    // instead of using an age value, we decrement the depths
-    // in the entries stored for the next search, so they aren't
-    // as important. note that this is only used in a full game
+    // instead of using an age value to slowly make entries less important,
+    // we simply erase all scores at the end of every search iteration. the
+    // best moves are, however, kept, which makes us able to increase the
+    // search speed while not affecting the new iteration with old scores
     internal static void ResetScores() {
-        if (Stored == 0) return;
+        
+        // to speed up the first iteration
+        if (Stored == 0) 
+            return;
 
         Parallel.For(0, Table.Length, i => {
+            
+            // only clear if the entry exists
             if (Table[i].Hash != default) {
                 Table[i].Score = default;
                 Table[i].Depth = default;
@@ -109,6 +137,7 @@ internal static class TT {
         });
     }
 
+    // store a position in the table. the best move doesn't have to be specified
     internal static void Store([In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
         ulong hash = Zobrist.GetHash(board);
         int i = HashIndex(hash);

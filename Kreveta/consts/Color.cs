@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta.consts;
 
 internal enum Color : byte {
