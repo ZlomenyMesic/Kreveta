@@ -270,6 +270,7 @@ namespace Kreveta.search {
             // first the tt bestmove, then captures sorted by MVV-LVA,
             // then killer moves and last quiet moves sorted by history
             Span<Move> moves = MoveOrder.GetSortedMoves(board, depth, previous);
+            if (ply == 0) PrevIterOrder.PrepareForNextIter(moves.Length);
 
             // counter for expanded nodes
             byte searchedMoves = 0;
@@ -344,6 +345,7 @@ namespace Kreveta.search {
                 // if we got through all the pruning all the way to this point,
                 // we expect this move to raise alpha, so we search it at full depth
                 var fullSearch = ProbeTT(child, ply + 1, depth - 1, window, curMove);
+                if (ply == 0) PrevIterOrder.AddMove(curMove, fullSearch.Score);
 
                 // we somehow still failed low
                 if (col == Color.WHITE

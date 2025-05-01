@@ -24,6 +24,10 @@ internal static class MoveOrder {
     // don't use "in" keyword!!! it becomes much slower
     internal static unsafe Move[] GetSortedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
 
+        // see previterorder for more info
+        if (depth == PVSearch.CurDepth && depth is > 1 and <= PrevIterOrder.MaxRetrieveDepth)
+            return PrevIterOrder.GetOrderedMoves();
+
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
 
