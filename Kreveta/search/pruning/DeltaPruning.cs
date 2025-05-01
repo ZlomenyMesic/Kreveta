@@ -10,11 +10,10 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.pruning;
 
-// DELTA PRUNING:
 // works pretty much on the same idea as futility pruning, but is only used in qsearch.
 // since we only evaluate captures in qsearch, we take the static eval of a position
 // (stand pat), we add the value of the captured piece and a margin (called delta). if
-// this value fails low, we can assume that there isn't any hope in this branch and we
+// this value fails low, we can assume that there isn't any hope in this branch, and we
 // can safely prune it
 internal static class DeltaPruning {
     internal const int MinPly          = 4;

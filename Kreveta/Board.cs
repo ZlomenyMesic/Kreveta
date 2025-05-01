@@ -95,6 +95,8 @@ internal struct Board {
         // we shouldn't ever get here
         return PType.NONE;
     }
+    
+#region MOVEPLAY    
 
     // performs a move on the board
     internal void PlayMove(Move move) {
@@ -291,6 +293,8 @@ internal struct Board {
         if (col == Color.WHITE) WOccupied ^= start | end;
         else                    BOccupied ^= start | end;
     }
+    
+#endregion    
 
     // null move used for null move pruning
     [Pure]
