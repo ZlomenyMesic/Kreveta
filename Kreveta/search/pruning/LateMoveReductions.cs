@@ -16,7 +16,6 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.search.pruning;
 
-// LATE MOVE PRUNING/REDUCTIONS:
 // moves other than the pv node are expected to fail low (not raise alpha),
 // so we first search them with null window around alpha at a reduced depth.
 // if it does not fail low as expected, we try to fail low once again but with
@@ -93,11 +92,15 @@ internal static class LateMoveReductions {
         int windowSize = Math.Abs(window.Beta - window.Alpha);
 
         // a fraction of the window is the margin
-        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor);
-
-        margin += searchedMoves;
-        margin += (short)(improving ? -ImprovingMargin : 0);
-
+        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor
+            
+            // be more aggressive with later moves
+            + searchedMoves 
+                          
+            // be less aggressive when improving
+            + (improving ? -ImprovingMargin : 0));
+        
+        // make the margin relative to color
         margin *= (short)(col == Color.WHITE ? 1 : -1);
 
         if (margin == 0) 

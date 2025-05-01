@@ -11,6 +11,7 @@
 
 using System;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text;
 
 // ReSharper disable InconsistentNaming
@@ -18,24 +19,21 @@ using System.Text;
 namespace Kreveta;
 
 internal static class Options {
-
-    private const bool DefaultOwnBook = true;
-    private const bool DefaultNKLogs  = false;
-    private const long DefaultHash    = 40;
     
-    internal enum OptionType : byte {
+    private enum OpType : byte {
         CHECK, SPIN, BUTTON, STRING
     }
 
-    private struct Option {
+    [StructLayout(LayoutKind.Auto)]
+    private record struct Option {
 
-        internal string     Name;
-        internal OptionType Type;
+        internal required string Name;
+        internal required OpType Type;
 
-        internal string     MinValue;
-        internal string     MaxValue;
-        internal string     DefaultValue;
-        internal string     Value;
+        internal          string MinValue;
+        internal          string MaxValue;
+        internal required string DefaultValue;
+        internal required string Value;
     }
 
     private static readonly Option[] options = [
@@ -43,24 +41,24 @@ internal static class Options {
         // should the engine use its own opening book?
         new() {
             Name = nameof(OwnBook),
-            Type = OptionType.CHECK,
+            Type = OpType.CHECK,
 
             // standard ToString returns True and False, which
             // isn't what we want. this works just fine
-            DefaultValue = DefaultOwnBook ? "true" : "false",
-            Value        = DefaultOwnBook ? "true" : "false"
+            DefaultValue = "true",
+            Value        = "true"
         },
 
         // modify the size of the hash table (transpositions)
         new() {
             Name = nameof(Hash),
-            Type = OptionType.SPIN,
+            Type = OpType.SPIN,
 
             MinValue = "1",
             MaxValue = "2048",
 
-            DefaultValue = DefaultHash.ToString(),
-            Value        = DefaultHash.ToString()
+            DefaultValue = "40",
+            Value        = "40"
         },
 
 
@@ -68,10 +66,10 @@ internal static class Options {
         // using the NeoKolors library by KryKom
         new() {
             Name = nameof(NKLogs),
-            Type = OptionType.CHECK,
+            Type = OpType.CHECK,
 
-            DefaultValue = DefaultNKLogs ? "true" : "false",
-            Value        = DefaultNKLogs ? "true" : "false"
+            DefaultValue = "false",
+            Value        = "false"
         },
     ];
 
@@ -93,12 +91,12 @@ internal static class Options {
     
     // we could just rename the items in the enum to be lowercase, but
     // that doesn't look good at all, so we use an extension method instead
-    private static string GetName(this OptionType type)
+    private static string GetName(this OpType type)
         => type switch {
-            OptionType.CHECK  => "check",
-            OptionType.SPIN   => "spin",
-            OptionType.BUTTON => "button",
-            OptionType.STRING => "string",
+            OpType.CHECK  => "check",
+            OpType.SPIN   => "spin",
+            OpType.BUTTON => "button",
+            OpType.STRING => "string",
             _ => string.Empty
         };
 
@@ -111,11 +109,11 @@ internal static class Options {
             sb.Append($" type {opt.Type.GetName()}");
 
             switch (opt.Type) {
-                case OptionType.CHECK or OptionType.STRING:
+                case OpType.CHECK or OpType.STRING:
                     sb.Append($" default {opt.DefaultValue}");
                     break;
                 
-                case OptionType.SPIN:
+                case OpType.SPIN:
                     sb.Append($" default {opt.DefaultValue} min {opt.MinValue} max {opt.MaxValue}");
                     break;
             }
@@ -134,30 +132,34 @@ internal static class Options {
                 continue;
             
             switch (options[i].Type) {
-                case OptionType.BUTTON: {
+                case OpType.BUTTON: {
                     //
                     //
                     //
                     return;
                 }
 
-                case OptionType.CHECK: {
-                    //if (tokens.Length == 5 && tokens[3] == "value"
-                    //    && (tokens[4] == "true" || tokens[4] == "false")) {
-
-                    //    options[i].Value = tokens[4];
-
-                    //    return;
-
-                    //} else goto invalid_syntax;
+                case OpType.CHECK: {
+                    // if (tokens is [_, _, _, "value", "true" or "false"]) {
+                    //     options[i].Value = tokens[4];
+                    //
+                    //     return;
+                    //
+                    // } goto invalid_syntax;
                     break;
                 }
 
-                case OptionType.SPIN: {
+                case OpType.SPIN: {
                     if (tokens is [_, _, _, "value", _]) {
 
-                        if (!long.TryParse(tokens[4], out _))
+                        if (!long.TryParse(tokens[4], out long val))
                             goto invalid_syntax;
+                        
+                        long minVal = long.Parse(options[i].MinValue);
+                        long maxVal = long.Parse(options[i].MaxValue);
+
+                        if (val < minVal || val > maxVal) 
+                            goto val_out_of_range;
 
                         options[i].Value = tokens[4];
                         return;
@@ -165,7 +167,7 @@ internal static class Options {
                     } goto invalid_syntax;
                 }
 
-                case OptionType.STRING: {
+                case OpType.STRING: {
                     if (tokens is [_, _, _, "value", _, ..]) {
 
                         options[i].Value = string.Empty;
@@ -186,6 +188,10 @@ internal static class Options {
 
         invalid_syntax:
         UCI.Log("invalid setoption syntax", UCI.LogLevel.ERROR);
+        return;
+        
+        val_out_of_range:
+        UCI.Log("option value out of range", UCI.LogLevel.ERROR);
     }
 }
 

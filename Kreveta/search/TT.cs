@@ -16,8 +16,7 @@ using System.Threading.Tasks;
 
 namespace Kreveta.search;
 
-// TRANSPOSITION TABLE:
-// during the search, most positions are usually achievable many ways,
+// during the search, most positions are usually achievable in many ways,
 // and they repeat themselves, which is obviously time-consuming. for
 // this reason we implement a table, where we store the already searched
 // positions along with their score and the best move from that position.
@@ -91,8 +90,8 @@ internal static class TT {
     // tt array size = megabytes * bytes_in_mb / entry_size
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
-        const int MaxSize = int.MaxValue / EntrySize;
-        return (int)Math.Min((long)Options.Hash * 1_048_576 / EntrySize, MaxSize);
+        const long EntriesInMB = 1_048_576 / EntrySize;
+        return (int)(Options.Hash * EntriesInMB);
     }
 
     // generate an index in the tt for a specific board hash
@@ -130,9 +129,9 @@ internal static class TT {
         Parallel.For(0, Table.Length, i => {
             
             // only clear if the entry exists
-            if (Table[i].Hash != default) {
-                Table[i].Score = default;
-                Table[i].Depth = default;
+            if (Table[i].Hash != 0UL) {
+                Table[i].Score = 0;
+                Table[i].Depth = 0;
             }
         });
     }
@@ -148,7 +147,7 @@ internal static class TT {
         // is the index already occupied with a result from a higher depth search?
         // key collisions may also be problematic - multiple positions
         // could have an identical key (i don't really care, though)
-        if (existing.Hash != default && existing.Depth > depth) {
+        if (existing.Hash != 0UL && existing.Depth > depth) {
             return;
         }
 
@@ -183,7 +182,7 @@ internal static class TT {
         }
 
         // if we aren't overwriting an existing entry, increase the counter
-        if (existing.Hash == default)
+        if (existing.Hash == 0UL)
             Stored++;
 
         // store the new entry or overwrite the old one if allowed
@@ -216,7 +215,7 @@ internal static class TT {
         if (entry.Hash != hash)
             return false;
 
-        // the position is saved, but it's depth is shallower than ours
+        // the position is stored, but its depth is shallower than ours
         if (entry.Depth <= depth)
             return false;
 

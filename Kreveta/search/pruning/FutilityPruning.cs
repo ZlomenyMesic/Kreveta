@@ -13,7 +13,6 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.search.pruning;
 
-// FUTILITY PRUNING:
 // we try to discard moves near the leaves which have no potential of raising alpha.
 // futility margin represents the largest possible score gain through a single move.
 // if we add this margin to the static eval of the position and still don't raise

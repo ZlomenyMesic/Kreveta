@@ -171,8 +171,10 @@ internal static class Game {
         // ReSharper disable once InvokeAsExtensionMethod
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
-        if (moveSeqStart == -1)
+        if (moveSeqStart == -1) {
+            OpeningBook.SaveSequence([]);
             return;
+        }
 
         // we save the previous positions as 3-fold repetition exists
         HistoryPositions.Add(Zobrist.GetHash(Board));
@@ -198,7 +200,7 @@ internal static class Game {
         }
 
         // try to save a book move
-        OpeningBook.SaveSequence([.. sequence], tokens[2]);
+        OpeningBook.SaveSequence([.. sequence]);
 
         // save drawing positions in "draws"
         List3FoldDraws();
