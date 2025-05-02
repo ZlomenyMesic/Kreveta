@@ -7,7 +7,6 @@ using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -35,7 +34,7 @@ internal static class Eval {
 
     //internal const int KingInCheckPenalty      = 72;
 
-    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [ReadOnly(true)] 
     private static readonly ulong[] AdjFiles = new ulong[8];
 
     static Eval() {

@@ -11,9 +11,6 @@ using Kreveta.search.pruning;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
-using Kreveta.search.moveorder;
-using Microsoft.Diagnostics.Tracing.Parsers.MicrosoftAntimalwareEngine;
 
 // ReSharper disable InconsistentNaming
 
@@ -29,15 +26,12 @@ internal static class PVSControl {
     // best move found so far
     private static Move BestMove;
 
-    internal static Stopwatch sw = null!;
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static long CurElapsed;
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private static long PrevElapsed;
 
     private static ulong TotalNodes;
+
+    internal static Stopwatch sw = null!;
 
     internal static void StartSearch(int depth = DefaultMaxDepth) {
         CurMaxDepth = depth;

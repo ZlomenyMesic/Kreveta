@@ -22,6 +22,10 @@ internal static class Perft {
         ulong nodes = CountNodes(Game.Board, depth);
         
         sw.Stop();
+
+        // precaution to not divide by zero
+        long time = sw.ElapsedMilliseconds == 0 
+            ? 1 : sw.ElapsedMilliseconds;
         
         if (UCI.AbortSearch)
             UCI.Log("perft search aborted", UCI.LogLevel.WARNING);
@@ -29,7 +33,7 @@ internal static class Perft {
         // print the results
         UCI.Log($"nodes: {nodes}", UCI.LogLevel.INFO);
         UCI.Log($"time spent: {sw.Elapsed}", UCI.LogLevel.INFO);
-        UCI.Log($"nodes per second: {Math.Round((decimal)nodes / sw.ElapsedMilliseconds * 1000, 0)}", UCI.LogLevel.INFO);
+        UCI.Log($"nodes per second: {Math.Round((decimal)nodes / time * 1000, 0)}", UCI.LogLevel.INFO);
         
         PerftTT.Clear();
     }

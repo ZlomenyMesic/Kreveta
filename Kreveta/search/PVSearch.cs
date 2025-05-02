@@ -104,12 +104,8 @@ internal static class PVSearch {
         QuietHistory.Clear();
         PawnCorrectionHistory.Clear();
         CounterMoveHistory.Clear();
-
-        // if we are playing a full game,
-        // we want to keep the hash table
-        if (Game.FullGame)
-            TT.ResetScores();
-        else TT.Clear();
+        
+        TT.Clear();
     }
 
     // stores the pv in the transposition table.
@@ -247,23 +243,23 @@ internal static class PVSearch {
             }
         }
             
-        // has the static eval improved from two plies ago?
-        bool improving = improvStack.IsImproving(ply, col);
+        //// has the static eval improved from two plies ago?
+        //bool improving = improvStack.IsImproving(ply, col);
             
-        // probcut is similar to nmp, but reduces nodes that fail low.
-        // more info once again directly in the probcut source file
-        if (PruningOptions.AllowProbCut
-            && Game.EngineColor == Color.WHITE
-            && CurDepth         >= ProbCut.MinIterDepth
-            && depth            == ProbCut.ReductionDepth
-            && !inCheck 
-            && !improving) {
+        //// probcut is similar to nmp, but reduces nodes that fail low.
+        //// more info once again directly in the probcut source file
+        //if (PruningOptions.AllowProbCut
+        //    && Game.EngineColor == Color.WHITE
+        //    && CurDepth         >= ProbCut.MinIterDepth
+        //    && depth            == ProbCut.ReductionDepth
+        //    && !inCheck 
+        //    && !improving) {
 
-            // we failed low => don't prune completely, but reduce the depth
-            if (ProbCut.TryReduce(board, ply, depth, window)) {
-                depth -= ProbCut.R;
-            }
-        }
+        //    // we failed low => don't prune completely, but reduce the depth
+        //    if (ProbCut.TryReduce(board, ply, depth, window)) {
+        //        depth -= ProbCut.R;
+        //    }
+        //}
 
         // this gets incremented only if no qsearch,
         // otherwise the node would be counted twice
@@ -310,7 +306,7 @@ internal static class PVSearch {
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
             improvStack.AddStaticEval(childStaticEval, ply + 1);
-            improving = improvStack.IsImproving(ply + 1, col);
+            bool improving = improvStack.IsImproving(ply + 1, col);
 
             // have to meet certain conditions for fp
             if (PruningOptions.AllowFutilityPruning
