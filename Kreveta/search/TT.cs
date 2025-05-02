@@ -116,26 +116,6 @@ internal static class TT {
         Array.Resize(ref Table, TableSize);
     }
 
-    // instead of using an age value to slowly make entries less important,
-    // we simply erase all scores at the end of every search iteration. the
-    // best moves are, however, kept, which makes us able to increase the
-    // search speed while not affecting the new iteration with old scores
-    internal static void ResetScores() {
-        
-        // to speed up the first iteration
-        if (Stored == 0) 
-            return;
-
-        Parallel.For(0, Table.Length, i => {
-            
-            // only clear if the entry exists
-            if (Table[i].Hash != 0UL) {
-                Table[i].Score = 0;
-                Table[i].Depth = 0;
-            }
-        });
-    }
-
     // store a position in the table. the best move doesn't have to be specified
     internal static void Store([In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
         ulong hash = Zobrist.GetHash(board);

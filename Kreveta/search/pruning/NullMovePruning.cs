@@ -7,7 +7,6 @@ using Kreveta.consts;
 
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -26,7 +25,6 @@ namespace Kreveta.search.pruning;
 internal static class NullMovePruning {
 
     // the absolute minimum ply required for nmp
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private const int AbsMinPly = 3;
     
     // current minimum ply needed for nmp

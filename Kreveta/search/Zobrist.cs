@@ -11,38 +11,37 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
 
-internal static class Zobrist {
+internal static unsafe class Zobrist {
 
-    //
-    //
-    // TODO - REWRITE THIS AS POINTERS
-    //
-    //
+    // every square-piece combination
+    [ReadOnly(true)] private static readonly ulong** Pieces = (ulong**)NativeMemory.AlignedAlloc(64 * 12 * sizeof(ulong), 64);
 
-    [ReadOnly(true)]
-    private static readonly ulong[][] Pieces    = new ulong[64][];
-    
-    [ReadOnly(true)]
-    private static readonly ulong[]  EnPassant  = new ulong[8];
+    // possible files of en passant square
+    [ReadOnly(true)] private static readonly ulong* EnPassant = (ulong*)NativeMemory.AlignedAlloc(8 * sizeof(ulong), 64);
 
     // all possible permutations of castling rights
-    [ReadOnly(true)]
-    private static readonly ulong[]  Castling   = new ulong[16];
+    [ReadOnly(true)] private static readonly ulong* Castling = (ulong*)NativeMemory.AlignedAlloc(16 * sizeof(ulong), 64);
 
-    // white x black
-    [ReadOnly(true)]
-    private static readonly ulong[]  SideToMove = new ulong[2];
+    // white x black to play
+    [ReadOnly(true)] private static readonly ulong WhiteToMove;
+    [ReadOnly(true)] private static readonly ulong BlackToMove;
 
     // this seed was taken from MinimalChess, and actually
     // works very well. might try to find a better one in the
     // future, though
     private const int Seed = 228126;
 
+    // Initialize reference type static fields inline    
+#pragma warning disable CA1810
+
     static Zobrist() {
+
+#pragma warning restore CA1810
+
         Random rand = new(Seed);
 
         for (int sq = 0; sq < 64; sq++) {
-            Pieces[sq] = new ulong[12];
+            Pieces[sq] = (ulong*)NativeMemory.Alloc(12 * sizeof(ulong));
 
             for (int p = 0; p < 12; p++) {
                 Pieces[sq][p] = RandUInt64(rand);
@@ -53,8 +52,8 @@ internal static class Zobrist {
             EnPassant[file] = RandUInt64(rand);
         }
 
-        SideToMove[0] = RandUInt64(rand);
-        SideToMove[1] = RandUInt64(rand);
+        WhiteToMove = RandUInt64(rand);
+        BlackToMove = RandUInt64(rand);
 
         for (int i = 0; i < 16; i++) {
             Castling[i] = RandUInt64(rand);
@@ -62,7 +61,9 @@ internal static class Zobrist {
     }
 
     internal static ulong GetHash([In, ReadOnly(true)] in Board board) {
-        ulong hash = SideToMove[(byte)board.Color];
+        ulong hash = board.Color == Color.WHITE
+            ? WhiteToMove
+            : BlackToMove;
 
         hash ^= Castling[(byte)board.CastlingRights];
 
@@ -102,7 +103,7 @@ internal static class Zobrist {
     }
 
     private static ulong GetPieceHash(PType piece, Color col, int square) {
-        if (piece == PType.NONE) 
+        if (piece == PType.NONE)
             return 0;
 
         int index = (byte)piece + (col == Color.WHITE ? 6 : 0);
@@ -114,10 +115,10 @@ internal static class Zobrist {
             sizeof(ulong) / sizeof(byte)
         ];
 
-// Remove unnecessary suppression
+        // Remove unnecessary suppression
 #pragma warning disable IDE0079
 
-// Do not use insecure randomness
+        // Do not use insecure randomness
 #pragma warning disable CA5394
 
         rand.NextBytes(bytes);
