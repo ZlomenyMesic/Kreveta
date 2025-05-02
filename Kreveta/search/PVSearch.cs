@@ -243,23 +243,23 @@ internal static class PVSearch {
             }
         }
             
-        //// has the static eval improved from two plies ago?
-        //bool improving = improvStack.IsImproving(ply, col);
-            
-        //// probcut is similar to nmp, but reduces nodes that fail low.
-        //// more info once again directly in the probcut source file
-        //if (PruningOptions.AllowProbCut
-        //    && Game.EngineColor == Color.WHITE
-        //    && CurDepth         >= ProbCut.MinIterDepth
-        //    && depth            == ProbCut.ReductionDepth
-        //    && !inCheck 
-        //    && !improving) {
-
-        //    // we failed low => don't prune completely, but reduce the depth
-        //    if (ProbCut.TryReduce(board, ply, depth, window)) {
-        //        depth -= ProbCut.R;
-        //    }
-        //}
+        // // has the static eval improved from two plies ago?
+        // bool improving = improvStack.IsImproving(ply, col);
+        //     
+        // // probcut is similar to nmp, but reduces nodes that fail low.
+        // // more info once again directly in the probcut source file
+        // if (PruningOptions.AllowProbCut
+        //     && Game.EngineColor == Color.WHITE
+        //     && CurDepth         >= ProbCut.MinIterDepth
+        //     && depth            == ProbCut.ReductionDepth
+        //     && !inCheck 
+        //     && !improving) {
+        //
+        //     // we failed low => don't prune completely, but reduce the depth
+        //     if (ProbCut.TryReduce(board, ply, depth, window)) {
+        //         depth -= ProbCut.R;
+        //     }
+        // }
 
         // this gets incremented only if no qsearch,
         // otherwise the node would be counted twice

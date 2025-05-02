@@ -177,7 +177,7 @@ internal static class OpeningBook {
         "e2e4 e7e5 b1c3 g8f6 g2g3",
 
         // caro-kann
-        "e2e4 c7c6 d2d4 d7d5 e4e5 c1f5",
+        "e2e4 c7c6 d2d4 d7d5 e4e5 c8f5",
         "e2e4 c7c6 d2d4 d7d5 e4d5 c6d5",
         "e2e4 c7c6 d2d4 d7d5 b1c3 d5e4",
         "e2e4 c7c6 d2d4 d7d5 b1d2 d5e4",
@@ -269,7 +269,7 @@ internal static class OpeningBook {
         "e2e4 e7e5 b1c3 g8f6 g2g3",
 
         // caro-kann
-        "e2e4 c7c6 d2d4 d7d5 e4e5 c1f5",
+        "e2e4 c7c6 d2d4 d7d5 e4e5 c8f5",
         "e2e4 c7c6 d2d4 d7d5 e4d5 c6d5",
         "e2e4 c7c6 d2d4 d7d5 b1c3 d5e4",
         "e2e4 c7c6 d2d4 d7d5 b1d2 d5e4",
