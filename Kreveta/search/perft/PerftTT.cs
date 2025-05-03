@@ -7,15 +7,16 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.perft;
 
-internal static class PerftTT {
+internal static unsafe class PerftTT {
 
     // size of a single entry in bytes
-    private const int EntrySize = 17;
+    private const int EntrySize = 16;
     
     // MUST be a power of 2 in order to allow & instead of modulo indexing
     private const int TableSize = 1_048_576;
@@ -28,17 +29,27 @@ internal static class PerftTT {
 
         // 8 bytes
         [field: FieldOffset(sizeof(ulong))]
-        internal ulong Nodes;
+        private ulong _flags;
 
-        // 1 byte
-        [field: FieldOffset(2 * sizeof(ulong))]
-        internal sbyte Depth;
+        internal readonly ulong Nodes {
+            get  => (_flags & 0xFFFFFFFFFFFFFF00) >> 8;
+            init => _flags = (value << 8) | (_flags & 0x00000000000000FF);
+        }
+
+        internal readonly byte Depth {
+            get  => (byte)(_flags & 0x00000000000000FF);
+            init => _flags = value | (_flags & 0xFFFFFFFFFFFFFF00);
+        }
     }
 
-    private static readonly Entry[] Table = new Entry[TableSize];
+    private static Entry* Table;
 
+    // perftt.clear is called prior to every perft test,
+    // so we don't have to initialize the table inline
     internal static void Clear() {
-        Array.Clear(Table, 0, TableSize);
+        Table = (Entry*)NativeMemory.AlignedAlloc(
+            byteCount: TableSize * EntrySize,
+            alignment: EntrySize);
     }
 
     // generate an index in the tt for a specific board hash
@@ -48,26 +59,26 @@ internal static class PerftTT {
         uint hash32 = (uint)hash ^ (uint)(hash >> 32);
         return (int)(hash32 & (TableSize - 1));
     }
-
-    internal static void Store([In, ReadOnly(true)] in Board board, int depth, ulong nodes) {
-        ulong hash = Zobrist.GetHash(board);
-        int i = HashIndex(hash);
+    
+    internal static void Store([In, ReadOnly(true)] in Board board, byte depth, ulong nodes) {
+        ulong hash  = Zobrist.GetHash(board);
+        int   index = HashIndex(hash);
 
         Entry entry = new() {
             Hash  = hash,
             Nodes = nodes,
-            Depth = (sbyte)depth,
+            Depth = depth,
         };
 
         // store the new entry or overwrite the old one
-        Table[i] = entry;
+        Table[index] = entry;
     }
+    
+    internal static bool TryGetNodes([In, ReadOnly(true)] in Board board, byte depth, out ulong nodes) {
+        ulong hash  = Zobrist.GetHash(board);
+        int   index = HashIndex(hash);
 
-    internal static bool TryGetNodes([In, ReadOnly(true)] in Board board, int depth, out ulong nodes) {
-        ulong hash = Zobrist.GetHash(board);
-        int i = HashIndex(hash);
-
-        nodes = Table[i].Nodes;
-        return Table[i].Hash == hash && Table[i].Depth == depth;
+        nodes = Table[index].Nodes;
+        return Table[index].Hash == hash && Table[index].Depth == depth;
     }
 }

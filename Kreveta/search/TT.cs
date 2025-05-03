@@ -10,7 +10,6 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 
@@ -22,7 +21,7 @@ namespace Kreveta.search;
 // positions along with their score and the best move from that position.
 // this data can be used to order moves or greatly decrease the number
 // of nodes in the tree.
-internal static class TT {
+internal static unsafe class TT {
 
     // minimum ply needed to look up scores in tt
     internal const int MinProbingPly = 4;
@@ -77,7 +76,9 @@ internal static class TT {
     private static int Stored;
 
     // the table itself
-    private static Entry[] Table = new Entry[TableSize];
+    private static Entry* Table = (Entry*)NativeMemory.AlignedAlloc(
+        byteCount: (nuint)(TableSize * EntrySize),
+        alignment: EntrySize);
     
     // hashfull tells us how filled is the hash table
     // in permill (entries per thousand). this number
@@ -111,9 +112,9 @@ internal static class TT {
         Stored = 0;
         
         TableSize = GetTableSize();
-        
-        Array.Clear(Table, 0, Table.Length);
-        Array.Resize(ref Table, TableSize);
+        Table     = (Entry*)NativeMemory.AlignedAlloc(
+            byteCount: (nuint)(TableSize * EntrySize), 
+            alignment: EntrySize);
     }
 
     // store a position in the table. the best move doesn't have to be specified

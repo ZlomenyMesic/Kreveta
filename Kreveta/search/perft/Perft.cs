@@ -15,12 +15,14 @@ namespace Kreveta.search.perft;
 internal static class Perft {
     internal static void Run(int depth) {
         
+        PerftTT.Clear();
+        
         // we probably could use something more sophisticated
         // than a stopwatch, but i'm lazy
         var sw = Stopwatch.StartNew();
-        
-        ulong nodes = CountNodes(Game.Board, depth);
-        
+
+        ulong nodes = CountNodes(Game.Board, (byte)depth);
+
         sw.Stop();
 
         // precaution to not divide by zero
@@ -34,11 +36,9 @@ internal static class Perft {
         UCI.Log($"nodes: {nodes}", UCI.LogLevel.INFO);
         UCI.Log($"time spent: {sw.Elapsed}", UCI.LogLevel.INFO);
         UCI.Log($"nodes per second: {Math.Round((decimal)nodes / time * 1000, 0)}", UCI.LogLevel.INFO);
-        
-        PerftTT.Clear();
     }
     
-    private static ulong CountNodes([In, ReadOnly(true)] in Board board, int depth) {
+    private static unsafe ulong CountNodes([In, ReadOnly(true)] in Board board, byte depth) {
 
         if (UCI.AbortSearch)
             return 0UL;
@@ -52,22 +52,25 @@ internal static class Perft {
         }
 
         nodes = 0UL;
+        depth--;
 
         Span<Move> moves = Movegen.GetPseudoLegalMoves(board);
 
-        for (int i = 0; i < moves.Length; i++) {
+        fixed (Move* ptr = moves) {
+            for (byte i = 0; i < moves.Length; i++) {
 
-            Board child = board.Clone();
-            child.PlayMove(moves[i]);
+                Board child = board.Clone();
+                child.PlayMove(ptr[i]);
 
-            // the move is illegal (we moved to or stayed in check)
-            if (Movegen.IsKingInCheck(child, board.Color))
-                continue;
+                // the move is illegal (we moved to or stayed in check)
+                if (Movegen.IsKingInCheck(child, board.Color))
+                    continue;
 
-            nodes += CountNodes(child, depth - 1);
+                nodes += CountNodes(child, depth);
+            }
         }
 
-        PerftTT.Store(board, depth, nodes);
+        PerftTT.Store(board, ++depth, nodes);
 
         return nodes;
     }
