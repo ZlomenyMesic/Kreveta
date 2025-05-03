@@ -58,6 +58,8 @@ internal static class NullMovePruning {
         int R = Math.Min(ply - PlySubtract,
                          ReductionBase + PVSearch.CurDepth / CurDepthDivisor);
 
+        //if (!improving) R++;
+
         // once we reach a certain depth iteration, we start pruning
         // a bit more aggressively - it isn't as important to be careful
         // later than it is at the beginning. not adding this threshold
@@ -66,7 +68,7 @@ internal static class NullMovePruning {
             R += depth / AddDepthDivisor;
 
         // do the reduced search
-        score = PVSearch.ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowBeta, default).Score;
+        score = PVSearch.ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowBeta).Score;
 
         // if we failed high, that means the score is above beta and is "too good" to be
         // allowed by the opponent. if we don't fail high, we just continue the expansion

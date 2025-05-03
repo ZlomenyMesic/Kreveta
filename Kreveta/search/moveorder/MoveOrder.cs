@@ -86,31 +86,32 @@ internal static class MoveOrder {
 
         // last and probably least are the remaining quiet moves,
         // which are sorted by their history values. see History
-        List<(Move, int)> quiets = [];
+        //List<(Move, int)> quiets = [];
 
         for (int i = 0; i < legal.Length; i++) {
             if (sorted.Contains(legal[i]))
                 continue;
+            
+            sorted[cur++] = legal[i];
 
             // if the move has no history, this is
             // set to zero, which is also fine
-            quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
+            //quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
         }
 
         // sort them
-        OrderQuiets([ ..quiets]);
+        //OrderQuiets(quiets);
 
         // and add them to the final list
-        for (int i = 0; i < quiets.Count; i++)
-            sorted[cur++] = quiets[i].Item1;
-
-        Move[] result = [..sorted];
-        return result;
+        // for (int i = 0; i < quiets.Count; i++)
+        //     sorted[cur++] = quiets[i].Item1;
+        
+        return [..sorted];
     }
 
     // this is just a wrapper for a sorting loop, didn't
     // want to nest and create a mess in the ordering function
-    private static void OrderQuiets((Move, int)[] quiets) {
+    private static void OrderQuiets(List<(Move, int)> quiets) {
 
         // very primitive sorting algorithm for quiet moves,
         // sorts by their history value
@@ -118,7 +119,7 @@ internal static class MoveOrder {
         while (sortsMade) {
             sortsMade = false;
 
-            for (int i = 1; i < quiets.Length; i++) {
+            for (int i = 1; i < quiets.Count; i++) {
                 if (quiets[i].Item2 > quiets[i - 1].Item2) {
 
                     // switch places

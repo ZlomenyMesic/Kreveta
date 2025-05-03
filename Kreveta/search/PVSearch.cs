@@ -219,6 +219,9 @@ internal static class PVSearch {
         // update the static eval search stack
         short staticEval = Eval.StaticEval(board);
         improvStack.AddStaticEval(staticEval, ply);
+        
+        // has the static eval improved from two plies ago?
+        //bool improving = improvStack.IsImproving(ply, col);
 
         // first we try null-move pruning, since it is the most
         // effective way to prune the tree. details about this
@@ -242,9 +245,7 @@ internal static class PVSearch {
                 return (score, []);
             }
         }
-            
-        // // has the static eval improved from two plies ago?
-        // bool improving = improvStack.IsImproving(ply, col);
+
         //     
         // // probcut is similar to nmp, but reduces nodes that fail low.
         // // more info once again directly in the probcut source file
@@ -305,7 +306,7 @@ internal static class PVSearch {
 
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
-            improvStack.AddStaticEval(childStaticEval, ply + 1);
+            improvStack.AddStaticEval(childStaticEval, ply + 1); 
             bool improving = improvStack.IsImproving(ply + 1, col);
 
             // have to meet certain conditions for fp

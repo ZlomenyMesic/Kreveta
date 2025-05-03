@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
@@ -16,10 +17,10 @@ namespace Kreveta.movegen;
 
 internal static unsafe class Movegen {
 
-    private const int MaxMoveCount = 110;
+    private const int MoveBufferSize = 110;
 
-    private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 32);
-    private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MaxMoveCount * sizeof(Move)), 32);
+    private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
+    private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
 
     private static byte _curPL;
     private static byte _curL;
@@ -51,7 +52,7 @@ internal static unsafe class Movegen {
             result[i] = _legalMoveBuffer[i];
         }
 
-        return result;
+        return result.AsSpan();
     }
 
     internal static Span<Move> GetPseudoLegalMoves(Board board) {
@@ -66,7 +67,7 @@ internal static unsafe class Movegen {
             result[i] = _pseudoLegalMoveBuffer[i];
         }
 
-        return result;
+        return result.AsSpan();
     }
 
     private static void GeneratePseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col) {

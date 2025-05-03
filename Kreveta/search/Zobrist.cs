@@ -14,17 +14,17 @@ namespace Kreveta.search;
 internal static unsafe class Zobrist {
 
     // every square-piece combination
-    [ReadOnly(true)] private static readonly ulong** Pieces = (ulong**)NativeMemory.AlignedAlloc(64 * 12 * sizeof(ulong), 64);
+    [ReadOnly(true)] private static readonly ulong** Pieces    = (ulong**)NativeMemory.AlignedAlloc(64 * 12 * sizeof(ulong), 64);
 
     // possible files of en passant square
-    [ReadOnly(true)] private static readonly ulong* EnPassant = (ulong*)NativeMemory.AlignedAlloc(8 * sizeof(ulong), 64);
+    [ReadOnly(true)] private static readonly ulong*  EnPassant = (ulong*)NativeMemory.AlignedAlloc(8 * sizeof(ulong), 64);
 
-    // all possible permutations of castling rights
-    [ReadOnly(true)] private static readonly ulong* Castling = (ulong*)NativeMemory.AlignedAlloc(16 * sizeof(ulong), 64);
+    // all possible combinations of castling rights
+    [ReadOnly(true)] private static readonly ulong*  Castling  = (ulong*)NativeMemory.AlignedAlloc(16 * sizeof(ulong), 64);
 
     // white x black to play
-    [ReadOnly(true)] private static readonly ulong WhiteToMove;
-    [ReadOnly(true)] private static readonly ulong BlackToMove;
+    [ReadOnly(true)] private static readonly ulong   WhiteToMove;
+    [ReadOnly(true)] private static readonly ulong   BlackToMove;
 
     // this seed was taken from MinimalChess, and actually
     // works very well. might try to find a better one in the

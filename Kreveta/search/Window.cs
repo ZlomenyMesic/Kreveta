@@ -49,13 +49,13 @@ internal ref struct Window {
 
         // reducing beta (ceiling)
         
-        // fail high
+        // fail low for black
         if (score >= Beta)
             return false; 
 
         Beta = score;
 
         // cutoff?
-        return Beta <= Alpha;
+        return Alpha >= Beta;
     }
 }
