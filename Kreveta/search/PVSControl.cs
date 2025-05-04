@@ -54,7 +54,7 @@ internal static class PVSControl {
         // need to update the table before the search
         TT.Clear();
 
-        int pieceCount = BB.Popcount(Game.Board.Occupied);
+        int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         NullMovePruning.UpdateMinPly(pieceCount);
 
         // we still have time and are allowed to search deeper

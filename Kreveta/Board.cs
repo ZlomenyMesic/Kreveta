@@ -195,7 +195,7 @@ internal struct Board {
 
                 // en passant square is the square over which the
                 // pawn has double pushed, not the capture square
-                EnPassantSq = (byte)BB.LS1B(col == Color.WHITE 
+                EnPassantSq = BB.LS1B(col == Color.WHITE 
                     ? start >> 8 
                     : start << 8);
 
@@ -348,7 +348,7 @@ internal struct Board {
 
                 while (true) {
                     int index = BB.LS1BReset(ref copy);
-                    if (index == -1) break;
+                    if (index == 64) break;
 
                     chars[index] = Consts.Pieces[j];
 
