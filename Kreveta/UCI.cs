@@ -65,7 +65,7 @@ internal static class UCI {
         }
 
         // we are catching a "general exception type", because we have
-        // zero idea which type of exception NeoKolors might throw.
+        // zero idea, which type of exception NeoKolors might throw.
         catch (Exception ex) 
             when (LogException("NKLogger initialization failed", ex)) {}
     }
@@ -100,7 +100,7 @@ internal static class UCI {
                 case "stop":       CmdStop();            break;
 
 #if DEBUG
-                case "test":       CmdTest();            break;
+                case "bench":      CmdBench();           break;
 #endif
 
                 case "quit":       return;
@@ -279,7 +279,7 @@ internal static class UCI {
     }
 
     [Conditional("DEBUG"), MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdTest() {
+    private static void CmdBench() {
         BenchmarkRunner.Run<Benchmarks>();
     }
 
@@ -300,6 +300,28 @@ internal static class UCI {
     internal static bool LogException(string context, Exception ex, bool logIntoFile = true) {
         Log($"{context}: {ex.Message}", LogLevel.ERROR, logIntoFile);
         return true;
+    }
+
+    internal static void LogStats(bool forcePrint, params (string Name, object Data)[] stats) {
+        const string StatsHeader = "---STATS-------------------------------";
+        const string StatsAfter  = "---------------------------------------";
+
+        // printing statistics can be toggled via the PrintStats option.
+        // printing can, however, be forced when we are for example printing
+        // perft results (or else perft would be meaningless)
+        if (!Options.PrintStats && !forcePrint)
+            return;
+        
+        int DataOffset = StatsHeader.Length - 16;
+        
+        Log(StatsHeader);
+        
+        foreach (var stat in stats) {
+            string name = stat.Name + new string(' ', DataOffset - stat.Name.Length);
+            Log($"{name}{stat.Data}");
+        }
+        
+        Log(StatsAfter);
     }
 
     // combining sync and async code is generally a bad idea, but we must avoid slowing

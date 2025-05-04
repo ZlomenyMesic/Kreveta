@@ -37,6 +37,10 @@ internal static class Eval {
     [ReadOnly(true)] 
     private static readonly ulong[] AdjFiles = new ulong[8];
 
+    // used for stats after a search - the number of
+    // calls of StaticEval during the entire search
+    internal static ulong StaticEvalCount;
+
     static Eval() {
 
         // adjacent files for isolated pawn eval
@@ -56,6 +60,9 @@ internal static class Eval {
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
     internal static short StaticEval([In, ReadOnly(true)] in Board board) {
+        
+        // increment the counter for stats
+        StaticEvalCount++;
 
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;

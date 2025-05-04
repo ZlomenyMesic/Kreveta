@@ -172,7 +172,12 @@ internal static class Game {
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
         if (moveSeqStart == -1) {
-            OpeningBook.SaveSequence([]);
+
+            // pass the empty moves list to the book
+            // to choose the first move randomly
+            if (tokens[1] == "startpos")
+                OpeningBook.SaveSequence([]);
+
             return;
         }
 

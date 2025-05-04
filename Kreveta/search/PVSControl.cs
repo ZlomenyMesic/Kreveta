@@ -29,7 +29,8 @@ internal static class PVSControl {
     private static long CurElapsed;
     private static long PrevElapsed;
 
-    private static ulong TotalNodes;
+    // this gets incremented simultaneously with PVSearch.CurNodes
+    internal static ulong TotalNodes;
 
     internal static Stopwatch sw = null!;
 
@@ -73,17 +74,29 @@ internal static class PVSControl {
             // print the results to the console and save the first pv node
             GetResult();
 
+            // when we are playing a full game (ucinewgame) and the pv score
+            // is mate (doesn't matter whether for us or for the opponent),
+            // we can stop the search to not waste time
+            if (Game.FullGame && Score.IsMateScore(PVSearch.PVScore))
+                break;
+
             PrevElapsed = sw.ElapsedMilliseconds;
         }
-
-        UCI.Log($"info string time spent {sw.Elapsed}",  UCI.LogLevel.INFO);
-        UCI.Log($"info string total nodes {TotalNodes}", UCI.LogLevel.INFO);
+       
+        
+        // statistics can be turned off via the "PrintStats" option
+        UCI.LogStats(forcePrint: false,
+            ("nodes searched",     TotalNodes),
+            ("time spent",         sw.Elapsed),
+            ("average NPS",        (int)Math.Round((decimal)TotalNodes / sw.ElapsedMilliseconds * 1000, 0)),
+            ("static evaluations", Eval.StaticEvalCount),
+            ("tt hits",            TT.TTHits));
 
         // the final response of the engine to the gui
         UCI.Log($"bestmove {BestMove.ToLongAlgNotation()}");
 
         // reset all counters for the next search
-        // not the next iteration of the current one
+        // (not the next iteration of the current one)
         sw.Stop();
         PVSearch.Reset();
         TotalNodes = 0UL;
@@ -93,9 +106,6 @@ internal static class PVSControl {
 
         // save the first pv node as the current best move
         BestMove = PVSearch.PV[0];
-
-        // add the searched nodes from this iteration to the total node count
-        TotalNodes += PVSearch.CurNodes;
 
         // now there's a bit of magic with mate scores. our "mate in X" function
         // returns the number of plies until mate, but the conventional way to
