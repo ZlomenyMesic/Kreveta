@@ -79,6 +79,8 @@ internal static unsafe class TT {
     private static Entry* Table = (Entry*)NativeMemory.AlignedAlloc(
         byteCount: (nuint)(TableSize * EntrySize),
         alignment: EntrySize);
+
+    internal static ulong TTHits;
     
     // hashfull tells us how filled is the hash table
     // in permill (entries per thousand). this number
@@ -109,11 +111,14 @@ internal static unsafe class TT {
 
     // delete all entries from the table
     internal static void Clear() {
-        Stored = 0;
+        NativeMemory.AlignedFree(Table);
         
+        Stored = 0;
         TableSize = GetTableSize();
-        Table     = (Entry*)NativeMemory.AlignedAlloc(
-            byteCount: (nuint)(TableSize * EntrySize), 
+        TTHits = 0UL;
+
+        Table = (Entry*)NativeMemory.AlignedAlloc(
+            byteCount: (nuint)(TableSize * EntrySize),
             alignment: EntrySize);
     }
 
@@ -131,8 +136,8 @@ internal static unsafe class TT {
         if (existing.Hash != 0UL && existing.Depth > depth) {
             return;
         }
-
-        Entry entry = new() {
+        
+        var entry = new Entry {
             Hash = hash,
             Depth = depth,
             BestMove = bestMove
@@ -207,13 +212,21 @@ internal static unsafe class TT {
         // to make it relative to the root node once again
         if (Score.IsMateScore(score)) {
             score -= (short)(Math.Sign(score) * ply);
+
+            TTHits++;
             return true;
         }
 
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        return entry.Type == ScoreType.EXACT
-           || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha)
-           || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta);
+        if (entry.Type == ScoreType.EXACT
+            || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha)
+            || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta)) {
+            
+            TTHits++;
+            return true;
+        }
+
+        return false;
     }
 }

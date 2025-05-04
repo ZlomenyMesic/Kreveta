@@ -11,8 +11,6 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.search;
 
 internal class ImprovingStack {
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private short[] _stack;
 
     internal ImprovingStack() => _stack = [];
@@ -22,12 +20,13 @@ internal class ImprovingStack {
         => _stack = new short[depth];
 
     internal void AddStaticEval(short staticEval, int ply) {
-        if (ply >= _stack.Length) return;
+        if (ply >= _stack.Length)
+            return;
 
         _stack[ply] = staticEval;
 
         for (int i = ply + 1; i < _stack.Length; i++) {
-            _stack[i] = default;
+            _stack[i] = 0;
         }
     }
 
@@ -38,9 +37,13 @@ internal class ImprovingStack {
         short prevSE = _stack[ply - 2];
         short curSE  = _stack[ply    ];
 
-        if (curSE == default || prevSE == default) 
+        // the static eval might actually be zero in both cases,
+        // but it'd be very rare, and we need this to prevent false
+        // improving returns when the eval hasn't been set yet
+        if (curSE == 0 || prevSE == 0) 
             return false;
 
+        // is the current se better than the one from 2 plies ago?
         return col == Color.WHITE 
             ? curSE > prevSE 
             : curSE < prevSE;

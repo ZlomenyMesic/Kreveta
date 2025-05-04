@@ -196,8 +196,6 @@ internal static unsafe class Movegen {
 
     private static void LoopTargets([In, ReadOnly(true)] in Board board, byte start, ulong targets, PType type, Color col) {
         
-        if (start == 64) Console.WriteLine("woeifhiowehf\nweoifhweifhiefhiowefhioehfoiwhfoi\nweuiofhiowefhwoiefhwief\nweouifhweiofhweif");
-        
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;

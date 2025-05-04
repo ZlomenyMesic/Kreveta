@@ -98,6 +98,8 @@ internal static class PVSearch {
         PVScore = 0;
         PV = [];
 
+        Eval.StaticEvalCount = 0UL;
+
         improvStack.Expand(0);
 
         Killers.Clear();
@@ -130,17 +132,20 @@ internal static class PVSearch {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
-        if (ply >= TT.MinProbingPly && TT.TryGetScore(board, depth, ply, window, out short ttScore))
+        if (ply >= TT.MinProbingPly && TT.TryGetScore(board, depth, ply, window, out short ttScore)) {
+            CurNodes++;
+            PVSControl.TotalNodes++;
 
             // only return the score, no pv
             return (ttScore, []);
+        }
 
         // in case the position is not yet stored, we fully search it and then store it
         var search = Search(board, ply, depth, window, previous);
         TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
         // store the current two-move sequence in countermove history - the previously
-        // played move and the best response (counter) to this move found by the search
+        // played move, and the best response (counter) to this move found by the search
         if (search.PV.Length != 0 && depth > CounterMoveHistory.MinStoreDepth) {
             CounterMoveHistory.Add(board.Color, previous, search.PV[0]);
         }
@@ -168,7 +173,12 @@ internal static class PVSearch {
         // we also cannot abort the first iteration - no bestmove
         if (Abort && CurDepth > 1)
             return (0, []);
+        
+        // increase the nodes searched counter
+        CurNodes++;
+        PVSControl.TotalNodes++;
 
+        // just to simplify who's turn it is
         Color col = board.Color;
 
         // if we found a mate score in the previous iteration, we return if
@@ -210,6 +220,12 @@ internal static class PVSearch {
 
         // we reached depth zero or lower => evaluate the leaf node though qsearch
         if (depth <= 0) {
+            
+            // we incremented this value above, but if we go into qsearch, we must
+            // decrement it, so the node doesn't count twice (qsearch does it too)
+            CurNodes--;
+            PVSControl.TotalNodes--;
+            
             return (QSearch.Search(board, ply, window), []);
         }
 
@@ -245,8 +261,7 @@ internal static class PVSearch {
                 return (score, []);
             }
         }
-
-        //     
+        
         // // probcut is similar to nmp, but reduces nodes that fail low.
         // // more info once again directly in the probcut source file
         // if (PruningOptions.AllowProbCut
@@ -261,10 +276,6 @@ internal static class PVSearch {
         //         depth -= ProbCut.R;
         //     }
         // }
-
-        // this gets incremented only if no qsearch,
-        // otherwise the node would be counted twice
-        CurNodes++;
 
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
