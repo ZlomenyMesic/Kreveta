@@ -161,7 +161,7 @@ internal static unsafe class Movegen {
         while (pieces != 0UL) {
 
             // "bit scan forward reset" also removes the least significant bit
-            sbyte start = BB.LS1BReset(ref pieces);
+            byte start = BB.LS1BReset(ref pieces);
             ulong sq = 1UL << start;
 
             // generate the moves
@@ -194,14 +194,17 @@ internal static unsafe class Movegen {
         };
     }
 
-    private static void LoopTargets([In, ReadOnly(true)] in Board board, sbyte start, ulong targets, PType type, Color col) {
+    private static void LoopTargets([In, ReadOnly(true)] in Board board, byte start, ulong targets, PType type, Color col) {
+        
+        if (start == 64) Console.WriteLine("woeifhiowehf\nweoifhweifhiefhiowefhioehfoiwhfoi\nweuiofhiowefhwoiefhwief\nweouifhweiofhweif");
+        
         Color colOpp = col == Color.WHITE 
             ? Color.BLACK 
             : Color.WHITE;
         
         // same principle as above
         while (targets != 0UL) {
-            sbyte end = BB.LS1BReset(ref targets);
+            byte end = BB.LS1BReset(ref targets);
 
             PType capt = PType.NONE;
 
@@ -221,7 +224,7 @@ internal static unsafe class Movegen {
         }
     }
 
-    private static void AddMovesToList(PType type, Color col, sbyte start, sbyte end, PType capt, int enPassantSq) {
+    private static void AddMovesToList(PType type, Color col, byte start, byte end, PType capt, int enPassantSq) {
 
         // add the generated move to the list
         switch (type) {

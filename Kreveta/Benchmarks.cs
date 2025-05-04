@@ -15,6 +15,7 @@
 using Kreveta.consts;
 
 using System;
+using System.Numerics;
 using BenchmarkDotNet.Attributes;
 
 namespace Kreveta;
@@ -26,11 +27,8 @@ namespace Kreveta;
 [RankColumn]
 public class Benchmarks
 {
-    private ulong[][] pieces1 = [[23897324, 278273, 983284734, 87329487, 2378237, 878723],
-                                 [3287934, 9238923787, 9383924, 873482934, 83748374, 62763763]];
-    
-    private ulong[][] pieces2 = [[23897324, 278273, 983284734, 87329487, 2378237, 878723],
-        [3287934, 9238923787, 9383924, 873482934, 83748374, 62763763]];
+    private ulong some_bb = 0xFFFFFFFF00000000;
+    private byte smth = 0;
 
     //[Conditional("DEBUG")]
     [GlobalSetup]
@@ -39,17 +37,15 @@ public class Benchmarks
     }
     
     [Benchmark]
-    public void ArrayCopyInt()
+    public void BitBoard()
     {
-        Array.Copy(pieces1[0], pieces2[0], 6);
-        Array.Copy(pieces1[1], pieces2[1], 6);
+        //smth = BB.Popcount(some_bb);
     }
 
     [Benchmark]
-    public void ArrayCopyEnum()
+    public void BuiltIn()
     {
-        Array.Copy(pieces1[(byte)Color.WHITE], pieces2[(byte)Color.WHITE], 6);
-        Array.Copy(pieces1[(byte)Color.BLACK], pieces2[(byte)Color.BLACK], 6);
+        smth = (byte)ulong.PopCount(some_bb);
     }
 }
 
