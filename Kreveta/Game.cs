@@ -42,7 +42,10 @@ internal static class Game {
     internal static HashSet<ulong> Draws            = [];
 
     private static readonly Action<string> InvalidFENCallback = delegate(string context) {
+        // first reset the board and then set the starting position
         Board.Clear();
+        SetPosFEN(["", "", ..Consts.StartposFEN.Split(' ')]);
+        
         UCI.Log($"invalid position - {context}", UCI.LogLevel.ERROR);
     };
 
@@ -213,7 +216,7 @@ internal static class Game {
 
     // save all positions that would cause a 3-fold repetition draw in
     // the next move. all previous positions are saved in HistoryPositions
-    // and those which occur twice (or more) are considered as drawing.
+    // and those, which occur twice (or more) are considered as drawing.
     private static void List3FoldDraws() {
         Dictionary<ulong, int> occurences = [];
 

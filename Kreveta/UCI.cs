@@ -8,20 +8,22 @@
 
 using Kreveta.openingbook;
 using Kreveta.search;
-using Kreveta.search.perft;
+using Kreveta.perft;
 using Kreveta.consts;
 
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Globalization;
+
 using BenchmarkDotNet.Running;
 using NeoKolors.Console;
-// ReSharper disable InvokeAsExtensionMethod
 
+// ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
@@ -35,10 +37,10 @@ internal static class UCI {
     private const int InputBufferSize = 4096;
 
     [ReadOnly(true)]
-    private static readonly TextReader Input;
+    private static readonly TextReader  Input;
 
     [ReadOnly(true)]
-    private static readonly TextWriter Output;
+    internal static readonly TextWriter Output;
 
     private const string NKLogFilePath = @".\out.log";
 
@@ -54,7 +56,7 @@ internal static class UCI {
 
         // the default Console.ReadLine buffer is quite small and cannot
         // handle long move lines, thus we use a larger buffer size
-        Input = new StreamReader(Console.OpenStandardInput(InputBufferSize));
+        Input  = new StreamReader(Console.OpenStandardInput(InputBufferSize));
         Output = Console.Out;
 
         try {
@@ -96,7 +98,7 @@ internal static class UCI {
                 case "position":   CmdPosition(tokens);  break;
                 case "go":         CmdGo(tokens);        break;
                 case "perft":      CmdPerft(tokens);     break;
-                case "print":      CmdPrint();           break;
+                case "d":          CmdDisplay();         break;
                 case "stop":       CmdStop();            break;
 
 #if DEBUG
@@ -105,7 +107,7 @@ internal static class UCI {
 
                 case "quit":       return;
 
-                default: Log($"unknown command: {tokens[0]}", LogLevel.ERROR); 
+                default: Log($"Unknown command: {tokens[0]}. Type 'help' for more information", LogLevel.ERROR); 
                          break;
             }
         }
@@ -151,13 +153,17 @@ internal static class UCI {
     // (this is also used to stop a perft search)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdStop() {
-
-        // the search is a separate thread
-        if (SearchThread is { IsAlive: false })
+        
+        // the search is a separate thread, which we first
+        // synchronize with this one and then terminate
+        
+        // this also checks for null values
+        if (SearchThread is {IsAlive: false})
             return;
         
         AbortSearch = true;
-            
+        
+        // synchronize the threads
         SearchThread?.Join();
         SearchThread = null;
         
@@ -171,8 +177,9 @@ internal static class UCI {
     // in the engine. this is important in many cases when we want
     // to, for instance, disable the opening book
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdSetOption(ReadOnlySpan<string> tokens)
-        => Options.SetOption(tokens);
+    private static void CmdSetOption(ReadOnlySpan<string> tokens) {
+        Options.SetOption(tokens);
+    }
 
     // "position ..." command sets the current position, which the
     // engine probably will be searching in the future. this doesn't
@@ -184,13 +191,11 @@ internal static class UCI {
             // we don't use a startpos constructor, because we can have a list
             // of moves played from the starting position, which would be quite
             // difficult and unnecessary to implement
-            case "startpos": Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' '), ..tokens]); break;
-            case "fen":      Game.SetPosFEN(tokens);                                                    break;
+            case "startpos": Game.SetPosFEN(tokens: ["", "", ..Consts.StartposFEN.Split(' '), ..tokens]); break;
+            case "fen":      Game.SetPosFEN(tokens);                                                      break;
 
-            default:         Log($"invalid argument: {tokens[1]}", LogLevel.ERROR);                     return;
+            default:         Log($"Invalid argument: {tokens[1]}", LogLevel.ERROR);                       return;
         }
-
-        Game.Board.Print();
     }
 
     // "perft" starts a perft test at a specfied depth. perft
@@ -207,13 +212,13 @@ internal static class UCI {
                 goto invalid_syntax;
 
             if (depth < 1) {
-                Log("depth must be greater than or equal to 1", LogLevel.ERROR);
+                Log("Depth must be greater than or equal to 1", LogLevel.ERROR);
                 return;
             }
             
             // we launch a separate thread for this to allow "stop" command
             // and anything else. i don't know, it's just better
-            SearchThread = new(() => Perft.Run(depth)) {
+            SearchThread = new Thread(() => Perft.Run(depth)) {
                 Name     = $"{Engine.Name}-{Engine.Version}.PerftSearch",
                 Priority = ThreadPriority.Highest
             };
@@ -224,7 +229,7 @@ internal static class UCI {
         } 
 
         invalid_syntax:
-        Log($"invalid perft command syntax", LogLevel.ERROR);
+        Log($"Invalid perft command syntax", LogLevel.ERROR);
     }
 
     private static void CmdGo(ReadOnlySpan<string> tokens) {
@@ -251,11 +256,11 @@ internal static class UCI {
                 TimeMan.TimeBudget = long.MaxValue;
             }
             catch (Exception ex)
-                when (LogException("invalid depth argument", ex)) {}
+                when (LogException("Invalid depth argument", ex)) {}
         }
         
         if (depth < 1) {
-            Log("depth must be greater than or equal to 1", LogLevel.ERROR);
+            Log("Depth must be greater than or equal to 1", LogLevel.ERROR);
             return;
         }
 
@@ -271,21 +276,24 @@ internal static class UCI {
         // the search itself runs as a separate thread to allow processing
         // other commands while the search is running - this usually isn't
         // needed, but the "stop" command is very important
-        SearchThread = new(() => PVSControl.StartSearch(depth)) {
+        SearchThread = new Thread(() => PVSControl.StartSearch(depth)) {
             Name     = $"{Engine.Name}-{Engine.Version}.Search",
             Priority = ThreadPriority.Highest
         };
         SearchThread.Start();
     }
 
+    // run benchmarks
     [Conditional("DEBUG"), MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdBench() {
         BenchmarkRunner.Run<Benchmarks>();
     }
 
+    // print the currectly set position
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdPrint() 
-        => Game.Board.Print();
+    private static void CmdDisplay() {
+        Game.Board.Print();
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
@@ -302,7 +310,7 @@ internal static class UCI {
         return true;
     }
 
-    internal static void LogStats(bool forcePrint, params (string Name, object Data)[] stats) {
+    internal static void LogStats(bool forcePrint, params ReadOnlySpan<(string Name, object Data)> stats) {
         const string StatsHeader = "---STATS-------------------------------";
         const string StatsAfter  = "---------------------------------------";
 
@@ -317,8 +325,20 @@ internal static class UCI {
         Log(StatsHeader);
         
         foreach (var stat in stats) {
-            string name = stat.Name + new string(' ', DataOffset - stat.Name.Length);
-            Log($"{name}{stat.Data}");
+            string  name = stat.Name + new string(' ', DataOffset - stat.Name.Length);
+            string? data = stat.Data.ToString();
+
+            if (data is null) 
+                return;
+
+            if (stat.Data is long or ulong or int) {
+                var format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();
+                format.NumberGroupSeparator = ",";
+
+                data = (Convert.ToInt64(stat.Data, null)).ToString("N0", format);
+            }
+            
+            Log($"{name}{data}");
         }
         
         Log(StatsAfter);

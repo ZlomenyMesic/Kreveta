@@ -114,7 +114,7 @@ internal static class QSearch {
 
             // otherwise return the mate score
             return inCheck
-                ? Score.GetMateScore(col, ply)
+                ? Score.CreateMateScore(col, ply)
                 : (short)0;
         }
 

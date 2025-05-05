@@ -3,13 +3,15 @@
 // started 4-3-2025
 //
 
+using Kreveta.search;
+
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.search.perft;
+namespace Kreveta.perft;
 
 // perft searches in chess engines usually don't use transposition tables to
 // ensure the number of nodes displayed is truly correct (hash collisions may

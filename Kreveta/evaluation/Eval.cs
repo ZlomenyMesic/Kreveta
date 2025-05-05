@@ -134,14 +134,14 @@ internal static class Eval {
         return eval;
     }
     
+    // this method uses the value tables in EvalTables.cs, and is used to evaluate the position of a piece.
+    // there are two tables - midgame and endgame, which is important, because different pieces should be
+    // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
+    // but should move towards the center in the endgame)
     private static short GetTableValue(PType type, Color col, byte sq, byte pieceCount) {
-        // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
-        // there are two tables - midgame and endgame, this is important, because the pieces should be
-        // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
-        // but in the endgame in the center)
 
-        // we have to index the piece and position correctly. white
-        // pieces are simple, but black piece have to be mirrored
+        // we have to index the piece type and position correctly. white
+        // pieces are straightforward, but black piece have to be mirrored
         short i = (short)((byte)type * 64 + (col == Color.WHITE
             ? 63 - sq
             : (sq >> 3) * 8 + (7 - (sq & 7))));
@@ -152,8 +152,8 @@ internal static class Eval {
 
         // a very rough attempt for tapering evaluation - instead of
         // just switching straight from midgame into endgame, the table
-        // value of the piece is always somewhere in between depending
-        // on the number of pieces left on the board.
+        // value of the piece is always somewhere in between, based on
+        // the number of pieces left on the board.
         return (short)(mgValue * pieceCount / 32 + egValue * (32 - pieceCount) / 32);
     }
 

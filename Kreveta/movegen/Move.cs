@@ -107,11 +107,19 @@ internal readonly struct Move : IEquatable<Move> {
     // taken from my previous engine
     internal static bool IsCorrectFormat(string str) {
 
+        // to prevent index out of range
+        if (str.Length is not 4 and not 5)
+            return false;
+
         // checks if the move from the user input makes sense (doesn't check legality)
         // caution: don't try to understand this mess
         return Consts.Files.Contains(str[0], StringComparison.Ordinal) && char.IsDigit(str[1]) 
             && Consts.Files.Contains(str[2], StringComparison.Ordinal) && char.IsDigit(str[3])
+            
+            // a regular move (from-to squares)
             && (str.Length == 4
+                
+            // a promotion (from-to squares + promotion piece)    
             || (str.Length == 5 && Consts.Pieces.Contains(str[4], StringComparison.Ordinal)));
     }
 }

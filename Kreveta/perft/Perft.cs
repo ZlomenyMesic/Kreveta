@@ -10,7 +10,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace Kreveta.search.perft;
+namespace Kreveta.perft;
 
 // perft stands for performance test, and is used mainly to locate bugs in movegen
 // or to simply measure the movegen speed. perft takes a depth as an argument, and

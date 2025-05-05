@@ -12,10 +12,6 @@
 // Mark members as static
 #pragma warning disable CA1822
 
-using Kreveta.consts;
-
-using System;
-using System.Numerics;
 using BenchmarkDotNet.Attributes;
 
 namespace Kreveta;

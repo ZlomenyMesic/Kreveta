@@ -28,10 +28,13 @@ internal static unsafe class TT {
 
     // depending on where the score fell relatively
     // to the window when saving, we store the score type
-    private enum ScoreType : byte {
-        UPPER_BOUND, // the score was above beta
-        LOWER_BOUND, // the score was below alpha
-        EXACT        // the score fell right into the window
+    [Flags]
+    private enum SpecialFlags : byte {
+        SCORE_UPPER_BOUND = 1, // the score was above beta
+        SCORE_LOWER_BOUND = 2, // the score was below alpha
+        SCORE_EXACT       = 4, // the score fell right into the window
+        
+        SHOULD_OVERWRITE  = 8 // the node is old and should be overwritten
     }
 
     // this entry is stored for every position
@@ -54,15 +57,14 @@ internal static unsafe class TT {
         // (1 byte)
         [field: FieldOffset(sizeof(ulong) + sizeof(short))]
         internal sbyte Depth;
-
-        // the score type as explained above
+        
         // (1 byte)
         [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte))]
-        internal ScoreType Type;
+        internal SpecialFlags Flags;
 
         // the best move found in this position - used for move ordering
         // (4 bytes)
-        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte) + sizeof(ScoreType))]
+        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte) + sizeof(SpecialFlags))]
         internal Move BestMove;
     }
 
@@ -113,13 +115,21 @@ internal static unsafe class TT {
     internal static void Clear() {
         NativeMemory.AlignedFree(Table);
         
-        Stored = 0;
+        Stored    = 0;
         TableSize = GetTableSize();
-        TTHits = 0UL;
+        TTHits    = 0UL;
 
         Table = (Entry*)NativeMemory.AlignedAlloc(
             byteCount: (nuint)(TableSize * EntrySize),
             alignment: EntrySize);
+    }
+
+    internal static void IncreaseAge() {
+        // for (int i = 0; i < TableSize; i++) {
+        //     
+        //     if (Table[i].Hash != 0UL)
+        //         Table[i].Flags |= SpecialFlags.SHOULD_OVERWRITE;
+        // }
     }
 
     // store a position in the table. the best move doesn't have to be specified
@@ -130,16 +140,25 @@ internal static unsafe class TT {
         // maybe an entry is already saved
         Entry existing = Table[i];
 
-        // is the index already occupied with a result from a higher depth search?
-        // key collisions may also be problematic - multiple positions
-        // could have an identical key (i don't really care, though)
+        //bool isOld = (existing.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
+
+        // is the slot already occupied with a result
+        // of a higher depth search?
         if (existing.Hash != 0UL && existing.Depth > depth) {
             return;
         }
         
+        // if (existing.Hash != 0UL 
+        //     && ((!isOld && existing.Depth > depth) 
+        //         || (isOld && existing.Depth > depth + 1))) {
+        //     
+        //     return;
+        // }
+        
         var entry = new Entry {
-            Hash = hash,
-            Depth = depth,
+            Hash     = hash,
+            Depth    = depth,
+            Flags    = 0,
             BestMove = bestMove
         };
 
@@ -155,15 +174,15 @@ internal static unsafe class TT {
         }
 
         if (score >= window.Beta) {
-            entry.Type = ScoreType.UPPER_BOUND;
+            entry.Flags |= SpecialFlags.SCORE_UPPER_BOUND;
             entry.Score = window.Beta;
 
         } else if (score <= window.Alpha) {
-            entry.Type = ScoreType.LOWER_BOUND;
+            entry.Flags |= SpecialFlags.SCORE_LOWER_BOUND;
             entry.Score = window.Alpha;
 
         } else {
-            entry.Type = ScoreType.EXACT;
+            entry.Flags |= SpecialFlags.SCORE_EXACT;
             entry.Score = score;
         }
 
@@ -219,9 +238,9 @@ internal static unsafe class TT {
 
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        if (entry.Type == ScoreType.EXACT
-            || (entry.Type == ScoreType.LOWER_BOUND && score <= window.Alpha)
-            || (entry.Type == ScoreType.UPPER_BOUND && score >= window.Beta)) {
+        if     ((entry.Flags & SpecialFlags.SCORE_EXACT)       != 0 
+            || ((entry.Flags & SpecialFlags.SCORE_LOWER_BOUND) != 0 && score <= window.Alpha) 
+            || ((entry.Flags & SpecialFlags.SCORE_UPPER_BOUND) != 0 && score >= window.Beta)) {
             
             TTHits++;
             return true;

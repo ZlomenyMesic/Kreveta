@@ -3,6 +3,12 @@
 // started 4-3-2025
 //
 
+// Remove unnecessary suppression
+#pragma warning disable IDE0079
+
+// Specify CultureInfo
+#pragma warning disable CA1304
+
 using Kreveta.consts;
 using Kreveta.movegen;
 
@@ -339,37 +345,37 @@ internal struct Board {
     }
 
     internal void Print() {
+        
+        // empty squares are simply dashes
         char[] chars = new char[64];
         Array.Fill(chars, '-');
 
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 6; j++) {
-                ulong copy = Pieces[i][j];
+        // loop all piece types
+        for (int i = 0; i < 6; i++) {
+            ulong wCopy = Pieces[(byte)Color.WHITE][i];
+            ulong bCopy = Pieces[(byte)Color.BLACK][i];
 
-                while (true) {
-                    int index = BB.LS1BReset(ref copy);
-                    if (index == 64) break;
-
-                    chars[index] = Consts.Pieces[j];
-
-// Remove unnecessary suppression
-#pragma warning disable IDE0079
-
-// Specify CultureInfo
-#pragma warning disable CA1304
-
-                    if (i == 0) chars[index] = char.ToUpper(chars[index]);
-
-#pragma warning restore CA1304
-#pragma warning restore IDE0079
-
-                }
+            while (wCopy != 0UL) {
+                int sq = BB.LS1BReset(ref wCopy);
+                
+                // pieces are uppercase for white
+                chars[sq] = char.ToUpper(Consts.Pieces[i]);
+            }
+            
+            while (bCopy != 0UL) {
+                int sq = BB.LS1BReset(ref bCopy);
+                chars[sq] = Consts.Pieces[i];
             }
         }
-
         for (int i = 0; i < 64; i++) {
-            Console.Write($"{chars[i]} ");
-            if ((i + 1) % 8 == 0) Console.WriteLine();
+            UCI.Output.Write($"{chars[i]} {
+                
+                // newline character at the end of each rank
+                (((i + 1) & 7) == 0 ? '\n' : string.Empty)
+            }");
         }
     }
 }
+
+#pragma warning restore CA1304
+#pragma warning restore IDE0079

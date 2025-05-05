@@ -33,7 +33,7 @@ internal static class LateMoveReductions {
     internal const byte MinExpNodes = 3;
 
     // the actual depth reduce within late move reductions
-    internal const byte R = 2;
+    internal const byte R = 3;
 
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good

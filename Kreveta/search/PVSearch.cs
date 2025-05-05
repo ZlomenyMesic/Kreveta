@@ -76,6 +76,10 @@ internal static class PVSearch {
 
         // these need to be erased, though
         PawnCorrectionHistory.Clear();
+        
+        // entries from the previous search should be
+        // overwritten with newer, more relevant ones
+        TT.IncreaseAge();
 
         // store the pv from the previous iteration in tt
         // this should hopefully allow some faster lookups
@@ -159,14 +163,12 @@ internal static class PVSearch {
     
 #region PVS 
 
-    // finally the actual PVS recursive function
-    //
-    // (i could use the /// but i hate the looks)
-    // ply starts at zero and increases each ply (no shit sherlock).
-    // depth, on the other hand, starts at the highest value and decreases over time.
-    // once we get to depth = 0, we drop into the qsearch. the search window contains 
-    // the alpha and beta values, which are the pillars to this thing. we also pass
-    // the previously played move for some other stuff
+    // this is the main recursive PVS function.
+    // ply starts at zero and increases each ply (no shit sherlock). depth, on the
+    // other hand, starts at the highest value and decreases over time. once we get
+    // to depth = 0, we drop into the qsearch. the search window holds the alpha and
+    // beta values, which are the pillars to this thing. we also pass the previously
+    // played move for some other reasons
     private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
 
         // either crossed the time budget or maximum nodes.
@@ -200,7 +202,7 @@ internal static class PVSearch {
 
             int matePly = Score.GetMateInX(window.Alpha);
             if (ply >= matePly)
-                return (Score.GetMateScore(col, ply + 1), []);
+                return (Score.CreateMateScore(col, ply + 1), []);
         }
             
         // and the same for black
@@ -208,7 +210,7 @@ internal static class PVSearch {
 
             int matePly = -Score.GetMateInX(window.Beta);
             if (ply >= matePly)
-                return (Score.GetMateScore(col, ply + 1), []);
+                return (Score.CreateMateScore(col, ply + 1), []);
         }
 
 
@@ -226,7 +228,8 @@ internal static class PVSearch {
             CurNodes--;
             PVSControl.TotalNodes--;
             
-            return (QSearch.Search(board, ply, window), []);
+            return (Score: QSearch.Search(board, ply, window), 
+                    PV: []);
         }
 
         // is the color to play currently in check?
@@ -258,7 +261,7 @@ internal static class PVSearch {
             if (NullMovePruning.TryPrune(board, depth, ply, window, col, out short score)) {
 
                 // we failed high - prune this branch
-                return (score, []);
+                return (score, PV: []);
             }
         }
         
@@ -282,7 +285,7 @@ internal static class PVSearch {
         // then killer moves and last quiet moves sorted by history
         Span<Move> moves = MoveOrder.GetSortedMoves(board, depth, previous);
 
-        // counter for expanded nodes
+        // number of already searched nodes
         byte searchedMoves = 0;
 
         // pv continuation to be appended?
@@ -311,9 +314,10 @@ internal static class PVSearch {
                                || inCheck
                                || (ply <= 4 && isCapture)
                                || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
-
-                
+            
             short childStaticEval = Eval.StaticEval(child);
+
+            int childDepth = depth - 1;
 
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
@@ -333,6 +337,8 @@ internal static class PVSearch {
                 }
             }
 
+            //bool wasLateMoveReduced = false;
+            
             // more conditions (late move pruning and reductions are kind of combined)
             if ((PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
@@ -348,13 +354,22 @@ internal static class PVSearch {
 
                 // we failed low with a margin - only reduce, don't prune
                 if (result.Reduce) {
-                    depth -= LateMoveReductions.R;
+                    
+                    childDepth -= LateMoveReductions.R;
+                    //wasLateMoveReduced = true;
                 }
             }
 
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
-            var fullSearch = ProbeTT(child, ply + 1, depth - 1, window, curMove);
+            var fullSearch = ProbeTT(child, ply + 1, childDepth, window, curMove);
+            
+            // if (wasLateMoveReduced && col == Color.WHITE 
+            //         ? fullSearch.Score >= window.Beta 
+            //         : fullSearch.Score <= window.Alpha) {
+            //
+            //     fullSearch = ProbeTT(child, ply + 1, depth, window, curMove);
+            // }
 
             // we somehow still failed low
             if (col == Color.WHITE
@@ -408,7 +423,7 @@ internal static class PVSearch {
             ? (inCheck 
 
                 // if we are checked this means we got mated (there are no legal moves)
-                ? Score.GetMateScore(col, ply)
+                ? Score.CreateMateScore(col, ply)
 
                 // if we aren't checked, we return draw (stalemate)
                 : (short)0, []) 
