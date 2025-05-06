@@ -24,9 +24,8 @@ namespace Kreveta.search.pruning;
 // despite the margin, we do a full re-search
 internal static class LateMoveReductions {
 
-    // once again we set a minimum ply and depth
+    // once again we set a minimum ply
     internal const byte MinPly   = 4;
-    internal const byte MinDepth = 0;
 
     // minimum nodes expanded before lmr
     // (we obviously don't want to reduce the pv)

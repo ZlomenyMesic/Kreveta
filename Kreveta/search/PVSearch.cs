@@ -343,7 +343,7 @@ internal static class PVSearch {
             if ((PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
                 && ply           >= LateMoveReductions.MinPly
-                && depth         >= LateMoveReductions.MinDepth
+                // && depth         >= LateMoveReductions.MinDepth
                 && searchedMoves >= LateMoveReductions.MinExpNodes) {
 
                 // try to fail low

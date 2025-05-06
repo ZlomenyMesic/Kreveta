@@ -74,7 +74,7 @@ internal static class PVSControl {
             // print the results to the console and save the first pv node
             GetResult();
 
-            // when we are playing a full game (ucinewgame) and the pv score
+            // when we are playing a full game (ucinewgame), and the pv score
             // is mate (doesn't matter whether for us or for the opponent),
             // we can stop the search to not waste time
             if (Game.FullGame && Score.IsMateScore(PVSearch.PVScore))
@@ -83,12 +83,14 @@ internal static class PVSControl {
             PrevElapsed = sw.ElapsedMilliseconds;
         }
        
+        long time = sw.ElapsedMilliseconds == 0 
+            ? 1 : sw.ElapsedMilliseconds;
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
             ("nodes searched",     TotalNodes),
             ("time spent",         sw.Elapsed),
-            ("average NPS",        (int)Math.Round((decimal)TotalNodes / sw.ElapsedMilliseconds * 1000, 0)),
+            ("average NPS",        (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
             ("static evaluations", Eval.StaticEvalCount),
             ("tt hits",            TT.TTHits));
 

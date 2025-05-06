@@ -17,7 +17,7 @@ namespace Kreveta.search.pruning;
 // NULL MOVE PRUNING:
 // we assume that in every position there is at least one move that can
 // improve it, so we try playing a "null-move" (essentially no move at
-// all) and we then search this null child at a reduced depth (reduction R).
+// all), and we then search this null child at a reduced depth (reduction R).
 // if we still fail high despite skipping a move, we can expect that playing
 // a move would also lead to a fail high, so we can prune this branch.
 //
@@ -33,7 +33,6 @@ internal static class NullMovePruning {
     private const int PlySubtract     = 2;
     private const int ReductionBase   = 2;
     private const int CurDepthDivisor = 4;
-    private const int MinAddRedDepth  = 8;
     private const int AddDepthDivisor = 5;
 
     // as mentioned above, nmp sometimes fails in endgames, so we want to prune
@@ -64,7 +63,7 @@ internal static class NullMovePruning {
         // a bit more aggressively - it isn't as important to be careful
         // later than it is at the beginning. not adding this threshold
         // causes some troubles in evaluation, though.
-        if (PVSearch.CurDepth > MinAddRedDepth)
+        if (PVSearch.CurDepth > 8)
             R += depth / AddDepthDivisor;
 
         // do the reduced search
