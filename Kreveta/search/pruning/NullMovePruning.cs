@@ -31,7 +31,7 @@ internal static class NullMovePruning {
     internal static int CurMinPly = 3;
 
     private const int PlySubtract     = 2;
-    private const int ReductionBase   = 2;
+    private const int ReductionBase   = 3;
     private const int CurDepthDivisor = 4;
     private const int AddDepthDivisor = 5;
 
@@ -43,7 +43,7 @@ internal static class NullMovePruning {
         => CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / 7);
 
     // try null move pruning
-    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, Color col, bool isPV, out short score) {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 
@@ -65,6 +65,9 @@ internal static class NullMovePruning {
         // causes some troubles in evaluation, though.
         if (PVSearch.CurDepth > 8)
             R += depth / AddDepthDivisor;
+
+        if (isPV)
+            R--;
 
         // do the reduced search
         score = PVSearch.ProbeTT(nullChild, ply + 1, depth - R - 1, nullWindowBeta).Score;

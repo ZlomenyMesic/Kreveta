@@ -188,13 +188,9 @@ internal static class Options {
                 case OpType.CHECK: {
                     if (tokens is [_, _, _, "value", "true" or "false"]) {
                         
-                        // used for debugging, don't want the GUI turning off our book
-                        if (tokens[3] == nameof(OwnBook))
-                            return;
-                        
                         // boolean values are either "True" or "False", but we store
                         // "true" and "false", so we simply check for it this way
-                        opt.SetValue(tokens[4] == "true");
+                        //opt.SetValue(tokens[4] == "true");
                         return;
                     
                     } goto invalid_syntax;

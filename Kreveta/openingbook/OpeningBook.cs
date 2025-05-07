@@ -50,23 +50,28 @@ internal static class OpeningBook {
             ? WhiteOpeningsSplit 
             : BlackOpeningsSplit;
         
+        List<string> possible = [];
+        
 #region STARTPOS
 
         // we are at the starting position, so we choose a random move to start with
         if (sequence.Length == 0) {
 
+            foreach (var opening in openings) {
+                if (!possible.Contains(opening[0]))
+                    possible.Add(opening[0]);
+            }
+
             // choose a random first move from the book
-            BookMove = openings[
-                new Random(Guid.NewGuid().GetHashCode()).Next(0, openings.Length)
-            ][0];
+            BookMove = possible[
+                new Random(Guid.NewGuid().GetHashCode()).Next(0, possible.Count)
+            ];
 
             return;
         }
         
 #endregion
 #region OTHER
-
-        List<string> possible = [];
         
         for (int i = 0; i < openings.Length; i++) {
             for (int j = 0; j < sequence.Length; j++) {
@@ -188,11 +193,11 @@ internal static class OpeningBook {
         // van t kruijs opening
         "e2e3 g8f6 g1f3",
 
-        // saragossa
-        "c2c3",
-
         // english
         "c2c4",
+        
+        "b1c3",
+        "g1f3",
     ];
     
     [ReadOnly(true)]
@@ -279,12 +284,12 @@ internal static class OpeningBook {
 
         // van t kruijs opening
         "e2e3 g8f6 g1f3",
-
-        // saragossa
-        "c2c3",
-
-        // english
-        "c2c4",
+        
+        "b1c3 b8c6",
+        "b1c3 d7d5",
+        "b1c3 c7c6",
+        "b1c3 c7c5",
+        "b1c3 g8f6",
     ];
 
     

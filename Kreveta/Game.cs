@@ -178,7 +178,7 @@ internal static class Game {
 
             // pass the empty moves list to the book
             // to choose the first move randomly
-            if (tokens[1] == "startpos")
+            if (tokens[2] == Consts.StartposFEN.Split(' ')[0])
                 OpeningBook.SaveSequence([]);
 
             return;

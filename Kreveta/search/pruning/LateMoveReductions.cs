@@ -37,14 +37,14 @@ internal static class LateMoveReductions {
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
-    private const short HistReductionThreshold = -720;
+    private const short HistReductionThreshold = -920;
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.
     private const byte InternalR         = 3;
     private const byte InternalBadHistR  = 4;
 
-    private const byte MaxReduceMargin   = 66;
+    private const byte MaxReduceMargin   = 74;
     private const byte WindowSizeDivisor = 9;
     private const byte MarginDivisor     = 6;
     private const byte ImprovingMargin   = 12;
@@ -83,7 +83,7 @@ internal static class LateMoveReductions {
 
             return (true, false);
 
-        if (!PruningOptions.AllowLateMoveReductions || depth != ReductionDepth) 
+        if (!PruningOptions.AllowLateMoveReductions) 
             return (false, false);
 
         // REDUCTIONS PART:
@@ -94,7 +94,7 @@ internal static class LateMoveReductions {
         short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor
             
             // be more aggressive with later moves
-            + searchedMoves 
+            + searchedMoves
                           
             // be less aggressive when improving
             + (improving ? -ImprovingMargin : 0));

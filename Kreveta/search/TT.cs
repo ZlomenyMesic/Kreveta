@@ -46,26 +46,26 @@ internal static unsafe class TT {
         // (8 bytes)
         [field: FieldOffset(0)]
         internal ulong Hash;
+        
+        // the best move found in this position - used for move ordering
+        // (4 bytes)
+        [field: FieldOffset(8)]
+        internal Move BestMove;
 
         // the score of the position
         // (2 bytes)
-        [field: FieldOffset(sizeof(ulong))]
+        [field: FieldOffset(8 + 4)]
         internal short Score;
 
         // the depth at which the search was performed
         // => higher depth means a more truthful score
         // (1 byte)
-        [field: FieldOffset(sizeof(ulong) + sizeof(short))]
+        [field: FieldOffset(8 + 4 + 2)]
         internal sbyte Depth;
         
         // (1 byte)
-        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte))]
+        [field: FieldOffset(8 + 4 + 2 + 1)]
         internal SpecialFlags Flags;
-
-        // the best move found in this position - used for move ordering
-        // (4 bytes)
-        [field: FieldOffset(sizeof(ulong) + sizeof(short) + sizeof(sbyte) + sizeof(SpecialFlags))]
-        internal Move BestMove;
     }
 
     // size of a single hash entry

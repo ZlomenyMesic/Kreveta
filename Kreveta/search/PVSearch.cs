@@ -89,7 +89,7 @@ internal static class PVSearch {
         improvStack.Expand(CurDepth);
 
         // actual start of the search tree
-        (PVScore, PV) = Search(Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default);
+        (PVScore, PV) = Search(Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default, true);
     }
 
     // completely reset everything
@@ -132,7 +132,7 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window, Move previous = default) {
+    internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window, Move previous = default, bool isPV = false) {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -145,7 +145,7 @@ internal static class PVSearch {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        var search = Search(board, ply, depth, window, previous);
+        var search = Search(board, ply, depth, window, previous, isPV);
         TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
         // store the current two-move sequence in countermove history - the previously
@@ -169,7 +169,7 @@ internal static class PVSearch {
     // to depth = 0, we drop into the qsearch. the search window holds the alpha and
     // beta values, which are the pillars to this thing. we also pass the previously
     // played move for some other reasons
-    private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
+    private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous, bool isPV) {
 
         // either crossed the time budget or maximum nodes.
         // we also cannot abort the first iteration - no bestmove
@@ -231,6 +231,12 @@ internal static class PVSearch {
             return (Score: QSearch.Search(board, ply, window), 
                     PV: []);
         }
+        
+        isPV = ply == 0 
+               || (isPV
+               && CurDepth > 1
+               && ply - 1 < PV.Length 
+               && PV[ply - 1] == previous);
 
         // is the color to play currently in check?
         bool inCheck = Movegen.IsKingInCheck(board, col);
@@ -258,7 +264,7 @@ internal static class PVSearch {
                 : window.Alpha > short.MinValue)) {
 
             // we try the reduced search and check for failing high
-            if (NullMovePruning.TryPrune(board, depth, ply, window, col, out short score)) {
+            if (NullMovePruning.TryPrune(board, depth, ply, window, col, isPV, out short score)) {
 
                 // we failed high - prune this branch
                 return (score, PV: []);
@@ -311,6 +317,7 @@ internal static class PVSearch {
             // 3 - just escaped a check
             // 4 - are checking the opposite king
             bool interesting = searchedMoves == 1
+                               //|| (isPV && searchedMoves < 5)
                                || inCheck
                                || (ply <= 4 && isCapture)
                                || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
@@ -362,7 +369,7 @@ internal static class PVSearch {
 
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
-            var fullSearch = ProbeTT(child, ply + 1, childDepth, window, curMove);
+            var fullSearch = ProbeTT(child, ply + 1, childDepth, window, curMove, isPV);
             
             // if (wasLateMoveReduced && col == Color.WHITE 
             //         ? fullSearch.Score >= window.Beta 
