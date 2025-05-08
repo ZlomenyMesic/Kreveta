@@ -9,6 +9,7 @@ using Kreveta.movegen;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Kreveta.evaluation;
 
 // ReSharper disable InconsistentNaming
 
@@ -24,16 +25,13 @@ namespace Kreveta.search.moveorder;
 // technique is actually much more useful than it seems.
 internal static class MVV_LVA {
 
-    // the values don't have to be perfect, but they should
-    // help determine which captures are good, e.g. trading 
-    // a bishop and a knight for a rook and a pawn usually
-    // isn't good and trading a minor piece for three pawns
-    // also isn't a very good idea. the king is given a lot
-    // of point to avoid some bugs, although i think there
-    // shouldn't be any
-    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly int[] PieceValues 
-        = [100, 315, 330, 520, 930, 10000, -1];
+    // the piece values used don't have to be perfect, but
+    // they should help determine, which captures are good,
+    // e.g. trading a bishop and a knight for a rook and
+    // a pawn usually isn't good and trading a minor piece
+    // for three pawns also isn't a very good idea. the king
+    // is given a lot of points to avoid bugs, although
+    // i think there shouldn't be any
 
     // takes a list of captures, sorts it by MVV-LVA and returns it.
     internal static Move[] OrderCaptures(Move[] capts) {
@@ -89,8 +87,8 @@ internal static class MVV_LVA {
     private static int GetCaptureScore(Move capt) {
 
         // piece moved and piece captured (aggressor and victim)
-        int aggressor = PieceValues[(byte)capt.Piece];
-        int victim    = PieceValues[(byte)capt.Capture];
+        int aggressor = EvalTables.PieceValues[(byte)capt.Piece];
+        int victim    = EvalTables.PieceValues[(byte)capt.Capture];
 
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as
@@ -98,7 +96,7 @@ internal static class MVV_LVA {
         if (victim == -1) {
 
             // en passant always captures a pawn
-            victim = PieceValues[(byte)PType.PAWN];
+            victim = EvalTables.PieceValues[(byte)PType.PAWN];
         }
 
         // calculate the difference - positive diff means the move is

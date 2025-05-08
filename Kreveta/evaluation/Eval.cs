@@ -59,7 +59,7 @@ internal static class Eval {
     // structure, king safety, etc. the score returned is color relative,
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
-    internal static short StaticEval([In, ReadOnly(true)] in Board board) {
+    internal static unsafe short StaticEval([In, ReadOnly(true)] in Board board) {
         
         // increment the counter for stats
         StaticEvalCount++;
@@ -71,25 +71,32 @@ internal static class Eval {
 
         short wEval = 0, bEval = 0;
 
-        // loop all piece types
-        for (int i = 0; i < 6; i++) {
-
-            // copy the respective piece bitboards for both colors
-            ulong wCopy = board.Pieces[(byte)Color.WHITE][i];
-            ulong bCopy = board.Pieces[(byte)Color.BLACK][i];
-
-            // here for each color we add the table value of the piece. the tables
-            // are in EvalTables.cs, and they give both material and position values.
-            // although this code isn't really clean, it is much faster than putting
-            // the color into a loop as well
-            while (wCopy != 0UL) {
-                byte sq = BB.LS1BReset(ref wCopy);
-                wEval += GetTableValue((PType)i, Color.WHITE, sq, pieceCount);
-            }
-
-            while (bCopy != 0UL) {
-                byte sq = BB.LS1BReset(ref bCopy);
-                bEval += GetTableValue((PType)i, Color.BLACK, sq, pieceCount);
+        // this is used to minimize array bound checks, since
+        // profiling shows that we spend a lot of time on static
+        // eval, so i really want to optimize it
+        fixed (ulong* wPieces = &board.Pieces[(byte)Color.WHITE][0],
+                      bPieces = &board.Pieces[(byte)Color.BLACK][0]) {
+            
+            // loop over all piece types
+            for (byte i = 0; i < 6; i++) {
+        
+                // copy the respective piece bitboards for both colors
+                ulong wCopy = wPieces[i];
+                ulong bCopy = bPieces[i];
+        
+                // here for each color we add the table value of the piece. the tables
+                // are in EvalTables.cs, and they give both material and position values.
+                // although this code isn't really clean, it is much faster than putting
+                // the color into a loop as well
+                while (wCopy != 0UL) {
+                    byte sq = BB.LS1BReset(ref wCopy);
+                    wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, pieceCount);
+                }
+        
+                while (bCopy != 0UL) {
+                    byte sq = BB.LS1BReset(ref bCopy);
+                    bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, pieceCount);
+                }
             }
         }
 
@@ -132,29 +139,6 @@ internal static class Eval {
         //eval += (short)History.GetPawnCorrection(board);
 
         return eval;
-    }
-    
-    // this method uses the value tables in EvalTables.cs, and is used to evaluate the position of a piece.
-    // there are two tables - midgame and endgame, which is important, because different pieces should be
-    // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
-    // but should move towards the center in the endgame)
-    private static short GetTableValue(PType type, Color col, byte sq, byte pieceCount) {
-
-        // we have to index the piece type and position correctly. white
-        // pieces are straightforward, but black piece have to be mirrored
-        short i = (short)((byte)type * 64 + (col == Color.WHITE
-            ? 63 - sq
-            : (sq >> 3) * 8 + (7 - (sq & 7))));
-
-        // we grab both the midgame and endgame table values
-        short mgValue = EvalTables.Midgame[i];
-        short egValue = EvalTables.Endgame[i];
-
-        // a very rough attempt for tapering evaluation - instead of
-        // just switching straight from midgame into endgame, the table
-        // value of the piece is always somewhere in between, based on
-        // the number of pieces left on the board.
-        return (short)(mgValue * pieceCount / 32 + egValue * (32 - pieceCount) / 32);
     }
 
     // bonuses or penalties for pawn structure

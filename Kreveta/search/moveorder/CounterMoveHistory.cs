@@ -68,7 +68,7 @@ internal static class CounterMoveHistory {
         CounterMoves[(byte)col][start][end] = counter;
     }
 
-    // try to retrieve a counter using the previously played move
+    // try to retrieve a counter using the previously played move,
     // and the color that is currently on turn
     internal static Move Get(Color col, Move previous) {
         int start = previous.Start;

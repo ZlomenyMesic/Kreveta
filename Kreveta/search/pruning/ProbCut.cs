@@ -12,11 +12,11 @@ namespace Kreveta.search.pruning;
 
 internal static class ProbCut {
 
-    private const int InternalR       = 4;
-    private const int Margin          = 100;
+    private const int InternalR       = 3;
+    private const int Margin          = 36;
 
-    internal const int MinIterDepth   = 9;
-    internal const int ReductionDepth = 6;
+    internal const int MinIterDepth   = 10;
+    internal const int ReductionDepth = 7;
     internal const int R              = 2;
 
     internal static bool TryReduce([In, ReadOnly(true)] in Board board, int ply, int depth, Window window) {

@@ -59,16 +59,22 @@ internal static class Options {
         public string Name { get; init; }
         public OpType Type { get; init; }
 
-        internal          long MinValue;
-        internal          long MaxValue;
-        internal required T    DefaultValue;
-        internal required T    Value;
+        // min and max values are only used with the
+        // "spin" option type
+        internal long MinValue;
+        internal long MaxValue;
+        
+        // default value is displayed when the "uci"
+        // command is received. currect value of the
+        // option is stored in Value
+        internal required T DefaultValue;
+        internal required T Value;
 
         // no exceptions should ever be thrown
         void IOption.SetValue(object value) {
-            if (value is not T casted) {
+            if (value is not T casted)
                 throw new InvalidCastException();
-            }
+            
             Value = casted;
         }
     }
@@ -76,6 +82,9 @@ internal static class Options {
     private static readonly IOption[] options = [
 
         // should the engine use its own opening book?
+        // this usually gets turned off by the GUI, but
+        // it's great to have a custom book for debugging
+        // when playing variety is required
         new Option<bool> {
             Name         = nameof(OwnBook),
             Type         = OpType.CHECK,
@@ -84,11 +93,17 @@ internal static class Options {
             Value        = true
         },
 
-        // size of the hash table in megabytes (tt)
+        // size of the hash table in megabytes. this only
+        // sets the size of the transposition table. other
+        // tables, such as pawn corrections, or the perfttt,
+        // are not modified using this option
         new Option<long> {
             Name         = nameof(Hash),
             Type         = OpType.SPIN,
 
+            // a transposition table with no size would
+            // probably break the engine, so there's always
+            // going to be at least a small one
             MinValue     = 1,
             MaxValue     = 2048,
 
@@ -96,7 +111,9 @@ internal static class Options {
             Value        = 40
         },
 
-        // logging into a file using the NKLogger by KryKom
+        // logging into a file using the NKLogger by KryKom.
+        // the engine may log its commands and responses into
+        // a custom log file
         new Option<bool> {
             Name         = nameof(NKLogs),
             Type         = OpType.CHECK,
@@ -105,7 +122,7 @@ internal static class Options {
             Value        = false
         },
         
-        // print statistics after each finished search
+        // print fancy statistics after each finished search
         new Option<bool> {
             Name         = nameof(PrintStats),
             Type         = OpType.CHECK,
@@ -142,18 +159,31 @@ internal static class Options {
             _ => string.Empty
         };
 
+    // after receiving the "uci" command, the engine must
+    // also list all of its modifiable options, so the GUI
+    // knows the ones it can use
     internal static void Print() {
+        
+        // when displaying options, we must provide the name,
+        // option type, default value and possibly the range
+        // of values the option can hold
+        
         foreach (IOption opt in options) {
             StringBuilder sb = new();
 
+            // append the option name and type
             sb.Append($"option name {opt.Name}");
             sb.Append($" type {opt.Type.GetName()}");
 
             // we must always cast the ioption to the correct generic
-            // option type. this usually may throw exception, but we
-            // are absolutely certain about the types
+            // option type. this would usually throw exceptions, but
+            // we are absolutely certain about the types
             switch (opt.Type) {
+                
                 case OpType.CHECK:
+                    
+                    // boolean converts to "True" or "False", so we
+                    // must also convert it to the lowercase variant
                     sb.Append($" default {((Option<bool>)opt).DefaultValue.ToString().ToLowerInvariant()}");
                     break;
                 
@@ -163,6 +193,8 @@ internal static class Options {
                 
                 case OpType.SPIN:
                     var optCast = (Option<long>)opt;
+                    
+                    // spin option type must provide the range of values it can hold
                     sb.Append($" default {optCast.DefaultValue} min {optCast.MinValue} max {optCast.MaxValue}");
                     break;
             }
@@ -171,11 +203,18 @@ internal static class Options {
         }
     }
 
+    // this is called when the engine receives the "setoption"
+    // command, which is used to modify the value of an option
     internal static void SetOption(ReadOnlySpan<string> tokens) {
+        
+        // the syntax must be "setoption name <NAME> value <VALUE>"
         if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;
         }
 
+        // there's probably a better way to do this, but i am lazy,
+        // so we simply loop over the existing options and try to
+        // match the names
         foreach (IOption opt in options) {
             if (opt.Name != tokens[2]) 
                 continue;
@@ -189,7 +228,7 @@ internal static class Options {
                     if (tokens is [_, _, _, "value", "true" or "false"]) {
                         
                         // boolean values are either "True" or "False", but we store
-                        // "true" and "false", so we simply check for it this way
+                        // "true" and "false", so we simply do it this way
                         //opt.SetValue(tokens[4] == "true");
                         return;
                     
@@ -221,9 +260,11 @@ internal static class Options {
                 }
 
                 case OpType.STRING: {
-                    if (tokens is [_, _, _, "value", _, ..]) {
+                    if (tokens is [_, _, _, "value", ..]) {
                         StringBuilder sb = new();
                         
+                        // the value of a string option type can be
+                        // any length, and can be divided by spaces
                         for (byte j = 3; j < tokens.Length; j++)
                             sb.Append(tokens[j]);
 
@@ -235,6 +276,7 @@ internal static class Options {
             }
         }
 
+        // didn't match the name with any option
         UCI.Log($"unsupported option {tokens[2]}", UCI.LogLevel.ERROR);
         return;
 

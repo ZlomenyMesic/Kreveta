@@ -166,10 +166,15 @@ internal static class PVSearch {
     // this is the main recursive PVS function.
     // ply starts at zero and increases each ply (no shit sherlock). depth, on the
     // other hand, starts at the highest value and decreases over time. once we get
-    // to depth = 0, we drop into the qsearch. the search window holds the alpha and
-    // beta values, which are the pillars to this thing. we also pass the previously
-    // played move for some other reasons
-    private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous, bool isPV) {
+    // to depth = 0, we drop into the qsearch.
+    private static (short Score, Move[] PV) Search(
+        Board board,   // the position to be searched
+        int ply,       // current ply (independent of depth)
+        int depth,     // depth yet to be searched
+        Window window, // holds alpha and beta
+        Move previous, // move played in the previous ply
+        bool isPV      // has this position been achieved from a PV node?
+        ) {
 
         // either crossed the time budget or maximum nodes.
         // we also cannot abort the first iteration - no bestmove
@@ -246,7 +251,7 @@ internal static class PVSearch {
         improvStack.AddStaticEval(staticEval, ply);
         
         // has the static eval improved from two plies ago?
-        //bool improving = improvStack.IsImproving(ply, col);
+        bool improving = improvStack.IsImproving(ply, col);
 
         // first we try null-move pruning, since it is the most
         // effective way to prune the tree. details about this
@@ -273,23 +278,27 @@ internal static class PVSearch {
         
         // // probcut is similar to nmp, but reduces nodes that fail low.
         // // more info once again directly in the probcut source file
-        // if (PruningOptions.AllowProbCut
-        //     && Game.EngineColor == Color.WHITE
-        //     && CurDepth         >= ProbCut.MinIterDepth
-        //     && depth            == ProbCut.ReductionDepth
-        //     && !inCheck 
-        //     && !improving) {
-        //
-        //     // we failed low => don't prune completely, but reduce the depth
-        //     if (ProbCut.TryReduce(board, ply, depth, window)) {
-        //         depth -= ProbCut.R;
-        //     }
-        // }
+        if (PruningOptions.AllowProbCut
+            
+            // this is a really weird phenomenon - from my testing, probcut
+            // only turned out to increase playing strength for white, and
+            // actually made the engine weaker when playing black
+            && Game.EngineColor == Color.WHITE
+            
+            && CurDepth         >= ProbCut.MinIterDepth
+            && depth            == ProbCut.ReductionDepth
+            && !inCheck && !improving) {
+        
+            // we failed low => don't prune completely, but reduce the depth
+            if (ProbCut.TryReduce(board, ply, depth, window)) {
+                depth -= ProbCut.R;
+            }
+        }
 
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
-        // then killer moves and last quiet moves sorted by history
-        Span<Move> moves = MoveOrder.GetSortedMoves(board, depth, previous);
+        // then killer moves and last quiet moves
+        Span<Move> moves = MoveOrder.GetOrderedMoves(board, depth, previous);
 
         // number of already searched nodes
         byte searchedMoves = 0;
@@ -329,7 +338,7 @@ internal static class PVSearch {
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
             improvStack.AddStaticEval(childStaticEval, ply + 1); 
-            bool improving = improvStack.IsImproving(ply + 1, col);
+            improving = improvStack.IsImproving(ply + 1, col);
 
             // have to meet certain conditions for fp
             if (PruningOptions.AllowFutilityPruning
@@ -339,7 +348,7 @@ internal static class PVSearch {
 
                 // we check for failing low despite a margin.
                 // if we fail low, don't search this move any further
-                if (FutilityPruning.TryPrune(child, depth, col, childStaticEval, improving, window)) {
+                if (FutilityPruning.TryPrune(child, depth, col, childStaticEval, improving, isPV, window)) {
                     continue;
                 }
             }

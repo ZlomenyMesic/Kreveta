@@ -22,7 +22,7 @@ internal static class MoveOrder {
     // least make a rough guess.
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static unsafe Move[] GetSortedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
+    internal static unsafe Move[] GetOrderedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
@@ -54,7 +54,6 @@ internal static class MoveOrder {
 
         // get the captures ordered and add them to the list
         Move[] mvvlva = MVV_LVA.OrderCaptures([ ..capts]);
-
         for (int i = 0; i < mvvlva.Length; i++) {
             sorted[cur++] = mvvlva[i];
         }
@@ -66,13 +65,13 @@ internal static class MoveOrder {
         // position. we only save a few per depth, though
         Span<Move> killers = Killers.GetCluster(depth);
         for (int i = 0; i < killers.Length; i++) {
-
+        
             // since killer moves are stored independently of
             // the position, we have to check a couple thing
             if (legal.Contains(killers[i])                       // illegal
                 && !sorted.Contains(killers[i])                  // already added
                 && ((empty & (1UL << killers[i].End)) != 0UL)) { // quiet
-
+        
                 sorted[cur++] = killers[i];
             }
         }
@@ -86,25 +85,25 @@ internal static class MoveOrder {
 
         // last and probably least are the remaining quiet moves,
         // which are sorted by their history values. see History
-        //List<(Move, int)> quiets = [];
+        List<(Move, int)> quiets = [];
 
         for (int i = 0; i < legal.Length; i++) {
             if (sorted.Contains(legal[i]))
                 continue;
             
-            sorted[cur++] = legal[i];
+            //sorted[cur++] = legal[i];
 
             // if the move has no history, this is
             // set to zero, which is also fine
-            //quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
+            quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
         }
 
-        // sort them
-        //OrderQuiets(quiets);
+        // sort/order them
+        OrderQuiets(quiets);
 
         // and add them to the final list
-        // for (int i = 0; i < quiets.Count; i++)
-        //     sorted[cur++] = quiets[i].Item1;
+        for (int i = 0; i < quiets.Count; i++)
+            sorted[cur++] = quiets[i].Item1;
         
         return [..sorted];
     }

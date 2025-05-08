@@ -7,7 +7,6 @@ using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
@@ -19,39 +18,55 @@ internal static unsafe class Movegen {
 
     private const int MoveBufferSize = 110;
 
+    // to avoid repeated memory allocations, we use two static buffers
+    // for all move generation. when we generate moves, we first fill
+    // the first one with pseudolegal moves, which we then filter and
+    // fill the legal move buffer. they don't even have to be emptied,
+    // since we know the number of current moves.
     private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
     private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
 
+    // indices used to access the buffers; also act as move counters
     private static byte _curPL;
     private static byte _curL;
 
-    internal static Span<Move> GetLegalMoves(Board board, bool onlyCaptures = false) {
+    // returns all legal moves that can be played from a position. the color
+    // to play is determined by the Color field in board. for the qsearch,
+    // there is also the option to only generate legal captures
+    internal static unsafe Span<Move> GetLegalMoves(Board board, bool onlyCaptures = false) {
 
         Color col = board.Color;
 
+        // reset the indices for buffers
         _curPL = 0;
         _curL  = 0;
 
-        // only generate captures (used in qsearch)
+        // only generate pseudolegal captures (used in qsearch)
         if (onlyCaptures) {
             GeneratePseudoLegalCaptures(board, col);
         }
 
-        // otherwise all possible moves
+        // otherwise all pseudolegal moves
         else GeneratePseudoLegalMoves(board, col);
 
-        // remove the illegal ones
+        // select the legal ones and add them to the legal move buffer
         for (int i = 0; i < _curPL; i++) {
             if (board.IsMoveLegal(_pseudoLegalMoveBuffer[i], col)) {
                 _legalMoveBuffer[_curL++] = _pseudoLegalMoveBuffer[i];
             }
         }
-
+        
+        // if we return a span slice directly from the buffer, we
+        // can avoid heap allocations, but during the search, the
+        // buffer gets modified and this approach doesn't work
         Move[] result = new Move[_curL];
         for (int i = 0; i < _curL; i++) {
             result[i] = _legalMoveBuffer[i];
         }
 
+        // returning spans has turned out to be faster than yield
+        // return with IEnumerable<T>, so here we basically take
+        // a "slice" of the legal move buffer to return as a span
         return result.AsSpan();
     }
 
@@ -62,6 +77,7 @@ internal static unsafe class Movegen {
 
         GeneratePseudoLegalMoves(board, col);
 
+        // same issue here, we are forced to make a heap allocation
         Move[] result = new Move[_curPL];
         for (int i = 0; i < _curPL; i++) {
             result[i] = _pseudoLegalMoveBuffer[i];
@@ -155,7 +171,16 @@ internal static unsafe class Movegen {
         return false;
     }
 
-    private static void LoopPiecesBB([In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures = false) {
+    private static void LoopPiecesBB(
+        [In, ReadOnly(true)] in Board board,
+        ulong pieces,
+        PType type,
+        Color col,
+        ulong occupiedOpp,
+        ulong occupied,
+        ulong empty,
+        ulong free,
+        bool onlyCaptures = false) {
 
         // iteratively remove the pieces from the bitboard and generate their moves
         while (pieces != 0UL) {
@@ -172,7 +197,16 @@ internal static unsafe class Movegen {
         }
     }
 
-    private static ulong GetTargets([In, ReadOnly(true)] in Board board, ulong sq, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures) {
+    private static ulong GetTargets(
+        [In, ReadOnly(true)] in Board board,
+        ulong sq,
+        PType type,
+        Color col,
+        ulong occupiedOpp,
+        ulong occupied,
+        ulong empty,
+        ulong free,
+        bool onlyCaptures) {
 
         // return a bitboard of possible moves depending on the piece type
         return type switch {
