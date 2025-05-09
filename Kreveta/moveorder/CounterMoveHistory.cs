@@ -11,7 +11,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace Kreveta.search.moveorder;
+namespace Kreveta.moveorder;
 
 // COUNTER MOVE HISTORY - a dynamic move-ordering heuristic, which makes use of the fact
 // that many moves have a natural response irrespective to the position (e.g. certain

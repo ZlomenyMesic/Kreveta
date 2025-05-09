@@ -7,8 +7,6 @@ using Kreveta.consts;
 
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-using Kreveta.search;
-using Kreveta.search.moveorder;
 
 namespace Kreveta;
 
@@ -39,10 +37,6 @@ internal static class Engine {
 
         // header text when launching the engine
         UCI.Log($"{Name}-{Version} by {Author}");
-
-#if DEBUG
-        Game.TestingFunction();
-#endif
 
         UCI.InputLoop();
         

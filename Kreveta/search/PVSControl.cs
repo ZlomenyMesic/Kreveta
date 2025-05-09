@@ -83,12 +83,13 @@ internal static class PVSControl {
             PrevElapsed = sw.ElapsedMilliseconds;
         }
        
+        long time = sw.ElapsedMilliseconds == 0 ? 1 : sw.ElapsedMilliseconds;
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
             ("nodes searched",     TotalNodes),
             ("time spent",         sw.Elapsed),
-            ("average NPS",        (int)Math.Round((decimal)TotalNodes / sw.ElapsedMilliseconds * 1000, 0)),
+            ("average NPS",        (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
             ("static evaluations", Eval.StaticEvalCount),
             ("tt hits",            TT.TTHits));
 

@@ -6,7 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.moveorder;
+using Kreveta.moveorder;
 
 using System;
 using System.ComponentModel;

@@ -6,7 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.moveorder;
+using Kreveta.moveorder;
 using Kreveta.search.pruning;
 
 using System;
@@ -114,7 +114,7 @@ internal static class QSearch {
 
             // otherwise return the mate score
             return inCheck
-                ? Score.GetMateScore(col, ply)
+                ? Score.CreateMateScore(col, ply)
                 : (short)0;
         }
 
@@ -123,7 +123,7 @@ internal static class QSearch {
 
             // sort the captures by MVV-LVA
             // (most valuable victim - least valuable aggressor)
-            moves = MVV_LVA.OrderCaptures([..moves]);
+            moves = MVV_LVA.OrderCaptures(moves);
         }
 
         // loop the generated moves
