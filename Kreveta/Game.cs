@@ -38,32 +38,39 @@ internal static class Game {
     internal static bool FullGame;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
-    private static List<ulong>     HistoryPositions = [];
-    internal static HashSet<ulong> Draws            = [];
+    private static List<ulong> HistoryPositions = [];
+    internal static HashSet<ulong> Draws = [];
 
-    private static readonly Action<string> InvalidFENCallback = delegate(string context) {
+    private static readonly Action<string> InvalidFENCallback = delegate (string context) {
+        // first reset the board and then set the starting position
         Board.Clear();
-        UCI.Log($"invalid position - {context}", UCI.LogLevel.ERROR);
+        SetPosFEN(["", "", .. Consts.StartposFEN.Split(' ')]);
+
+        UCI.Log($"Invalid position - {context}", UCI.LogLevel.ERROR);
     };
 
+    // sets the current position using a tokenized fen string. this function is
+    // also called when setting up the starting position, but with the startpos fen
     internal static void SetPosFEN([In, ReadOnly(true)] in ReadOnlySpan<string> tokens) {
         
+        // since the whole "position" command is sent, the first two tokens shall be skipped ("position fen")
+
+        // if something is missing, we return right away instead of wasting time
         if (tokens[1] == "fen" && tokens.Length < 6) {
             InvalidFENCallback("some tokens in fen may be missing. the fen needs to include the position, side to move, castling rights and en passant square");
             return;
         }
 
         // clear the board from previous game/search
-        Board = new();
+        Board = new Board();
 
         // erase the draw counters
         HistoryPositions = [];
         Draws            = [];
-
-        // 1. POSITION
-        // starting from rank 8 to rank 1, ranks are separated by a "/". on each rank, pieces are
-        // denoted as per the standard algebraic notation (PNBRQK-pnbrqk). one or more empty squares
-        // between pieces are denoted by a single digit (1-8), corresponding to the number of squares
+        
+        // the first token is the actual position. all ranks are separated by a "/". between the
+        // slashes, pieces may be denoted with the simple "pnbrqk" or the uppercase variants for
+        // white. empty squares between pieces are marked by a single digit (1-8)
         for (int i = 0, sq = 0; i < tokens[2].Length; i++) {
             char c = tokens[2][i];
 
@@ -97,13 +104,14 @@ internal static class Game {
             Board.Pieces[(byte)col][piece] |= 1UL << sq;
 
             if (col == Color.WHITE) Board.WOccupied |= 1UL << sq;
-            else Board.BOccupied |= 1UL << sq;
+            else                    Board.BOccupied |= 1UL << sq;
 
             sq++;
         }
 
-        // 2. ACTIVE COLOR
-        // which color's turn is it
+        // the second token tells us, which color's turn it is. "w" means white,
+        // "b" means black. the actual color to play may be still modified by the
+        // moves played from this position, though
         switch (tokens[3]) {
 
             // white
@@ -112,15 +120,16 @@ internal static class Game {
             // black
             case "b": EngineColor = Color.BLACK; break;
 
-            default:  InvalidFENCallback($"invalid side to move in FEN: {tokens[3]}"); return;
+            default: InvalidFENCallback($"invalid side to move in FEN: {tokens[3]}"); return;
         }
-        
+
         Board.Color = EngineColor;
 
-        // 3. CASTLING RIGHTS
-        // if neither side can castle, this is "-". otherwise, we can have up to 4 letters.
-        // "k" and "q" marks kingside and queenside castling rights respectively. just to clarify, this has nothing 
-        // to do with the legality of castling in the next move, it denotes the castling rights availability.
+        // the third token marks, which sides still have their castling rights. if neither
+        // side can castle, this is "-". otherwise, the characters may be "k" or "q" for
+        // kingside and queenside castling respectively, or once again uppercase for white.
+        // just to clarify, this has nothing to do with the legality of castling in the next
+        // move, it denotes the castling rights availability.
         for (int i = 0; i < tokens[4].Length; i++) {
             switch (tokens[4][i]) {
 
@@ -137,22 +146,19 @@ internal static class Game {
                 case 'q': Board.CastlingRights |= CastlingRights.q; break;
 
                 default: {
-                    if (tokens[4][i] == '-') 
-                        continue;
-                    
-                    InvalidFENCallback($"invalid castling availability in FEN: {tokens[4][i]}"); 
-                    return;
-                }
+                        if (tokens[4][i] == '-')
+                            continue;
+
+                        InvalidFENCallback($"invalid castling availability in FEN: {tokens[4][i]}");
+                        return;
+                    }
             }
         }
 
-        // 4. EN PASSANT TARGET SQUARE
-        // This is a square over which a pawn has just passed while moving two squares; it is given in algebraic
-        // notation. If there is no en passant target square, this field uses the character "-". This is recorded
-        // regardless of whether there is a pawn in position to capture en passant. An updated version of the
-        // spec has since made it so the target square is only recorded if a legal en passant move is possible but
-        // the old version of the standard is the one most commonly used.
-
+        // the fourth token is the en passant square, which is the square over which
+        // a double-pushing pawn has passed in the previous move, regardless of whether
+        // there is another pawn to capture en passant. if no pawn double-pushed, this
+        // is also simply "-".
         if (tokens[5].Length == 2 && byte.TryParse(tokens[5], out byte enPassantSq))
             Board.EnPassantSq = enPassantSq;
 
@@ -163,26 +169,30 @@ internal static class Game {
             InvalidFENCallback($"invalid en passant square in FEN: {tokens[5]}");
             return;
         }
-        
+
         // after these tokens may also follow a fullmove and halfmove clock,
         // but we don't need this information for anything
 
-        // position command can be followed by a sequence of moves
+        // the fen string can be followed by a sequence of moves, which have
+        // been played from the position. for example, most GUIs would pass
+        // a position like "position startpos moves e2e4 e7e5 g1f3"
+        
         // ReSharper disable once InvokeAsExtensionMethod
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
+        // no move sequence was found
         if (moveSeqStart == -1) {
 
             // pass the empty moves list to the book
             // to choose the first move randomly
-            if (tokens[1] == "startpos")
+            if (tokens[2] == Consts.StartposFEN.Split(' ')[0])
                 OpeningBook.SaveSequence([]);
 
             return;
         }
 
-        // we save the previous positions as 3-fold repetition exists
-        HistoryPositions.Add(Zobrist.GetHash(Board));
+        // we save all known previous positions as 3-fold repetition exists
+        HistoryPositions.Add(ZobristHash.GetHash(Board));
 
         List<string> sequence = [];
 
@@ -196,11 +206,11 @@ internal static class Game {
             }
 
             Board.PlayMove(tokens[i].ToMove(Board));
-            HistoryPositions.Add(Zobrist.GetHash(Board));
+            HistoryPositions.Add(ZobristHash.GetHash(Board));
 
             // switch the engine's color
-            EngineColor = EngineColor == Color.WHITE 
-                ? Color.BLACK 
+            EngineColor = EngineColor == Color.WHITE
+                ? Color.BLACK
                 : Color.WHITE;
         }
 
@@ -213,7 +223,7 @@ internal static class Game {
 
     // save all positions that would cause a 3-fold repetition draw in
     // the next move. all previous positions are saved in HistoryPositions
-    // and those which occur twice (or more) are considered as drawing.
+    // and those, which occur twice (or more) are considered as drawing.
     private static void List3FoldDraws() {
         Dictionary<ulong, int> occurences = [];
 
@@ -232,10 +242,6 @@ internal static class Game {
             // otherwise add the first occurence
             else occurences.Add(hash, 1);
         }
-    }
-
-    internal static void TestingFunction() {
-
     }
 }
 

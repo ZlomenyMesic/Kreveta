@@ -6,7 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.moveorder;
+using Kreveta.moveorder;
 using Kreveta.search.pruning;
 
 using System;
@@ -75,7 +75,7 @@ internal static class PVSearch {
         QuietHistory.Shrink();
 
         // these need to be erased, though
-        PawnCorrectionHistory.Clear();
+        PawnCorrectionHistory.Realloc();
 
         // store the pv from the previous iteration in tt
         // this should hopefully allow some faster lookups
@@ -200,7 +200,7 @@ internal static class PVSearch {
 
             int matePly = Score.GetMateInX(window.Alpha);
             if (ply >= matePly)
-                return (Score.GetMateScore(col, ply + 1), []);
+                return (Score.CreateMateScore(col, ply + 1), []);
         }
             
         // and the same for black
@@ -208,13 +208,13 @@ internal static class PVSearch {
 
             int matePly = -Score.GetMateInX(window.Beta);
             if (ply >= matePly)
-                return (Score.GetMateScore(col, ply + 1), []);
+                return (Score.CreateMateScore(col, ply + 1), []);
         }
 
 
         // if the position is saved as a 3-fold repetition draw, return 0.
         // we have to check at ply 2 as well to prevent a forced draw by the opponent
-        if (ply is not 0 and < 4 && Game.Draws.Contains(Zobrist.GetHash(board))) {
+        if (ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.GetHash(board))) {
             return (0, []);
         }
 
@@ -280,7 +280,7 @@ internal static class PVSearch {
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
         // then killer moves and last quiet moves sorted by history
-        Span<Move> moves = MoveOrder.GetSortedMoves(board, depth, previous);
+        Span<Move> moves = MoveOrder.GetOrderedMoves(board, depth, previous);
 
         // counter for expanded nodes
         byte searchedMoves = 0;
@@ -408,7 +408,7 @@ internal static class PVSearch {
             ? (inCheck 
 
                 // if we are checked this means we got mated (there are no legal moves)
-                ? Score.GetMateScore(col, ply)
+                ? Score.CreateMateScore(col, ply)
 
                 // if we aren't checked, we return draw (stalemate)
                 : (short)0, []) 

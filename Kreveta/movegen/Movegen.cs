@@ -7,7 +7,6 @@ using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
@@ -19,39 +18,55 @@ internal static unsafe class Movegen {
 
     private const int MoveBufferSize = 110;
 
+    // to avoid repeated memory allocations, we use two static buffers
+    // for all move generation. when we generate moves, we first fill
+    // the first one with pseudolegal moves, which we then filter and
+    // fill the legal move buffer. they don't even have to be emptied,
+    // since we know the number of current moves.
     private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
-    private static readonly Move* _legalMoveBuffer       = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
+    private static readonly Move* _legalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
 
+    // indices used to access the buffers; also act as move counters
     private static byte _curPL;
     private static byte _curL;
 
+    // returns all legal moves that can be played from a position. the color
+    // to play is determined by the Color field in board. for the qsearch,
+    // there is also the option to only generate legal captures
     internal static Span<Move> GetLegalMoves(Board board, bool onlyCaptures = false) {
 
         Color col = board.Color;
 
+        // reset the indices for buffers
         _curPL = 0;
-        _curL  = 0;
+        _curL = 0;
 
-        // only generate captures (used in qsearch)
+        // only generate pseudolegal captures (used in qsearch)
         if (onlyCaptures) {
             GeneratePseudoLegalCaptures(board, col);
         }
 
-        // otherwise all possible moves
+        // otherwise all pseudolegal moves
         else GeneratePseudoLegalMoves(board, col);
 
-        // remove the illegal ones
+        // select the legal ones and add them to the legal move buffer
         for (int i = 0; i < _curPL; i++) {
             if (board.IsMoveLegal(_pseudoLegalMoveBuffer[i], col)) {
                 _legalMoveBuffer[_curL++] = _pseudoLegalMoveBuffer[i];
             }
         }
 
+        // if we return a span slice directly from the buffer, we
+        // can avoid heap allocations, but during the search, the
+        // buffer gets modified and this approach doesn't work
         Move[] result = new Move[_curL];
         for (int i = 0; i < _curL; i++) {
             result[i] = _legalMoveBuffer[i];
         }
 
+        // returning spans has turned out to be faster than yield
+        // return with IEnumerable<T>, so here we basically take
+        // a "slice" of the legal move buffer to return as a span
         return result.AsSpan();
     }
 
@@ -62,6 +77,7 @@ internal static unsafe class Movegen {
 
         GeneratePseudoLegalMoves(board, col);
 
+        // same issue here, we are forced to make a heap allocation
         Move[] result = new Move[_curPL];
         for (int i = 0; i < _curPL; i++) {
             result[i] = _pseudoLegalMoveBuffer[i];
@@ -75,8 +91,8 @@ internal static unsafe class Movegen {
         // all occupied squares and squares occupied by opponent
         ulong occupied = board.Occupied;
 
-        ulong occupiedOpp = col == Color.WHITE 
-            ? board.BOccupied 
+        ulong occupiedOpp = col == Color.WHITE
+            ? board.BOccupied
             : board.WOccupied;
 
         // all empty squares
@@ -91,9 +107,9 @@ internal static unsafe class Movegen {
         }
 
         // castling when in check is illegal
-        if (IsKingInCheck(board, col)) 
+        if (IsKingInCheck(board, col))
             return;
-        
+
         ulong cast = King.GetCastlingTargets(board, col);
         LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col);
     }
@@ -102,8 +118,8 @@ internal static unsafe class Movegen {
 
         ulong occupied = board.Occupied;
 
-        ulong occupiedOpp = col == Color.WHITE 
-            ? board.BOccupied 
+        ulong occupiedOpp = col == Color.WHITE
+            ? board.BOccupied
             : board.WOccupied;
 
         // loop through every piece (same as above)
@@ -119,8 +135,8 @@ internal static unsafe class Movegen {
 
         ulong kingSq = board.Pieces[(byte)col][(byte)PType.KING];
 
-        Color colOpp = col == Color.WHITE 
-            ? Color.BLACK 
+        Color colOpp = col == Color.WHITE
+            ? Color.BLACK
             : Color.WHITE;
 
         ulong occupied = board.Occupied;
@@ -130,32 +146,41 @@ internal static unsafe class Movegen {
             : board.BOccupied;
 
         ulong targets = Pawn.GetPawnCaptureTargets(kingSq, 0, col, occupiedOpp);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.PAWN]) != 0UL) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.PAWN]) != 0UL)
             return true;
 
         targets = Knight.GetKnightTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KNIGHT]) != 0UL) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KNIGHT]) != 0UL)
             return true;
 
         targets = Bishop.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.BISHOP]) != 0UL) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.BISHOP]) != 0UL)
             return true;
 
         ulong rookTargets = Rook.GetRookTargets(kingSq, ulong.MaxValue, occupied);
-        if ((rookTargets & board.Pieces[(byte)colOpp][(byte)PType.ROOK]) != 0UL) 
+        if ((rookTargets & board.Pieces[(byte)colOpp][(byte)PType.ROOK]) != 0UL)
             return true;
 
-        if (((targets | rookTargets) & board.Pieces[(byte)colOpp][(byte)PType.QUEEN]) != 0UL) 
+        if (((targets | rookTargets) & board.Pieces[(byte)colOpp][(byte)PType.QUEEN]) != 0UL)
             return true;
 
         targets = King.GetKingTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KING]) != 0UL) 
+        if ((targets & board.Pieces[(byte)colOpp][(byte)PType.KING]) != 0UL)
             return true;
 
         return false;
     }
 
-    private static void LoopPiecesBB([In, ReadOnly(true)] in Board board, ulong pieces, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures = false) {
+    private static void LoopPiecesBB(
+        [In, ReadOnly(true)] in Board board,
+        ulong pieces,
+        PType type,
+        Color col,
+        ulong occupiedOpp,
+        ulong occupied,
+        ulong empty,
+        ulong free,
+        bool onlyCaptures = false) {
 
         // iteratively remove the pieces from the bitboard and generate their moves
         while (pieces != 0UL) {
@@ -172,34 +197,43 @@ internal static unsafe class Movegen {
         }
     }
 
-    private static ulong GetTargets([In, ReadOnly(true)] in Board board, ulong sq, PType type, Color col, ulong occupiedOpp, ulong occupied, ulong empty, ulong free, bool onlyCaptures) {
+    private static ulong GetTargets(
+        [In, ReadOnly(true)] in Board board,
+        ulong sq,
+        PType type,
+        Color col,
+        ulong occupiedOpp,
+        ulong occupied,
+        ulong empty,
+        ulong free,
+        bool onlyCaptures) {
 
         // return a bitboard of possible moves depending on the piece type
         return type switch {
 
-            PType.PAWN => (onlyCaptures ? 0UL 
-                          : Pawn.GetPawnPushTargets(sq, col, empty)) 
+            PType.PAWN => (onlyCaptures ? 0UL
+                          : Pawn.GetPawnPushTargets(sq, col, empty))
                           | Pawn.GetPawnCaptureTargets(sq, board.EnPassantSq, col, occupiedOpp),
 
             PType.KNIGHT => Knight.GetKnightTargets(sq, free),
             PType.BISHOP => Bishop.GetBishopTargets(sq, free, occupied),
-            PType.ROOK =>   Rook.GetRookTargets(sq, free, occupied),
+            PType.ROOK => Rook.GetRookTargets(sq, free, occupied),
 
             // queen = bishop + rook
-            PType.QUEEN =>  Bishop.GetBishopTargets(sq, free, occupied)
+            PType.QUEEN => Bishop.GetBishopTargets(sq, free, occupied)
                           | Rook.GetRookTargets(sq, free, occupied),
 
-            PType.KING =>   King.GetKingTargets(sq, free),
+            PType.KING => King.GetKingTargets(sq, free),
             _ => 0UL
         };
     }
 
     private static void LoopTargets([In, ReadOnly(true)] in Board board, byte start, ulong targets, PType type, Color col) {
-        
-        Color colOpp = col == Color.WHITE 
-            ? Color.BLACK 
+
+        Color colOpp = col == Color.WHITE
+            ? Color.BLACK
             : Color.WHITE;
-        
+
         // same principle as above
         while (targets != 0UL) {
             byte end = BB.LS1BReset(ref targets);
@@ -211,12 +245,12 @@ internal static unsafe class Movegen {
                 for (int i = 0; i < 5; i++) {
                     if ((board.Pieces[(byte)colOpp][i] & (1UL << end)) == 0UL)
                         continue;
-                    
+
                     capt = (PType)i;
                     break;
                 }
             }
-            
+
             // add the move
             AddMovesToList(type, col, start, end, capt, board.EnPassantSq);
         }
@@ -229,39 +263,37 @@ internal static unsafe class Movegen {
 
             // pawns have a special designated method to prevent nesting (promotions)
             case PType.PAWN: {
-                if ((end < 8 && col == Color.WHITE) | (end > 55 && col == Color.BLACK)) {
+                    if ((end < 8 && col == Color.WHITE) | (end > 55 && col == Color.BLACK)) {
 
-                    // all four possible promotions
-                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.KNIGHT);
-                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.BISHOP);
-                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.ROOK);
-                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.QUEEN);
+                        // all four possible promotions
+                        _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.KNIGHT);
+                        _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.BISHOP);
+                        _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.ROOK);
+                        _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.QUEEN);
+                    } else if (end == enPassantSq) {
+
+                        // en passant - "pawn promotion"
+                        _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, PType.NONE, PType.PAWN);
+                    } else {
+
+                        // regular moves
+                        _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.NONE);
+                    }
+
+                    return;
                 }
-                else if (end == enPassantSq) {
-
-                    // en passant - "pawn promotion"
-                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, PType.NONE, PType.PAWN);
-                }
-                else {
-
-                    // regular moves
-                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.PAWN, capt, PType.NONE);
-                }
-
-                return;
-            }
 
             // special case for castling
             case PType.NONE: {
-                _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.KING, PType.NONE, PType.KING); 
-                return;
-            }
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, PType.KING, PType.NONE, PType.KING);
+                    return;
+                }
 
             // any other move
             default: {
-                _pseudoLegalMoveBuffer[_curPL++] = new(start, end, type, capt, PType.NONE); 
-                return;
-            }
+                    _pseudoLegalMoveBuffer[_curPL++] = new(start, end, type, capt, PType.NONE);
+                    return;
+                }
         }
     }
 }

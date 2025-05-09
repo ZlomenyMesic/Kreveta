@@ -15,26 +15,26 @@ namespace Kreveta.evaluation;
 internal static class Eval {
 
     // the side to play gets a small bonus
-    private const sbyte SideToMoveBonus          = 5;
+    private const sbyte SideToMoveBonus = 5;
 
     // POSITION STRUCTURE BONUSES & PENALTIES
 
-    private const sbyte DoubledPawnPenalty       = -6;
-    private const sbyte IsolatedPawnPenalty      = -21;
-    private const sbyte IsolaniAddPenalty        = -4;
+    private const sbyte DoubledPawnPenalty = -6;
+    private const sbyte IsolatedPawnPenalty = -21;
+    private const sbyte IsolaniAddPenalty = -4;
     private const sbyte ConnectedPassedPawnBonus = 9;
-    private const sbyte BlockedPawnPenalty       = -4;
+    private const sbyte BlockedPawnPenalty = -4;
     //private const int OpenPawnBonus            = 5;
 
-    private const sbyte BishopPairBonus          = 35;
+    private const sbyte BishopPairBonus = 35;
 
-    private const sbyte OpenFileRookBonus        = 18;
-    private const sbyte SemiOpenFileRookBonus    = 7;
+    private const sbyte OpenFileRookBonus = 18;
+    private const sbyte SemiOpenFileRookBonus = 7;
     //private const int SeventhRankRookBonus     = 3;
 
     //internal const int KingInCheckPenalty      = 72;
 
-    [ReadOnly(true)] 
+    [ReadOnly(true)]
     private static readonly ulong[] AdjFiles = new ulong[8];
 
     // used for stats after a search - the number of
@@ -59,8 +59,8 @@ internal static class Eval {
     // structure, king safety, etc. the score returned is color relative,
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
-    internal static short StaticEval([In, ReadOnly(true)] in Board board) {
-        
+    internal static unsafe short StaticEval([In, ReadOnly(true)] in Board board) {
+
         // increment the counter for stats
         StaticEvalCount++;
 
@@ -71,25 +71,32 @@ internal static class Eval {
 
         short wEval = 0, bEval = 0;
 
-        // loop all piece types
-        for (int i = 0; i < 6; i++) {
+        // this is used to minimize array bound checks, since
+        // profiling shows that we spend a lot of time on static
+        // eval, so i really want to optimize it
+        fixed (ulong* wPieces = &board.Pieces[(byte)Color.WHITE][0],
+                      bPieces = &board.Pieces[(byte)Color.BLACK][0]) {
 
-            // copy the respective piece bitboards for both colors
-            ulong wCopy = board.Pieces[(byte)Color.WHITE][i];
-            ulong bCopy = board.Pieces[(byte)Color.BLACK][i];
+            // loop over all piece types
+            for (byte i = 0; i < 6; i++) {
 
-            // here for each color we add the table value of the piece. the tables
-            // are in EvalTables.cs, and they give both material and position values.
-            // although this code isn't really clean, it is much faster than putting
-            // the color into a loop as well
-            while (wCopy != 0UL) {
-                byte sq = BB.LS1BReset(ref wCopy);
-                wEval += GetTableValue((PType)i, Color.WHITE, sq, pieceCount);
-            }
+                // copy the respective piece bitboards for both colors
+                ulong wCopy = *(wPieces + i);
+                ulong bCopy = *(bPieces + i);
 
-            while (bCopy != 0UL) {
-                byte sq = BB.LS1BReset(ref bCopy);
-                bEval += GetTableValue((PType)i, Color.BLACK, sq, pieceCount);
+                // here for each color we add the table value of the piece. the tables
+                // are in EvalTables.cs, and they give both material and position values.
+                // although this code isn't really clean, it is much faster than putting
+                // the color into a loop as well
+                while (wCopy != 0UL) {
+                    byte sq = BB.LS1BReset(ref wCopy);
+                    wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, pieceCount);
+                }
+
+                while (bCopy != 0UL) {
+                    byte sq = BB.LS1BReset(ref bCopy);
+                    bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, pieceCount);
+                }
             }
         }
 
@@ -133,29 +140,6 @@ internal static class Eval {
 
         return eval;
     }
-    
-    private static short GetTableValue(PType type, Color col, byte sq, byte pieceCount) {
-        // this method uses the value tables in EvalTables.cs, and is used to evaluate a piece position
-        // there are two tables - midgame and endgame, this is important, because the pieces should be
-        // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
-        // but in the endgame in the center)
-
-        // we have to index the piece and position correctly. white
-        // pieces are simple, but black piece have to be mirrored
-        short i = (short)((byte)type * 64 + (col == Color.WHITE
-            ? 63 - sq
-            : (sq >> 3) * 8 + (7 - (sq & 7))));
-
-        // we grab both the midgame and endgame table values
-        short mgValue = EvalTables.Midgame[i];
-        short egValue = EvalTables.Endgame[i];
-
-        // a very rough attempt for tapering evaluation - instead of
-        // just switching straight from midgame into endgame, the table
-        // value of the piece is always somewhere in between depending
-        // on the number of pieces left on the board.
-        return (short)(mgValue * pieceCount / 32 + egValue * (32 - pieceCount) / 32);
-    }
 
     // bonuses or penalties for pawn structure
     private static short PawnEval([In, ReadOnly(true)] in Board board, ulong p, Color col) {
@@ -169,7 +153,7 @@ internal static class Eval {
 
             // count the number of pawns on the file
             byte fileOcc = (byte)ulong.PopCount(file & p);
-            if (fileOcc == 0) 
+            if (fileOcc == 0)
                 continue;
 
             // penalties for doubled pawns. by subtracting 1 we can simultaneously
@@ -204,7 +188,7 @@ internal static class Eval {
                 ulong targets = Pawn.GetPawnCaptureTargets(1UL << sq, 64, col, p);
                 eval += (short)((sbyte)ulong.PopCount(targets) * ConnectedPassedPawnBonus);
             }
-            
+
             // penalize blocked pawns - pawns that have a friendly piece directly in
             // front of them and thus cannot push further. in order to push this pawn,
             // you first have to move the other piece, which makes it worse.
@@ -217,7 +201,7 @@ internal static class Eval {
 
         return eval;
     }
-    
+
     private static short KnightEval([In, ReadOnly(true)] in Board board, byte pawnCount) {
         short eval = 0;
 
@@ -234,7 +218,7 @@ internal static class Eval {
 
         return eval;
     }
-    
+
     private static short BishopEval([In, ReadOnly(true)] in Board board) {
 
         short eval = 0;
@@ -254,7 +238,7 @@ internal static class Eval {
 
         return eval;
     }
-    
+
     private static short RookEval([In, ReadOnly(true)] in Board board, byte pieceCount) {
         short eval = 0;
 
@@ -280,23 +264,23 @@ internal static class Eval {
         // other minor and major pieces are not taken into account
         ulong wCopy = board.Pieces[(byte)Color.WHITE][(byte)PType.ROOK];
         while (wCopy != 0UL) {
-            byte sq           = BB.LS1BReset(ref wCopy);
+            byte sq = BB.LS1BReset(ref wCopy);
 
             // number of friendly pawns on the same file as the rook
             byte ownPawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & wPawns);
 
             // total number of pawns on the same file
-            byte pawnCount    = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
+            byte pawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
 
             // there are no pawns on this file => add the bonus
-            if (pawnCount == 0) 
+            if (pawnCount == 0)
                 eval += OpenFileRookBonus;
-            
+
             // we also add bonuses for rooks on semi-open files (smaller than
             // those for open files). a file is semi-open only if there aren't
             // any friendly pawns on it. we assume this file might open in the
             // future since we can always capture the opposite pawns
-            else if (ownPawnCount == 0) 
+            else if (ownPawnCount == 0)
                 eval += SemiOpenFileRookBonus;
         }
 
@@ -306,8 +290,8 @@ internal static class Eval {
         // is very precious and expensive
         ulong bCopy = board.Pieces[(byte)Color.BLACK][(byte)PType.ROOK];
         while (bCopy != 0UL) {
-            byte sq           = BB.LS1BReset(ref bCopy);
-            byte pawnCount    = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
+            byte sq = BB.LS1BReset(ref bCopy);
+            byte pawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
             byte ownPawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & bPawns);
 
             // we subtract this time for black

@@ -4,7 +4,7 @@
 //
 
 using Kreveta.consts;
-using Kreveta.search.moveorder;
+using Kreveta.moveorder;
 
 using System.ComponentModel;
 using System.Runtime.InteropServices;

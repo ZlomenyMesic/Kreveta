@@ -10,7 +10,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace Kreveta.search.perft;
+namespace Kreveta.perft;
 
 // perft stands for performance test, and is used mainly to locate bugs in movegen
 // or to simply measure the movegen speed. perft takes a depth as an argument, and
@@ -22,7 +22,6 @@ namespace Kreveta.search.perft;
 // a shallower depth aren't included
 internal static class Perft {
     internal static void Run(int depth) {
-        PerftTT.Clear();
         
         // we probably could use something more sophisticated
         // than a stopwatch, but i'm lazy to do so
@@ -34,25 +33,27 @@ internal static class Perft {
         sw.Stop();
 
         // precaution to not divide by zero
-        long time = sw.ElapsedMilliseconds == 0 
+        long time = sw.ElapsedMilliseconds == 0
             ? 1 : sw.ElapsedMilliseconds;
-        
+
         // even if the search ended prematurely, we still
         // display the results found before that
         if (UCI.AbortSearch)
             UCI.Log("perft search aborted", UCI.LogLevel.WARNING);
 
         int nps = (int)Math.Round((decimal)nodes / time * 1000, 0);
-        
+
         // print the results (statistics may be turned off
         // via the option, so we must force printing them
         // even if stats are disabled)
         UCI.LogStats(forcePrint: true,
-            ("nodes found", nodes), 
-            ("time spent",  sw.Elapsed),
+            ("nodes found", nodes),
+            ("time spent", sw.Elapsed),
             ("average NPS", nps));
+        
+        PerftTT.Clear();
     }
-    
+
     private static unsafe ulong CountNodes([In, ReadOnly(true)] in Board board, byte depth) {
 
         if (UCI.AbortSearch)
@@ -64,7 +65,7 @@ internal static class Perft {
         }
 
         // try to find this position at this depth in the perftt
-        if (PerftTT.TryGetNodes(board, depth, out ulong nodes)) { 
+        if (PerftTT.TryGetNodes(board, depth, out ulong nodes)) {
             return nodes;
         }
 

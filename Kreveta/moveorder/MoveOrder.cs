@@ -5,32 +5,38 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
+using Kreveta.search;
 
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
+using System.Runtime.InteropServices;
 
-namespace Kreveta.search.moveorder;
+namespace Kreveta.moveorder;
 
-internal static class MoveOrder {
+// to achieve the best results from PVS, good move ordering
+// is essential. searching the better moves first creates much
+// more space for pruning. we of course cannot know, which
+// moves are the best unless we do the search, but we can at
+// least make a rough guess.
+internal static unsafe class MoveOrder {
 
-    // to achieve the best results from PVS, good move ordering
-    // is essential. searching the better moves first creates much
-    // more space for pruning. we, of course, cannot know which
-    // moves are the best unless we do the search, but we can at
-    // least make a rough guess.
+    // we hopefully shouldn't find more captures in a position
+    private static readonly Move* CaptureBuffer = (Move*)NativeMemory.AlignedAlloc(
+        byteCount: (nuint)(60 * sizeof(Move)),
+        alignment: (nuint)sizeof(Move));
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static unsafe Move[] GetSortedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
+    internal static Span<Move> GetOrderedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
 
-        Span<Move> legal  = Movegen.GetLegalMoves(board);
+        Span<Move> legal = Movegen.GetLegalMoves(board);
         Span<Move> sorted = stackalloc Move[legal.Length];
 
         int cur = 0;
+        int curCapt = 0;
 
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
@@ -40,26 +46,21 @@ internal static class MoveOrder {
         // after that go all captures, sorted by MVV-LVA, which
         // stands for Most Valuable Victim - Lest Valuable Aggressor.
         // see the actual MVV_LVA class for more information
-        List<Move> capts = [];
-
         for (int i = 0; i < legal.Length; i++) {
 
             // only add captures
             if (!sorted.Contains(legal[i])
                 && legal[i].Capture != PType.NONE) {
 
-                capts.Add(legal[i]);
+                CaptureBuffer[curCapt++] = legal[i];
             }
         }
 
         // get the captures ordered and add them to the list
-        Move[] mvvlva = MVV_LVA.OrderCaptures([ ..capts]);
-
+        Span<Move> mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
         for (int i = 0; i < mvvlva.Length; i++) {
             sorted[cur++] = mvvlva[i];
         }
-
-        ulong empty = board.Empty;
 
         // next go killers, which are quiet moves, that caused
         // a beta cutoff somewhere in the past in or in a different
@@ -68,18 +69,15 @@ internal static class MoveOrder {
         for (int i = 0; i < killers.Length; i++) {
 
             // since killer moves are stored independently of
-            // the position, we have to check a couple thing
-            if (legal.Contains(killers[i])                       // illegal
-                && !sorted.Contains(killers[i])                  // already added
-                && ((empty & (1UL << killers[i].End)) != 0UL)) { // quiet
-
+            // the position, we have to check a couple of things
+            if (legal.Contains(killers[i]) && !sorted.Contains(killers[i])) {
                 sorted[cur++] = killers[i];
             }
         }
 
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.Color, previous);
-            if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
+            if (legal.Contains(counter) && !sorted.Contains(counter)) {
                 sorted[cur++] = counter;
             }
         }
@@ -91,7 +89,7 @@ internal static class MoveOrder {
         for (int i = 0; i < legal.Length; i++) {
             if (sorted.Contains(legal[i]))
                 continue;
-            
+
             sorted[cur++] = legal[i];
 
             // if the move has no history, this is
@@ -99,14 +97,14 @@ internal static class MoveOrder {
             //quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
         }
 
-        // sort them
+        // sort/order them
         //OrderQuiets(quiets);
 
         // and add them to the final list
-        // for (int i = 0; i < quiets.Count; i++)
-        //     sorted[cur++] = quiets[i].Item1;
-        
-        return [..sorted];
+        //for (int i = 0; i < quiets.Count; i++)
+        //    sorted[cur++] = quiets[i].Item1;
+
+        return new Span<Move>([.. sorted]);
     }
 
     // this is just a wrapper for a sorting loop, didn't
