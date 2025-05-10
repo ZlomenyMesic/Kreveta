@@ -46,7 +46,9 @@ internal static class UCI {
     private const string NKLogFilePath = @".\out.log";
 
     private static Thread? SearchThread;
-    internal static bool AbortSearch;
+    internal static bool ShouldAbortSearch;
+
+    internal static event Action? OnStopCommand;
     
     private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
         Log($"Couldn't start searching - {context}", LogLevel.ERROR);
@@ -75,6 +77,27 @@ internal static class UCI {
         // zero idea, which type of exception NeoKolors might throw.
         catch (Exception ex)
             when (LogException("NKLogger initialization failed", ex)) { }
+        
+        OnStopCommand += () => {
+            // the search is a separate thread, which we first
+            // synchronize with this one and then terminate
+
+            // this also checks for null values
+            if (SearchThread is { IsAlive: false })
+                return;
+
+            ShouldAbortSearch = true;
+
+            // synchronize the threads
+            SearchThread?.Join();
+            SearchThread = null;
+
+            ShouldAbortSearch = false;
+        };
+        
+        // when we abort a search, we also want to clear the hash tables
+        OnStopCommand += TT.Clear;
+        OnStopCommand += PerftTT.Clear;
     }
 
     internal static void InputLoop() {
@@ -158,26 +181,8 @@ internal static class UCI {
     // search. we must still report the best move found, though.
     // (this is also used to stop a perft search)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdStop() {
-
-        // the search is a separate thread, which we first
-        // synchronize with this one and then terminate
-
-        // this also checks for null values
-        if (SearchThread is { IsAlive: false })
-            return;
-
-        AbortSearch = true;
-
-        // synchronize the threads
-        SearchThread?.Join();
-        SearchThread = null;
-
-        AbortSearch = false;
-
-        TT.Clear();
-        PerftTT.Clear();
-    }
+    private static void CmdStop()
+        => OnStopCommand?.Invoke();
 
     // the "setoption ..." command is used to modify some options
     // in the engine. this is important in many cases when we want
@@ -189,7 +194,7 @@ internal static class UCI {
 
     // "position ..." command sets the current position, which the
     // engine probably will be searching in the future. this doesn't
-    // start the search itself
+    // start the search itself, though
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPosition(ReadOnlySpan<string> tokens) {
         switch (tokens[1]) {

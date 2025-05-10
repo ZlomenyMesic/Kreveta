@@ -206,7 +206,13 @@ internal static unsafe class TT {
             return false;
 
         bestMove = entry.BestMove;
-        return bestMove != default;
+
+        if (bestMove != default) {
+            TTHits++;
+            return true;
+        }
+
+        return false;
     }
 
     internal static bool TryGetScore([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {

@@ -233,7 +233,7 @@ internal static class Options {
 
                             // boolean values are either "True" or "False", but we store
                             // "true" and "false", so we simply do it this way
-                            //opt.SetValue(tokens[4] == "true");
+                            opt.SetValue(tokens[4] == "true");
                             return;
 
                         }

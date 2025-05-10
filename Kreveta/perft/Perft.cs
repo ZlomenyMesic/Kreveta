@@ -38,7 +38,7 @@ internal static class Perft {
 
         // even if the search ended prematurely, we still
         // display the results found before that
-        if (UCI.AbortSearch)
+        if (UCI.ShouldAbortSearch)
             UCI.Log("perft search aborted", UCI.LogLevel.WARNING);
 
         int nps = (int)Math.Round((decimal)nodes / time * 1000, 0);
@@ -56,7 +56,7 @@ internal static class Perft {
 
     private static unsafe ulong CountNodes([In, ReadOnly(true)] in Board board, byte depth) {
 
-        if (UCI.AbortSearch)
+        if (UCI.ShouldAbortSearch)
             return 0UL;
 
         // once we get to depth 1, simply return the number of legal moves
