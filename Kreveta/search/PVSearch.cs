@@ -11,6 +11,7 @@ using Kreveta.search.pruning;
 
 using System;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
@@ -49,7 +50,7 @@ internal static class PVSearch {
 
     [ReadOnly(true), DefaultValue(false)]
     internal static bool Abort 
-        => UCI.AbortSearch
+        => UCI.ShouldAbortSearch
            || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
 
     // increase the depth and do a re-search
@@ -85,7 +86,7 @@ internal static class PVSearch {
         improvStack.Expand(CurDepth);
 
         // actual start of the search tree
-        (PVScore, PV) = Search(Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default);
+        (PVScore, PV) = Search(Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default, true);
     }
 
     // completely reset everything
@@ -128,7 +129,7 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    internal static (short Score, Move[] PV) ProbeTT(Board board, int ply, int depth, Window window, Move previous = default) {
+    internal static (short Score, Move[] PV) ProbeTT([In, ReadOnly(true)] in Board board, int ply, int depth, Window window, Move previous = default, bool isPV = false) {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -141,7 +142,7 @@ internal static class PVSearch {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        var search = Search(board, ply, depth, window, previous);
+        var search = Search(board, ply, depth, window, previous, isPV);
         TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
         // store the current two-move sequence in countermove history - the previously
@@ -161,13 +162,18 @@ internal static class PVSearch {
 
     // finally the actual PVS recursive function
     //
-    // (i could use the /// but i hate the looks)
+    // (i could use the ///, but i hate the looks)
     // ply starts at zero and increases each ply (no shit sherlock).
     // depth, on the other hand, starts at the highest value and decreases over time.
-    // once we get to depth = 0, we drop into the qsearch. the search window contains 
-    // the alpha and beta values, which are the pillars to this thing. we also pass
-    // the previously played move for some other stuff
-    private static (short Score, Move[] PV) Search(Board board, int ply, int depth, Window window, Move previous) {
+    // once we get to depth = 0, we drop into the qsearch.
+    private static (short Score, Move[] PV) Search(
+        [In, ReadOnly(true)] in Board board, // the position to be searched
+        int ply,                             // current search ply (independent of depth)
+        int depth,                           // plies yet to be searched (can be reduced)
+        Window window,                       // alpha and beta values
+        Move previous,                       // the previously played move
+        bool isPV                            // was the previous node a PV node?
+        ) {
 
         // either crossed the time budget or maximum nodes.
         // we also cannot abort the first iteration - no bestmove
@@ -235,6 +241,11 @@ internal static class PVSearch {
         // update the static eval search stack
         short staticEval = Eval.StaticEval(board);
         improvStack.AddStaticEval(staticEval, ply);
+
+        // if we got here from a PV node, and the move that was played to get
+        // here was the move from the previous PV, we are in a PV node as well
+        isPV = isPV 
+               && (ply == 0 || (ply - 1 < PV.Length && PV[ply - 1] == previous));
         
         // has the static eval improved from two plies ago?
         //bool improving = improvStack.IsImproving(ply, col);
@@ -309,6 +320,7 @@ internal static class PVSearch {
             // 4 - are checking the opposite king
             bool interesting = searchedMoves == 1
                                || inCheck
+                               || isPV
                                || (ply <= 4 && isCapture)
                                || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
@@ -354,7 +366,7 @@ internal static class PVSearch {
 
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
-            var fullSearch = ProbeTT(child, ply + 1, depth - 1, window, curMove);
+            var fullSearch = ProbeTT(child, ply + 1, depth - 1, window, curMove, isPV);
 
             // we somehow still failed low
             if (col == Color.WHITE
@@ -364,7 +376,7 @@ internal static class PVSearch {
                 // decrease the move's reputation
                 // (although we are modifying quiet history, not checking
                 // whether this move is a capture yields better results)
-                QuietHistory.DecreaseRep(board, curMove, depth);
+                QuietHistory.ChangeRep(board, curMove, depth, isMoveGood: false);
             }
 
             // we went through all the pruning and didn't fail low
@@ -389,7 +401,7 @@ internal static class PVSearch {
 
                         // if a quiet move caused a beta cutoff, we increase its score
                         // in history and save it as a killer move on the current depth
-                        QuietHistory.IncreaseRep(board, curMove, depth);
+                        QuietHistory.ChangeRep(board, curMove, depth, isMoveGood: true);
                         Killers.Add(curMove, depth);
                     }
 

@@ -12,8 +12,6 @@
 // Do not use insecure randomness
 #pragma warning disable CA5394
 
-using Kreveta.consts;
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -271,6 +269,28 @@ internal static class OpeningBook {
         "d2d4 f7f5 c2c4 g8f6 b1c3 g7g6",
         "d2d4 f7f5 c2c4 g8f6 g2g3 g7g6",
         "d2d4 f7f5 g1f3 g8f6 g2g3 e7e6",
+        
+        // king's indian attack
+        "g1f3 g8f6 g2g3 g7g6 f1g2 f8g7",
+        "g1f3 g8f6 g2g3 d7d5 f1g2 c7c6",
+        
+        // van geet opening
+        "b1c3 d7d5 d2d4 g8f6 c1f4 a7a6",
+        "b1c3 c7c5 g1f3 b8c6 e2e4 g7g6",
+        "b1c3 c7c6 e2e4 d7d5 g1f3 c8g4",
+        "b1c3 g8f6 e2e4 e7e5 g2g3 d7d5",
+        "b1c3 b8c6 e2e4 e7e5 f1c4 g8f6",
+        
+        // nimzowitsch-larsen attack
+        "b2b3 e7e5 c1b2 b8c6 e2e3 g8f6",
+        "b2b3 e7e5 c1b2 b8c6 e2e3 d7d5",
+        
+        "b2b3 d7d5 c1b2 g8f6 g1f3 c8f5",
+        "b2b3 d7d5 c1b2 g8f6 g1f3 e7e6",
+        
+        "b2b3 g8f6 c1b2 g7g6 g1f3 f8g7",
+        
+        "b2b3 c7c5 c1b2 b8c6 c2c4 e7e5",
     ];
 }
 

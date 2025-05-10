@@ -10,24 +10,27 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.search;
 
+// the search window - holds the alpha and beta values, which are
+// the pillars of PVS. they set a range/interval, in which both
+// sides should be okay with their scores
 [StructLayout(LayoutKind.Explicit, Size = 2 * sizeof(short))]
 internal ref struct Window {
 
-    // floor/lower bound
-    // moves under alpha are too bad
+    // floor/lower bound, which acts as the upper bound for black
+    // scores under alpha are bad for white and too good for black
     [Required]
     [field: FieldOffset(0)] 
     internal short Alpha;
 
-    // ceiling/upper bound
-    // moves above beta are too good and won't be allowed by the opponent
+    // ceiling/upper bound, which acts as the lower bound for black
+    // scores above beta are too good for white and bad for black
     [Required]
     [field: FieldOffset(sizeof(short))] 
     internal short Beta;
 
     internal Window(short alpha, short beta) {
         Alpha = alpha;
-        Beta = beta;
+        Beta  = beta;
     }
 
     // makes the window smaller by raising alpha or reducing beta, depending on the color
@@ -37,10 +40,11 @@ internal ref struct Window {
         // raising alpha (floor)
         if (col == Color.WHITE) {
 
-            // fail low
+            // fail low - we cannot raise the floor
             if (score <= Alpha)
                 return false;
 
+            // otherwise set the new lower bound
             Alpha = score;
 
             // cutoff?
@@ -53,6 +57,7 @@ internal ref struct Window {
         if (score >= Beta)
             return false; 
 
+        // once again, set the new upper bound
         Beta = score;
 
         // cutoff?

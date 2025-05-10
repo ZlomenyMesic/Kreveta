@@ -3,19 +3,43 @@
 // started 4-3-2025
 //
 
+using System;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
 
-internal static unsafe class LookupTables {
-    // Move generators in modern engines generate moves with lookup tables, which
-    // are indexed by the square of the slider and a bitboard representing
-    // occupied (impassable) squares that might block the movement of the piece.
+/*
+generating moves can be fairly slow, and for this reason most modern engines
+use the so-called lookup tables. these lookup tables are indexed by the square
+index and occupancy (surrounding pieces), and contain precomputed move targets
+for every single combination of these two
 
-    // To compress the huge set of possible occupancy bitboards into a reasonable
-    // size, Magic Bitboards are often used. They involve multiplying the occupancy
-    // bitboard by 'magic' numbers, which are chosen because they empirically
-    // map the set of possible occupancy bitboards into a dense range.
+since the occupancies could get very large, we must also compress them into
+a reasonable size. to do this task, magic bitboards are often used. occupancies
+are multiplied by "magic" numbers, which perfectly hashes them into a dense range
+    
+just to demonstrate - let's say we have a rook along with three enemy pawns:
+
+  - - p - R - p p      occupancy: 00101011
+
+now this rook has obviously 4 legal moves (2 quiet ones and 2 captures). but as
+you may notice, this number doesn't change when the irrelevant squares are changed
+(the squares hidden behind the pawns - blockers). so all of these positions have
+the exact same legal moves, while the occupancy is very different:
+
+  - - p - R - p -      occupancy: 00101010
+  p p p - R - p p      occupancy: 11101011
+  - p p - R - p p      occupancy: 01101011
+  p - p - R - p -      occupancy: 10101010
+
+and now magic numbers come into play. with the right magic number, every single
+one of the shown positions would hash into something like this
+
+  - - p - R - p -      occupancy: 00101010
+
+all the irrelevant pieces would get removed, and the occupancy would be compressed
+*/
+internal static unsafe class LookupTables {
 
     internal static readonly ulong*  KingTargets     = (ulong*) NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
     internal static readonly ulong*  KnightTargets   = (ulong*) NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
@@ -24,16 +48,16 @@ internal static unsafe class LookupTables {
     internal static readonly ulong** AntidiagTargets = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
     internal static readonly ulong** DiagTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
 
-    // initializes all lookup tables when starting the engine
-    static LookupTables() {
-        InitKingTargets();
-        InitKnightTargets();
-        InitRankTargets();
-        InitFileTargets();
-        InitAntidiagTargets();
-        InitDiagTargets();
-    }
+    // all lookup tables need to be initialized right as the engine launches
+    static LookupTables() 
+    
+        // what the actual fuck is this syntactic sugar? how is this legal C#?
+        => ((Action)InitKingTargets + InitKnightTargets + InitRankTargets + InitFileTargets + InitAntidiagTargets + InitDiagTargets)();
+    
 
+    // king and knight targets don't use the occupancy as explained above. the target
+    // bitboard includes every single landing square, regardless of other pieces. only
+    // later are these moves filtered if the square is blocked
     private static void InitKingTargets() {
         for (int i = 0; i < 64; i++) {
             ulong king = 1UL << i;
@@ -109,11 +133,10 @@ internal static unsafe class LookupTables {
 
             for (int o = 0; o < 64; o++) {
                 ulong targets = 0;
-                ulong rankTargets = RankTargets[7 - (i / 8)][o];
+                ulong rankTargets = RankTargets[7 - i / 8][o];
 
                 // rotate rank targets
-                for (int bit = 0; bit < 8; bit++)
-                {
+                for (int bit = 0; bit < 8; bit++) {
                     if (!BB.IsBitSet(rankTargets, bit))
                         continue;
                     
@@ -134,7 +157,7 @@ internal static unsafe class LookupTables {
 
                 ulong targets = 0;
                 ulong rankTargets = diag > 0 
-                    ? RankTargets[i % 8][o] 
+                    ? RankTargets[i & 7][o] 
                     : RankTargets[i / 8][o];
 
                 for (int bit = 0; bit < 8; bit++) {
@@ -174,7 +197,7 @@ internal static unsafe class LookupTables {
                 ulong targets = 0;
                 ulong rankTargets = diag > 7 
                     ? RankTargets[7 - i / 8][o] 
-                    : RankTargets[i % 8][o];
+                    : RankTargets[i & 7][o];
 
                 for (int bit = 0; bit < 8; bit++) {
                     

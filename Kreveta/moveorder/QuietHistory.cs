@@ -8,7 +8,6 @@ using Kreveta.movegen;
 
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -33,37 +32,24 @@ internal static class QuietHistory {
     [ReadOnly(true)]
     private static readonly int[][] QuietScores = new int[64][];
 
-
-
-    // butterfly boards store the number of times a move has been visited.
-    //
+    // idea taken from Chess Programming Wiki:
     // the main disadvantage of the history heuristic is that it tends to
-    // bias towards moves which appear more frequently. there might be
+    // bias towards moves, which appear more frequently. there might be
     // a move that turned out to be very good, but doesn't occur that
-    // often and thus, doesn't get a very large score.
-    // (taken from Chess Programming Wiki)
-    // 
-    // Mark. W then proposed the idea of relative history heuristics,
-    // which take into consideration the number of occurences as well.
-    //
-    // the presented idea is that SCORE = HH_SCORE / BF_SCORE
-    //
-    // after some more testing though, it appears that this assumtion
-    // is quite wrong (or at least in my particular case), and not only
-    // that, the engine performs better when i do the exact opposite,
-    // so the history value is multiplied by the common log of bf score
-    [ReadOnly(true)]
-    private static readonly int[][] ButterflyScores = new int[64][];
-
-    [ReadOnly(true)]
+    // often and thus, doesn't get a very large score. for this reason,
+    // use the so-called relative history heuristic, which alongside with
+    // the history scores also stores the number of times a move has been
+    // visited (ButterflyScores). when retrieving the quiet score, it is
+    // then divided by this number to get the average.
+    private static readonly int[][] ButterflyBoard = new int[64][];
+    
+    // there is still some scale, though
     private const int RelHHScale = 12;
 
-    static QuietHistory() => InitArrays();
-
-    private static void InitArrays() {
+    static QuietHistory() {
         for (int i = 0; i < 64; i++) {
-            QuietScores[i]     = new int[12];
-            ButterflyScores[i] = new int[12];
+            QuietScores[i]    = new int[12];
+            ButterflyBoard[i] = new int[12];
         }
     }
 
@@ -79,68 +65,56 @@ internal static class QuietHistory {
                 
                 // this for an unexplainable reason works
                 // out to be the best option available
-                ButterflyScores[i][j] = Math.Min(1, ButterflyScores[i][j]);
+                ButterflyBoard[i][j] = Math.Min(1, ButterflyBoard[i][j]);
             });
         });
     }
 
-    // clears all history data
+    // clear all history data
     internal static void Clear() {
         Parallel.For(0, 64, i => {
             Array.Clear(QuietScores[i]);
-            Array.Clear(ButterflyScores[i]);
+            Array.Clear(ButterflyBoard[i]);
         });
     }
-
-    // increases the history rep of a quiet move
-    internal static void IncreaseRep([In, ReadOnly(true)] in Board board, Move move, int depth) {
-        int i = PieceIndex(board, move);
+    
+    // i believe i stole these values from Stockfish, but
+    // i am not sure. they do, however, work very great
+    private const int ShiftSubtract = 5;
+    private const int ShiftLimit    = 84;
+    
+    // modify the history reputation of a move. isMoveGood tells us how
+    internal static void ChangeRep([In, ReadOnly(true)] in Board board, Move move, int depth, bool isMoveGood) {
+        int i   = PieceIndex(board, move);
         int end = move.End;
-
-        QuietScores[end][i] += Shift(depth);
+        
+        // how much should the move affect the reputation (moves at higher depths
+        // are probably more reliable, so their impact should be stronger)
+        QuietScores[end][i] += Math.Min(depth * depth - ShiftSubtract, ShiftLimit)
+                               
+                               // we either add or subtract the shift, depending on
+                               // whether the move was good or not
+                               * (isMoveGood ? 1 : -1);
 
         // add the move as visited, too
-        ButterflyScores[end][i]++;
+        ButterflyBoard[end][i]++;
     }
 
-    // decreases the history rep of a quiet move
-    internal static void DecreaseRep([In, ReadOnly(true)] in Board board, Move move, int depth) {
-        int i = PieceIndex(board, move);
-        int end = move.End;
-
-        QuietScores[end][i] -= Shift(depth);
-
-        // also the same, add the move as visited
-        ButterflyScores[end][i]++;
-    }
-
-    // calculate the reputation of a move
-    internal static int GetRep(in Board board, Move move) {
-        int i = PieceIndex(board, move);
+    // retrieve the reputation of a move
+    internal static int GetRep([In, ReadOnly(true)] in Board board, Move move) {
+        int i   = PieceIndex(board, move);
         int end = move.End;
 
         // quiet score and butterfly score
         int q  = QuietScores[end][i];
-        int bf = ButterflyScores[end][i];
+        int bf = ButterflyBoard[end][i];
 
+        // precaution to not divide by zero
         if (bf == 0) return 0;
-
-        // as already mentioned, we do the opposite of what relative
-        // history heuristics is about, and we multiply the score
-        // by the common log of the bf score.
-
-        // the idea isn't random though. if a move has occured
-        // many times and still managed to keep a positive score,
-        // it was probably good in most of the cases, which means
-        // it is likely to be good in the next case as well. on
-        // the other hand, we might have a move that only occured
-        // a few times and also got a positive score, but it could
-        // have been just something specific to the position, and
-        // overall the move is terrible.
-
-        // so this is still relative to the butterfly boards, but
-        // we assume that with a larger amount of encounters, the
-        // score is more "confirmed" than with just a few cases
+        
+        // and now, as already mentioned, we divide the quiet score
+        // by the number of times the move has been visited to get
+        // a more average score
         return RelHHScale * q / bf;
     }
 
@@ -150,23 +124,12 @@ internal static class QuietHistory {
     private static int PieceIndex([In, ReadOnly(true)] in Board board, Move move) {
 
         PType piece = move.Piece;
-        Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ (1UL << move.Start)) == 0
+        
+        // figure out the color of the piece based on whether it is present in the bitboard
+        Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ (1UL << move.Start)) == 0UL
             ? Color.BLACK
             : Color.WHITE;
 
         return (byte)piece + (col == Color.WHITE ? 6 : 0);
     }
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const int ShiftSubtract = 5;
-
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private const int ShiftLimit    = 84;
-
-    // how much should a move affect the history reputation.
-    // i borrowed this idea from somewhere and forgot where,
-    // but it turns out to be very precise
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Shift(int depth)
-        => Math.Min(depth * depth - ShiftSubtract, ShiftLimit);
 }

@@ -53,15 +53,12 @@ internal struct Board {
     internal byte EnPassantSq = 64;
 
     // the current state of castling rights
-    // 0 0 0 0 q k Q K
     [EnumDataType(typeof(CastlingRights))]
     internal CastlingRights CastlingRights = 0;
 
     // the side to move
     [EnumDataType(typeof(Color))]
     internal Color Color = 0;
-
-    //internal ulong Hash = 0;
 
     public Board() {
         Pieces[(byte)Color.WHITE] = new ulong[6];
@@ -77,8 +74,6 @@ internal struct Board {
         EnPassantSq    = 64;
         CastlingRights = CastlingRights.NONE;
         Color          = Color.NONE;
-
-        //Hash        = 0UL;
     }
 
     // returns the piece at a certain square. this method isn't
@@ -120,8 +115,6 @@ internal struct Board {
         // start and end squares represented as bitboards
         ulong start = 1UL << start8;
         ulong end   = 1UL << end8;
-
-        // TODO - TRY TO GET COLOR FROM SIDETOMOVE
 
         // color and opposite color
         Color col = (WOccupied & start) == 0UL
@@ -245,8 +238,6 @@ internal struct Board {
             // remove castling rights after a rook moves
             CastlingRights &= (CastlingRights)mask;
         }
-
-        //Hash = Zobrist.GetHash(this);
     }
 
     private void PlayReversibleMove(Move move, Color col) {
@@ -314,12 +305,11 @@ internal struct Board {
         return @null;
     }
 
+    // checks whether a move is legal from this position
     internal bool IsMoveLegal(Move move, Color col) {
-
+        
         PlayReversibleMove(move, col);
-
         bool isLegal = !Movegen.IsKingInCheck(this, col);
-
         PlayReversibleMove(move, col);
 
         return isLegal;
