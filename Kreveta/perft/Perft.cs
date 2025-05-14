@@ -55,16 +55,15 @@ internal static class Perft {
     }
 
     private static unsafe ulong CountNodes([In, ReadOnly(true)] in Board board, byte depth) {
-
         if (UCI.ShouldAbortSearch)
             return 0UL;
 
         // once we get to depth 1, simply return the number of legal moves
         if (depth == 1) {
-            return (ulong)Movegen.GetLegalMoves(board).Length;
+            return (ulong)Movegen.GetLegalMoves(board, stackalloc Move[128]);
         }
 
-        // try to find this position at this depth in the perftt
+        // try to find this position at this depth in the perftt}}
         if (PerftTT.TryGetNodes(board, depth, out ulong nodes)) {
             return nodes;
         }
@@ -74,22 +73,21 @@ internal static class Perft {
 
         // only generate pseudolegal moves, legality is checked inside
         // the loop to save time (early legality checking is wasteful)
-        Span<Move> moves = Movegen.GetPseudoLegalMoves(board);
+        Span<Move> moves = stackalloc Move[128];
+        int count = Movegen.GetPseudoLegalMoves(board, moves);
 
-        fixed (Move* ptr = moves) {
-            for (byte i = 0; i < moves.Length; i++) {
+        for (byte i = 0; i < count; i++) {
 
-                // create a copy of the board and play the move
-                Board child = board.Clone();
-                child.PlayMove(ptr[i]);
+            // create a copy of the board and play the move
+            var child = board.Clone();
+            child.PlayMove(moves[i]);
 
-                // the move is illegal (we moved to or stayed in check)
-                if (Movegen.IsKingInCheck(child, board.Color))
-                    continue;
+            // the move is illegal (we moved to or stayed in check)
+            if (Movegen.IsKingInCheck(child, board.Color))
+                continue;
 
-                // otherwise continue the search deeper
-                nodes += CountNodes(child, depth);
-            }
+            // otherwise continue the search deeper
+            nodes += CountNodes(child, depth);
         }
 
         // store the new position in perftt

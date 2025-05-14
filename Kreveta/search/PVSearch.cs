@@ -291,7 +291,7 @@ internal static class PVSearch {
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
         // then killer moves and last quiet moves sorted by history
-        Span<Move> moves = MoveOrder.GetOrderedMoves(board, depth, previous);
+        var moves = MoveOrder.GetOrderedMoves(board, depth, previous);
 
         // counter for expanded nodes
         byte searchedMoves = 0;

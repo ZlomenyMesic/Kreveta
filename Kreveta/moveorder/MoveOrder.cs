@@ -32,21 +32,24 @@ internal static unsafe class MoveOrder {
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History
 
-        Span<Move> legal = Movegen.GetLegalMoves(board);
-        Span<Move> sorted = stackalloc Move[legal.Length];
+        
+        Span<Move> legal  = stackalloc Move[128];
+        int legalCount    = Movegen.GetLegalMoves(board, legal);
+        
+        Span<Move> sorted = stackalloc Move[legalCount];
 
         int cur = 0;
         int curCapt = 0;
 
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
-        if (TT.TryGetBestMove(board, out Move ttMove) && legal.Contains(ttMove))
+        if (TT.TryGetBestMove(board, out var ttMove) && ttMove != default && legal.Contains(ttMove))
             sorted[cur++] = ttMove;
 
         // after that go all captures, sorted by MVV-LVA, which
         // stands for Most Valuable Victim - Lest Valuable Aggressor.
         // see the actual MVV_LVA class for more information
-        for (int i = 0; i < legal.Length; i++) {
+        for (int i = 0; i < legalCount; i++) {
 
             // only add captures
             if (!sorted.Contains(legal[i])
@@ -70,14 +73,14 @@ internal static unsafe class MoveOrder {
 
             // since killer moves are stored independently of
             // the position, we have to check a couple of things
-            if (legal.Contains(killers[i]) && !sorted.Contains(killers[i])) {
+            if (killers[i] != default && legal.Contains(killers[i]) && !sorted.Contains(killers[i])) {
                 sorted[cur++] = killers[i];
             }
         }
 
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.Color, previous);
-            if (legal.Contains(counter) && !sorted.Contains(counter)) {
+            if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
                 sorted[cur++] = counter;
             }
         }
@@ -86,7 +89,7 @@ internal static unsafe class MoveOrder {
         // which are sorted by their history values. see History
         //List<(Move, int)> quiets = [];
 
-        for (int i = 0; i < legal.Length; i++) {
+        for (int i = 0; i < legalCount; i++) {
             if (sorted.Contains(legal[i]))
                 continue;
 
@@ -103,8 +106,8 @@ internal static unsafe class MoveOrder {
         // and add them to the final list
         //for (int i = 0; i < quiets.Count; i++)
         //    sorted[cur++] = quiets[i].Item1;
-
-        return new Span<Move>([.. sorted]);
+        
+        return new Span<Move>(sorted.ToArray());
     }
 
     // this is just a wrapper for a sorting loop, didn't

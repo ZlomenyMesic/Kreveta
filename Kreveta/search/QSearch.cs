@@ -95,10 +95,11 @@ internal static class QSearch {
         onlyCaptures = !inCheck || onlyCaptures;
 
         // if we aren't in check we only generate captures
-        Span<Move> moves = Movegen.GetLegalMoves(board, onlyCaptures);
+        Span<Move> moves = stackalloc Move[128];
+        int count = Movegen.GetLegalMoves(board, moves, onlyCaptures);
 
         // no moves have been generated
-        if (moves.Length == 0) {
+        if (count == 0) {
 
             // if we aren't checked, it means there just aren't
             // any more captures, and we can return the stand pat.
@@ -125,11 +126,11 @@ internal static class QSearch {
 
             // sort the captures by MVV-LVA
             // (most valuable victim - least valuable aggressor)
-            moves = MVV_LVA.OrderCaptures(moves);
+            moves = MVV_LVA.OrderCaptures(moves[..count]);
         }
 
         // loop the generated moves
-        for (int i = 0; i < moves.Length; ++i) {
+        for (int i = 0; i < count; ++i) {
 
             Board child = board.Clone();
             child.PlayMove(moves[i]);
