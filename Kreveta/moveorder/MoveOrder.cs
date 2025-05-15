@@ -34,7 +34,7 @@ internal static unsafe class MoveOrder {
 
         
         Span<Move> legal  = stackalloc Move[128];
-        int legalCount    = Movegen.GetLegalMoves(board, legal);
+        int legalCount    = Movegen.GetLegalMoves(ref board, legal);
         
         Span<Move> sorted = stackalloc Move[legalCount];
 

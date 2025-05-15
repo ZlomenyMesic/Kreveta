@@ -404,7 +404,7 @@ internal static class UCI {
         }
 
         // no legal moves for the engine in this position
-        if (Movegen.GetLegalMoves(Game.Board, stackalloc Move[128]) == 0) {
+        if (Movegen.GetLegalMoves(ref Game.Board, stackalloc Move[128]) == 0) {
             CannotStartSearchCallback(Movegen.IsKingInCheck(Game.Board, Game.EngineColor)
             
                 // if we are in check and have no legal moves, that means
@@ -420,13 +420,13 @@ internal static class UCI {
         // if the opposite side is in check, even though it's our turn to play,
         // the position is obviously illegal and shouldn't be searched (no bugs
         // should appear, but this is just in case)
-        if (Movegen.IsKingInCheck(Game.Board, Game.EngineColor == Color.WHITE
-                ? Color.BLACK 
-                : Color.WHITE)) {
+        //if (Movegen.IsKingInCheck(Game.Board, Game.EngineColor == Color.WHITE
+        //        ? Color.BLACK 
+        //        : Color.WHITE)) {
             
-            CannotStartSearchCallback("the opposite side is in check");
-            return true;
-        }
+        //    CannotStartSearchCallback("the opposite side is in check");
+        //    return true;
+        //}
             
         return false;
     }
