@@ -18,14 +18,6 @@ internal static unsafe class Movegen {
 
     private const int MoveBufferSize = 110;
 
-    // to avoid repeated memory allocations, we use two static buffers
-    // for all move generation. when we generate moves, we first fill
-    // the first one with pseudolegal moves, which we then filter and
-    // fill the legal move buffer. they don't even have to be emptied,
-    // since we know the number of current moves.
-    //private static readonly Move* _pseudoLegalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
-    //private static readonly Move* _legalMoveBuffer = (Move*)NativeMemory.AlignedAlloc((nuint)(MoveBufferSize * sizeof(Move)), 32);
-
     // indices used to access the buffers; also act as move counters
     private static byte _curPL;
     private static byte _curL;
@@ -33,11 +25,11 @@ internal static unsafe class Movegen {
     // returns all legal moves that can be played from a position. the color
     // to play is determined by the Color field in board. for the qsearch,
     // there is also the option to only generate legal captures
-    internal static int GetLegalMoves(Board board, Span<Move> buffer, bool onlyCaptures = false) {
+    internal static int GetLegalMoves(ref Board board, Span<Move> buffer, bool onlyCaptures = false) {
 
         // reset the indices for buffers
         _curPL = 0;
-        _curL = 0;
+        _curL  = 0;
         
         Span<Move> pseudoLegalBuffer = stackalloc Move[MoveBufferSize];
 
@@ -60,7 +52,7 @@ internal static unsafe class Movegen {
         return _curL;
     }
 
-    internal static int GetPseudoLegalMoves(Board board, Span<Move> moves) {
+    internal static int GetPseudoLegalMoves(ref Board board, Span<Move> moves) {
         _curPL = 0;
         GeneratePseudoLegalMoves(board, board.Color, moves);
         return _curPL;
@@ -210,7 +202,6 @@ internal static unsafe class Movegen {
     }
 
     private static void LoopTargets([In, ReadOnly(true)] in Board board, byte start, ulong targets, PType type, Color col, Span<Move> buffer) {
-
         Color colOpp = col == Color.WHITE
             ? Color.BLACK
             : Color.WHITE;

@@ -28,7 +28,7 @@ internal static class Perft {
         var sw = Stopwatch.StartNew();
 
         // the recursive search starts here
-        ulong nodes = CountNodes(Game.Board, (byte)depth);
+        ulong nodes = CountNodes(ref Game.Board, (byte)depth);
 
         sw.Stop();
 
@@ -54,17 +54,17 @@ internal static class Perft {
         PerftTT.Clear();
     }
 
-    private static unsafe ulong CountNodes([In, ReadOnly(true)] in Board board, byte depth) {
+    private static unsafe ulong CountNodes(ref Board board, byte depth) {
         if (UCI.ShouldAbortSearch)
             return 0UL;
 
         // once we get to depth 1, simply return the number of legal moves
         if (depth == 1) {
-            return (ulong)Movegen.GetLegalMoves(board, stackalloc Move[128]);
+            return (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
         }
 
         // try to find this position at this depth in the perftt}}
-        if (PerftTT.TryGetNodes(board, depth, out ulong nodes)) {
+        if (PerftTT.TryGetNodes(in board, depth, out ulong nodes)) {
             return nodes;
         }
 
@@ -74,7 +74,7 @@ internal static class Perft {
         // only generate pseudolegal moves, legality is checked inside
         // the loop to save time (early legality checking is wasteful)
         Span<Move> moves = stackalloc Move[128];
-        int count = Movegen.GetPseudoLegalMoves(board, moves);
+        int count = Movegen.GetPseudoLegalMoves(ref board, moves);
 
         for (byte i = 0; i < count; i++) {
 
@@ -83,15 +83,15 @@ internal static class Perft {
             child.PlayMove(moves[i]);
 
             // the move is illegal (we moved to or stayed in check)
-            if (Movegen.IsKingInCheck(child, board.Color))
+            if (Movegen.IsKingInCheck(in child, board.Color))
                 continue;
 
             // otherwise continue the search deeper
-            nodes += CountNodes(child, depth);
+            nodes += CountNodes(ref child, depth);
         }
 
         // store the new position in perftt
-        PerftTT.Store(board, ++depth, nodes);
+        PerftTT.Store(in board, ++depth, nodes);
 
         return nodes;
     }

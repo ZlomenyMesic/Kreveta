@@ -19,7 +19,7 @@ internal static class ProbCut {
     internal const int ReductionDepth = 6;
     internal const int R              = 2;
 
-    internal static bool TryReduce([In, ReadOnly(true)] in Board board, int ply, int depth, Window window) {
+    internal static bool TryReduce(ref Board board, int ply, int depth, Window window) {
 
         // null window around alpha
         Window nullWindowAlpha = board.Color == Color.BLACK
@@ -27,7 +27,7 @@ internal static class ProbCut {
             : new(window.Alpha, (short)(window.Alpha + 1));
             
         // do the reduced search
-        short probCutScore = PVSearch.ProbeTT(board, ply + 1, depth - InternalR - 1, nullWindowAlpha).Score;
+        short probCutScore = PVSearch.ProbeTT(ref board, ply + 1, depth - InternalR - 1, nullWindowAlpha).Score;
 
         return board.Color == Color.WHITE
             ? probCutScore + Margin <= window.Alpha

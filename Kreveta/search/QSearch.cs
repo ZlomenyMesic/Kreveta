@@ -46,7 +46,7 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where we can for instance lose a queen in the next move
-    internal static short Search([In, ReadOnly(true)]in Board board, int ply, Window window, bool onlyCaptures = false) {
+    internal static short Search(ref Board board, int ply, Window window, bool onlyCaptures = false) {
 
         // exit the search if we should abort
         if (PVSearch.Abort)
@@ -96,7 +96,7 @@ internal static class QSearch {
 
         // if we aren't in check we only generate captures
         Span<Move> moves = stackalloc Move[128];
-        int count = Movegen.GetLegalMoves(board, moves, onlyCaptures);
+        int count = Movegen.GetLegalMoves(ref board, moves, onlyCaptures);
 
         // no moves have been generated
         if (count == 0) {
@@ -152,7 +152,7 @@ internal static class QSearch {
             }
 
             // full search
-            short score = Search(child, ply + 1, window, onlyCaptures);
+            short score = Search(ref child, ply + 1, window, onlyCaptures);
 
             // try to get a beta cutoff
             if (window.TryCutoff(score, col)) {
