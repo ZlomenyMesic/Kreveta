@@ -19,19 +19,18 @@ using System.ComponentModel;
 namespace Kreveta.openingbook;
 
 internal static class OpeningBook {
-
-    internal static string BookMove = string.Empty;
+    internal static string BookMove { get; private set; }
 
     static OpeningBook() {
         OpeningsSplit = new string[Openings.Length][];
+        BookMove      = string.Empty;
 
         for (int i = 0; i < Openings.Length; i++) {
             OpeningsSplit[i] = Openings[i].Split(' ');
         }
     }
 
-    internal static void SaveSequence(string[] sequence) {
-
+    internal static void RegisterSequence(string[] sequence) {
         // reset the previous book move
         BookMove = string.Empty;
 
@@ -88,7 +87,7 @@ internal static class OpeningBook {
 #endregion        
 
         // we have at least one book move
-        if (possible.Count > 0) {
+        if (possible.Count != 0) {
             
             // choose randomly from our options
             BookMove = possible[

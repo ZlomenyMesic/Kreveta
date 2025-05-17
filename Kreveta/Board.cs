@@ -17,6 +17,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Runtime.CompilerServices;
 
 namespace Kreveta;
 
@@ -41,12 +42,17 @@ internal struct Board {
 
     // all occupied squares
     [ReadOnly(true), DefaultValue(0UL)]
-    internal readonly ulong Occupied 
-        => WOccupied | BOccupied;
+    internal readonly ulong Occupied {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => WOccupied | BOccupied;
+    }
 
     // all empty squares (bitwise inverse of occupied)
     [ReadOnly(true), DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
-    private readonly ulong Empty => ~Occupied;
+    private readonly ulong Empty {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => ~Occupied;
+    }
 
     // square over which a double pushing
     // pawn has passed one move ago

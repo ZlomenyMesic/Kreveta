@@ -10,11 +10,14 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SignAssembly>False</SignAssembly>
     <AnalysisLevel>latest-all</AnalysisLevel>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <Optimize>True</Optimize>
+    
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>False</Prefer32Bit>
   </PropertyGroup>
+  
+
+
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />

@@ -36,7 +36,7 @@ internal static unsafe class PerftTT {
 
         // 8 bytes
         [field: FieldOffset(sizeof(ulong))]
-        private ulong _flags;
+        private readonly ulong _flags;
 
         // both the depth and node count are stored as
         // a single int64, or else the entry size would
@@ -62,8 +62,15 @@ internal static unsafe class PerftTT {
     // aligned reallocation doesn't work, so we free the
     // memory and then allocate it once again
     internal static void Clear() {
-        NativeMemory.AlignedFree(Table);
+        if (Table is not null) {
+            NativeMemory.AlignedFree(Table);
+            Table = null;
+        }
+    }
 
+    internal static void Init() {
+        Clear();
+        
         Table = (Entry*)NativeMemory.AlignedAlloc(
             byteCount: TableSize * EntrySize,
             alignment: EntrySize);
@@ -85,7 +92,7 @@ internal static unsafe class PerftTT {
         int index = HashIndex(hash);
 
         // store the new entry or overwrite the old one
-        Table[index] = new Entry {
+        *(Table + index) = new Entry {
             Hash  = hash,
             Depth = depth,
             Nodes = nodes
@@ -97,7 +104,7 @@ internal static unsafe class PerftTT {
         ulong hash = ZobristHash.GetHash(in board);
         int index = HashIndex(hash);
 
-        nodes = Table[index].Nodes;
-        return Table[index].Hash == hash && Table[index].Depth == depth;
+        nodes = (*(Table + index)).Nodes;
+        return (*(Table + index)).Hash == hash && (*(Table + index)).Depth == depth;
     }
 }

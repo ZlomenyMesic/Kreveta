@@ -53,7 +53,7 @@ internal static class PVSControl {
         // we have to call tt clear here, because the user
         // might have changed the hash size settings, so we
         // need to update the table before the search
-        TT.Clear();
+        TT.Init();
 
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         NullMovePruning.UpdateMinPly(pieceCount);

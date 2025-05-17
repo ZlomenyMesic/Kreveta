@@ -21,7 +21,7 @@ internal static class BB {
 
     // Least Significant 1 Bit (also called bit scan forward
     // or trailing zero count). returns the index of the first
-    // 1-bit in a ulong (the 1-bit with the lowest index)
+    // 1-bit in the ulong (the 1-bit with the lowest index)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static byte LS1B(ulong bb)
         => (byte)ulong.TrailingZeroCount(bb);
