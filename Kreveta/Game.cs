@@ -38,8 +38,8 @@ internal static class Game {
     internal static bool FullGame;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
-    private static List<ulong> HistoryPositions = [];
-    internal static HashSet<ulong> Draws = [];
+    private static  List<ulong>    HistoryPositions = [];
+    internal static HashSet<ulong> Draws            = [];
 
     private static readonly Action<string> InvalidFENCallback = delegate (string context) {
         // first reset the board and then set the starting position
@@ -126,7 +126,7 @@ internal static class Game {
         Board.Color = EngineColor;
 
         // the third token marks, which sides still have their castling rights. if neither
-        // side can castle, this is "-". otherwise, the characters may be "k" or "q" for
+        // side can castle, this is a dash. otherwise, the characters may be "k" or "q" for
         // kingside and queenside castling respectively, or once again uppercase for white.
         // just to clarify, this has nothing to do with the legality of castling in the next
         // move, it denotes the castling rights availability.
@@ -158,7 +158,7 @@ internal static class Game {
         // the fourth token is the en passant square, which is the square over which
         // a double-pushing pawn has passed in the previous move, regardless of whether
         // there is another pawn to capture en passant. if no pawn double-pushed, this
-        // is also simply "-".
+        // is also simply a dash.
         if (tokens[5].Length == 2 && byte.TryParse(tokens[5], out byte enPassantSq))
             Board.EnPassantSq = enPassantSq;
 
@@ -186,7 +186,7 @@ internal static class Game {
             // pass the empty moves list to the book
             // to choose the first move randomly
             if (tokens[2] == Consts.StartposFEN.Split(' ')[0])
-                OpeningBook.SaveSequence([]);
+                OpeningBook.RegisterSequence([]);
 
             return;
         }
@@ -215,7 +215,7 @@ internal static class Game {
         }
 
         // try to save a book move
-        OpeningBook.SaveSequence([.. sequence]);
+        OpeningBook.RegisterSequence([.. sequence]);
 
         // save drawing positions in "draws"
         List3FoldDraws();

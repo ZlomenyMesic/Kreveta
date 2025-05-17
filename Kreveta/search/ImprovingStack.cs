@@ -10,7 +10,7 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.search;
 
-internal class ImprovingStack {
+internal sealed class ImprovingStack {
     private short[] _stack;
 
     internal ImprovingStack() => _stack = [];

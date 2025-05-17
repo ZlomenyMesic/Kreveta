@@ -22,6 +22,7 @@ namespace Kreveta.perft;
 // a shallower depth aren't included
 internal static class Perft {
     internal static void Run(int depth) {
+        PerftTT.Init();
         
         // we probably could use something more sophisticated
         // than a stopwatch, but i'm lazy to do so

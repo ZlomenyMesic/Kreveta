@@ -17,6 +17,7 @@
 
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -54,7 +55,7 @@ internal static class Options {
         internal void SetValue(object value);
     }
 
-    [StructLayout(LayoutKind.Auto)]
+    [StructLayout(LayoutKind.Sequential)]
     private record struct Option<T> : IOption {
         public string Name { get; init; }
         public OpType Type { get; init; }
@@ -210,80 +211,80 @@ internal static class Options {
     // this is called when the engine receives the "setoption"
     // command, which is used to modify the value of an option
     internal static void SetOption(ReadOnlySpan<string> tokens) {
-
         // the syntax must be "setoption name <NAME> value <VALUE>"
         if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;
         }
+        
+        var name = tokens[2];
+        
+        var opt = (from option in options
+            where option.Name == name
+            select option).FirstOrDefault();
 
-        // there's probably a better way to do this, but i am lazy,
-        // so we simply loop over the existing options and try to
-        // match the names
-        foreach (IOption opt in options) {
-            if (opt.Name != tokens[2])
-                continue;
+        if (opt is null) {
+            goto unsupported_opt;
+        }
+        
+        switch (opt.Type) {
+            case OpType.BUTTON: { return; }
 
-            switch (opt.Type) {
-                case OpType.BUTTON: {
-                        return;
-                    }
+            case OpType.CHECK: { 
+                if (tokens is [_, _, _, "value", "true" or "false"]) {
 
-                case OpType.CHECK: {
-                        if (tokens is [_, _, _, "value", "true" or "false"]) {
+                    // boolean values are either "True" or "False", but we store
+                    // "true" and "false", so we simply do it this way
+                    opt.SetValue(tokens[4] == "true");
+                    return;
 
-                            // boolean values are either "True" or "False", but we store
-                            // "true" and "false", so we simply do it this way
-                            opt.SetValue(tokens[4] == "true");
-                            return;
+                }
+                goto invalid_syntax;
+            }
 
-                        }
+            case OpType.SPIN: {
+                if (tokens is [_, _, _, "value", _]) {
+
+                    // the value probably wasn't an integer
+                    if (!long.TryParse(tokens[4], out long val))
                         goto invalid_syntax;
-                    }
 
-                case OpType.SPIN: {
-                        if (tokens is [_, _, _, "value", _]) {
+                    // cast the ioption to option<long>
+                    var optCast = (Option<long>)opt;
 
-                            // the value probably wasn't an integer
-                            if (!long.TryParse(tokens[4], out long val))
-                                goto invalid_syntax;
+                    // get the minimum and maximum values
+                    long minVal = optCast.MinValue;
+                    long maxVal = optCast.MaxValue;
 
-                            // cast the ioption to option<long>
-                            var optCast = (Option<long>)opt;
+                    // check whether the new value falls into the range
+                    if (val < minVal || val > maxVal) 
+                        goto val_out_of_range;
 
-                            // get the minimum and maximum values
-                            long minVal = optCast.MinValue;
-                            long maxVal = optCast.MaxValue;
+                    opt.SetValue(val);
+                    return;
 
-                            // check whether the new value falls into the range
-                            if (val < minVal || val > maxVal)
-                                goto val_out_of_range;
+                }
+                goto invalid_syntax;
+            }
 
-                            opt.SetValue(val);
-                            return;
+            case OpType.STRING: {
+                if (tokens is [_, _, _, "value", ..]) {
+                    StringBuilder sb = new();
 
-                        }
-                        goto invalid_syntax;
-                    }
+                    // the value of a string option type can be
+                    // any length, and can be divided by spaces
+                    for (byte j = 3; j < tokens.Length; j++)
+                        sb.Append(tokens[j]);
 
-                case OpType.STRING: {
-                        if (tokens is [_, _, _, "value", ..]) {
-                            StringBuilder sb = new();
+                    opt.SetValue(sb.ToString().Trim());
+                    return;
 
-                            // the value of a string option type can be
-                            // any length, and can be divided by spaces
-                            for (byte j = 3; j < tokens.Length; j++)
-                                sb.Append(tokens[j]);
-
-                            opt.SetValue(sb.ToString().Trim());
-                            return;
-
-                        }
-                        goto invalid_syntax;
-                    }
+                }
+                goto invalid_syntax;
             }
         }
 
         // didn't match the name with any option
+        unsupported_opt:
         UCI.Log($"Unsupported option - {tokens[2]}", UCI.LogLevel.ERROR);
         return;
 

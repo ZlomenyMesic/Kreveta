@@ -113,12 +113,19 @@ internal static unsafe class TT {
 
     // delete all entries from the table
     internal static void Clear() {
-        NativeMemory.AlignedFree(Table);
+        if (Table is not null) {
+            NativeMemory.AlignedFree(Table);
+            Table = null;
+        }
 
         Stored = 0;
         TableSize = GetTableSize();
         TTHits = 0UL;
+    }
 
+    internal static void Init() {
+        Clear();
+        
         Table = (Entry*)NativeMemory.AlignedAlloc(
             byteCount: (nuint)(TableSize * EntrySize),
             alignment: EntrySize);
@@ -244,9 +251,9 @@ internal static unsafe class TT {
 
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        if     ((entry.Flags & SpecialFlags.SCORE_EXACT)       != 0
-            || ((entry.Flags & SpecialFlags.SCORE_LOWER_BOUND) != 0 && score <= window.Alpha)
-            || ((entry.Flags & SpecialFlags.SCORE_UPPER_BOUND) != 0 && score >= window.Beta)) {
+        if     (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
+            || (entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha)
+            || (entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta)) {
 
             TTHits++;
             return true;
