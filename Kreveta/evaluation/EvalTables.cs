@@ -40,12 +40,9 @@ internal static class EvalTables {
     // rough estimate of piece values. used in MVV-LVA capture ordering
     // to determine good captures, and also in delta pruning to create
     // a safe margin using the captured piece
-    [ReadOnly(true)]
     internal static readonly short[] PieceValues = [100, 315, 330, 520, 930, 10000, -1];
 
     #region MIDDLEGAME
-
-    [ReadOnly(true)]
     private static readonly short[] Middlegame =
         [ // pawns
           100,  100,  100,  100,  100,  100,  100,  100,
@@ -102,11 +99,8 @@ internal static class EvalTables {
           -15,  -20,  -25,  -70,  -70,  -25,  -20,  -15,
           -5,   -15,  -20,  -35,  -35,  -20,  -15,   -5,
         ];
-
     #endregion
     #region ENDGAME
-
-    [ReadOnly(true)]
     private static readonly short[] Endgame =
         [ // pawns
           100,  100,  100,  100,  100,  100,  100,  100,
@@ -163,7 +157,5 @@ internal static class EvalTables {
           -35,  -20,  -10,   0,    0,   -10,  -20,  -35,
           -70,  -35,  -20,  -10,  -10,  -20,  -35,  -70,
         ];
-
     #endregion
-
 }

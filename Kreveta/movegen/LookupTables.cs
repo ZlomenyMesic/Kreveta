@@ -47,19 +47,13 @@ internal static unsafe class LookupTables {
     internal static readonly ulong* FileTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
     internal static readonly ulong* AntidiagTargets = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
     internal static readonly ulong* DiagTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
-    
-    // internal static readonly ulong[] KingTargets     = new ulong[64];
-    // internal static readonly ulong[] KnightTargets   = new ulong[64];
-    // internal static readonly ulong[] RankTargets     = new ulong[64 * 64];
-    // internal static readonly ulong[] FileTargets     = new ulong[64 * 64];
-    // internal static readonly ulong[] AntidiagTargets = new ulong[64 * 64];
-    // internal static readonly ulong[] DiagTargets     = new ulong[64 * 64];
+
+    private static bool _memoryFreed;
 
     // all lookup tables need to be initialized right as the engine launches
     static LookupTables() 
         // what the actual fuck is this syntactic sugar? how is this legal C#?
         => ((Action)InitKingTargets + InitKnightTargets + InitRankTargets + InitFileTargets + InitAntidiagTargets + InitDiagTargets)();
-    
 
     // king and knight targets don't use the occupancy as explained above. the target
     // bitboard includes every single landing square, regardless of other pieces. only
@@ -230,5 +224,19 @@ internal static unsafe class LookupTables {
                 DiagTargets[i * 64 + o] = targets;
             }
         }
+    }
+    
+    internal static void Clear() {
+        if (_memoryFreed) 
+            return;
+        
+        NativeMemory.AlignedFree(KingTargets);
+        NativeMemory.AlignedFree(KnightTargets);
+        NativeMemory.AlignedFree(RankTargets);
+        NativeMemory.AlignedFree(FileTargets);
+        NativeMemory.AlignedFree(AntidiagTargets);
+        NativeMemory.AlignedFree(DiagTargets);
+        
+        _memoryFreed = true;
     }
 }

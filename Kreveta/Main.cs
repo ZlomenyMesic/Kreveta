@@ -5,7 +5,7 @@
 
 using System;
 using System.Diagnostics;
-
+using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.perft;
 using Kreveta.search;
@@ -43,7 +43,7 @@ internal static class Program {
         
         // since we manually allocate memory, we must free it before exiting the program
         static void FreeMemory(object? sender, EventArgs e) {
-            ((Action)TT.Clear + PerftTT.Clear + PawnCorrectionHistory.Clear + Killers.Clear + MoveOrder.Clear)();
+            ((Action)TT.Clear + PerftTT.Clear + PawnCorrectionHistory.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear)();
         
 #if DEBUG
         UCI.Log("manually allocated memory freed properly");

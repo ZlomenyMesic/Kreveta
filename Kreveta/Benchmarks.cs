@@ -21,20 +21,17 @@ using Kreveta.movegen;
 namespace Kreveta;
 
 /*
- * FASTEST PERFT 6:
- * 1.479 s
- */
-
-/*
  * CURRENT BENCHMARKS:
- * Board.PlayMove             24.16 ns
- * Board.PlayReversibleMove   21.26 ns
- * 
- * Eval.StaticEval            97.13 ns
- * 
- * ZobristHash.GetHash        23.61 ns
- *
+ * Board.PlayMove             23.17 ns
+ * Board.PlayReversibleMove   21.02 ns
+ * Eval.StaticEval            96.31 ns
+ * ZobristHash.GetHash        23.47 ns
  * Movegen.GetLegalMoves      383.5 ns
+ *
+ *
+ * 
+ * FASTEST PERFT 6            1.443 s
+ * FASTEST PERFT 7            24.83 s
  */
 
 [MemoryDiagnoser]
@@ -54,27 +51,27 @@ public class Benchmarks {
         _ = Movegen.GetLegalMoves(ref _position, stackalloc Move[128]);
     }
 
-    // [Benchmark]
-    // public void ZobristGetHash() {
-    //     ulong hash = ZobristHash.GetHash(_position);
-    // }
+    [Benchmark]
+    public void ZobristGetHash() {
+        ulong hash = ZobristHash.GetHash(_position);
+    }
 
-    // [Benchmark]
-    // public void StaticEval() {
-    //     int x = Eval.StaticEval(_position);
-    // }
+    [Benchmark]
+    public void StaticEval() {
+        int x = Eval.StaticEval(_position);
+    }
 
-    // [Benchmark]
-    // public void PlayMove() {
-    //     var clone = _position.Clone();
-    //     clone.PlayMove(_move);
-    // }
+    [Benchmark]
+    public void PlayMove() {
+        var clone = _position.Clone();
+        clone.PlayMove(_move);
+    }
 
-    // [Benchmark]
-    // public void PlayMoveReversible() {
-    //     var clone = _position.Clone();
-    //     clone.PlayReversibleMove(_move, Color.WHITE);
-    // }
+    [Benchmark]
+    public void PlayMoveReversible() {
+        var clone = _position.Clone();
+        clone.PlayReversibleMove(_move, Color.WHITE);
+    }
 }
 
 #pragma warning restore CA1822
