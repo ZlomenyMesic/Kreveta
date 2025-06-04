@@ -11,14 +11,9 @@ using System.Diagnostics;
 namespace Kreveta;
 
 internal static class Engine {
-
-    [DataType(DataType.Text)]
+    
     internal const string Name    = "Kreveta";
-
-    [DataType(DataType.Text)]
     internal const string Version = "INDEV";
-
-    [DataType(DataType.Text)]
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
@@ -33,11 +28,10 @@ internal static class Engine {
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
-        Game.SetPosFEN(["", "", ..Consts.StartposFEN.Split(' ')]);
+        Game.Board = Board.CreateStartpos();
 
         // header text when launching the engine
         UCI.Log($"{Name}-{Version} by {Author}");
-
         UCI.InputLoop();
         
         return 0;

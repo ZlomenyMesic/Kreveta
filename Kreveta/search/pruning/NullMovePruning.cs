@@ -44,7 +44,7 @@ internal static class NullMovePruning {
         => CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / 7);
 
     // try null move pruning
-    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune(in Board board, int depth, int ply, Window window, Color col, out short score) {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 

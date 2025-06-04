@@ -66,7 +66,7 @@ internal static unsafe class ZobristHash {
         }
     }
 
-    internal static ulong GetHash([In, ReadOnly(true)] in Board board) {
+    internal static ulong GetHash(in Board board) {
         ulong hash = board.Color == Color.WHITE
             ? WhiteToMove
             : BlackToMove;
@@ -102,7 +102,7 @@ internal static unsafe class ZobristHash {
         return hash;
     }
 
-    internal static ulong GetPawnHash([In, ReadOnly(true)] in Board board, Color col) {
+    internal static ulong GetPawnHash(in Board board, Color col) {
         ulong hash = 0;
         ulong copy = board.Pieces[(byte)col][(byte)PType.PAWN];
         
@@ -118,7 +118,7 @@ internal static unsafe class ZobristHash {
         return hash;
     }
 
-    private static ulong NextUInt64([In, ReadOnly(true)] in Random rand) {
+    private static ulong NextUInt64(in Random rand) {
         byte[] bytes = new byte[
             sizeof(ulong) / sizeof(byte)
         ];

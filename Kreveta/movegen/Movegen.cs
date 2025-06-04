@@ -58,7 +58,7 @@ internal static unsafe class Movegen {
         return _curPL;
     }
 
-    private static void GeneratePseudoLegalMoves([In, ReadOnly(true)] in Board board, Color col, Span<Move> buffer) {
+    private static void GeneratePseudoLegalMoves(in Board board, Color col, Span<Move> buffer) {
         
         // all occupied squares and squares occupied by opponent
         ulong occupied = board.Occupied;
@@ -86,7 +86,7 @@ internal static unsafe class Movegen {
         LoopTargets(board, BB.LS1B(board.Pieces[(byte)col][(byte)PType.KING]), cast, PType.NONE, col, buffer);
     }
 
-    private static void GeneratePseudoLegalCaptures([In, ReadOnly(true)] in Board board, Color col, Span<Move> buffer) {
+    private static void GeneratePseudoLegalCaptures(in Board board, Color col, Span<Move> buffer) {
 
         ulong occupied = board.Occupied;
 
@@ -103,7 +103,7 @@ internal static unsafe class Movegen {
         // no need to generate castling moves - they can never be a capture
     }
 
-    internal static bool IsKingInCheck([In, ReadOnly(true)] in Board board, Color col) {
+    internal static bool IsKingInCheck(in Board board, Color col) {
 
         ulong kingSq = board.Pieces[(byte)col][(byte)PType.KING];
 
@@ -144,7 +144,7 @@ internal static unsafe class Movegen {
     }
 
     private static void LoopPiecesBB(
-        [In, ReadOnly(true)] in Board board,
+        in Board board,
         ulong pieces,
         PType type,
         Color col,
@@ -171,7 +171,7 @@ internal static unsafe class Movegen {
     }
 
     private static ulong GetTargets(
-        [In, ReadOnly(true)] in Board board,
+        in Board board,
         ulong sq,
         PType type,
         Color col,
@@ -201,7 +201,7 @@ internal static unsafe class Movegen {
         };
     }
 
-    private static void LoopTargets([In, ReadOnly(true)] in Board board, byte start, ulong targets, PType type, Color col, Span<Move> buffer) {
+    private static void LoopTargets(in Board board, byte start, ulong targets, PType type, Color col, Span<Move> buffer) {
         Color colOpp = col == Color.WHITE
             ? Color.BLACK
             : Color.WHITE;

@@ -16,4 +16,5 @@ internal enum CastlingRights : byte {
     Q    = 2, // white queenside
     k    = 4, // black kingside
     q    = 8, // black queenside
+    ALL  = K | Q | k | q
 }

@@ -87,7 +87,7 @@ internal static unsafe class PerftTT {
     // store a position along with the depth and number
     // of nodes. we don't care what has been stored prior
     // to this, we just overwrite everything
-    internal static void Store([In, ReadOnly(true)] in Board board, byte depth, ulong nodes) {
+    internal static void Store(in Board board, byte depth, ulong nodes) {
         ulong hash = ZobristHash.GetHash(in board);
         int index = HashIndex(hash);
 
@@ -100,7 +100,7 @@ internal static unsafe class PerftTT {
     }
 
     // try to find the same position at the SAME DEPTH (very important)
-    internal static bool TryGetNodes([In, ReadOnly(true)] in Board board, byte depth, out ulong nodes) {
+    internal static bool TryGetNodes(in Board board, byte depth, out ulong nodes) {
         ulong hash = ZobristHash.GetHash(in board);
         int index = HashIndex(hash);
 

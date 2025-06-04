@@ -20,6 +20,9 @@ namespace Kreveta.movegen;
 // GetHashCode not implemented
 #pragma warning disable CS0661
 
+// Specify IFormatProvider
+#pragma warning disable CA1305
+
 [StructLayout(LayoutKind.Explicit, Size = 4)]
 internal readonly struct Move : IEquatable<Move> {
 
@@ -38,16 +41,16 @@ internal readonly struct Move : IEquatable<Move> {
     private readonly int _flags = 0;
 
     // constants for proper information lookups
-    private const int EndOffset = 6;
+    private const int EndOffset   = 6;
     private const int PieceOffset = 12;
-    private const int CaptOffset = 15;
-    private const int PromOffset = 18;
+    private const int CaptOffset  = 15;
+    private const int PromOffset  = 18;
 
     private const int StartMask = 0x0000003F;
-    private const int EndMask = 0x00000FC0;
+    private const int EndMask   = 0x00000FC0;
     private const int PieceMask = 0x00007000;
-    private const int CaptMask = 0x00038000;
-    private const int PromMask = 0x001C0000;
+    private const int CaptMask  = 0x00038000;
+    private const int PromMask  = 0x001C0000;
 
     // we define the move as readonly, so values can only be set
     // during initialization, and then the move becomes immutable
@@ -138,15 +141,10 @@ internal static class MoveExtenstions {
 
         StringBuilder sb = new();
 
-        // Specify IFormatProvider        
-#pragma warning disable CA1305
-
         // convert starting and ending squares to the standard format, e.g. "e4"
 
         sb.Append(Consts.Files[start & 7] + (8 - (start >> 3)).ToString());
         sb.Append(Consts.Files[end & 7] + (8 - (end >> 3)).ToString());
-
-#pragma warning restore CA1305 
 
         // if no promotion => empty string
         if (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE)
@@ -156,7 +154,7 @@ internal static class MoveExtenstions {
     }
 
     // converts a string to a move object
-    internal static Move ToMove(this string str, [In, ReadOnly(true)] in Board board) {
+    internal static Move ToMove(this string str, in Board board) {
 
         // the move in the string is stored using a form of Long Algebraic Notation (LAN),
         // which is used by UCI. there is no information about the piece moved, only the starting square
@@ -164,11 +162,11 @@ internal static class MoveExtenstions {
 
         // indices of starting and ending squares
         int start = (8 - (str[1] - '0')) * 8 + Consts.Files.IndexOf(str[0], StringComparison.Ordinal);
-        int end = (8 - (str[3] - '0')) * 8 + Consts.Files.IndexOf(str[2], StringComparison.Ordinal);
+        int end   = (8 - (str[3] - '0')) * 8 + Consts.Files.IndexOf(str[2], StringComparison.Ordinal);
 
         // find the piece types
         PType piece = board.PieceAt(start);
-        PType capt = board.PieceAt(end);
+        PType capt  = board.PieceAt(end);
 
         // potential promotion?
         PType prom = str.Length == 5

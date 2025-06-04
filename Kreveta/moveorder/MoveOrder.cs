@@ -16,7 +16,7 @@ namespace Kreveta.moveorder;
 
 // to achieve the best results from PVS, good move ordering
 // is essential. searching the better moves first creates much
-// more space for pruning. we of course cannot know, which
+// more space for pruning. we of course cannot know which
 // moves are the best unless we do the search, but we can at
 // least make a rough guess.
 internal static unsafe class MoveOrder {
@@ -27,7 +27,7 @@ internal static unsafe class MoveOrder {
         alignment: (nuint)sizeof(Move));
 
     // don't use "in" keyword!!! it becomes much slower
-    internal static Span<Move> GetOrderedMoves([ReadOnly(true)] Board board, int depth, Move previous) {
+    internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
 
         // we have to check the legality of found moves in case of some bugs
         // errors may occur anywhere in TT, Killers and History

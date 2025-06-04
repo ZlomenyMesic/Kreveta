@@ -12,12 +12,9 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.openingbook;
-using Kreveta.search;
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
 
@@ -43,15 +40,22 @@ internal static class Game {
 
     private static readonly Action<string> InvalidFENCallback = delegate (string context) {
         // first reset the board and then set the starting position
-        Board.Clear();
-        SetPosFEN(["", "", .. Consts.StartposFEN.Split(' ')]);
-
+        Board = Board.CreateStartpos();
+        EngineColor = Color.WHITE;
+        
         UCI.Log($"Invalid position - {context}", UCI.LogLevel.ERROR);
     };
 
+    internal static void SetStartpos(ReadOnlySpan<string> tokens) {
+        Board = Board.CreateStartpos();
+        EngineColor = Color.WHITE;
+        
+        PlayMoves(tokens);
+    }
+
     // sets the current position using a tokenized fen string. this function is
     // also called when setting up the starting position, but with the startpos fen
-    internal static void SetPosFEN([In, ReadOnly(true)] in ReadOnlySpan<string> tokens) {
+    internal static void SetPosFEN(ReadOnlySpan<string> tokens) {
         
         // since the whole "position" command is sent, the first two tokens shall be skipped ("position fen")
 
@@ -176,7 +180,10 @@ internal static class Game {
         // the fen string can be followed by a sequence of moves, which have
         // been played from the position. for example, most GUIs would pass
         // a position like "position startpos moves e2e4 e7e5 g1f3"
-        
+        PlayMoves(tokens);
+    }
+
+    private static void PlayMoves(ReadOnlySpan<string> tokens) {
         // ReSharper disable once InvokeAsExtensionMethod
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
@@ -185,7 +192,7 @@ internal static class Game {
 
             // pass the empty moves list to the book
             // to choose the first move randomly
-            if (tokens[2] == Consts.StartposFEN.Split(' ')[0])
+            if (IsStartpos(tokens))
                 OpeningBook.RegisterSequence([]);
 
             return;
@@ -199,7 +206,7 @@ internal static class Game {
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
             sequence.Add(tokens[i]);
-
+            
             if (!Move.IsCorrectFormat(tokens[i])) {
                 InvalidFENCallback($"invalid move: {tokens[i]}");
                 return;
@@ -215,10 +222,14 @@ internal static class Game {
         }
 
         // try to save a book move
-        OpeningBook.RegisterSequence([.. sequence]);
+        if (IsStartpos(tokens))
+            OpeningBook.RegisterSequence([.. sequence]);
 
         // save drawing positions in "draws"
         List3FoldDraws();
+        
+        static bool IsStartpos(ReadOnlySpan<string> tokens)
+            => tokens[1] == "startpos" || tokens[2] == Consts.StartposFEN.Split(' ')[0];
     }
 
     // save all positions that would cause a 3-fold repetition draw in

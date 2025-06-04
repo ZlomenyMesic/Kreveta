@@ -59,12 +59,10 @@ internal struct Board {
     internal byte EnPassantSq = 64;
 
     // the current state of castling rights
-    [EnumDataType(typeof(CastlingRights))]
-    internal CastlingRights CastlingRights = 0;
+    internal CastlingRights CastlingRights = CastlingRights.NONE;
 
     // the side to move
-    [EnumDataType(typeof(Color))]
-    internal Color Color = 0;
+    internal Color Color = Color.NONE;
 
     public Board() {
         Pieces[(byte)Color.WHITE] = new ulong[6];
@@ -72,7 +70,8 @@ internal struct Board {
     }
 
     internal void Clear() {
-        Array.Clear(Pieces);
+        Array.Clear(Pieces[(byte)Color.WHITE]);
+        Array.Clear(Pieces[(byte)Color.BLACK]);
 
         WOccupied      = 0UL;
         BOccupied      = 0UL;
@@ -85,8 +84,7 @@ internal struct Board {
     // returns the piece at a certain square. this method isn't
     // really the fastest, but it's useful in the case where we
     // generate piece types for input moves
-    [Pure]
-    internal PType PieceAt(int index) {
+    [Pure] internal PType PieceAt(int index) {
         ulong sq = 1UL << index;
 
         // empty square, return immediately
@@ -368,6 +366,33 @@ internal struct Board {
                 // newline character at the end of each rank
                 (((i + 1) & 7) == 0 ? '\n' : string.Empty)}");
         }
+    }
+
+    internal static Board CreateStartpos() {
+        var board = new Board {
+            WOccupied      = 0xFFFF000000000000UL,
+            BOccupied      = 0x000000000000FFFFUL,
+            
+            EnPassantSq    = 64,
+            CastlingRights = CastlingRights.ALL,
+            Color          = Color.WHITE,
+        };
+        
+        board.Pieces[(byte)Color.WHITE][(byte)PType.PAWN]   = 0x00FF000000000000UL;
+        board.Pieces[(byte)Color.WHITE][(byte)PType.KNIGHT] = 0x4200000000000000UL;
+        board.Pieces[(byte)Color.WHITE][(byte)PType.BISHOP] = 0x2400000000000000UL;
+        board.Pieces[(byte)Color.WHITE][(byte)PType.ROOK]   = 0x8100000000000000UL;
+        board.Pieces[(byte)Color.WHITE][(byte)PType.QUEEN]  = 0x0800000000000000UL;
+        board.Pieces[(byte)Color.WHITE][(byte)PType.KING]   = 0x1000000000000000UL;
+
+        board.Pieces[(byte)Color.BLACK][(byte)PType.PAWN]   = 0x000000000000FF00UL;
+        board.Pieces[(byte)Color.BLACK][(byte)PType.KNIGHT] = 0x0000000000000042UL;
+        board.Pieces[(byte)Color.BLACK][(byte)PType.BISHOP] = 0x0000000000000024UL;
+        board.Pieces[(byte)Color.BLACK][(byte)PType.ROOK]   = 0x0000000000000081UL;
+        board.Pieces[(byte)Color.BLACK][(byte)PType.QUEEN]  = 0x0000000000000008UL;
+        board.Pieces[(byte)Color.BLACK][(byte)PType.KING]   = 0x0000000000000010UL;
+
+        return board;
     }
 }
 

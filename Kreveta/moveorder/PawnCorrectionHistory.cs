@@ -67,7 +67,7 @@ internal static unsafe class PawnCorrectionHistory {
 
     // update the pawn correction - takes a board with its score evaluated
     // by an actual search, and the depth at which the search was performed.
-    internal static void Update([In, ReadOnly(true)] in Board board, int score, int depth) {
+    internal static void Update(in Board board, int score, int depth) {
         if (depth <= DepthOffset) 
             return;
 
@@ -122,7 +122,7 @@ internal static unsafe class PawnCorrectionHistory {
     }
 
     // try to retrieve a correction of the static eval of a position
-    internal static int GetCorrection([In, ReadOnly(true)] in Board board) {
+    internal static int GetCorrection(in Board board) {
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides

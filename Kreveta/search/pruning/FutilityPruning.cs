@@ -34,7 +34,7 @@ internal static class FutilityPruning {
     private const int NotImprovingMargin       = 23; 
 
     // try futility pruning
-    internal static bool TryPrune([In, ReadOnly(true)] in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
+    internal static bool TryPrune(in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
 
         int pawnCorrection = PawnCorrectionHistory.GetCorrection(board) * (col == Color.WHITE ? -2 : 2);
         int _improving     = improving ? ImprovingMargin : NotImprovingMargin;

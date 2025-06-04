@@ -140,12 +140,12 @@ internal static unsafe class TT {
     }
 
     // store a position in the table. the best move doesn't have to be specified
-    internal static void Store([In, ReadOnly(true)] in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
+    internal static void Store(in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
         ulong hash = ZobristHash.GetHash(board);
         int i = HashIndex(hash);
 
         // maybe an entry is already saved
-        Entry existing = Table[i];
+        var existing = Table[i];
 
         //bool isOld = (existing.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
 
@@ -201,7 +201,7 @@ internal static unsafe class TT {
         Table[i] = entry;
     }
 
-    internal static bool TryGetBestMove([In, ReadOnly(true)] in Board board, out Move bestMove) {
+    internal static bool TryGetBestMove(in Board board, out Move bestMove) {
         ulong hash = ZobristHash.GetHash(board);
         bestMove = default;
 
@@ -222,7 +222,7 @@ internal static unsafe class TT {
         return false;
     }
 
-    internal static bool TryGetScore([In, ReadOnly(true)] in Board board, int depth, int ply, Window window, out short score) {
+    internal static bool TryGetScore(in Board board, int depth, int ply, Window window, out short score) {
         ulong hash = ZobristHash.GetHash(board);
         score = 0;
 
