@@ -26,6 +26,15 @@ internal static unsafe class MoveOrder {
         byteCount: (nuint)(60 * sizeof(Move)),
         alignment: (nuint)sizeof(Move));
 
+    private static bool _memoryFreed;
+
+    internal static void Clear() {
+        if (!_memoryFreed) {
+            NativeMemory.AlignedFree(CaptureBuffer);
+            _memoryFreed = true;
+        }
+    }
+
     // don't use "in" keyword!!! it becomes much slower
     internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
 

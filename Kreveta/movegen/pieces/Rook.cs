@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using System;
 using Kreveta.consts;
 
 namespace Kreveta.movegen.pieces;
@@ -13,7 +14,6 @@ internal static class Rook {
     // of a certain rook. the free parameter should include empty and
     // enemy squares, while occupied should contain all occupied squares
     internal static unsafe ulong GetRookTargets(ulong rook, ulong free, ulong occupied) {
-
         // get the square index
         int sq = BB.LS1B(rook);
 
@@ -29,7 +29,7 @@ internal static class Rook {
                     >> ((sq >> 3) << 3));
         
         // now we take the lookup targets
-        ulong targets = LookupTables.RankTargets[sq][(occupancy >> 1) & 63];
+        ulong targets = LookupTables.RankTargets[sq * 64 + ((occupancy >> 1) & 63)];
 
         // this time we want the relevant file
         occupancy = (int)((occupied & Consts.RelevantFileMask[sq & 7])
@@ -39,7 +39,7 @@ internal static class Rook {
             * Consts.FileMagic[sq & 7] >> 57);
         
         // and we add these file targets to the rank targets
-        targets |= LookupTables.FileTargets[sq][occupancy & 63];
+        targets |= LookupTables.FileTargets[sq * 64 + (occupancy & 63)];
 
         // we now have to & this result with free to avoid own captures
         // (occupied contains both friendly and enemy pieces, so at this

@@ -41,16 +41,22 @@ all the irrelevant pieces would get removed, and the occupancy would be compress
 */
 internal static unsafe class LookupTables {
 
-    internal static readonly ulong*  KingTargets     = (ulong*) NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
-    internal static readonly ulong*  KnightTargets   = (ulong*) NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
-    internal static readonly ulong** RankTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
-    internal static readonly ulong** FileTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
-    internal static readonly ulong** AntidiagTargets = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
-    internal static readonly ulong** DiagTargets     = (ulong**)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 64);
+    internal static readonly ulong* KingTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+    internal static readonly ulong* KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+    internal static readonly ulong* RankTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
+    internal static readonly ulong* FileTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
+    internal static readonly ulong* AntidiagTargets = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
+    internal static readonly ulong* DiagTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
+    
+    // internal static readonly ulong[] KingTargets     = new ulong[64];
+    // internal static readonly ulong[] KnightTargets   = new ulong[64];
+    // internal static readonly ulong[] RankTargets     = new ulong[64 * 64];
+    // internal static readonly ulong[] FileTargets     = new ulong[64 * 64];
+    // internal static readonly ulong[] AntidiagTargets = new ulong[64 * 64];
+    // internal static readonly ulong[] DiagTargets     = new ulong[64 * 64];
 
     // all lookup tables need to be initialized right as the engine launches
     static LookupTables() 
-    
         // what the actual fuck is this syntactic sugar? how is this legal C#?
         => ((Action)InitKingTargets + InitKnightTargets + InitRankTargets + InitFileTargets + InitAntidiagTargets + InitDiagTargets)();
     
@@ -99,7 +105,7 @@ internal static unsafe class LookupTables {
 
     private static void InitRankTargets() {
         for (int i = 0; i < 64; i++) {
-            RankTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+            //RankTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 ulong occ = (ulong)o << 1;
@@ -123,17 +129,17 @@ internal static unsafe class LookupTables {
 
                 // move to correct rank
                 targets <<= 8 * (i >> 3);
-                RankTargets[i][o] = targets;
+                RankTargets[i * 64 + o] = targets;
             }
         }
     }
     private static void InitFileTargets() {
         for (int i = 0; i < 64; i++) {
-            FileTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+            //FileTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 ulong targets = 0;
-                ulong rankTargets = RankTargets[7 - i / 8][o];
+                ulong rankTargets = RankTargets[(7 - i / 8) * 64 + o];
 
                 // rotate rank targets
                 for (int bit = 0; bit < 8; bit++) {
@@ -143,22 +149,22 @@ internal static unsafe class LookupTables {
                     targets |= 1UL << ((i & 7) + 8 * (7 - bit));
                 }
 
-                FileTargets[i][o] = targets;
+                FileTargets[i * 64 + o] = targets;
             }
         }
     }
 
     private static void InitAntidiagTargets() {
         for (int i = 0; i < 64; i++) {
-            AntidiagTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+            //AntidiagTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 int diag = (i >> 3) - (i & 7);
 
                 ulong targets = 0;
                 ulong rankTargets = diag > 0 
-                    ? RankTargets[i & 7][o] 
-                    : RankTargets[i / 8][o];
+                    ? RankTargets[(i & 7) * 64 + o] 
+                    : RankTargets[(i / 8) * 64 + o];
 
                 for (int bit = 0; bit < 8; bit++) {
 
@@ -182,22 +188,22 @@ internal static unsafe class LookupTables {
                     }
                 }
 
-                AntidiagTargets[i][o] = targets;
+                AntidiagTargets[i * 64 + o] = targets;
             }
         }
     }
 
     private static void InitDiagTargets() {
         for (int i = 0; i < 64; i++) {
-            DiagTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+            //DiagTargets[i] = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
 
             for (int o = 0; o < 64; o++) {
                 int diag = (i >> 3) + (i & 7);
 
                 ulong targets = 0;
                 ulong rankTargets = diag > 7 
-                    ? RankTargets[7 - i / 8][o] 
-                    : RankTargets[i & 7][o];
+                    ? RankTargets[(7 - i / 8) * 64 + o] 
+                    : RankTargets[(i & 7)     * 64 + o];
 
                 for (int bit = 0; bit < 8; bit++) {
                     
@@ -221,7 +227,7 @@ internal static unsafe class LookupTables {
                     }
                 }
 
-                DiagTargets[i][o] = targets;
+                DiagTargets[i * 64 + o] = targets;
             }
         }
     }

@@ -126,7 +126,7 @@ internal static class QuietHistory {
         PType piece = move.Piece;
         
         // figure out the color of the piece based on whether it is present in the bitboard
-        Color col = (board.Pieces[(byte)Color.WHITE][(byte)piece] ^ (1UL << move.Start)) == 0UL
+        Color col = (board.Pieces[(byte)Color.WHITE * 6 + (byte)piece] ^ (1UL << move.Start)) == 0UL
             ? Color.BLACK
             : Color.WHITE;
 

@@ -9,6 +9,7 @@
 using Kreveta.consts;
 using System;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -24,7 +25,8 @@ namespace Kreveta.movegen;
 #pragma warning disable CA1305
 
 [StructLayout(LayoutKind.Explicit, Size = 4)]
-internal readonly struct Move : IEquatable<Move> {
+internal readonly struct Move : IEquatable<Move>
+{
 
 #pragma warning restore CS0660
 #pragma warning restore CS0661
@@ -33,28 +35,28 @@ internal readonly struct Move : IEquatable<Move> {
     although it is possible to encode a move into 16 bits, we are using 32 bits (int)
     this is the format:
 
-                          | prom. | capt. | piece | end         | start              
+                          | prom. | capt. | piece | end         | start
     0 0 0 0 0 0 0 0 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 0 0 0 | 0 0 0 0 0 0
 
     */
-    [field: FieldOffset(0)]
-    private readonly int _flags = 0;
+    [field: FieldOffset(0)] private readonly int _flags = 0;
 
     // constants for proper information lookups
-    private const int EndOffset   = 6;
+    private const int EndOffset = 6;
     private const int PieceOffset = 12;
-    private const int CaptOffset  = 15;
-    private const int PromOffset  = 18;
+    private const int CaptOffset = 15;
+    private const int PromOffset = 18;
 
     private const int StartMask = 0x0000003F;
-    private const int EndMask   = 0x00000FC0;
+    private const int EndMask = 0x00000FC0;
     private const int PieceMask = 0x00007000;
-    private const int CaptMask  = 0x00038000;
-    private const int PromMask  = 0x001C0000;
+    private const int CaptMask = 0x00038000;
+    private const int PromMask = 0x001C0000;
 
     // we define the move as readonly, so values can only be set
     // during initialization, and then the move becomes immutable
-    internal Move(int start, int end, PType piece, PType capture, PType promotion) {
+    internal Move(int start, int end, PType piece, PType capture, PType promotion)
+    {
 
         // flags are only set when the constructor is called, after that they cannot be changed
         _flags |= start;
@@ -93,21 +95,21 @@ internal readonly struct Move : IEquatable<Move> {
     internal int End
         => (_flags & EndMask) >> EndOffset;
 
-    // the moved piece type
+// the moved piece type
     internal PType Piece
         => (PType)((_flags & PieceMask) >> PieceOffset);
 
-    // captured piece
+// captured piece
     internal PType Capture
         => (PType)((_flags & CaptMask) >> CaptOffset);
 
     // piece promoted to
     // (pawn for en passant or king for castling)
     internal PType Promotion
-        => (PType)((_flags & PromMask) >> PromOffset);
+        => (PType)((_flags & PromMask) >> PromOffset); 
 
 
-    // taken from my previous engine
+// taken from my previous engine
     internal static bool IsCorrectFormat(string str) {
 
         // to prevent index out of range
