@@ -105,7 +105,7 @@ internal static class Game {
             int piece = Consts.Pieces.IndexOf(char.ToLower(c), StringComparison.Ordinal);
 
             // add the piece to the board
-            Board.Pieces[(byte)col][piece] |= 1UL << sq;
+            Board.Pieces[(byte)col * 6 + piece] |= 1UL << sq;
 
             if (col == Color.WHITE) Board.WOccupied |= 1UL << sq;
             else                    Board.BOccupied |= 1UL << sq;

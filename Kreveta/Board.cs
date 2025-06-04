@@ -30,8 +30,8 @@ internal struct Board {
     // the pieces are stored as one-bits in these large bbs.
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
-    [Required, DebuggerDisplay("indexed [color, piece_type]")]
-    internal readonly ulong[][] Pieces = new ulong[2][];
+    [Required, DebuggerDisplay("indexed [color * 6 + piece_type]")]
+    internal readonly ulong[] Pieces = new ulong[12];
 
     // these two bitboards simply represent all occupied
     // squares by a certain color. it turns out to be a little
@@ -65,13 +65,11 @@ internal struct Board {
     internal Color Color = Color.NONE;
 
     public Board() {
-        Pieces[(byte)Color.WHITE] = new ulong[6];
-        Pieces[(byte)Color.BLACK] = new ulong[6];
+        Pieces = new ulong[12];
     }
 
     internal void Clear() {
-        Array.Clear(Pieces[(byte)Color.WHITE]);
-        Array.Clear(Pieces[(byte)Color.BLACK]);
+        Array.Clear(Pieces);
 
         WOccupied      = 0UL;
         BOccupied      = 0UL;
@@ -94,7 +92,7 @@ internal struct Board {
         // now we loop the piece types and check whether the
         // square is occupied by any side
         for (int i = 0; i < 6; i++) {
-            if (((Pieces[(byte)Color.WHITE][i] | Pieces[(byte)Color.BLACK][i]) & sq) != 0UL)
+            if (((Pieces[i] | Pieces[6 + i]) & sq) != 0UL)
                 return (PType)i;
         }
 
@@ -143,8 +141,8 @@ internal struct Board {
                 : end >> 8;
 
             // xor the captured pawn and move our pawn
-            Pieces[(byte)colOpp][(byte)PType.PAWN] ^= captureSq;
-            Pieces[(byte)col][   (byte)PType.PAWN] ^= start | end;
+            Pieces[(byte)colOpp * 6] ^= captureSq;
+            Pieces[(byte)col    * 6] ^= start | end;
 
             if (col == Color.WHITE) {
                 WOccupied ^= start | end;
@@ -168,10 +166,10 @@ internal struct Board {
             };
 
             // king
-            Pieces[(byte)col][(byte)PType.KING] ^= start | end;
+            Pieces[(byte)col * 6 + (byte)PType.KING] ^= start | end;
 
             // rook
-            Pieces[(byte)col][(byte)PType.ROOK] ^= rook;
+            Pieces[(byte)col * 6 + (byte)PType.ROOK] ^= rook;
 
             if (col == Color.WHITE) WOccupied ^= rook | start | end;
             else                    BOccupied ^= rook | start | end;
@@ -179,8 +177,8 @@ internal struct Board {
 
         // promotion
         else if (prom != PType.NONE) {
-            Pieces[(byte)col][(byte)piece] ^= start;
-            Pieces[(byte)col][(byte)prom]  ^= end;
+            Pieces[(byte)col * 6 + (byte)piece] ^= start;
+            Pieces[(byte)col * 6 + (byte)prom]  ^= end;
 
             if (col == Color.WHITE) WOccupied ^= start | end;
             else                    BOccupied ^= start | end;
@@ -189,7 +187,7 @@ internal struct Board {
         // regular move
         else {
             //Console.WriteLine($"{col} {piece} {prom}");
-            Pieces[(byte)col][(byte)piece] ^= start | end;
+            Pieces[(byte)col * 6 + (byte)piece] ^= start | end;
 
             // if we double pushed a pawn, set the en passant square
             if (piece == PType.PAWN && (col == Color.WHITE
@@ -208,7 +206,7 @@ internal struct Board {
 
         // capture
         if (capt != PType.NONE) {
-            Pieces[(byte)colOpp][(byte)capt] ^= end;
+            Pieces[(byte)colOpp * 6 + (byte)capt] ^= end;
 
             if (col == Color.WHITE) BOccupied ^= end;
             else                    WOccupied ^= end;
@@ -266,8 +264,8 @@ internal struct Board {
                 ? end << 8
                 : end >> 8;
 
-            Pieces[(byte)colOpp][(byte)PType.PAWN] ^= captureSq;
-            Pieces[(byte)col][   (byte)PType.PAWN] ^= start | end;
+            Pieces[(byte)colOpp * 6] ^= captureSq;
+            Pieces[(byte)col    * 6] ^= start | end;
             
             if (colOpp == Color.WHITE) WOccupied ^= captureSq;
             else                       BOccupied ^= captureSq;
@@ -275,16 +273,16 @@ internal struct Board {
 
         // promotion
         else if (prom is not PType.KING and not PType.NONE) {
-            Pieces[(byte)col][(byte)piece] ^= start;
-            Pieces[(byte)col][(byte)prom]  ^= end;
+            Pieces[(byte)col * 6 + (byte)piece] ^= start;
+            Pieces[(byte)col * 6 + (byte)prom]  ^= end;
         }
 
         // regular move
-        else Pieces[(byte)col][(byte)piece] ^= start | end;
+        else Pieces[(byte)col * 6 + (byte)piece] ^= start | end;
 
         // capture
         if (capt != PType.NONE) {
-            Pieces[(byte)colOpp][(byte)capt] ^= end;
+            Pieces[(byte)colOpp * 6 + (byte)capt] ^= end;
 
             if (colOpp == Color.WHITE) WOccupied ^= end;
             else                       BOccupied ^= end;
@@ -331,9 +329,7 @@ internal struct Board {
             Color          = Color,
         };
 
-        Array.Copy(Pieces[(byte)Color.WHITE], @new.Pieces[(byte)Color.WHITE], 6);
-        Array.Copy(Pieces[(byte)Color.BLACK], @new.Pieces[(byte)Color.BLACK], 6);
-
+        Array.Copy(Pieces, @new.Pieces, 12);
         return @new;
     }
 
@@ -345,8 +341,8 @@ internal struct Board {
 
         // loop all piece types
         for (int i = 0; i < 6; i++) {
-            ulong wCopy = Pieces[(byte)Color.WHITE][i];
-            ulong bCopy = Pieces[(byte)Color.BLACK][i];
+            ulong wCopy = Pieces[i];
+            ulong bCopy = Pieces[6 + i];
 
             while (wCopy != 0UL) {
                 int sq = BB.LS1BReset(ref wCopy);
@@ -378,19 +374,19 @@ internal struct Board {
             Color          = Color.WHITE,
         };
         
-        board.Pieces[(byte)Color.WHITE][(byte)PType.PAWN]   = 0x00FF000000000000UL;
-        board.Pieces[(byte)Color.WHITE][(byte)PType.KNIGHT] = 0x4200000000000000UL;
-        board.Pieces[(byte)Color.WHITE][(byte)PType.BISHOP] = 0x2400000000000000UL;
-        board.Pieces[(byte)Color.WHITE][(byte)PType.ROOK]   = 0x8100000000000000UL;
-        board.Pieces[(byte)Color.WHITE][(byte)PType.QUEEN]  = 0x0800000000000000UL;
-        board.Pieces[(byte)Color.WHITE][(byte)PType.KING]   = 0x1000000000000000UL;
+        board.Pieces[0]  = 0x00FF000000000000UL; // P
+        board.Pieces[1]  = 0x4200000000000000UL; // N
+        board.Pieces[2]  = 0x2400000000000000UL; // B
+        board.Pieces[3]  = 0x8100000000000000UL; // R
+        board.Pieces[4]  = 0x0800000000000000UL; // Q
+        board.Pieces[5]  = 0x1000000000000000UL; // K
 
-        board.Pieces[(byte)Color.BLACK][(byte)PType.PAWN]   = 0x000000000000FF00UL;
-        board.Pieces[(byte)Color.BLACK][(byte)PType.KNIGHT] = 0x0000000000000042UL;
-        board.Pieces[(byte)Color.BLACK][(byte)PType.BISHOP] = 0x0000000000000024UL;
-        board.Pieces[(byte)Color.BLACK][(byte)PType.ROOK]   = 0x0000000000000081UL;
-        board.Pieces[(byte)Color.BLACK][(byte)PType.QUEEN]  = 0x0000000000000008UL;
-        board.Pieces[(byte)Color.BLACK][(byte)PType.KING]   = 0x0000000000000010UL;
+        board.Pieces[6]  = 0x000000000000FF00UL; // p
+        board.Pieces[7]  = 0x0000000000000042UL; // n
+        board.Pieces[8]  = 0x0000000000000024UL; // b
+        board.Pieces[9]  = 0x0000000000000081UL; // r
+        board.Pieces[10] = 0x0000000000000008UL; // q
+        board.Pieces[11] = 0x0000000000000010UL; // k
 
         return board;
     }

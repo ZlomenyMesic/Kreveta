@@ -49,8 +49,7 @@ internal static unsafe class PawnCorrectionHistory {
             _correctionTable = null;
         }
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    
     internal static void Realloc() {
         Clear();
         

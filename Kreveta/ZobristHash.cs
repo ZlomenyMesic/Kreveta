@@ -23,20 +23,19 @@ namespace Kreveta;
 internal static unsafe class ZobristHash {
 
     // every square-piece combination
-    [ReadOnly(true)] private static readonly ulong** Pieces
-        = (ulong**)NativeMemory.AlignedAlloc(64 * 12 * sizeof(ulong), 64);
+    private static readonly ulong[] Pieces = new ulong[64 * 12];
 
     // possible files of en passant square
-    [ReadOnly(true)] private static readonly ulong* EnPassant
+    private static readonly ulong* EnPassant
         = (ulong*)NativeMemory.AlignedAlloc(8 * sizeof(ulong), 64);
 
     // all possible combinations of castling rights
-    [ReadOnly(true)] private static readonly ulong* Castling
+    private static readonly ulong* Castling
         = (ulong*)NativeMemory.AlignedAlloc(16 * sizeof(ulong), 64);
 
     // white x black to play
-    [ReadOnly(true)] private static readonly ulong WhiteToMove;
-    [ReadOnly(true)] private static readonly ulong BlackToMove;
+    private static readonly ulong WhiteToMove;
+    private static readonly ulong BlackToMove;
 
     // this seed was taken from MinimalChess, and actually
     // works very well. might try to find a better one in the
@@ -47,10 +46,10 @@ internal static unsafe class ZobristHash {
         var rand = new Random(Seed);
 
         for (int sq = 0; sq < 64; sq++) {
-            Pieces[sq] = (ulong*)NativeMemory.AlignedAlloc(12 * sizeof(ulong), 64);
+            //Pieces[sq] = (ulong*)NativeMemory.AlignedAlloc(12 * sizeof(ulong), 64);
 
             for (int p = 0; p < 12; p++) {
-                Pieces[sq][p] = NextUInt64(rand);
+                Pieces[sq * 12 + p] = NextUInt64(rand);
             }
         }
 
@@ -76,26 +75,25 @@ internal static unsafe class ZobristHash {
         if (board.EnPassantSq != 64)
             hash ^= EnPassant[board.EnPassantSq & 7];
         
+        ReadOnlySpan<ulong> boardPieces = board.Pieces;
+        ReadOnlySpan<ulong> pieceHashes = Pieces;
+        
         // this is used to minimize array bound checks
-        fixed (ulong* wPieces = &board.Pieces[(byte)Color.WHITE][0],
-                      bPieces = &board.Pieces[(byte)Color.BLACK][0]) {
-            
-            for (byte i = 0; i < 6; i++) {
+        for (byte i = 0; i < 6; i++) {
+                
+            ulong wCopy = boardPieces[i];
+            ulong bCopy = boardPieces[6 + i];
 
-                ulong wCopy = *(wPieces + i);
-                ulong bCopy = *(bPieces + i);
-
-                while (wCopy != 0UL) {
-                    int sq = BB.LS1BReset(ref wCopy);
+            while (wCopy != 0UL) {
+                int sq = BB.LS1BReset(ref wCopy);
                     
-                    // color stride 6 for white
-                    hash ^= Pieces[sq][i + 6];
-                }
+                // color stride 6 for white
+                hash ^= pieceHashes[sq * 12 + i + 6];
+            }
 
-                while (bCopy != 0UL) {
-                    int sq = BB.LS1BReset(ref bCopy);
-                    hash ^= Pieces[sq][i];
-                }
+            while (bCopy != 0UL) {
+                int sq = BB.LS1BReset(ref bCopy);
+                hash ^= pieceHashes[sq * 12 + i];
             }
         }
 
@@ -104,15 +102,17 @@ internal static unsafe class ZobristHash {
 
     internal static ulong GetPawnHash(in Board board, Color col) {
         ulong hash = 0;
-        ulong copy = board.Pieces[(byte)col][(byte)PType.PAWN];
+        ulong copy = board.Pieces[(byte)col * 6 /* + PType.PAWN */];
         
         // since we only hash pawns, we don't need to include the piece
         // type at all, because pawns are 0. we only want the color stride
         byte colStride = (byte)(col == Color.WHITE ? 6 : 0);
+        
+        ReadOnlySpan<ulong> pieceHashes = Pieces;
 
         while (copy != 0UL) {
             int sq = BB.LS1BReset(ref copy);
-            hash ^= Pieces[sq][colStride];
+            hash ^= pieceHashes[sq * 12 + colStride];
         }
 
         return hash;

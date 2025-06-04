@@ -153,13 +153,11 @@ internal static class UCI {
                 
                 // stop any current searches
                 case "stop":     OnStopCommand?.Invoke(); break;
-
-#if DEBUG
+                
                 // run current benchmarks
                 case "bench":
                     BenchmarkRunner.Run<Benchmarks>();
                     break;
-#endif
 
                 default:
                     Log($"Unknown command: {tokens[0]}. Type 'help' for more information", LogLevel.ERROR);
@@ -175,8 +173,8 @@ internal static class UCI {
         const string UCIOK = "uciok";
 
         // other than that we also print some engine info for nicer display
-        Log($"id name {Engine.Name}-{Engine.Version}\n" +
-            $"id author {Engine.Author}\n");
+        Log($"id name {Program.Name}-{Program.Version}\n" +
+            $"id author {Program.Author}\n");
 
         // and we print all modifiable options
         Options.Print();
@@ -225,7 +223,7 @@ internal static class UCI {
             // we launch a separate thread for this to allow "stop" command
             // and anything else. i don't know, it's just better
             SearchThread = new Thread(() => Perft.Run(depth)) {
-                Name     = $"{Engine.Name}-{Engine.Version}.PerftSearch",
+                Name     = $"{Program.Name}-{Program.Version}.PerftSearch",
                 Priority = ThreadPriority.Highest
             };
 
@@ -286,7 +284,7 @@ internal static class UCI {
         // other commands while the search is running - this usually isn't
         // needed, but the "stop" command is very important
         SearchThread = new Thread(() => PVSControl.StartSearch(depth)) {
-            Name     = $"{Engine.Name}-{Engine.Version}.Search",
+            Name     = $"{Program.Name}-{Program.Version}.Search",
             Priority = ThreadPriority.Highest
         };
         SearchThread.Start();
@@ -371,8 +369,8 @@ internal static class UCI {
 
         // either of the kings is missing (this needs to be evaluated first, because
         // everything else stands on top of the assumption that both kings are present)
-        byte wKings = (byte)ulong.PopCount(Game.Board.Pieces[(byte)Color.WHITE][(byte)PType.KING]);
-        byte bKings = (byte)ulong.PopCount(Game.Board.Pieces[(byte)Color.BLACK][(byte)PType.KING]);
+        byte wKings = (byte)ulong.PopCount(Game.Board.Pieces[(byte)PType.KING]);
+        byte bKings = (byte)ulong.PopCount(Game.Board.Pieces[6 + (byte)PType.KING]);
         
         if (wKings != 1) {
             CannotStartSearchCallback($"{wKings} white kings on the board");
