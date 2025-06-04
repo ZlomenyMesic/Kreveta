@@ -59,7 +59,7 @@ internal static class Eval {
     // structure, king safety, etc. the score returned is color relative,
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
-    internal static unsafe short StaticEval([In, ReadOnly(true)] in Board board) {
+    internal static unsafe short StaticEval(in Board board) {
 
         // increment the counter for stats
         StaticEvalCount++;
@@ -142,7 +142,7 @@ internal static class Eval {
     }
 
     // bonuses or penalties for pawn structure
-    private static short PawnEval([In, ReadOnly(true)] in Board board, ulong p, Color col) {
+    private static short PawnEval(in Board board, ulong p, Color col) {
 
         short eval = 0;
 
@@ -202,7 +202,7 @@ internal static class Eval {
         return eval;
     }
 
-    private static short KnightEval([In, ReadOnly(true)] in Board board, byte pawnCount) {
+    private static short KnightEval(in Board board, byte pawnCount) {
         short eval = 0;
 
         // knights are less valuable if there are fewer pawns on the board.
@@ -219,7 +219,7 @@ internal static class Eval {
         return eval;
     }
 
-    private static short BishopEval([In, ReadOnly(true)] in Board board) {
+    private static short BishopEval(in Board board) {
 
         short eval = 0;
 
@@ -239,7 +239,7 @@ internal static class Eval {
         return eval;
     }
 
-    private static short RookEval([In, ReadOnly(true)] in Board board, byte pieceCount) {
+    private static short RookEval(in Board board, byte pieceCount) {
         short eval = 0;
 
         // rooks are, as opposed to knights, more valuable if there are
@@ -326,7 +326,7 @@ internal static class Eval {
     //}
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval([In, ReadOnly(true)] in Board board) {
+    private static short KingEval(in Board board) {
         short eval = 0;
 
         // same color pieces around the king - protection

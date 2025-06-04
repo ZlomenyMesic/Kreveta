@@ -84,7 +84,7 @@ internal static class QuietHistory {
     private const int ShiftLimit    = 84;
     
     // modify the history reputation of a move. isMoveGood tells us how
-    internal static void ChangeRep([In, ReadOnly(true)] in Board board, Move move, int depth, bool isMoveGood) {
+    internal static void ChangeRep(in Board board, Move move, int depth, bool isMoveGood) {
         int i   = PieceIndex(board, move);
         int end = move.End;
         
@@ -101,7 +101,7 @@ internal static class QuietHistory {
     }
 
     // retrieve the reputation of a move
-    internal static int GetRep([In, ReadOnly(true)] in Board board, Move move) {
+    internal static int GetRep(in Board board, Move move) {
         int i   = PieceIndex(board, move);
         int end = move.End;
 
@@ -121,7 +121,7 @@ internal static class QuietHistory {
     // calculate the index of a piece in the boards
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PieceIndex([In, ReadOnly(true)] in Board board, Move move) {
+    private static int PieceIndex(in Board board, Move move) {
 
         PType piece = move.Piece;
         

@@ -15,7 +15,7 @@ namespace Kreveta.movegen.pieces;
 
 internal static class King {
 
-    // masks of squares which need to be empty to allow
+    // masks of squares, which need to be empty to allow
     // castling (squares between the king and the rook)
     private const ulong OOMask  = 0x6000000000000000;
     private const ulong OOOMask = 0x0E00000000000000;
@@ -35,7 +35,7 @@ internal static class King {
     }
 
     // this returns the move targets for castling only
-    internal static ulong GetCastlingTargets([In, ReadOnly(true)] in Board board, Color col) {
+    internal static ulong GetCastlingTargets(in Board board, Color col) {
         ulong occ = board.Occupied;
 
         // first we check whether the side even holds

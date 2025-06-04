@@ -78,9 +78,9 @@ internal static class UCI {
         catch (Exception ex)
             when (LogException("NKLogger initialization failed", ex)) { }
         
-        OnStopCommand += () => {
-            // the search is a separate thread, which we first
-            // synchronize with this one and then terminate
+        // the search is a separate thread, which we first
+        // synchronize with this one and then terminate
+        OnStopCommand += delegate {
 
             // this also checks for null values
             if (SearchThread is { IsAlive: false })
@@ -112,6 +112,10 @@ internal static class UCI {
             if (string.IsNullOrWhiteSpace(input))
                 continue;
 
+            // quit should terminate the program as soon as possible
+            if (input == "quit")
+                return;
+
             ReadOnlySpan<string> tokens = input.Split(' ');
 
             // we log the input commands as well
@@ -119,21 +123,43 @@ internal static class UCI {
 
             // the first token is obviously the command itself
             switch (tokens[0]) {
-                case "uci":        CmdUCI();             break;
-                case "isready":    CmdIsReady();         break;
-                case "setoption":  CmdSetOption(tokens); break;
-                case "ucinewgame": CmdUciNewGame();      break;
-                case "position":   CmdPosition(tokens);  break;
-                case "go":         CmdGo(tokens);        break;
-                case "perft":      CmdPerft(tokens);     break;
-                case "d":          CmdDisplay();         break;
-                case "stop":       CmdStop();            break;
+                
+                // the GUI sends the "ucinewgame" command to inform the engine
+                // that it will be playing a whole game, instead of just maybe
+                // analyzing a single position. although we don't alter anything
+                // yet, it's nice to have the option to do so implemented
+                case "ucinewgame":
+                    Game.FullGame = true;
+                    TT.Clear();
+                    break;
+                
+                // the "setoption ..." command is used to modify some options
+                // in the engine. this is important in many cases when we want
+                // to, for instance, disable the opening book
+                case "setoption":
+                    Options.SetOption(tokens); 
+                    break;
+                
+                // when we receive "isready", we shall respond with "readyok".
+                // this signals that we are ready to receive further commands
+                case "isready":  Log("readyok");          break;
+                case "uci":      CmdUCI();                break;
+                case "position": CmdPosition(tokens);     break;
+                case "go":       CmdGo(tokens);           break;
+                case "perft":    CmdPerft(tokens);        break;
+                
+                // print the currently set position
+                case "d":        Game.Board.Print();      break;
+                
+                // stop any current searches
+                case "stop":     OnStopCommand?.Invoke(); break;
 
 #if DEBUG
-                case "bench":      CmdBench();           break;
+                // run current benchmarks
+                case "bench":
+                    BenchmarkRunner.Run<Benchmarks>();
+                    break;
 #endif
-
-                case "quit":                             return;
 
                 default:
                     Log($"Unknown command: {tokens[0]}. Type 'help' for more information", LogLevel.ERROR);
@@ -158,40 +184,6 @@ internal static class UCI {
         Log($"{UCIOK}");
     }
 
-    // when we receive "isready", we shall respond with "readyok".
-    // this signals that we are ready to receive further commands
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdIsReady() {
-        const string ReadyOK = "readyok";
-
-        Log($"{ReadyOK}");
-    }
-
-    // the GUI sends the "ucinewgame" command to inform the engine
-    // that it will be playing a whole game, instead of just maybe
-    // analyzing a single position. although we don't alter anything
-    // yet, it's nice to have the option to do so implemented
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdUciNewGame() {
-        Game.FullGame = true;
-        TT.Clear();
-    }
-
-    // the command "stop" tells us we should immediately stop the
-    // search. we must still report the best move found, though.
-    // (this is also used to stop a perft search)
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdStop()
-        => OnStopCommand?.Invoke();
-
-    // the "setoption ..." command is used to modify some options
-    // in the engine. this is important in many cases when we want
-    // to, for instance, disable the opening book
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdSetOption(ReadOnlySpan<string> tokens) {
-        Options.SetOption(tokens);
-    }
-
     // "position ..." command sets the current position, which the
     // engine probably will be searching in the future. this doesn't
     // start the search itself, though
@@ -199,13 +191,12 @@ internal static class UCI {
     private static void CmdPosition(ReadOnlySpan<string> tokens) {
         switch (tokens[1]) {
 
-            // we don't use a startpos constructor, because we can have a list
-            // of moves played from the starting position, which would be quite
-            // difficult and unnecessary to implement
-            case "startpos": Game.SetPosFEN(tokens: ["", "", .. Consts.StartposFEN.Split(' '), .. tokens]); break;
-            case "fen":      Game.SetPosFEN(tokens);                                                        break;
+            // we CAN'T use Board.CreateStartpos here, since we
+            // may have a bunch of moves played from startpos
+            case "startpos": Game.SetStartpos(tokens);                      break;
+            case "fen":      Game.SetPosFEN(tokens);                        break;
 
-            default: Log($"Invalid argument: {tokens[1]}", LogLevel.ERROR);                                 return;
+            default: Log($"Invalid argument: {tokens[1]}", LogLevel.ERROR); return;
         }
     }
 
@@ -216,7 +207,7 @@ internal static class UCI {
     private static void CmdPerft(ReadOnlySpan<string> tokens) {
 
         // first stop the potential already running search
-        CmdStop();
+        OnStopCommand?.Invoke();
 
         // position cannot be searched (mate or stalemate)
         if (CheckTerminalPosition())
@@ -251,7 +242,7 @@ internal static class UCI {
 
         // abort the currently running search first in order to
         // run a new one, since there is a single search thread.
-        CmdStop();
+        OnStopCommand?.Invoke();
 
         // position cannot be searched (mate or stalemate)
         if (CheckTerminalPosition())
@@ -301,18 +292,6 @@ internal static class UCI {
         SearchThread.Start();
     }
 
-    // run benchmarks
-    [Conditional("DEBUG"), MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdBench() {
-        BenchmarkRunner.Run<Benchmarks>();
-    }
-
-    // print the currectly set position
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CmdDisplay() {
-        Game.Board.Print();
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
         if (logIntoFile)
@@ -329,26 +308,28 @@ internal static class UCI {
     }
 
     internal static void LogStats(bool forcePrint, params ReadOnlySpan<(string Name, object Data)> stats) {
-        const string StatsHeader = "---STATS-------------------------------";
-        const string StatsAfter  = "---------------------------------------";
+        const string STATS_HEADER = "---STATS-------------------------------";
+        const string STATS_AFTER  = "---------------------------------------";
+        
+        // this sadly cannot be const in case we modify the strings above
+        int dataOffset = STATS_HEADER.Length - 16;
 
         // printing statistics can be toggled via the PrintStats option.
-        // printing can, however, be forced when we are for example printing
-        // perft results (or else perft would be meaningless)
+        // printing can, however, be forced when we are, for example,
+        // printing perft results (or else perft would be meaningless)
         if (!Options.PrintStats && !forcePrint)
             return;
 
-        int DataOffset = StatsHeader.Length - 16;
-
-        Log(StatsHeader);
+        Log(STATS_HEADER);
 
         foreach (var stat in stats) {
-            string  name = stat.Name + new string(' ', DataOffset - stat.Name.Length);
+            string  name = stat.Name + new string(' ', dataOffset - stat.Name.Length);
             string? data = stat.Data.ToString();
 
             if (data is null)
-                return;
+                continue;
 
+            // number stats are formatted in a nice way to separate number groups with ','
             if (stat.Data is long or ulong or int) {
                 var format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();
                 format.NumberGroupSeparator = ",";
@@ -359,7 +340,7 @@ internal static class UCI {
             Log($"{name}{data}");
         }
 
-        Log(StatsAfter);
+        Log(STATS_AFTER);
     }
 
     // combining sync and async code is generally a bad idea, but we must avoid slowing
