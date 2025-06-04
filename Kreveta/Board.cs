@@ -242,7 +242,7 @@ internal struct Board {
         }
     }
 
-    private void PlayReversibleMove(Move move, Color col) {
+    internal void PlayReversibleMove(Move move, Color col) {
 
         // start & end squares
         ulong start = 1UL << move.Start;
@@ -297,19 +297,17 @@ internal struct Board {
     // null move used for null move pruning
     [Pure]
     internal Board GetNullChild() {
-        Board @null = Clone();
-
-        @null.EnPassantSq = 64;
-        @null.Color = @null.Color == Color.WHITE
-            ? Color.BLACK
-            : Color.WHITE;
+        var @null = Clone() with {
+            EnPassantSq = 64, 
+            Color = Color == Color.WHITE 
+                ? Color.BLACK : Color.WHITE
+        };
 
         return @null;
     }
 
     // checks whether a move is legal from this position
     internal bool IsMoveLegal(Move move, Color col) {
-        
         PlayReversibleMove(move, col);
         bool isLegal = !Movegen.IsKingInCheck(this, col);
         PlayReversibleMove(move, col);

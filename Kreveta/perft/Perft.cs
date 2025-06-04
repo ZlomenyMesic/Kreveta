@@ -64,7 +64,7 @@ internal static class Perft {
             return (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
         }
 
-        // try to find this position at this depth in the perftt}}
+        // try to find this position at this depth in the perftt
         if (PerftTT.TryGetNodes(in board, depth, out ulong nodes)) {
             return nodes;
         }
@@ -76,6 +76,8 @@ internal static class Perft {
         // the loop to save time (early legality checking is wasteful)
         Span<Move> moves = stackalloc Move[128];
         int count = Movegen.GetPseudoLegalMoves(ref board, moves);
+        
+        //ReadOnlySpan<Move> moves = buffer.Slice(0, count);
 
         for (byte i = 0; i < count; i++) {
 
