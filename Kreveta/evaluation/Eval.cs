@@ -221,7 +221,6 @@ internal static class Eval {
     }
 
     private static short BishopEval(ReadOnlySpan<ulong> pieces) {
-
         short eval = 0;
 
         // accidental bishop pairs may appear in endgames - a player can

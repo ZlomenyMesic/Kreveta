@@ -132,7 +132,7 @@ internal static class QSearch {
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
 
-            Board child = board.Clone();
+            var child = board.Clone();
             child.PlayMove(moves[i]);
 
             // value of the piece we just captured

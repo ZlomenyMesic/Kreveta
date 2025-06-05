@@ -25,7 +25,7 @@ internal static class Perft {
         PerftTT.Init();
         
         // we probably could use something more sophisticated
-        // than a stopwatch, but i'm lazy to do so
+        // than a stopwatch, but i'm too lazy to do so
         var sw = Stopwatch.StartNew();
 
         // the recursive search starts here

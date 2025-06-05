@@ -46,15 +46,15 @@ internal static class UCI {
     private const string NKLogFilePath = @".\out.log";
 
     private static Thread? SearchThread;
-    internal static bool ShouldAbortSearch;
-
-    internal static event Action? OnStopCommand;
+    internal static volatile bool ShouldAbortSearch;
     
     private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
         Log($"Couldn't start searching - {context}", LogLevel.ERROR);
     };
-
-    // Initialize reference type static fields inline
+    
+    internal static event Action? OnStopCommand;
+    
+// Initialize reference type static fields inline    
 #pragma warning disable CA1810
 
     static UCI() {
@@ -63,7 +63,7 @@ internal static class UCI {
 
         // the default Console.ReadLine buffer is quite small and cannot
         // handle long move lines, thus we use a larger buffer size
-        Input = new StreamReader(Console.OpenStandardInput(InputBufferSize));
+        Input  = new StreamReader(Console.OpenStandardInput(InputBufferSize));
         Output = Console.Out;
 
         try {

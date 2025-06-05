@@ -31,7 +31,7 @@ internal struct Board {
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
     [Required, DebuggerDisplay("indexed [color * 6 + piece_type]")]
-    internal readonly ulong[] Pieces = new ulong[12];
+    internal ulong[] Pieces = new ulong[12];
 
     // these two bitboards simply represent all occupied
     // squares by a certain color. it turns out to be a little
@@ -307,6 +307,7 @@ internal struct Board {
     }
 
     // checks whether a move is legal from this position
+    [Pure]
     internal bool IsMoveLegal(Move move, Color col) {
         PlayReversibleMove(move, col);
         bool isLegal = !Movegen.IsKingInCheck(this, col);
@@ -317,14 +318,8 @@ internal struct Board {
 
     [Pure]
     internal Board Clone() {
-
-        Board @new = new() {
-            WOccupied      = WOccupied,
-            BOccupied      = BOccupied,
-
-            CastlingRights = CastlingRights,
-            EnPassantSq    = EnPassantSq,
-            Color          = Color,
+        var @new = this with {
+            Pieces = new ulong[12]
         };
 
         Array.Copy(Pieces, @new.Pieces, 12);
@@ -370,21 +365,23 @@ internal struct Board {
             EnPassantSq    = 64,
             CastlingRights = CastlingRights.ALL,
             Color          = Color.WHITE,
+            
+            Pieces = {
+                [0] =  0x00FF000000000000UL, // P
+                [1] =  0x4200000000000000UL, // N
+                [2] =  0x2400000000000000UL, // B
+                [3] =  0x8100000000000000UL, // R
+                [4] =  0x0800000000000000UL, // Q
+                [5] =  0x1000000000000000UL, // K
+                
+                [6] =  0x000000000000FF00UL, // p
+                [7] =  0x0000000000000042UL, // n
+                [8] =  0x0000000000000024UL, // b
+                [9] =  0x0000000000000081UL, // r
+                [10] = 0x0000000000000008UL, // q
+                [11] = 0x0000000000000010UL  // k
+            }
         };
-        
-        board.Pieces[0]  = 0x00FF000000000000UL; // P
-        board.Pieces[1]  = 0x4200000000000000UL; // N
-        board.Pieces[2]  = 0x2400000000000000UL; // B
-        board.Pieces[3]  = 0x8100000000000000UL; // R
-        board.Pieces[4]  = 0x0800000000000000UL; // Q
-        board.Pieces[5]  = 0x1000000000000000UL; // K
-
-        board.Pieces[6]  = 0x000000000000FF00UL; // p
-        board.Pieces[7]  = 0x0000000000000042UL; // n
-        board.Pieces[8]  = 0x0000000000000024UL; // b
-        board.Pieces[9]  = 0x0000000000000081UL; // r
-        board.Pieces[10] = 0x0000000000000008UL; // q
-        board.Pieces[11] = 0x0000000000000010UL; // k
 
         return board;
     }

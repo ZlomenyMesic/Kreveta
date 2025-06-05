@@ -39,7 +39,7 @@ internal static unsafe class PerftTT {
         private readonly ulong _flags;
 
         // both the depth and node count are stored as
-        // a single int64, or else the entry size would
+        // a single uint64, or else the entry size would
         // become a number, which isn't a power of 2.
         internal readonly ulong Nodes {
             get => (_flags & 0xFFFFFFFFFFFFFF00) >> 8;
