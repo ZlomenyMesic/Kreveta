@@ -13,7 +13,6 @@ using System;
 namespace Kreveta.movegen;
 
 internal static unsafe class Movegen {
-
     private const int MoveBufferSize = 110;
 
     // indices used to access the buffers; also act as move counters
@@ -56,10 +55,10 @@ internal static unsafe class Movegen {
     }
 
     private static void GeneratePseudoLegalMoves(in Board board, Color col, Span<Move> buffer) {
-        
-        // all occupied squares and squares occupied by opponent
+        // all occupied squares
         ulong occupied = board.Occupied;
 
+        // squares occupied by opponent
         ulong occupiedOpp = col == Color.WHITE
             ? board.BOccupied
             : board.WOccupied;
@@ -76,15 +75,14 @@ internal static unsafe class Movegen {
         }
 
         // castling when in check is illegal
-        if (IsKingInCheck(board, col))
+        if (IsKingInCheck(in board, col))
             return;
 
-        ulong cast = King.GetCastlingTargets(board, col);
+        ulong cast = King.GetCastlingTargets(in board, col);
         LoopTargets(board, BB.LS1B(board.Pieces[(byte)col * 6 + 5]), cast, PType.NONE, col, buffer);
     }
 
     private static void GeneratePseudoLegalCaptures(in Board board, Color col, Span<Move> buffer) {
-
         ulong occupied = board.Occupied;
 
         ulong occupiedOpp = col == Color.WHITE
@@ -94,6 +92,9 @@ internal static unsafe class Movegen {
         // loop through every piece (same as above)
         // we only generate captures, though
         for (int i = 0; i < 6; i++) {
+            
+            // instead of empty and free, we pass the opponent squares
+            // directly, so we don't waste time on generating quiets
             LoopPiecesBB(board, board.Pieces[(byte)col * 6 + i], (PType)i, col, occupiedOpp, occupied, occupiedOpp, occupiedOpp, buffer, true);
         }
 
@@ -124,7 +125,6 @@ internal static unsafe class Movegen {
             return true;
 
         ulong rookTargets = Rook.GetRookTargets(kingSq, ulong.MaxValue, occupied);
-        
         if ((rookTargets & board.Pieces[colOpp + 3]) != 0UL)
             return true;
 
@@ -158,15 +158,14 @@ internal static unsafe class Movegen {
             ulong sq = 1UL << start;
 
             // generate the moves
-            ulong targets = GetTargets(board, sq, type, col, occupiedOpp, occupied, empty, free, onlyCaptures);
+            ulong targets = GetTargets(sq, type, col, occupiedOpp, occupied, empty, free, board.EnPassantSq, onlyCaptures);
 
             // loop the found moves and add them
-            LoopTargets(board, start, targets, type, col, buffer);
+            LoopTargets(in board, start, targets, type, col, buffer);
         }
     }
 
     private static ulong GetTargets(
-        in Board board,
         ulong sq,
         PType type,
         Color col,
@@ -174,14 +173,15 @@ internal static unsafe class Movegen {
         ulong occupied,
         ulong empty,
         ulong free,
-        bool onlyCaptures) {
+        int   enPassantSq,
+        bool  onlyCaptures) {
 
         // return a bitboard of possible moves depending on the piece type
         return type switch {
 
             PType.PAWN   => (onlyCaptures ? 0UL
                           : Pawn.GetPawnPushTargets(sq, col, empty))
-                          | Pawn.GetPawnCaptureTargets(sq, board.EnPassantSq, col, occupiedOpp),
+                          | Pawn.GetPawnCaptureTargets(sq, enPassantSq, col, occupiedOpp),
 
             PType.KNIGHT => Knight.GetKnightTargets(sq, free),
             PType.BISHOP => Bishop.GetBishopTargets(sq, free, occupied),

@@ -38,17 +38,13 @@ internal static unsafe class MoveOrder {
     // don't use "in" keyword!!! it becomes much slower
     internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
 
-        // we have to check the legality of found moves in case of some bugs
+        // we have to check the legality of found moves in case of bugs.
         // errors may occur anywhere in TT, Killers and History
-
-        
         Span<Move> legal  = stackalloc Move[128];
         int legalCount    = Movegen.GetLegalMoves(ref board, legal);
         
         Span<Move> sorted = stackalloc Move[legalCount];
-
-        int cur = 0;
-        int curCapt = 0;
+        int cur = 0, curCapt = 0;
 
         // the first move is, obviously, the best move saved in the
         // transposition table. there also might not be any
