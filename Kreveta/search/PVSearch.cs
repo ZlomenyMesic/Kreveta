@@ -303,6 +303,7 @@ internal static class PVSearch {
         for (byte i = 0; i < moves.Length; i++) {
             searchedMoves++;
             Move curMove = moves[i];
+            int curDepth = depth - 1;
 
             // create a child board with the move played
             Board child = board.Clone();
@@ -356,17 +357,18 @@ internal static class PVSearch {
                 var result = LateMoveReductions.TryPrune(board, ref child, curMove, ply, depth, col, searchedMoves, improving, window);
 
                 // we failed low - prune this branch completely
-                if (result.Prune) continue;
+                if (result.Prune) 
+                    continue;
 
                 // we failed low with a margin - only reduce, don't prune
                 if (result.Reduce) {
-                    depth -= LateMoveReductions.R;
+                    curDepth -= LateMoveReductions.R;
                 }
             }
 
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
-            var fullSearch = ProbeTT(ref child, ply + 1, depth - 1, window, curMove, isPV);
+            var fullSearch = ProbeTT(ref child, ply + 1, curDepth, window, curMove, isPV);
 
             // we somehow still failed low
             if (col == Color.WHITE

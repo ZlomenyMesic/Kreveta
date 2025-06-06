@@ -254,6 +254,54 @@ internal static class Game {
             else occurences.Add(hash, 1);
         }
     }
+    
+    // sometimes, the user might try to search a position that's either illegal,
+    // or already decided, so we must check for these cases to prevent crashes
+    internal static bool IsTerminalPosition(out string error) {
+
+        // either of the kings is missing (this needs to be evaluated first, because
+        // everything else stands on top of the assumption that both kings are present)
+        byte wKings = (byte)ulong.PopCount(Board.Pieces[(byte)PType.KING]);
+        byte bKings = (byte)ulong.PopCount(Board.Pieces[6 + (byte)PType.KING]);
+        
+        if (wKings != 1) {
+            error = $"{wKings} white kings on the board";
+            return true;
+        }
+        
+        if (bKings != 1) {  
+            error = $"{bKings} black kings on the board";
+            return true;
+        }
+
+        // no legal moves for the engine in this position
+        if (Movegen.GetLegalMoves(ref Board, stackalloc Move[128]) == 0) {
+            error = Movegen.IsKingInCheck(Board, EngineColor)
+            
+                // if we are in check and have no legal moves, that means
+                // we are already checkmated and thus cannot search anything
+                ? "the engine is checkmated"
+                
+                // otherwise we are stalemated and also cannot search
+                : "the engine is stalemated";
+            
+            return true;
+        }
+        
+        // if the opposite side is in check, even though it's our turn to play,
+        // the position is obviously illegal and shouldn't be searched (no bugs
+        // should appear, but this is just in case)
+        //if (Movegen.IsKingInCheck(Game.Board, Game.EngineColor == Color.WHITE
+        //        ? Color.BLACK 
+        //        : Color.WHITE)) {
+            
+        //    CannotStartSearchCallback("the opposite side is in check");
+        //    return true;
+        //}
+        
+        error = string.Empty;
+        return false;
+    }
 }
 
 #pragma warning restore CA1304

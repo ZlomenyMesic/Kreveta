@@ -5,6 +5,7 @@
 
 using System;
 using System.Diagnostics;
+
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.perft;
@@ -29,7 +30,7 @@ internal static class Program {
 
         // although this could be useful, i am lazy
         if (args.Length != 0)
-            UCI.Log("command line arguments are not supported", UCI.LogLevel.WARNING);
+            UCI.Log("Command line arguments are not supported", UCI.LogLevel.WARNING);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
@@ -46,7 +47,7 @@ internal static class Program {
             ((Action)TT.Clear + PerftTT.Clear + PawnCorrectionHistory.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear)();
         
 #if DEBUG
-        UCI.Log("manually allocated memory freed properly");
+            UCI.Log("Manually allocated memory freed properly");
 #endif
         }
     }
