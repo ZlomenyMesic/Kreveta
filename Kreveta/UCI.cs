@@ -6,44 +6,30 @@
 // Remove unnecessary suppression
 #pragma warning disable IDE0079
 
-using Kreveta.openingbook;
-using Kreveta.search;
-using Kreveta.perft;
-using Kreveta.consts;
+// Initialize reference type static fields inline    
+#pragma warning disable CA1810
 
 using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Globalization;
-
 using BenchmarkDotNet.Running;
-using Kreveta.movegen;
-using NeoKolors.Console;
+
+using Kreveta.openingbook;
+using Kreveta.search;
+using Kreveta.perft;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
 
-internal static class UCI {
-    internal enum LogLevel : byte {
-        INFO, WARNING, ERROR, RAW
-    }
-
-    [ReadOnly(true)]
+internal static partial class UCI {
     private const int InputBufferSize = 4096;
-
-    [ReadOnly(true)]
-    private static readonly TextReader Input;
-
-    [ReadOnly(true)]
+    
+    private  static readonly TextReader Input;
     internal static readonly TextWriter Output;
-
-    private const string NKLogFilePath = @".\out.log";
 
     private static Thread? SearchThread;
     internal static volatile bool ShouldAbortSearch;
@@ -53,30 +39,15 @@ internal static class UCI {
     };
     
     internal static event Action? OnStopCommand;
-    
-// Initialize reference type static fields inline    
-#pragma warning disable CA1810
 
     static UCI() {
-
-#pragma warning restore CA1810
 
         // the default Console.ReadLine buffer is quite small and cannot
         // handle long move lines, thus we use a larger buffer size
         Input  = new StreamReader(Console.OpenStandardInput(InputBufferSize));
         Output = Console.Out;
 
-        try {
-            var nkOutput = new StreamWriter(NKLogFilePath);
-
-            NKDebug.Logger.Output         = nkOutput;
-            NKDebug.Logger.SimpleMessages = true;
-        }
-
-        // we are catching a "general exception type", because we have
-        // zero idea, which type of exception NeoKolors might throw.
-        catch (Exception ex)
-            when (LogException("NKLogger initialization failed", ex)) { }
+        InitNK();
         
         // the search is a separate thread, which we first
         // synchronize with this one and then terminate
@@ -208,8 +179,10 @@ internal static class UCI {
         OnStopCommand?.Invoke();
 
         // position cannot be searched (mate or stalemate)
-        if (CheckTerminalPosition())
+        if (Game.IsTerminalPosition(out string error)) {
+            CannotStartSearchCallback.Invoke(error);
             return;
+        }
 
         if (tokens.Length == 2) {
             if (!int.TryParse(tokens[1], out int depth))
@@ -243,8 +216,10 @@ internal static class UCI {
         OnStopCommand?.Invoke();
 
         // position cannot be searched (mate or stalemate)
-        if (CheckTerminalPosition())
+        if (Game.IsTerminalPosition(out string error)) {
+            CannotStartSearchCallback.Invoke(error);
             return;
+        }
 
         // this sets the time budget
         TimeMan.ProcessTimeTokens(tokens);
@@ -289,126 +264,7 @@ internal static class UCI {
         };
         SearchThread.Start();
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Log(string msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
-        if (logIntoFile)
-            Task.Run(() => LogIntoFile(msg, level));
-
-        Output.WriteLine(msg);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    // ReSharper disable once MemberCanBePrivate.Global
-    internal static bool LogException(string context, Exception ex, bool logIntoFile = true) {
-        Log($"{context}: {ex.Message}", LogLevel.ERROR, logIntoFile);
-        return true;
-    }
-
-    internal static void LogStats(bool forcePrint, params ReadOnlySpan<(string Name, object Data)> stats) {
-        const string STATS_HEADER = "---STATS-------------------------------";
-        const string STATS_AFTER  = "---------------------------------------";
-        
-        // this sadly cannot be const in case we modify the strings above
-        int dataOffset = STATS_HEADER.Length - 16;
-
-        // printing statistics can be toggled via the PrintStats option.
-        // printing can, however, be forced when we are, for example,
-        // printing perft results (or else perft would be meaningless)
-        if (!Options.PrintStats && !forcePrint)
-            return;
-
-        Log(STATS_HEADER);
-
-        foreach (var stat in stats) {
-            string  name = stat.Name + new string(' ', dataOffset - stat.Name.Length);
-            string? data = stat.Data.ToString();
-
-            if (data is null)
-                continue;
-
-            // number stats are formatted in a nice way to separate number groups with ','
-            if (stat.Data is long or ulong or int) {
-                var format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();
-                format.NumberGroupSeparator = ",";
-
-                data = Convert.ToInt64(stat.Data, null).ToString("N0", format);
-            }
-
-            Log($"{name}{data}");
-        }
-
-        Log(STATS_AFTER);
-    }
-
-    // combining sync and async code is generally a bad idea, but we must avoid slowing
-    // down the code if something takes too long in NK (although it's probably unlikely)
-    private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
-        if (!Options.NKLogs)
-            return;
-
-        // using KryKom's NeoKolors library for fancy logs
-        // this option can be toggled via the FancyLogs option
-        try {
-
-            // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
-            switch (level) {
-                case LogLevel.INFO:    await Task.Run(() => NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
-                case LogLevel.WARNING: await Task.Run(() => NKDebug.Logger.Warn(msg)).ConfigureAwait(false);  break;
-                case LogLevel.ERROR:   await Task.Run(() => NKDebug.Logger.Error(msg)).ConfigureAwait(false); break;
-
-                default:               await Task.Run(() => NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
-            }
-        } catch (Exception ex)
-              when (LogException("NKLogger failed when logging into file", ex, false)) { }
-    }
-    
-    // sometimes, the user might try to search a position that's either illegal,
-    // or already decided, so we must check for these cases to prevent crashes
-    private static bool CheckTerminalPosition() {
-
-        // either of the kings is missing (this needs to be evaluated first, because
-        // everything else stands on top of the assumption that both kings are present)
-        byte wKings = (byte)ulong.PopCount(Game.Board.Pieces[(byte)PType.KING]);
-        byte bKings = (byte)ulong.PopCount(Game.Board.Pieces[6 + (byte)PType.KING]);
-        
-        if (wKings != 1) {
-            CannotStartSearchCallback($"{wKings} white kings on the board");
-            return true;
-        }
-        
-        if (bKings != 1) {
-            CannotStartSearchCallback($"{bKings} black kings on the board");
-            return true;
-        }
-
-        // no legal moves for the engine in this position
-        if (Movegen.GetLegalMoves(ref Game.Board, stackalloc Move[128]) == 0) {
-            CannotStartSearchCallback(Movegen.IsKingInCheck(Game.Board, Game.EngineColor)
-            
-                // if we are in check and have no legal moves, that means
-                // we are already checkmated and thus cannot search anything
-                ? "the engine is checkmated"
-                
-                // otherwise we are stalemated and also cannot search
-                : "the engine is stalemated");
-            
-            return true;
-        }
-        
-        // if the opposite side is in check, even though it's our turn to play,
-        // the position is obviously illegal and shouldn't be searched (no bugs
-        // should appear, but this is just in case)
-        //if (Movegen.IsKingInCheck(Game.Board, Game.EngineColor == Color.WHITE
-        //        ? Color.BLACK 
-        //        : Color.WHITE)) {
-            
-        //    CannotStartSearchCallback("the opposite side is in check");
-        //    return true;
-        //}
-            
-        return false;
-    }
 }
 
+#pragma warning restore CA1810
 #pragma warning restore IDE0079
