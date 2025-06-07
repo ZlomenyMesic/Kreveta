@@ -37,8 +37,6 @@ internal static partial class UCI {
     private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
         Log($"Couldn't start searching - {context}", LogLevel.ERROR);
     };
-    
-    internal static event Action? OnStopCommand;
 
     static UCI() {
 
@@ -48,36 +46,13 @@ internal static partial class UCI {
         Output = Console.Out;
 
         InitNK();
-        
-        // the search is a separate thread, which we first
-        // synchronize with this one and then terminate
-        OnStopCommand += delegate {
-
-            // this also checks for null values
-            if (SearchThread is { IsAlive: false })
-                return;
-
-            ShouldAbortSearch = true;
-
-            // synchronize the threads
-            SearchThread?.Join();
-            SearchThread = null;
-
-            ShouldAbortSearch = false;
-        };
-        
-        // when we abort a search, we also want to clear the hash tables
-        OnStopCommand += TT.Clear;
-        OnStopCommand += PerftTT.Clear;
     }
 
     internal static void InputLoop() {
         while (true) {
-
             // since we use a custom StreamReader, this should be able to
             // read much longer commands than the usual Console.ReadLine
-            string input = Input.ReadLine()
-                ?? string.Empty;
+            string input = Input.ReadLine() ?? string.Empty;
 
             // to prevent unnecessary bugs
             if (string.IsNullOrWhiteSpace(input))
@@ -113,17 +88,17 @@ internal static partial class UCI {
                 
                 // when we receive "isready", we shall respond with "readyok".
                 // this signals that we are ready to receive further commands
-                case "isready":  Log("readyok");          break;
-                case "uci":      CmdUCI();                break;
-                case "position": CmdPosition(tokens);     break;
-                case "go":       CmdGo(tokens);           break;
-                case "perft":    CmdPerft(tokens);        break;
+                case "isready":  Log("readyok");      break;
+                case "uci":      CmdUCI();            break;
+                case "position": CmdPosition(tokens); break;
+                case "go":       CmdGo(tokens);       break;
+                case "perft":    CmdPerft(tokens);    break;
                 
                 // print the currently set position
-                case "d":        Game.Board.Print();      break;
+                case "d":        Game.Board.Print();  break;
                 
                 // stop any current searches
-                case "stop":     OnStopCommand?.Invoke(); break;
+                case "stop":     StopSearch();        break;
                 
                 // run current benchmarks
                 case "bench":
@@ -174,9 +149,8 @@ internal static partial class UCI {
     // depth legally achievable from a position. this is important
     // to measure the speed and correctness of movegen
     private static void CmdPerft(ReadOnlySpan<string> tokens) {
-
         // first stop the potential already running search
-        OnStopCommand?.Invoke();
+        StopSearch();
 
         // position cannot be searched (mate or stalemate)
         if (Game.IsTerminalPosition(out string error)) {
@@ -210,10 +184,9 @@ internal static partial class UCI {
     }
 
     private static void CmdGo(ReadOnlySpan<string> tokens) {
-
         // abort the currently running search first in order to
         // run a new one, since there is a single search thread.
-        OnStopCommand?.Invoke();
+        StopSearch();
 
         // position cannot be searched (mate or stalemate)
         if (Game.IsTerminalPosition(out string error)) {
@@ -263,6 +236,21 @@ internal static partial class UCI {
             Priority = ThreadPriority.Highest
         };
         SearchThread.Start();
+    }
+
+    private static void StopSearch() {
+        // this also checks for null values
+        if (SearchThread is { IsAlive: false })
+            return;
+
+        ShouldAbortSearch = true;
+
+        // the search is a separate thread, which we first
+        // synchronize with this one and then terminate
+        SearchThread?.Join();
+        SearchThread = null;
+
+        ShouldAbortSearch = false;
     }
 }
 
