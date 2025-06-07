@@ -15,8 +15,11 @@
 // use ToUpperInvariant
 #pragma warning disable CA1308
 
+// The switch expression does not handle some values
+#pragma warning disable CS8524
+
+
 using System;
-using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -38,27 +41,10 @@ internal static class Options {
         CHECK, SPIN, BUTTON, STRING
     }
 
-    // since all options are stored in an array, we must
-    // define an interface from which the generic option
-    // is inherited
-    private interface IOption {
-
-        // option name and type are independent
-        // of the rest of the generic option, so
-        // they can be defined here
-        internal string Name { get; }
-        internal OpType Type { get; }
-
-        // a separate method must be used to set
-        // the value, because the value type is
-        // generic, which this interface isn't
-        internal void SetValue(object value);
-    }
-
     [StructLayout(LayoutKind.Sequential)]
-    private record struct Option<T> : IOption {
-        public string Name { get; init; }
-        public OpType Type { get; init; }
+    private record Option {
+        public required string Name { get; init; }
+        public required OpType Type { get; init; }
 
         // min and max values are only used with the
         // "spin" option type
@@ -68,25 +54,17 @@ internal static class Options {
         // default value is displayed when the "uci"
         // command is received. currect value of the
         // option is stored in Value
-        internal required T DefaultValue;
-        internal required T Value;
-
-        // no exceptions should ever be thrown
-        void IOption.SetValue(object value) {
-            if (value is not T casted)
-                throw new InvalidCastException();
-
-            Value = casted;
-        }
+        internal required object DefaultValue;
+        internal required object Value;
     }
 
-    private static readonly IOption[] options = [
+    private static readonly Option[] options = [
 
         // should the engine use its own opening book?
         // this usually gets turned off by the GUI, but
         // it's great to have a custom book for debugging
         // when playing variety is required
-        new Option<bool> {
+        new() {
             Name         = nameof(OwnBook),
             Type         = OpType.CHECK,
 
@@ -98,24 +76,24 @@ internal static class Options {
         // sets the size of the transposition table. other
         // tables, such as pawn corrections, or the perfttt,
         // are not modified using this option
-        new Option<long> {
+        new() {
             Name         = nameof(Hash),
             Type         = OpType.SPIN,
 
             // a transposition table with no size would
             // probably break the engine, so there's always
             // going to be at least a small one
-            MinValue     = 1,
-            MaxValue     = 1024,
+            MinValue     = 1L,
+            MaxValue     = 1024L,
 
-            DefaultValue = 32,
-            Value        = 32
+            DefaultValue = 32L,
+            Value        = 32L
         },
 
         // logging into a file using the NKLogger by KryKom.
         // the engine may log its commands and responses into
         // a custom log file
-        new Option<bool> {
+        new() {
             Name         = nameof(NKLogs),
             Type         = OpType.CHECK,
 
@@ -124,7 +102,7 @@ internal static class Options {
         },
         
         // print fancy statistics after each finished search
-        new Option<bool> {
+        new() {
             Name         = nameof(PrintStats),
             Type         = OpType.CHECK,
 
@@ -137,70 +115,58 @@ internal static class Options {
     // the name of the actual option, which isn't great.
     // non-custom options (OwnBook and Hash) need to keep
     // their names in order to be used properly by the GUI
-    [ReadOnly(true)]
     internal static bool OwnBook
-        => ((Option<bool>)options[0]).Value;
+        => (bool)options[0].Value;
 
-    [ReadOnly(true)]
     internal static long Hash
-        => ((Option<long>)options[1]).Value;
-
-    [ReadOnly(true)]
+        => (long)options[1].Value;
+    
     internal static bool NKLogs
-        => ((Option<bool>)options[2]).Value;
-
-    [ReadOnly(true)]
+        => (bool)options[2].Value;
+    
     internal static bool PrintStats
-        => ((Option<bool>)options[3]).Value;
+        => (bool)options[3].Value;
 
-    // we could just rename the items in the enum to be lowercase, but
-    // that doesn't look good at all, so we use an extension method instead
+    // used to print the option types when 'uci' is entered
     private static string GetName(this OpType type)
         => type switch {
             OpType.CHECK  => "check",
             OpType.SPIN   => "spin",
             OpType.BUTTON => "button",
             OpType.STRING => "string",
-            _ => string.Empty
         };
-
+    
     // after receiving the "uci" command, the engine must
     // also list all of its modifiable options, so the GUI
     // knows the ones it can use
     internal static void Print() {
-
         // when displaying options, we must provide the name,
         // option type, default value and possibly the range
         // of values the option can hold
-
-        foreach (IOption opt in options) {
+        foreach (var opt in options) {
             StringBuilder sb = new();
 
             // append the option name and type
             sb.Append($"option name {opt.Name}");
             sb.Append($" type {opt.Type.GetName()}");
-
-            // we must always cast the ioption to the correct generic
-            // option type. this would usually throw exceptions, but
-            // we are absolutely certain about the types
+            
             switch (opt.Type) {
-
                 case OpType.CHECK:
 
                     // boolean converts to "True" or "False", so we
                     // must also convert it to the lowercase variant
-                    sb.Append($" default {((Option<bool>)opt).DefaultValue.ToString().ToLowerInvariant()}");
+                    sb.Append($" default {((bool)opt.DefaultValue).ToString().ToLowerInvariant()}");
                     break;
 
                 case OpType.STRING:
-                    sb.Append($" default {((Option<string>)opt).DefaultValue}");
+                    sb.Append($" default {opt.DefaultValue}");
                     break;
 
                 case OpType.SPIN:
-                    var optCast = (Option<long>)opt;
+                    var defaultValue = (long)opt.DefaultValue;
 
                     // spin option type must provide the range of values it can hold
-                    sb.Append($" default {optCast.DefaultValue} min {optCast.MinValue} max {optCast.MaxValue}");
+                    sb.Append($" default {defaultValue} min {opt.MinValue} max {opt.MaxValue}");
                     break;
             }
 
@@ -211,18 +177,21 @@ internal static class Options {
     // this is called when the engine receives the "setoption"
     // command, which is used to modify the value of an option
     internal static void SetOption(ReadOnlySpan<string> tokens) {
+        
         // the syntax must be "setoption name <NAME> value <VALUE>"
         if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;
         }
-        
-        var name = tokens[2];
-        
-        var opt = (from option in options
-            where option.Name == name
-            select option).FirstOrDefault();
 
-        if (opt is null) {
+        var name = tokens[2];
+        var found = from option in options
+            where option.Name == name select option;
+        
+        Option opt;
+        try {
+            opt = found.First();
+        } 
+        catch (InvalidOperationException) {
             goto unsupported_opt;
         }
         
@@ -234,7 +203,7 @@ internal static class Options {
 
                     // boolean values are either "True" or "False", but we store
                     // "true" and "false", so we simply do it this way
-                    opt.SetValue(tokens[4] == "true");
+                    opt.Value = tokens[4] == "true";
                     return;
 
                 }
@@ -248,18 +217,15 @@ internal static class Options {
                     if (!long.TryParse(tokens[4], out long val))
                         goto invalid_syntax;
 
-                    // cast the ioption to option<long>
-                    var optCast = (Option<long>)opt;
-
                     // get the minimum and maximum values
-                    long minVal = optCast.MinValue;
-                    long maxVal = optCast.MaxValue;
+                    long minVal = opt.MinValue;
+                    long maxVal = opt.MaxValue;
 
                     // check whether the new value falls into the range
                     if (val < minVal || val > maxVal) 
                         goto val_out_of_range;
 
-                    opt.SetValue(val);
+                    opt.Value = val;
                     return;
 
                 }
@@ -275,9 +241,8 @@ internal static class Options {
                     for (byte j = 3; j < tokens.Length; j++)
                         sb.Append(tokens[j]);
 
-                    opt.SetValue(sb.ToString().Trim());
+                    opt.Value = sb.ToString().Trim();
                     return;
-
                 }
                 goto invalid_syntax;
             }
@@ -300,5 +265,6 @@ internal static class Options {
 #pragma warning restore CA1305
 #pragma warning restore CA1304
 #pragma warning restore CA1308
+#pragma warning disable CS8524
 
 #pragma warning restore IDE0079
