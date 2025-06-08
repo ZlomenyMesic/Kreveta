@@ -117,14 +117,13 @@ internal static class PVSearch {
         Board board = Game.Board.Clone();
 
         // loop all pv-nodes
-        Parallel.For(0, pv.Length, i => {
-
+        for (int i = 0; i < pv.Length; i++) {
             // store the pv-node
             TT.Store(board, (sbyte)--depth, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
             board.PlayMove(pv[i]);
-        });
+        }
     }
 
     // during the search, first check the transposition table for the score, if it's not there
