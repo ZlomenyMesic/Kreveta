@@ -243,7 +243,6 @@ internal struct Board {
     }
 
     internal void PlayReversibleMove(Move move, Color col) {
-
         // start & end squares
         ulong start = 1UL << move.Start;
         ulong end   = 1UL << move.End;
