@@ -8,7 +8,6 @@ using Kreveta.movegen;
 using Kreveta.search;
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.moveorder;
@@ -16,7 +15,7 @@ namespace Kreveta.moveorder;
 // to achieve the best results from PVS, move ordering is
 // essential. searching better moves earlier allows much
 // more space for pruning. although we cannot really order
-// the moves reliably unless we perform the actualy search,
+// the moves reliably unless we perform the actual search,
 // we can at least make a rough guess - captures and moves
 // that proved to be helpful in similar positions go first
 internal static unsafe class MoveOrder {
@@ -38,101 +37,97 @@ internal static unsafe class MoveOrder {
     // don't use "in" keyword!!! it becomes much slower
     internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
 
-        // we have to check the legality of found moves in case of bugs.
-        // errors may occur anywhere in TT, Killers and History
         Span<Move> legal  = stackalloc Move[128];
         int legalCount    = Movegen.GetLegalMoves(ref board, legal);
         
         Span<Move> sorted = stackalloc Move[legalCount];
+        Span<bool> used   = stackalloc bool[legalCount]; // track which legal moves are already added
         int cur = 0, curCapt = 0;
 
-        // the first move is, obviously, the best move saved in the
-        // transposition table. there also might not be any
-        if (TT.TryGetBestMove(board, out var ttMove) && ttMove != default && legal.Contains(ttMove))
-            sorted[cur++] = ttMove;
-
-        // after that go all captures, sorted by MVV-LVA, which
-        // stands for Most Valuable Victim - Lest Valuable Aggressor.
-        // see the actual MVV_LVA class for more information
-        for (int i = 0; i < legalCount; i++) {
-
-            // only add captures
-            if (!sorted.Contains(legal[i])
-                && legal[i].Capture != PType.NONE) {
-
-                CaptureBuffer[curCapt++] = legal[i];
+        // 1. TT best move first
+        if (TT.TryGetBestMove(board, out var ttMove) && ttMove != default) {
+            for (int i = 0; i < legalCount; i++) {
+                if (legal[i] == ttMove) {
+                    sorted[cur++] = ttMove;
+                    used[i] = true;
+                    break;
+                }
             }
         }
 
-        // get the captures ordered and add them to the list
+        // 2. Captures ordered by MVV-LVA
+        for (int i = 0; i < legalCount; i++) {
+            if (!used[i] && legal[i].Capture != PType.NONE) {
+                CaptureBuffer[curCapt++] = legal[i];
+                used[i] = true;
+            }
+        }
+
         Span<Move> mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
         for (int i = 0; i < mvvlva.Length; i++) {
             sorted[cur++] = mvvlva[i];
         }
 
-        // next go killers, which are quiet moves, that caused
-        // a beta cutoff somewhere in the past in or in a different
-        // position. we only save a few per depth, though
+        // 3. Killer moves
         Span<Move> killers = Killers.GetCluster(depth);
-        for (int i = 0; i < killers.Length; i++) {
+        for (int k = 0; k < killers.Length; k++) {
+            var killer = killers[k];
+            if (killer == default) continue;
 
-            // since killer moves are stored independently of
-            // the position, we have to check a couple of things
-            if (killers[i] != default && legal.Contains(killers[i]) && !sorted.Contains(killers[i])) {
-                sorted[cur++] = killers[i];
+            for (int i = 0; i < legalCount; i++) {
+                if (!used[i] && legal[i] == killer) {
+                    sorted[cur++] = killer;
+                    used[i] = true;
+                    break;
+                }
             }
         }
 
+        // 4. Counter move
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.Color, previous);
-            if (counter != default && legal.Contains(counter) && !sorted.Contains(counter)) {
-                sorted[cur++] = counter;
+            if (counter != default) {
+                for (int i = 0; i < legalCount; i++) {
+                    if (!used[i] && legal[i] == counter) {
+                        sorted[cur++] = counter;
+                        used[i] = true;
+                        break;
+                    }
+                }
             }
         }
 
-        // last and probably least are the remaining quiet moves,
-        // which are sorted by their history values. see History
-        //List<(Move, int)> quiets = [];
+        // 5. Remaining quiets ordered by history
+        Span<(Move move, int score)> quiets = stackalloc (Move, int)[legalCount];
+        int quietCount = 0;
 
         for (int i = 0; i < legalCount; i++) {
-            if (sorted.Contains(legal[i]))
-                continue;
-
-            sorted[cur++] = legal[i];
-
-            // if the move has no history, this is
-            // set to zero, which is also fine
-            //quiets.Add((legal[i], QuietHistory.GetRep(board, legal[i])));
+            if (!used[i]) {
+                int score = QuietHistory.GetRep(board, legal[i]);
+                quiets[quietCount++] = (legal[i], score);
+                used[i] = true;
+            }
         }
 
-        // sort/order them
-        //OrderQuiets(quiets);
+        InsertionSort(quiets, quietCount);
 
-        // and add them to the final list
-        //for (int i = 0; i < quiets.Count; i++)
-        //    sorted[cur++] = quiets[i].Item1;
+        for (int i = 0; i < quietCount; i++) {
+            sorted[cur++] = quiets[i].move;
+        }
         
         return new Span<Move>(sorted.ToArray());
     }
 
-    // this is just a wrapper for a sorting loop, didn't
-    // want to nest and create a mess in the ordering function
-    private static void OrderQuiets(List<(Move, int)> quiets) {
-
-        // very primitive sorting algorithm for quiet moves,
-        // sorts by their history value
-        bool sortsMade = true;
-        while (sortsMade) {
-            sortsMade = false;
-
-            for (int i = 1; i < quiets.Count; i++) {
-                if (quiets[i].Item2 > quiets[i - 1].Item2) {
-
-                    // switch places
-                    (quiets[i], quiets[i - 1]) = (quiets[i - 1], quiets[i]);
-                    sortsMade = true;
-                }
+    // insertion sort (descending by score)
+    private static void InsertionSort(Span<(Move move, int score)> quiets, int count) {
+        for (int i = 1; i < count; i++) {
+            var key = quiets[i];
+            int j = i - 1;
+            while (j >= 0 && quiets[j].score < key.score) {
+                quiets[j + 1] = quiets[j];
+                j--;
             }
+            quiets[j + 1] = key;
         }
     }
 }
