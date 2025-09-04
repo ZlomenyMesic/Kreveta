@@ -9,7 +9,6 @@ using Kreveta.movegen;
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming

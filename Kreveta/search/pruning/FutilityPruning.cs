@@ -6,9 +6,6 @@
 using Kreveta.consts;
 using Kreveta.moveorder;
 
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.pruning;
@@ -21,15 +18,16 @@ namespace Kreveta.search.pruning;
 internal static class FutilityPruning {
 
     // minimum ply and maximum depth to allow futility pruning
-    internal const int MinPly   = 3;
+    internal const int MinPly   = 4;
     internal const int MaxDepth = 5;
 
-    // magical constant - DON'T MODIFY
+    // magical constants - DON'T MODIFY
     // higher margin => fewer reductions
     private const int FutilityMarginBase       = 66;
     private const int FutilityMarginMultiplier = 102;
 
-    // if improving we make the margin smaller
+    // if improving we make the margin smaller (this seems a bit counter-intuitive,
+    // as we are pruning improving positions more, but it works)
     private const int ImprovingMargin          = -35;
     private const int NotImprovingMargin       = 23; 
 

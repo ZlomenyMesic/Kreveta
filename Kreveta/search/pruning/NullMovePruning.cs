@@ -6,9 +6,7 @@
 using Kreveta.consts;
 
 using System;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
 
@@ -17,7 +15,7 @@ namespace Kreveta.search.pruning;
 // NULL MOVE PRUNING:
 // we assume that in every position there is at least one move that can
 // improve it, so we try playing a "null-move" (essentially no move at
-// all) and we then search this null child at a reduced depth (reduction R).
+// all), and we then search this null child at a reduced depth (reduction R).
 // if we still fail high despite skipping a move, we can expect that playing
 // a move would also lead to a fail high, so we can prune this branch.
 //
