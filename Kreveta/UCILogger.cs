@@ -112,6 +112,6 @@ internal static partial class UCI {
                 default:               await Task.Run(() => NK::NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
             }
         } catch (Exception ex)
-              when (LogException("NKLogger failed when logging into file", ex, false)) { }
+              when (LogException("NKLogger failed to log into file", ex, false)) { }
     }
 }

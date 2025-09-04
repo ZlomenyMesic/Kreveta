@@ -7,8 +7,6 @@ using Kreveta.movegen;
 
 using System;
 using System.Diagnostics;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 
 namespace Kreveta.perft;
 

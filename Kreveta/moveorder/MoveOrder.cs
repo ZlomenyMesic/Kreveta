@@ -9,16 +9,16 @@ using Kreveta.search;
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.moveorder;
 
-// to achieve the best results from PVS, good move ordering
-// is essential. searching the better moves first creates much
-// more space for pruning. we of course cannot know which
-// moves are the best unless we do the search, but we can at
-// least make a rough guess.
+// to achieve the best results from PVS, move ordering is
+// essential. searching better moves earlier allows much
+// more space for pruning. although we cannot really order
+// the moves reliably unless we perform the actualy search,
+// we can at least make a rough guess - captures and moves
+// that proved to be helpful in similar positions go first
 internal static unsafe class MoveOrder {
 
     // we hopefully shouldn't find more captures in a position
