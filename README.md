@@ -6,7 +6,7 @@ Development started on **4/3/2025**.
 
 ---
 
-## 📦 Features at a Glance
+## Features
 
 - ✅ **UCI Protocol Support**
 - ⚡ **High-speed move generation using Magic Bitboards**
