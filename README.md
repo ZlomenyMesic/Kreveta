@@ -22,7 +22,7 @@ Rough estimates from playtesting using Cutechess-cli:
 | Opponent        | Time Control* | Games  | ELO Estimate |
 |-----------------|---------------|--------|--------------|
 | Stockfish 17    | 40/100        | ~450   | 2382         |
-| Stockfish 17    | 40/120        | ~1200  | 2362         |
+| Stockfish 17    | 40/120        | ~1400  | 2367         |
 | ...             | ...           | ...    | ...          |
 
 *TC is in standard format moves/time with no per-move time increments. The clock resets when the specified number of moves is reached.
