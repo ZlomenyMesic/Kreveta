@@ -112,7 +112,7 @@ Used to set up a chess position, which can be later searched. The starting posit
 
 ### `go [depth n | movetime t | wtime x btime y ...]`
 
-Tells the engine it should start searching the current position. None of the arguments are mandatory, and if none are provided, the default time budget is used. `wtime` indicates white's time left, `btime` is black's time left, `winc` tells white's time increment after a move and `binc` is black's time increment. The search can also be run as `go movetime <x>`, which sets exactly the time the search should take. `go depth <x>` runs a search with unlimited time, but a strictly set maximum search depth. `go infinite` starts a neverending search. All time arguments shall be passed in milliseconds.
+Tells the engine it should start searching the current position. None of the arguments are mandatory, and if none are provided, the default time budget is used. `wtime` indicates white's time left, `btime` is black's time left, `winc` tells white's time increment after each move and `binc` is black's time increment. The search can also be run as `go movetime <x>`, which defines the maximum time the engine should spend on the search. `go depth <x>` runs a search with unlimited time, but a strictly set maximum search depth. `go infinite` starts a neverending search. All time arguments shall be passed in milliseconds.
 
 ### `stop`
 
@@ -124,7 +124,7 @@ Changes engine configuration. Available options are OwnBook, Hash, NKLogs and Pr
 
 ### `quit`
 
-Shuts down the engine immediately.
+Exits the program.
 
 ### `perft` (non-UCI command)
 
