@@ -15,14 +15,14 @@ Development started on **4/3/2025**.
 
 ### ELO Ratings
 
-No official ratings yet.
+No official ratings yet - waiting for CCRL to respond.
 
 Rough estimates from playtesting using Cutechess-cli:
 
 | Opponent        | Time Control* | Games  | ELO Estimate |
 |-----------------|---------------|--------|--------------|
 | Stockfish 17    | 40/100        | ~450   | 2382         |
-| Stockfish 17    | 40/120        | ~2000  | 2366         |
+| Stockfish 17    | 40/120        | ~2000  | 2365         |
 | ...             | ...           | ...    | ...          |
 
 *TC is in standard format moves/time with no per-move time increments. The clock resets when the specified number of moves is reached.
@@ -32,6 +32,9 @@ Rough estimates from playtesting using Cutechess-cli:
 ## 🔬 Benchmarks
 
 ### Regular search (initial position)
+
+All values were measured on a 12th Gen Intel(R) Core(TM) i7-12700H (2.30 GHz) processor.
+The actual computational speed on your device may vary significantly.
 
 | Depth | Sel. Depth* | Time (s) | Nodes Searched | NPS       | Best Move |
 |-------|-------------|----------|----------------|-----------|-----------|
@@ -43,6 +46,9 @@ Rough estimates from playtesting using Cutechess-cli:
 *Depth is the full depth. Selective depth is the actual achieved depth via quiescence search.
 
 ### Perft results (initial position)
+Incorrect node counts start appearing beyond depth 7. These errors are likely being caused
+by PerftTT hash collisions. In order to ensure proper counting, make sure PerftTT is disabled
+(this must be done directly in the source code.)
 
 | Depth | Nodes           | Time (s)     | NPS           |
 |-------|-----------------|--------------|---------------|
