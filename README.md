@@ -21,8 +21,8 @@ Rough estimates from playtesting using Cutechess-cli:
 
 | Opponent        | Time Control* | Games  | ELO Estimate |
 |-----------------|---------------|--------|--------------|
-| Stockfish 17    | 40/100        | ~450   | 2382         |
-| Stockfish 17    | 40/120        | ~2000  | 2365         |
+| Stockfish 17    | 40/100        | ~500   | 2382         |
+| Stockfish 17    | 40/120        | ~3400  | 2374         |
 | ...             | ...           | ...    | ...          |
 
 *TC is in standard format moves/time with no per-move time increments. The clock resets when the specified number of moves is reached.
@@ -72,7 +72,7 @@ by PerftTT hash collisions. In order to ensure proper counting, make sure PerftT
 
 ### Search Features
 
-- Pricipal Variation Search with Alpha-Beta Pruning
+- Principal Variation Search with Alpha-Beta Pruning
 - Quiescence search for leaf nodes
 - Null Move Pruning (NMP)
 - Late Move Pruning (LMP) and Reductions (LMR) relative to history
