@@ -104,6 +104,10 @@ internal static partial class UCI {
                 case "bench":
                     BenchmarkRunner.Run<Benchmarks>();
                     break;
+                
+                case "help":
+                    Log("Kreveta uses the UCI protocol to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta", LogLevel.INFO);
+                    break;
 
                 default:
                     Log($"Unknown command: {tokens[0]}. Type 'help' for more information", LogLevel.ERROR);

@@ -41,22 +41,10 @@ namespace Kreveta;
 [MemoryDiagnoser]
 [RankColumn, Orderer(BenchmarkDotNet.Order.SummaryOrderPolicy.FastestToSlowest)]
 public class Benchmarks {
-    private Board _position;
-    private Move  _move;
-
-    private Move[] _legal;
     
     [GlobalSetup]
     public void Setup() {
-        _position = Board.CreateStartpos();
-        _move     = new Move(53, 37, PType.PAWN, PType.NONE, PType.NONE);
-        
-        Span<Move> buffer = stackalloc Move[128];
-        int c = Movegen.GetLegalMoves(ref _position, buffer);
-        
-        _legal = new Move[c];
-        for (int i = 0; i < c; i++)
-            _legal[i] = buffer[i];
+
     }
 
     /*[Benchmark]
