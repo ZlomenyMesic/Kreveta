@@ -127,7 +127,7 @@ internal static class OpeningBook {
         "e2e4 c7c5 g1f3 b8c6 f1b5 e7e6",
         
         "e2e4 c7c5 b1c3 b8c6 g1f3 g7g6",
-        "e2e4 c7c5 b1c3 g7g6 g7g6 d2d4",
+        "e2e4 c7c5 b1c3 g7g6 d2d4 c5d4",
         "e2e4 c7c5 b1c3 e7e6 g1f3 b8c6",
         
         // french defense

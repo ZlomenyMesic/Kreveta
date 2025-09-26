@@ -110,7 +110,7 @@ internal static class QSearch {
             // mate scores
             //
             // we might be in stalemate, though.
-            // (there's nothing we can do...)
+            // (there's nothing we can do... TUTUTUTU TUTUTU)
             if (onlyCaptures) {
                 return standPat;
             }
@@ -158,7 +158,7 @@ internal static class QSearch {
             if (window.TryCutoff(score, col)) {
                 
                 // we want to store this in the tt not to retrieve the score,
-                // but to retrieve the best move for move ordering
+                // but to retrieve the best move for better move ordering
                 if (ply <= PVSearch.CurDepth + 2)
                     TT.Store(board, -1, ply, window, score, moves[i]);
 

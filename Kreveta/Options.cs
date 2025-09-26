@@ -42,7 +42,7 @@ internal static class Options {
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private record Option {
+    private sealed record Option {
         public required string Name { get; init; }
         public required OpType Type { get; init; }
 

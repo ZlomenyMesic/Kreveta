@@ -37,11 +37,11 @@ internal static unsafe class MoveOrder {
     // don't use "in" keyword!!! it becomes much slower
     internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
 
-        Span<Move> legal  = stackalloc Move[128];
+        Span<Move> legal  = stackalloc Move[128];        // all legal moves
         int legalCount    = Movegen.GetLegalMoves(ref board, legal);
         
-        Span<Move> sorted = stackalloc Move[legalCount];
-        Span<bool> used   = stackalloc bool[legalCount]; // track which legal moves are already added
+        Span<Move> sorted = stackalloc Move[legalCount]; // already sorted legal moves
+        Span<bool> used   = stackalloc bool[legalCount]; // legal moves that have been sorted to avoid Contains()
         int cur = 0, curCapt = 0;
 
         // 1. TT best move first
@@ -54,8 +54,11 @@ internal static unsafe class MoveOrder {
                 }
             }
         }
-
-        // 2. Captures ordered by MVV-LVA
+        
+        //
+        // 2. captures ordered by MVV-LVA
+        //
+        
         for (int i = 0; i < legalCount; i++) {
             if (!used[i] && legal[i].Capture != PType.NONE) {
                 CaptureBuffer[curCapt++] = legal[i];
@@ -68,7 +71,10 @@ internal static unsafe class MoveOrder {
             sorted[cur++] = mvvlva[i];
         }
 
-        // 3. Killer moves
+        //
+        // 3. killer moves
+        //
+        
         Span<Move> killers = Killers.GetCluster(depth);
         for (int k = 0; k < killers.Length; k++) {
             var killer = killers[k];
@@ -82,8 +88,11 @@ internal static unsafe class MoveOrder {
                 }
             }
         }
-
-        // 4. Counter move
+        
+        //
+        // 4. counter move
+        //
+        
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.Color, previous);
             if (counter != default) {
@@ -96,8 +105,10 @@ internal static unsafe class MoveOrder {
                 }
             }
         }
-
-        // 5. Remaining quiets ordered by history
+        //
+        // 5. remaining quiets ordered by history
+        //
+        
         Span<(Move move, int score)> quiets = stackalloc (Move, int)[legalCount];
         int quietCount = 0;
 
@@ -118,7 +129,7 @@ internal static unsafe class MoveOrder {
         return new Span<Move>(sorted.ToArray());
     }
 
-    // insertion sort (descending by score)
+    // insertion sort of remaining quiets (descending by score)
     private static void InsertionSort(Span<(Move move, int score)> quiets, int count) {
         for (int i = 1; i < count; i++) {
             var key = quiets[i];
