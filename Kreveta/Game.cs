@@ -3,9 +3,6 @@
 // started 4-3-2025
 //
 
-// Remove unnecessary suppression
-#pragma warning disable IDE0079
-
 // Specify CultureInfo
 #pragma warning disable CA1304
 
@@ -28,23 +25,24 @@ internal static class Game {
     // the side the engine plays on
     internal static Color EngineColor;
 
-    // if the engine receives the "ucinewgame" command, we know
-    // we will be playing a whole game rather than just analyzing
-    // a single position. this allows us to implement some stuff,
-    // such as keeping the tt from the previous turn
+    // if the engine receives the "ucinewgame" command, we know we will be
+    // playing a whole game rather than just analyzing a single position.
     internal static bool FullGame;
+    
+    // the score from the previous turn - applied when playing a full game
+    internal static int  PreviousScore;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
     private static  List<ulong>    HistoryPositions = [];
     internal static HashSet<ulong> Draws            = [];
 
-    private static readonly Action<string> InvalidFENCallback = delegate (string context) {
+    private static void InvalidFENCallback(string context) {
         // first reset the board and then set the starting position
         Board = Board.CreateStartpos();
         EngineColor = Color.WHITE;
         
         UCI.Log($"Invalid position - {context}", UCI.LogLevel.ERROR);
-    };
+    }
 
     internal static void SetStartpos(ReadOnlySpan<string> tokens) {
         Board = Board.CreateStartpos();
@@ -56,7 +54,6 @@ internal static class Game {
     // sets the current position using a tokenized fen string. this function is
     // also called when setting up the starting position, but with the startpos fen
     internal static void SetPosFEN(ReadOnlySpan<string> tokens) {
-        
         // since the whole "position" command is sent, the first two tokens shall be skipped ("position fen")
 
         // if something is missing, we return right away instead of wasting time
@@ -305,4 +302,3 @@ internal static class Game {
 }
 
 #pragma warning restore CA1304
-#pragma warning restore IDE0079

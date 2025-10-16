@@ -167,11 +167,11 @@ internal static class PVSearch {
     // once we get to depth = 0, we drop into the qsearch.
     private static (short Score, Move[] PV) Search(
         ref Board board, // the position to be searched
-        int ply,                             // current search ply (independent of depth)
-        int depth,                           // plies yet to be searched (can be reduced)
-        Window window,                       // alpha and beta values
-        Move previous,                       // the previously played move
-        bool isPV                            // was the previous node a PV node?
+        int ply,         // current search ply (independent of depth)
+        int depth,       // plies yet to be searched (can be reduced)
+        Window window,   // alpha and beta values
+        Move previous,   // the previously played move
+        bool isPV        // was the previous node a PV node?
         ) {
 
         // either crossed the time budget or maximum nodes.
@@ -202,7 +202,6 @@ internal static class PVSearch {
         // but applied in the current iteration. if there's already an ensured
         // mate found in this iteration, we also don't search any further
         if (col == Color.WHITE && Score.IsMateScore(window.Alpha) && window.Alpha > 0) {
-
             int matePly = Score.GetMateInX(window.Alpha);
             if (ply >= matePly)
                 return (Score.CreateMateScore(col, ply + 1), []);
@@ -210,7 +209,6 @@ internal static class PVSearch {
             
         // and the same for black
         else if (col == Color.BLACK && Score.IsMateScore(window.Beta) && window.Beta < 0) {
-
             int matePly = -Score.GetMateInX(window.Beta);
             if (ply >= matePly)
                 return (Score.CreateMateScore(col, ply + 1), []);
@@ -243,8 +241,7 @@ internal static class PVSearch {
 
         // if we got here from a PV node, and the move that was played to get
         // here was the move from the previous PV, we are in a PV node as well
-        isPV = isPV 
-               && (ply == 0 || (ply - 1 < PV.Length && PV[ply - 1] == previous));
+        isPV = isPV && (ply == 0 || ply - 1 < PV.Length && PV[ply - 1] == previous);
         
         // has the static eval improved from two plies ago?
         //bool improving = improvStack.IsImproving(ply, col);
@@ -324,7 +321,7 @@ internal static class PVSearch {
                                || (ply <= 4 && isCapture)
                                || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
-                
+            // static eval of the child node
             short childStaticEval = Eval.StaticEval(child);
 
             // once again update the current static eval in the search stack,
@@ -332,7 +329,7 @@ internal static class PVSearch {
             improvStack.AddStaticEval(childStaticEval, ply + 1); 
             bool improving = improvStack.IsImproving(ply + 1, col);
 
-            // have to meet certain conditions for fp
+            // must meet certain conditions for fp
             if (PruningOptions.AllowFutilityPruning
                 && ply   >= FutilityPruning.MinPly
                 && depth <= FutilityPruning.MaxDepth
@@ -387,40 +384,40 @@ internal static class PVSearch {
                 // store the new move in tt
                 TT.Store(board, (sbyte)depth, ply, window, fullSearch.Score, moves[i]);
 
-                // add the current move to the front of the pv
+                // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];
                 Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 pv[0] = curMove;
 
                 // if we get a beta cutoff, that means the move
-                // is so good we don't have to continue searching
-                // the remaining moves
+                // is too good, so we don't have to search the
+                // remaining moves
                 if (window.TryCutoff(fullSearch.Score, col)) {
 
                     // is it quiet?
                     if (!isCapture) {
 
-                        // if a quiet move caused a beta cutoff, we increase its score
-                        // in history and save it as a killer move on the current depth
+                        // if a quiet move caused a beta cutoff, we increase its history
+                        // score and store it as a killer move on the current depth
                         QuietHistory.ChangeRep(board, curMove, depth, isMoveGood: true);
                         Killers.Add(curMove, depth);
                     }
 
-                    // quit searching other moves and returns this score
+                    // quit searching other moves and return this score
                     return (fullSearch.Score, pv);
                 }
             }
         }
             
         // if we got here, it means we have searched through
-        // the moves, but haven't gotten a beta cutoff
+        // the moves, but haven't got a beta cutoff
         return searchedMoves == 0 
 
             // we didn't expand any nodes - terminal node
             // (no legal moves exist)
             ? (inCheck 
 
-                // if we are checked this means we got mated (there are no legal moves)
+                // if we are checked this means we got mated
                 ? Score.CreateMateScore(col, ply)
 
                 // if we aren't checked, we return draw (stalemate)
