@@ -74,9 +74,14 @@ internal static class PVSControl {
             // print the results to the console and save the first pv node
             GetResult();
 
-            // when we are playing a full game (ucinewgame) and the pv score
-            // is mate (doesn't matter whether for us or for the opponent),
-            // we can stop the search to not waste time
+            // try to increase the time budget if the score from the previous
+            // turn seems to be significantly different from the current one
+            if (PVSearch.CurDepth == 10)
+                TimeMan.TryIncreaseTimeBudget();
+
+            // when playing a full game (ucinewgame), and the pv score is
+            // mate (doesn't matter whether for us or for the opponent), we
+            // can stop the search to avoid wasting time
             if (Game.FullGame && Score.IsMateScore(PVSearch.PVScore))
                 break;
 
@@ -95,6 +100,10 @@ internal static class PVSControl {
 
         // the final response of the engine to the gui
         UCI.Log($"bestmove {BestMove.ToLongAlgNotation()}");
+        
+        // store this score for the next turn when playing a full game
+        if (Game.FullGame)
+            Game.PreviousScore = PVSearch.PVScore;
 
         // reset all counters for the next search
         // (not the next iteration of the current one)
@@ -138,7 +147,7 @@ internal static class PVSControl {
         // early iterations the time may actually be less than a millisecond,
         // so we handle that by setting in to 1
         long nodesDivisor = CurElapsed != 0L ? CurElapsed : 1L;
-        int nps = (int)((float)PVSearch.CurNodes / nodesDivisor * 1000);
+        int  nps = (int)((float)PVSearch.CurNodes / nodesDivisor * 1000);
 
         // we print the search info to the console
         string info = "info " +
@@ -170,7 +179,7 @@ internal static class PVSControl {
 
         // print the actual moves in the pv. Move.ToString()
         // is overriden so there's no need to explicitly type it
-        foreach (Move move in ElongatePV())
+        foreach (var move in ElongatePV())
             info += $" {move.ToLongAlgNotation()}";
 
         // as per the convention, the engine's response

@@ -28,13 +28,13 @@ namespace Kreveta;
 internal static partial class UCI {
     private const int InputBufferSize = 4096;
     
-    private  static readonly TextReader Input;
-    internal static readonly TextWriter Output;
+    private readonly static TextReader Input;
+    internal readonly static TextWriter Output;
 
     private static Thread? SearchThread;
     internal static volatile bool ShouldAbortSearch;
     
-    private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
+    private readonly static Action<string> CannotStartSearchCallback = delegate(string context) {
         Log($"Couldn't start searching - {context}", LogLevel.ERROR);
     };
 
@@ -76,6 +76,8 @@ internal static partial class UCI {
                 // yet, it's nice to have the option to do so implemented
                 case "ucinewgame":
                     Game.FullGame = true;
+                    Game.PreviousScore = 0;
+                    
                     TT.Clear();
                     break;
                 

@@ -6,6 +6,7 @@
 using Kreveta.consts;
 
 using System;
+using Kreveta.search;
 
 namespace Kreveta;
 
@@ -19,6 +20,10 @@ internal static class TimeMan {
     // the total time left on each side's clocks
     private static long _whiteTime;
     private static long _blackTime;
+    
+    // each side's time increment after a move
+    private static long _whiteInc;
+    private static long _blackInc;
 
     // the number of moves left until a time reset/addition
     private static int _movesToGo;
@@ -97,11 +102,16 @@ internal static class TimeMan {
                     } break;
                 }
 
-                // white's and black's time increment after each move.
-                // i believe this isn't any useful, though, so we just
-                // pretend to use this to not throw any errors
-                case "winc" or "binc": {
-                    if (i != tokens.Length - 1 && int.TryParse(tokens[i + 1], out _)) {
+                // white's time increment after each move played
+                case "winc": {
+                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out _whiteInc)) {
+                        success = true;
+                        i += 2;
+                    } break;
+                }
+                
+                case "binc": {
+                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out _blackInc)) {
                         success = true;
                         i += 2;
                     } break;
@@ -146,10 +156,31 @@ internal static class TimeMan {
             return;
         }
 
-        // otherwise the time budget is simply our total
-        // time left divided by a little bit more than
-        // movestogo, to keep a short time buffer
-        TimeBudget = (int)((Game.EngineColor == Color.WHITE 
-            ? (float)_whiteTime : _blackTime) / _movesToGo / 1.1f);
+        // otherwise the time budget is simply our total time left
+        TimeBudget = (int)(Game.EngineColor == Color.WHITE
+            ? (float)_whiteTime
+            : _blackTime);
+        
+        // with a little added margin for time increments
+        TimeBudget += (int)(Game.EngineColor == Color.WHITE 
+            ? _whiteInc : _blackInc) * Math.Max(0, _movesToGo - 2);
+        
+        // and divided by the number of moves to go until the next clock
+        // reset (little bit more than that, some calculations may take
+        // longer than expected, and we don't want to lose on time)
+        TimeBudget = (int)(TimeBudget / (_movesToGo * 1.1f));
+    }
+    
+    // when the score suddenly changes from the previous turn (both drops
+    // and rises), we can try to increase our time budget to search this
+    // turn a bit deeper
+    internal static void TryIncreaseTimeBudget() {
+        if (!Game.FullGame) return;
+
+        const int minScoreChange = 150;
+        if (Math.Abs(Game.PreviousScore - PVSearch.PVScore) < minScoreChange
+         || _movesToGo <= 5) return;
+
+        TimeBudget *= 2;
     }
 }
