@@ -107,6 +107,10 @@ internal static partial class UCI {
                     BenchmarkRunner.Run<Benchmarks>();
                     break;
                 
+                case "test":
+                    Test();
+                    break;
+                
                 case "help":
                     Log("Kreveta uses the UCI protocol to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta", LogLevel.INFO);
                     break;
@@ -257,6 +261,10 @@ internal static partial class UCI {
         SearchThread = null;
 
         ShouldAbortSearch = false;
+    }
+
+    private static void Test() {
+        syzygy.Syzygy.TryGetScore(Game.Board, out _);
     }
 }
 
