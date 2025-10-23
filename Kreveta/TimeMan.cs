@@ -41,7 +41,7 @@ internal static class TimeMan {
     internal static long TimeBudget;
 
     internal static void ProcessTimeTokens(ReadOnlySpan<string> tokens) {
-        _whiteTime = _blackTime = MoveTime = _movesToGo = 0;
+        _whiteTime = _blackTime = _whiteInc = _blackInc = MoveTime = _movesToGo = 0;
 
         // tokens aren't filtered before being passed to
         // this method, so they might contain anything.
@@ -158,12 +158,12 @@ internal static class TimeMan {
 
         // otherwise the time budget is simply our total time left
         TimeBudget = (int)(Game.EngineColor == Color.WHITE
-            ? (float)_whiteTime
+            ? _whiteTime
             : _blackTime);
         
         // with a little added margin for time increments
         TimeBudget += (int)(Game.EngineColor == Color.WHITE 
-            ? _whiteInc : _blackInc) * Math.Max(0, _movesToGo - 2);
+            ? _whiteInc : _blackInc) * Math.Max(0, _movesToGo - 3);
         
         // and divided by the number of moves to go until the next clock
         // reset (little bit more than that, some calculations may take
@@ -176,11 +176,11 @@ internal static class TimeMan {
     // turn a bit deeper
     internal static void TryIncreaseTimeBudget() {
         if (!Game.FullGame) return;
+        
+        // TODO - make this actually so that it improves the playing strength :/
 
         const int minScoreChange = 150;
-        if (Math.Abs(Game.PreviousScore - PVSearch.PVScore) < minScoreChange
-         || _movesToGo <= 5) return;
-
-        TimeBudget *= 2;
+        //if (Math.Abs(Game.PreviousScore - PVSearch.PVScore) > minScoreChange && _movesToGo > 5) 
+        //    TimeBudget *= 2;
     }
 }

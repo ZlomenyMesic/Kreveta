@@ -8,7 +8,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
-using Kreveta.openingbook;
+using Kreveta.openings;
 
 using System;
 using System.Collections.Generic;

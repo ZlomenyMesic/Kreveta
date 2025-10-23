@@ -16,7 +16,8 @@ using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Running;
 
-using Kreveta.openingbook;
+using Kreveta.movegen;
+using Kreveta.openings;
 using Kreveta.search;
 using Kreveta.perft;
 
@@ -231,9 +232,13 @@ internal static partial class UCI {
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
-        if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook && !string.IsNullOrEmpty(OpeningBook.BookMove)) {
-            Log($"bestmove {OpeningBook.BookMove}");
-            return;
+        if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook) {
+            Move bookMove = Polyglot.GetBookMove(Game.Board);
+            
+            if (bookMove != default) {
+                Log($"bestmove {bookMove.ToLAN()}");
+                return;
+            }
         }
 
         Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
@@ -264,7 +269,7 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        syzygy.Syzygy.TryGetScore(Game.Board, out _);
+        //Console.WriteLine(PolyglotZobristHash.Hash(Game.Board));
     }
 }
 

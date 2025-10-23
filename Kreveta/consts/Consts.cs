@@ -11,6 +11,9 @@ internal static class Consts {
 
     internal const string StartposFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     internal const string Pieces      = "pnbrqk";
+    
+    // files may be indexed (sq % 8) or preferably (sq & 7)
+    // ranks are indexed (sq / 8) or (sq >> 3)
     internal const string Files       = "abcdefgh";
     
     internal static readonly ulong[] RelevantRankMask = [
