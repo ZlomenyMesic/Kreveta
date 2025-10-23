@@ -30,7 +30,7 @@ internal struct Board {
     // the pieces are stored as one-bits in these large bbs.
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
-    [Required, DebuggerDisplay("indexed [color * 6 + piece_type]")]
+    [DebuggerDisplay("indexed [color * 6 + piece_type]")]
     internal ulong[] Pieces = new ulong[12];
 
     // these two bitboards simply represent all occupied
@@ -41,21 +41,19 @@ internal struct Board {
     internal ulong BOccupied;
 
     // all occupied squares
-    [ReadOnly(true), DefaultValue(0UL)]
     internal readonly ulong Occupied {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => WOccupied | BOccupied;
     }
 
     // all empty squares (bitwise inverse of occupied)
-    [ReadOnly(true), DefaultValue(0xFFFFFFFFFFFFFFFFUL)]
     private readonly ulong Empty {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => ~Occupied;
     }
 
-    // square over which a double pushing
-    // pawn has passed one move ago
+    // square over which a double pushing pawn has passed
+    // one move ago. 64 if no en passant square is present
     internal byte EnPassantSq = 64;
 
     // the current state of castling rights
@@ -242,7 +240,7 @@ internal struct Board {
         }
     }
 
-    internal void PlayReversibleMove(Move move, Color col) {
+    private void PlayReversibleMove(Move move, Color col) {
         // start & end squares
         ulong start = 1UL << move.Start;
         ulong end   = 1UL << move.End;

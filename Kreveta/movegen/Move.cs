@@ -135,18 +135,17 @@ internal static class MoveExtenstions {
 
     // converts a move back to the long algebraic notation
     // format, see the next method for more information
-    internal static string ToLongAlgNotation(this Move move) {
+    internal static string ToLAN(this Move move) {
 
-        int start = move.Start;
-        int end = move.End;
+        int start  = move.Start;
+        int end    = move.End;
         PType prom = move.Promotion;
 
         StringBuilder sb = new();
 
         // convert starting and ending squares to the standard format, e.g. "e4"
-
         sb.Append(Consts.Files[start & 7] + (8 - (start >> 3)).ToString());
-        sb.Append(Consts.Files[end & 7] + (8 - (end >> 3)).ToString());
+        sb.Append(Consts.Files[end & 7]   + (8 - (end >> 3)).ToString());
 
         // if no promotion => empty string
         if (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE)

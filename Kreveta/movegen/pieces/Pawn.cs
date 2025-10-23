@@ -26,7 +26,6 @@ internal static class Pawn {
 
     // returns a bitboard of possible capture end squares
     internal static ulong GetPawnCaptureTargets(ulong pawn, int enPassantSq, Color col, ulong occupiedOpp) {
-
         // in both cases we ensure the pawn hasn't jumped to the other side of the board
 
         // captures to the left

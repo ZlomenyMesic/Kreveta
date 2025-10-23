@@ -99,7 +99,7 @@ internal static class PVSControl {
             ("tt hits",            TT.TTHits));
 
         // the final response of the engine to the gui
-        UCI.Log($"bestmove {BestMove.ToLongAlgNotation()}");
+        UCI.Log($"bestmove {BestMove.ToLAN()}");
         
         // store this score for the next turn when playing a full game
         if (Game.FullGame)
@@ -180,7 +180,7 @@ internal static class PVSControl {
         // print the actual moves in the pv. Move.ToString()
         // is overriden so there's no need to explicitly type it
         foreach (var move in ElongatePV())
-            info += $" {move.ToLongAlgNotation()}";
+            info += $" {move.ToLAN()}";
 
         // as per the convention, the engine's response
         // shall always end with a newline character
