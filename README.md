@@ -63,17 +63,18 @@ Rough estimates from playtesting using Cutechess-cli:
 
 ### Search Features
 
-- Pricipal Variation Search with Alpha-Beta Pruning
+- Principal Variation Search with Alpha-Beta Pruning
 - Quiescence search for leaf nodes
 - Null Move Pruning (NMP)
 - Late Move Pruning (LMP) and Reductions (LMR) relative to history
 - Futility Pruning (FP) and Delta Pruning for QSearch
-- Mate distance pruning (MDP)
+- Mate Distance Pruning (MDP)
 - Move ordering based on TT, MVV-LVA and others
-- Killer move table + Countermove Heuristics
-- Quiet history and Pawn Corrections
+- Killer move table + countermove heuristics
+- Quiet history and pawn corrections
 - Improving search stack
 - Resizable Transposition Table (1-1000 MB)
+- Logical time management
 
 ### Static Evaluation
 
@@ -82,6 +83,11 @@ Rough estimates from playtesting using Cutechess-cli:
 - Bishop pairs and open-file rooks
 - Tapering evaluation for knights and rooks
 - King safety based on protecting pieces
+
+### Others
+
+- Generic Polyglot opening book support
+- NeoKolors library for logging UCI communication
 
 ---
 
