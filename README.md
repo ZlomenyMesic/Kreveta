@@ -19,10 +19,11 @@ No official ratings yet.
 
 Rough estimates from playtesting using Cutechess-cli:
 
-| Opponent        | Games  | ELO estimate |
-|-----------------|--------|--------------|
-| Stockfish 17    | ~800   | 2370         |
-| ...             | ...    | ...          |
+| Opponent        | Time Control* | Games   | ELO estimate |
+|-----------------|---------------|---------|--------------|
+| Stockfish 17    | 40/100        | ~800    | 2381         |
+| Stockfish 17    | 40/120        | ~1400   | 2362         |
+| ...             | ...           | ...     | ...          |
 
 ---
 
