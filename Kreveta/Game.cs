@@ -37,8 +37,8 @@ internal static class Game {
     internal static HashSet<ulong> Draws            = [];
 
     private static void InvalidFENCallback(string context) {
-        // first reset the board and then set the starting position
-        Board = Board.CreateStartpos();
+        // reset the board
+        Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
         
         UCI.Log($"Invalid position - {context}", UCI.LogLevel.ERROR);
@@ -58,7 +58,7 @@ internal static class Game {
 
         // if something is missing, we return right away instead of wasting time
         if (tokens[1] == "fen" && tokens.Length < 6) {
-            InvalidFENCallback("some tokens in fen may be missing. the fen needs to include the position, side to move, castling rights and en passant square");
+            InvalidFENCallback("some tokens are missing - position, side to move, castling rights and en passant square must be included");
             return;
         }
 
@@ -89,7 +89,7 @@ internal static class Game {
                 if (c is '\\' or '/')
                     continue;
 
-                InvalidFENCallback($"invalid character in FEN: {c}");
+                InvalidFENCallback($"invalid character in position: {c}");
                 return;
             }
 
@@ -121,7 +121,7 @@ internal static class Game {
             // black
             case "b": EngineColor = Color.BLACK; break;
 
-            default: InvalidFENCallback($"invalid side to move in FEN: {tokens[3]}"); return;
+            default: InvalidFENCallback($"invalid side to move: \"{tokens[3]}\""); return;
         }
 
         Board.Color = EngineColor;
@@ -135,22 +135,22 @@ internal static class Game {
             switch (tokens[4][i]) {
 
                 // white kingside
-                case 'K': Board.CastlingRights |= CastlingRights.K; break;
+                case 'K': Board.CastRights |= CastRights.K; break;
 
                 // white queenside
-                case 'Q': Board.CastlingRights |= CastlingRights.Q; break;
+                case 'Q': Board.CastRights |= CastRights.Q; break;
 
                 // black kingside
-                case 'k': Board.CastlingRights |= CastlingRights.k; break;
+                case 'k': Board.CastRights |= CastRights.k; break;
 
                 // black queenside
-                case 'q': Board.CastlingRights |= CastlingRights.q; break;
+                case 'q': Board.CastRights |= CastRights.q; break;
 
                 default: {
                         if (tokens[4][i] == '-')
                             continue;
 
-                        InvalidFENCallback($"invalid castling availability in FEN: {tokens[4][i]}");
+                        InvalidFENCallback($"invalid castling availability: \"{tokens[4][i]}\"");
                         return;
                     }
             }
@@ -167,7 +167,7 @@ internal static class Game {
             Board.EnPassantSq = 64;
 
         else {
-            InvalidFENCallback($"invalid en passant square in FEN: {tokens[5]}");
+            InvalidFENCallback($"invalid en passant square: \"{tokens[5]}\"");
             return;
         }
 
@@ -185,27 +185,16 @@ internal static class Game {
         int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
 
         // no move sequence was found
-        if (moveSeqStart == -1) {
-
-            // pass the empty moves list to the book
-            // to choose the first move randomly
-            if (IsStartpos(tokens))
-                OpeningBook.RegisterSequence([]);
-
-            return;
-        }
+        if (moveSeqStart == -1) return;
 
         // we save all known previous positions as 3-fold repetition exists
         HistoryPositions.Add(ZobristHash.GetHash(Board));
 
-        List<string> sequence = [];
-
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
-            sequence.Add(tokens[i]);
             
             if (!Move.IsCorrectFormat(tokens[i])) {
-                InvalidFENCallback($"invalid move: {tokens[i]}");
+                InvalidFENCallback($"invalid move: \"{tokens[i]}\"");
                 return;
             }
 
@@ -217,10 +206,6 @@ internal static class Game {
                 ? Color.BLACK
                 : Color.WHITE;
         }
-
-        // try to save a book move
-        if (IsStartpos(tokens))
-            OpeningBook.RegisterSequence([.. sequence]);
 
         // save drawing positions in "draws"
         List3FoldDraws();

@@ -29,13 +29,13 @@ namespace Kreveta;
 internal static partial class UCI {
     private const int InputBufferSize = 4096;
     
-    private readonly static TextReader Input;
-    internal readonly static TextWriter Output;
+    private static readonly  TextReader Input;
+    internal static readonly TextWriter Output;
 
     private static Thread? SearchThread;
     internal static volatile bool ShouldAbortSearch;
     
-    private readonly static Action<string> CannotStartSearchCallback = delegate(string context) {
+    private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
         Log($"Couldn't start searching - {context}", LogLevel.ERROR);
     };
 
@@ -117,7 +117,7 @@ internal static partial class UCI {
                     break;
 
                 default:
-                    Log($"Unknown command: {tokens[0]}. Type 'help' for more information", LogLevel.ERROR);
+                    Log($"Unknown command: \"{tokens[0]}\". Type 'help' for more information", LogLevel.ERROR);
                     break;
             }
         }
@@ -144,6 +144,11 @@ internal static partial class UCI {
     // start the search itself, though
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPosition(ReadOnlySpan<string> tokens) {
+        if (tokens.Length <= 1) {
+            Log("Missing arguments - startpos/fen must be specified", LogLevel.ERROR);
+            return;
+        }
+        
         switch (tokens[1]) {
 
             // we CAN'T use Board.CreateStartpos here, since we
@@ -151,7 +156,7 @@ internal static partial class UCI {
             case "startpos": Game.SetStartpos(tokens);                      break;
             case "fen":      Game.SetPosFEN(tokens);                        break;
 
-            default: Log($"Invalid argument: {tokens[1]}", LogLevel.ERROR); return;
+            default: Log($"Invalid argument: \"{tokens[1]}\"", LogLevel.ERROR); return;
         }
     }
 
@@ -232,7 +237,7 @@ internal static partial class UCI {
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
-        if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.OwnBook) {
+        if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.PolyglotUseBook) {
             Move bookMove = Polyglot.GetBookMove(Game.Board);
             
             if (bookMove != default) {
@@ -269,7 +274,7 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        //Console.WriteLine(PolyglotZobristHash.Hash(Game.Board));
+        
     }
 }
 

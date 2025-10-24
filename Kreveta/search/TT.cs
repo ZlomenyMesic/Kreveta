@@ -29,7 +29,7 @@ internal static unsafe class TT {
     // depending on where the score fell relatively
     // to the window when saving, we store the score type
     [Flags]
-    private enum SpecialFlags : byte {
+    internal enum SpecialFlags : byte {
         SCORE_UPPER_BOUND = 1, // the score was above beta
         SCORE_LOWER_BOUND = 2, // the score was below alpha
         SCORE_EXACT       = 4, // the score fell right into the window

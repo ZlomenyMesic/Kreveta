@@ -15,11 +15,11 @@
 using Kreveta.consts;
 
 using System;
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace Kreveta;
 
+// this zobrist hash shall not be used for Polyglot indexing
 internal static unsafe class ZobristHash {
 
     // every square-piece combination
@@ -70,7 +70,7 @@ internal static unsafe class ZobristHash {
             ? WhiteToMove
             : BlackToMove;
 
-        hash ^= Castling[(byte)board.CastlingRights];
+        hash ^= Castling[(byte)board.CastRights];
 
         if (board.EnPassantSq != 64)
             hash ^= EnPassant[board.EnPassantSq & 7];

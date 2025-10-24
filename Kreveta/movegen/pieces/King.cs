@@ -40,8 +40,8 @@ internal static class King {
 
         // first we check whether the side even holds
         // the required castling rights at all
-        bool kingside =  ((byte)board.CastlingRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
-        bool queenside = ((byte)board.CastlingRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
+        bool kingside =  ((byte)board.CastRights & (col == Color.WHITE ? 0x1 : 0x4)) != 0; // K : k
+        bool queenside = ((byte)board.CastRights & (col == Color.WHITE ? 0x2 : 0x8)) != 0; // Q : q
 
         // now we ensure the squares between the king and the rooks are empty
         kingside  &= (occ & (col == Color.WHITE ? OOMask  : ooMask))  == 0UL;

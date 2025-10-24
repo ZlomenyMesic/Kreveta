@@ -10,7 +10,7 @@ using System;
 namespace Kreveta.consts;
 
 [Flags]
-internal enum CastlingRights : byte {
+internal enum CastRights : byte {
     NONE = 0,
     K    = 1, // white kingside
     Q    = 2, // white queenside
