@@ -57,7 +57,7 @@ internal struct Board {
     internal byte EnPassantSq = 64;
 
     // the current state of castling rights
-    internal CastlingRights CastlingRights = CastlingRights.NONE;
+    internal CastRights CastRights = CastRights.NONE;
 
     // the side to move
     internal Color Color = Color.NONE;
@@ -73,7 +73,7 @@ internal struct Board {
         BOccupied      = 0UL;
 
         EnPassantSq    = 64;
-        CastlingRights = CastlingRights.NONE;
+        CastRights = CastRights.NONE;
         Color          = Color.NONE;
     }
 
@@ -210,15 +210,15 @@ internal struct Board {
             else                    WOccupied ^= end;
         }
 
-        if (CastlingRights != CastlingRights.NONE && piece == PType.KING) {
+        if (CastRights != CastRights.NONE && piece == PType.KING) {
 
             // remove castling rights after a king moves
-            CastlingRights &= (CastlingRights)(col == Color.WHITE
+            CastRights &= (CastRights)(col == Color.WHITE
                 ? 0xC   // all except KQ
                 : 0x3); // all except kq
         }
 
-        if (CastlingRights != CastlingRights.NONE
+        if (CastRights != CastRights.NONE
             && (piece == PType.ROOK || capt == PType.ROOK)) {
 
             // if rook moved we need the starting square
@@ -236,7 +236,7 @@ internal struct Board {
             };
 
             // remove castling rights after a rook moves
-            CastlingRights &= (CastlingRights)mask;
+            CastRights &= (CastRights)mask;
         }
     }
 
@@ -360,7 +360,7 @@ internal struct Board {
             BOccupied      = 0x000000000000FFFFUL,
             
             EnPassantSq    = 64,
-            CastlingRights = CastlingRights.ALL,
+            CastRights = CastRights.ALL,
             Color          = Color.WHITE,
             
             Pieces = {

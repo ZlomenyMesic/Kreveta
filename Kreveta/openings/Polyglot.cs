@@ -1,22 +1,28 @@
+#pragma warning disable CA5394
+
 using Kreveta.consts;
 using Kreveta.movegen;
 
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.openings;
 
 internal static class Polyglot {
+    
+    [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct PolyglotEntry {
-        internal ulong  Key;
-        internal ushort Move;
-        internal ushort Weight;
+        [FieldOffset(0)]  internal ulong  Key;
+        [FieldOffset(8)]  internal ushort Move;
+        [FieldOffset(10)] internal float  Weight;
     }
 
     private const int EntrySize = 16;
-    
-    static string path = @"C:\Users\michn\Downloads\Titans\Titans.bin";
+
+    // the risk percentage is inverted
+    private static float Risk => (float)Options.PolyglotRisk / 100;
     
     internal static Move GetBookMove(Board board) {
         ulong hash = PolyglotZobristHash.Hash(board);
@@ -40,20 +46,50 @@ internal static class Polyglot {
         PType piece = board.PieceAt(start);
         PType capt  = board.PieceAt(end);
 
+        UCI.Log($"info string selected move's Polyglot weight: {selection.Weight}", UCI.LogLevel.INFO);
         return new Move(start, end, piece, capt, (PType)prom);
     }
 
     private static PolyglotEntry SelectMove(PolyglotEntry[] possibleMoves) {
-        return possibleMoves.OrderByDescending(m => m.Weight).First();
+        var normalized = NormalizeWeights(possibleMoves, out int max).Where(i => i.Weight >= 1 - Risk)
+            .OrderByDescending(i => i.Weight).ToArray();
+        
+        float sum        = normalized.Select(i => i.Weight).Sum();
+        float random     = new Random().NextSingle() * sum;
+        float sumCounter = 0f;
+
+        for (int i = 0; i < normalized.Length; i++) {
+            sumCounter += normalized[i].Weight;
+            
+            if (sumCounter > random)
+                return normalized[i] 
+                    // un-normalize the selected move's weight
+                    with {Weight = max * normalized[i].Weight};
+        }
+        
+        return default;
+    }
+    
+    private static PolyglotEntry[] NormalizeWeights(PolyglotEntry[] possible, out int max) {
+        float fmax = possible.Select(entry => entry.Weight).Prepend(0).Max();
+        max = (int)fmax;
+
+        return possible.Select(i => i 
+            with {Weight = i.Weight / fmax}).ToArray();
     }
     
     private static PolyglotEntry[] GetMovesForPosition(ulong hash, PolyglotEntry[] book)
         => book.Where(entry => entry.Key == hash).ToArray();
 
     private static PolyglotEntry[] LoadBook() {
-        byte[] data    = File.ReadAllBytes(path);
-        int entryCount = data.Length / EntrySize;
         
+        if (!File.Exists(Options.PolyglotBook)) {
+            UCI.Log($"Polyglot file not found: {Options.PolyglotBook}", UCI.LogLevel.ERROR);
+            return [];
+        }
+        
+        byte[] data    = File.ReadAllBytes(Options.PolyglotBook);
+        int entryCount = data.Length / EntrySize;
         var entries    = new PolyglotEntry[entryCount];
 
         for (int i = 0; i < entryCount; i++) {
@@ -67,3 +103,5 @@ internal static class Polyglot {
         return entries;
     }
 }
+
+#pragma warning restore CA5394

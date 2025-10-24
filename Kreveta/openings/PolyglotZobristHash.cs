@@ -4,37 +4,44 @@ using System;
 
 namespace Kreveta.openings;
 
+// Polyglot indexes positions with their Zobrist hash, which
+// although is already implemented in this engine, needs its
+// specific "random" values.
 internal static class PolyglotZobristHash {
+    
+    // the whole process of the hashing is very similar to
+    // the one used in ZobristHash
     internal static ulong Hash(Board board) {
         ulong hash = 0UL;
 
         // XOR all pieces
         for (int sq = 0; sq < 64; sq++) {
             PType piece = board.PieceAt(sq);
+
+            if (piece == PType.NONE)
+                continue;
             
-            if (piece != PType.NONE) {
-                // the piece index encoded differently:
-                // 0 - black pawn
-                // 1 - white pawn
-                // 2 - black knight
-                // ...
-                int colOffset  = (board.WOccupied & 1UL << sq) != 0UL ? 1 : 0;
-                int pieceIndex = (int)piece * 2 + colOffset;
+            // the piece index is encoded differently:
+            // 0 - black pawn
+            // 1 - white pawn
+            // 2 - black knight
+            // ...
+            int colOffset  = (board.WOccupied & 1UL << sq) != 0UL ? 1 : 0;
+            int pieceIndex = (int)piece * 2 + colOffset;
                 
-                // the indices used in polyglot are mirrored
-                int file  = sq & 7;
-                int rank  = 7 - (sq >> 3);
-                int index = pieceIndex * 64 + 8 * rank + file;
+            // the square indices used are mirrored (opposite rank)
+            int file  = sq & 7;
+            int rank  = 7 - (sq >> 3);
+            int index = pieceIndex * 64 + 8 * rank + file;
                 
-                hash ^= PGRandomU64[index];
-            }
+            hash ^= PGRandomU64[index];
         }
 
         // castling rights
-        if (board.CastlingRights.HasFlag(CastlingRights.K)) hash ^= PGRandomU64[CastlingRightsOffset];
-        if (board.CastlingRights.HasFlag(CastlingRights.Q)) hash ^= PGRandomU64[CastlingRightsOffset + 1];
-        if (board.CastlingRights.HasFlag(CastlingRights.k)) hash ^= PGRandomU64[CastlingRightsOffset + 2];
-        if (board.CastlingRights.HasFlag(CastlingRights.q)) hash ^= PGRandomU64[CastlingRightsOffset + 3];
+        if (board.CastRights.HasFlag(CastRights.K)) hash ^= PGRandomU64[CastlingRightsOffset];
+        if (board.CastRights.HasFlag(CastRights.Q)) hash ^= PGRandomU64[CastlingRightsOffset + 1];
+        if (board.CastRights.HasFlag(CastRights.k)) hash ^= PGRandomU64[CastlingRightsOffset + 2];
+        if (board.CastRights.HasFlag(CastRights.q)) hash ^= PGRandomU64[CastlingRightsOffset + 3];
         
         // http://hgm.nubati.net/book_format.html
 
@@ -43,8 +50,8 @@ internal static class PolyglotZobristHash {
             ulong eps64 = 1UL << eps;
             
             ulong sqMovedTo = eps > 32 ? eps64 >> 8 : eps64 << 8;
-            ulong adjacent = ((sqMovedTo >> 1) & 0x7F7F7F7F7F7F7F7F)  // to the left
-                           | ((sqMovedTo << 1) & 0xFEFEFEFEFEFEFEFE); // to the right
+            ulong adjacent = (sqMovedTo >> 1 & 0x7F7F7F7F7F7F7F7F)  // to the left
+                           | (sqMovedTo << 1 & 0xFEFEFEFEFEFEFEFE); // to the right
             
             Color moved = eps > 32 ? Color.WHITE : Color.BLACK;
 
