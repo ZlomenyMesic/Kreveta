@@ -16,7 +16,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "INDEV";
+    internal const string Version = "1.1";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
@@ -25,7 +25,7 @@ internal static class Program {
         // this does actually make stuff a bit faster
         cur.PriorityClass = ProcessPriorityClass.RealTime;
 
-        // used to free memory before exiting
+        // free manually allocated memory before exiting
         AppDomain.CurrentDomain.ProcessExit += FreeMemory;
 
         // although this could be useful, i am lazy
@@ -42,13 +42,10 @@ internal static class Program {
         
         return 0;
         
-        // since we manually allocate memory, we must free it before exiting the program
+        // the manually allocated memory is spread throughout the whole
+        // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
             ((Action)TT.Clear + PerftTT.Clear + PawnCorrectionHistory.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear)();
-        
-#if DEBUG
-            UCI.Log("Manually allocated memory freed properly");
-#endif
         }
     }
 }

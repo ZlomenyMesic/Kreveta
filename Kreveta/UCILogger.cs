@@ -99,8 +99,8 @@ internal static partial class UCI {
         if (!Options.NKLogs)
             return;
 
-        // using KryKom's NeoKolors library for fancy logs
-        // this option can be toggled via the FancyLogs option
+        // using KryKomDev's NeoKolors library for fancy logs
+        // this option can be toggled via the NKLogs option
         try {
 
             // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault

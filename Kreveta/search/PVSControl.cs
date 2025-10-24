@@ -11,6 +11,7 @@ using Kreveta.search.pruning;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 // ReSharper disable InconsistentNaming
 
@@ -179,11 +180,11 @@ internal static class PVSControl {
 
         // print the actual moves in the pv. Move.ToString()
         // is overriden so there's no need to explicitly type it
-        foreach (var move in ElongatePV())
-            info += $" {move.ToLAN()}";
+        info = ElongatePV().Aggregate(info, 
+            (current, move) => current + $" {move.ToLAN()}");
 
         // as per the convention, the engine's response
-        // shall always end with a newline character
+        // must be terminated by a newline character
         UCI.Log(info, UCI.LogLevel.INFO);
     }
 

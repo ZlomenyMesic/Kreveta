@@ -52,51 +52,54 @@ internal static class Options {
         internal long MaxValue;
 
         // default value is displayed when the "uci"
-        // command is received. currect value of the
+        // command is received. current value of the
         // option is stored in Value
         internal required object DefaultValue;
         internal required object Value;
     }
 
     private static readonly Option[] options = [
-
-        // should the engine use its own opening book?
-        // this usually gets turned off by the GUI, but
-        // it's great to have a custom book for debugging
-        // when playing variety is required
         new() {
-            Name         = nameof(OwnBook),
+            Name         = nameof(PolyglotUseBook),
             Type         = OpType.CHECK,
-
             DefaultValue = true,
             Value        = true
+        },
+        
+        new() {
+            Name         = nameof(PolyglotBook),
+            Type         = OpType.STRING,
+            DefaultValue = @"C:\Users\michn\Downloads\rodent.bin",
+            Value        = @"C:\Users\michn\Downloads\rodent.bin",
+        },
+        
+        new() {
+            Name         = nameof(PolyglotRisk),
+            Type         = OpType.SPIN,
+            MinValue     = 0L,
+            MaxValue     = 100L,
+            DefaultValue = 30L,
+            Value        = 30L
         },
 
         // size of the hash table in megabytes. this only
         // sets the size of the transposition table. other
         // tables, such as pawn corrections, or the perfttt,
-        // are not modified using this option
+        // are not restricted by this option
         new() {
             Name         = nameof(Hash),
             Type         = OpType.SPIN,
-
-            // a transposition table with no size would
-            // probably break the engine, so there's always
-            // going to be at least a small one
-            MinValue     = 1L,
-            MaxValue     = 1024L,
-
-            DefaultValue = 32L,
+            MinValue     = 1L,    // always keep at least some memory
+            MaxValue     = 1024L, 
+            DefaultValue = 32L,   // this seems to work the best
             Value        = 32L
         },
 
-        // logging into a file using the NKLogger by KryKom.
-        // the engine may log its commands and responses into
-        // a custom log file
+        // log into a file using NKLogger by KryKomDev. the engine
+        // may log its commands and responses into a custom log file
         new() {
             Name         = nameof(NKLogs),
             Type         = OpType.CHECK,
-
             DefaultValue = false,
             Value        = false
         },
@@ -105,7 +108,6 @@ internal static class Options {
         new() {
             Name         = nameof(PrintStats),
             Type         = OpType.CHECK,
-
             DefaultValue = true,
             Value        = true
         }
@@ -115,17 +117,12 @@ internal static class Options {
     // the name of the actual option, which isn't great.
     // non-custom options (OwnBook and Hash) need to keep
     // their names in order to be used properly by the GUI
-    internal static bool OwnBook
-        => (bool)options[0].Value;
-
-    internal static long Hash
-        => (long)options[1].Value;
-    
-    internal static bool NKLogs
-        => (bool)options[2].Value;
-    
-    internal static bool PrintStats
-        => (bool)options[3].Value;
+    internal static bool   PolyglotUseBook => (bool)  options[0].Value;
+    internal static string PolyglotBook    => (string)options[1].Value;
+    internal static long   PolyglotRisk    => (long)  options[2].Value;
+    internal static long   Hash            => (long)  options[3].Value;
+    internal static bool   NKLogs          => (bool)  options[4].Value;
+    internal static bool   PrintStats      => (bool)  options[5].Value;
 
     // used to print the option types when 'uci' is entered
     private static string GetName(this OpType type)
@@ -152,7 +149,6 @@ internal static class Options {
             
             switch (opt.Type) {
                 case OpType.CHECK:
-
                     // boolean converts to "True" or "False", so we
                     // must also convert it to the lowercase variant
                     sb.Append($" default {((bool)opt.DefaultValue).ToString().ToLowerInvariant()}");
@@ -164,7 +160,6 @@ internal static class Options {
 
                 case OpType.SPIN:
                     var defaultValue = (long)opt.DefaultValue;
-
                     // spin option type must provide the range of values it can hold
                     sb.Append($" default {defaultValue} min {opt.MinValue} max {opt.MaxValue}");
                     break;
@@ -177,7 +172,6 @@ internal static class Options {
     // this is called when the engine receives the "setoption"
     // command, which is used to modify the value of an option
     internal static void SetOption(ReadOnlySpan<string> tokens) {
-        
         // the syntax must be "setoption name <NAME> value <VALUE>"
         if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;
@@ -250,7 +244,7 @@ internal static class Options {
 
         // didn't match the name with any option
         unsupported_opt:
-        UCI.Log($"Unsupported option - {tokens[2]}", UCI.LogLevel.ERROR);
+        UCI.Log($"Option not supported: \"{tokens[2]}\". Type \"uci\" to list all supported options", UCI.LogLevel.ERROR);
         return;
 
         invalid_syntax:
@@ -258,7 +252,7 @@ internal static class Options {
         return;
 
         val_out_of_range:
-        UCI.Log("Option value out of range - type \"uci\" to view possible values", UCI.LogLevel.ERROR);
+        UCI.Log("Option value out of range. Type \"uci\" to view restrictions", UCI.LogLevel.ERROR);
     }
 }
 
