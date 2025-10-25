@@ -1,8 +1,10 @@
 <div align="center">
 
-# 🦐 Kreveta Chess Engine
-
 <img src="Docs/KrevetaLogo.png" alt="Logo" width="30%">
+
+<br/>
+
+# 🦐 Kreveta Chess Engine
 
 ![.NET](https://img.shields.io/badge/.NET-9.0-lightblue?style=for-the-badge)
 ![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=lightgreen)
@@ -21,13 +23,13 @@ Designed to be fast and strong, with a main focus on optimizing C# to its limits
 
 No official ratings yet.
 
-Rough estimates from playtesting using Cutechess-cli:
+Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutechess/cutechess):
 
-| Opponent        | Time Control* | Games   | ELO estimate |
-|-----------------|---------------|---------|--------------|
-| Stockfish 17    | 40/100        | ~800    | 2381         |
-| Stockfish 17    | 40/120        | ~1400   | 2362         |
-| ...             | ...           | ...     | ...          |
+| Opponent        | Time Control | Games   | ELO estimate |
+|-----------------|--------------|---------|--------------|
+| Stockfish 17    | 40/100       | ~800    | 2381         |
+| Stockfish 17    | 40/120       | ~1400   | 2362         |
+| ...             | ...          | ...     | ...          |
 
 > [!NOTE]
 > Time Control is in format moves/time in seconds
@@ -38,12 +40,12 @@ Rough estimates from playtesting using Cutechess-cli:
 
 ### Regular search (initial position)
 
-| Depth | Sel. Depth* | Time (s) | Nodes Searched | NPS       | Best Move |
-|-------|-------------|----------|----------------|-----------|-----------|
-| 5     | 15          | 0.031    | 11,392         | 367,484   | d4        |
-| 10    | 22          | 0.364    | 665,708        | 1,828,868 | e4        |
-| 15    | 27          | 6.828    | 13,549,138     | 1,984,349 | e4        |
-| 20    | 32          | 58.48    | 324,517,712    | 2,047,715 | e3        |
+| Depth | Sel. Depth | Time (s) | Nodes Searched | NPS       | Best Move |
+|-------|------------|----------|----------------|-----------|-----------|
+| 5     | 15         | 0.031    | 11,392         | 367,484   | d4        |
+| 10    | 22         | 0.364    | 665,708        | 1,828,868 | e4        |
+| 15    | 27         | 6.828    | 13,549,138     | 1,984,349 | e4        |
+| 20    | 32         | 58.48    | 324,517,712    | 2,047,715 | e3        |
 
 > [!NOTE]
 > Depth is the full depth. Selective depth is the actual achieved depth via quiescence search.
@@ -66,9 +68,9 @@ Rough estimates from playtesting using Cutechess-cli:
 
 ### Move Generation
 
-- Bitboard representation for fast operations
-- Magic Bitboards for sliding piece attacks
-- Precomputed move lookup tables for fast access
+- Bitboard representation of pieces
+- Magic bitboards for sliding piece attacks
+- Precomputed move lookup tables
 
 ### Search Features
 
@@ -88,7 +90,7 @@ Rough estimates from playtesting using Cutechess-cli:
 ### Static Evaluation
 
 - Piece-Square Tables with tapering evaluation
-- Pawn structure eval - doubling, isolation, connection, blocking
+- Pawn structure eval (doubling, isolation, connection, blocking)
 - Bishop pairs and open-file rooks
 - Tapering evaluation for knights and rooks
 - King safety based on protecting pieces
@@ -96,14 +98,14 @@ Rough estimates from playtesting using Cutechess-cli:
 ### Others
 
 - Generic Polyglot opening book support
-- NeoKolors library for logging UCI communication
+- [NeoKolors](https://github.com/KryKomDev/NeoKolors) library for logging UCI communication
 
 ---
 
 ## UCI Protocol Support
 
 Kreveta fully supports the **Universal Chess Interface (UCI)** protocol.
-For a more detailed explanation, visit the online UCI protocol documentation.
+For a more detailed explanation, visit the [documentation](https://gist.github.com/DOBRO/2592c6dad754ba67e6dcaec8c90165bf).
 Below are the implemented commands and their usage:
 
 ### `uci`
