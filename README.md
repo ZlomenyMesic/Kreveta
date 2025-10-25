@@ -6,9 +6,9 @@
 
 # 🦐 Kreveta Chess Engine
 
-![.NET](https://img.shields.io/badge/.NET-9.0-lightblue?style=for-the-badge)
-![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=lightgreen)
-![Commits](https://img.shields.io/github/commit-activity/m/ZlomenyMesic/Kreveta?style=for-the-badge&logo=github&color=lightsalmon&label=commits)
+[![.NET](https://img.shields.io/badge/.NET-9.0-lightgreen?style=for-the-badge)](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
+[![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=lightblue)](https://github.com/ZlomenyMesic/Kreveta/blob/master/LICENSE)
+[![Commits](https://img.shields.io/github/commit-activity/m/ZlomenyMesic/Kreveta?style=for-the-badge&logo=github&color=lightsalmon&label=commits)](https://github.com/ZlomenyMesic/Kreveta/graphs/commit-activity)
 
 </div>
 
