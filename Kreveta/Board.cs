@@ -13,8 +13,6 @@ using Kreveta.consts;
 using Kreveta.movegen;
 
 using System;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;

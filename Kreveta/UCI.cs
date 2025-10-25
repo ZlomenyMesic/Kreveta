@@ -76,7 +76,7 @@ internal static partial class UCI {
                 // analyzing a single position. although we don't alter anything
                 // yet, it's nice to have the option to do so implemented
                 case "ucinewgame":
-                    Game.FullGame = true;
+                    Game.FullGame      = true;
                     Game.PreviousScore = 0;
                     
                     TT.Clear();
@@ -85,23 +85,21 @@ internal static partial class UCI {
                 // the "setoption ..." command is used to modify some options
                 // in the engine. this is important in many cases when we want
                 // to, for instance, disable the opening book
-                case "setoption":
-                    Options.SetOption(tokens); 
-                    break;
+                case "setoption": Options.Set(tokens); break;
                 
                 // when we receive "isready", we shall respond with "readyok".
                 // this signals that we are ready to receive further commands
-                case "isready":  Log("readyok");      break;
-                case "uci":      CmdUCI();            break;
-                case "position": CmdPosition(tokens); break;
-                case "go":       CmdGo(tokens);       break;
-                case "perft":    CmdPerft(tokens);    break;
+                case "isready":   Log("readyok");      break;
+                case "uci":       CmdUCI();            break;
+                case "position":  CmdPosition(tokens); break;
+                case "go":        CmdGo(tokens);       break;
+                case "perft":     CmdPerft(tokens);    break;
                 
                 // print the currently set position
-                case "d":        Game.Board.Print();  break;
+                case "d":         Game.Board.Print();  break;
                 
                 // stop any current searches
-                case "stop":     StopSearch();        break;
+                case "stop":      StopSearch();        break;
                 
                 // run current benchmarks
                 case "bench":
@@ -110,6 +108,10 @@ internal static partial class UCI {
                 
                 case "test":
                     Test();
+                    break;
+                
+                case "cls":
+                    Console.Clear();
                     break;
                 
                 case "help":
@@ -142,7 +144,6 @@ internal static partial class UCI {
     // "position ..." command sets the current position, which the
     // engine probably will be searching in the future. this doesn't
     // start the search itself, though
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdPosition(ReadOnlySpan<string> tokens) {
         if (tokens.Length <= 1) {
             Log("Missing arguments - startpos/fen must be specified", LogLevel.ERROR);
