@@ -1,6 +1,8 @@
 <div align="center">
 
-# Kreveta Chess Engine
+# 🦐 Kreveta Chess Engine
+
+<img src="Docs/KrevetaLogo.png" alt="Logo" width="30%">
 
 ![.NET](https://img.shields.io/badge/.NET-9.0-lightblue?style=for-the-badge)
 ![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=lightgreen)
@@ -27,7 +29,8 @@ Rough estimates from playtesting using Cutechess-cli:
 | Stockfish 17    | 40/120        | ~1400   | 2362         |
 | ...             | ...           | ...     | ...          |
 
-*Time Control is in format moves/time in seconds
+> [!NOTE]
+> Time Control is in format moves/time in seconds
 
 ---
 
@@ -42,7 +45,8 @@ Rough estimates from playtesting using Cutechess-cli:
 | 15    | 27          | 6.828    | 13,549,138     | 1,984,349 | e4        |
 | 20    | 32          | 58.48    | 324,517,712    | 2,047,715 | e3        |
 
-*Depth is the full depth. Selective depth is the actual achieved depth via quiescence search.
+> [!NOTE]
+> Depth is the full depth. Selective depth is the actual achieved depth via quiescence search.
 
 ### Perft results (initial position)
 
@@ -96,7 +100,7 @@ Rough estimates from playtesting using Cutechess-cli:
 
 ---
 
-## 🎮 UCI Protocol Support
+## UCI Protocol Support
 
 Kreveta fully supports the **Universal Chess Interface (UCI)** protocol.
 For a more detailed explanation, visit the online UCI protocol documentation.
@@ -163,4 +167,4 @@ Redirects you here.
 
 ---
 
-## 🛠️ Build & Run
+## Build & Run
