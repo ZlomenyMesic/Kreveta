@@ -171,7 +171,7 @@ internal static class Options {
 
     // this is called when the engine receives the "setoption"
     // command, which is used to modify the value of an option
-    internal static void SetOption(ReadOnlySpan<string> tokens) {
+    internal static void Set(ReadOnlySpan<string> tokens) {
         // the syntax must be "setoption name <NAME> value <VALUE>"
         if (tokens.Length < 3 || tokens[1] != "name") {
             goto invalid_syntax;

@@ -66,9 +66,12 @@ public class Benchmarks {
     }*/
 
     // [Benchmark]
-    // public void CloneBoard() {
+    // public void CloneBoard() { 
     //     var clone = _position.Clone();
     // }
+    
+    
+    //private Board _position = Board.CreateStartpos();
 
     // [Benchmark]
     // public void GetLegalMoves() {

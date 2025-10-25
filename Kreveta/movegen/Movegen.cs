@@ -74,12 +74,15 @@ internal static unsafe class Movegen {
             LoopPiecesBB(board, board.Pieces[(byte)col * 6 + i], (PType)i, col, occupiedOpp, occupied, empty, free, buffer);
         }
 
-        // castling when in check is illegal
-        if (IsKingInCheck(in board, col))
-            return;
-
-        ulong cast = King.GetCastlingTargets(in board, col);
-        LoopTargets(board, BB.LS1B(board.Pieces[(byte)col * 6 + 5]), cast, PType.NONE, col, buffer);
+        // only generate castling moves when it's actually possible
+        if (board.CastRights != CastRights.NONE) {
+            // castling when in check is illegal
+            if (IsKingInCheck(in board, col))
+                return;
+            
+            ulong cast = King.GetCastlingTargets(in board, col);
+            LoopTargets(board, BB.LS1B(board.Pieces[(byte)col * 6 + 5]), cast, PType.NONE, col, buffer);
+        }
     }
 
     private static void GeneratePseudoLegalCaptures(in Board board, Color col, Span<Move> buffer) {
@@ -101,26 +104,23 @@ internal static unsafe class Movegen {
         // no need to generate castling moves - they can never be a capture
     }
 
+    // check whether the king of the specified color is currently in check. works
+    // by pretending the king is a different piece and generating captures for it,
+    // and then testing whether it could capture any of the same opponent pieces
     internal static bool IsKingInCheck(in Board board, Color col) {
-        ulong kingSq = board.Pieces[(byte)col * 6 + 5];
-
-        byte colOpp = (byte)(col == Color.WHITE ? 6 : 0);
-
+        ulong kingSq   = board.Pieces[(byte)col * 6 + 5];
+        byte  colOpp   = (byte)(col == Color.WHITE ? 6 : 0);
         ulong occupied = board.Occupied;
 
         ulong occupiedOpp = col == Color.WHITE
             ? board.BOccupied
             : board.WOccupied;
         
-        ulong targets = Pawn.GetPawnCaptureTargets(kingSq, 0, col, occupiedOpp);
-        if ((targets & board.Pieces[colOpp]) != 0UL)
-            return true;
+        // i tried to order these based on how much i think certain pieces are
+        // likely to be checking the king, but i am still unsure whether it
+        // actually has any performance benefits
 
-        targets = Knight.GetKnightTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[colOpp + 1]) != 0UL)
-            return true;
-
-        targets = Bishop.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
+        ulong targets = Bishop.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
         if ((targets & board.Pieces[colOpp + 2]) != 0UL)
             return true;
 
@@ -130,12 +130,17 @@ internal static unsafe class Movegen {
 
         if (((targets | rookTargets) & board.Pieces[colOpp + 4]) != 0UL)
             return true;
-
-        targets = King.GetKingTargets(kingSq, ulong.MaxValue);
-        if ((targets & board.Pieces[colOpp + 5]) != 0UL)
+        
+        targets = Knight.GetKnightTargets(kingSq, ulong.MaxValue);
+        if ((targets & board.Pieces[colOpp + 1]) != 0UL)
+            return true;
+        
+        targets = Pawn.GetPawnCaptureTargets(kingSq, 0, col, occupiedOpp);
+        if ((targets & board.Pieces[colOpp]) != 0UL)
             return true;
 
-        return false;
+        targets = King.GetKingTargets(kingSq, ulong.MaxValue);
+        return (targets & board.Pieces[colOpp + 5]) != 0UL;
     }
 
     private static void LoopPiecesBB(

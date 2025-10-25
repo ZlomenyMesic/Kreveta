@@ -1,14 +1,16 @@
 # 🦐 Kreveta Chess Engine
 
+![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=success)
+
 A high-performance UCI-compatible chess engine written in C#.
 Designed to be fast and strong, with a main focus on optimizing C# to its limits.
 Development started on **4/3/2025**.
 
 ---
 
-## 📦 Features at a Glance
+## Features at a Glance
 
-- ✅ **UCI Protocol Support**
+- 🎮 **UCI Protocol Support**
 - ⚡ **High-speed move generation using Magic Bitboards**
 - ♟️ **PV Search with various enhancements**
 - 📊 **Performance benchmarking**
@@ -25,9 +27,11 @@ Rough estimates from playtesting using Cutechess-cli:
 | Stockfish 17    | 40/120        | ~1400   | 2362         |
 | ...             | ...           | ...     | ...          |
 
+*Time Control is in format moves/time in seconds
+
 ---
 
-## 🔬 Benchmarks
+## Benchmarks
 
 ### Regular search (initial position)
 
@@ -54,7 +58,7 @@ Rough estimates from playtesting using Cutechess-cli:
 
 ---
 
-## 🧠 Engine Internals
+## Engine Internals
 
 ### Move Generation
 
@@ -75,7 +79,7 @@ Rough estimates from playtesting using Cutechess-cli:
 - Quiet history and pawn corrections
 - Improving search stack
 - Resizable Transposition Table (1-1000 MB)
-- Logical time management
+- Rational time management
 
 ### Static Evaluation
 
@@ -100,7 +104,7 @@ Below are the implemented commands and their usage:
 
 ### `uci`
 
-Sent by the GUI to ensure the engine uses the UCI protocol. The engine responds with `id name`, `id author`, a list of all modifiable options and eventually `uciok`, which lets the GUI know UCI is supported.
+Sent by the GUI to ensure the engine uses the UCI protocol. The engine responds with `id name`, `id author`, a list of all supported options and eventually `uciok`, which lets the GUI know UCI is supported.
 
 ### `isready`
 
@@ -108,15 +112,15 @@ Used by the GUI to check whether the engine is ready to respond to further comma
 
 ### `ucinewgame`
 
-Signals that the engine will be playing a whole game of chess, instead of just analyzing a single position. This allows the engine to toggle various options on or off, depending on the current task. The engine doesn't need to respond with anything.
+Signals that the engine will be playing a whole game of chess, instead of just analyzing a single position. This allows the engine to toggle various options, depending on the current task. The engine doesn't respond with anything.
 
 ### `position [fen | startpos] moves ...`
 
-Used to set up a chess position, which can be later searched. The starting position is set up using `position startpos`. Setting up a position using a FEN string is done so: `position fen <fen_string>`. The FEN string MUST include the position, side to move, en passant square and castling rights. Fullmove and halfmove clocks are optional. After both startpos and FEN strings may follow a list of moves played from the position. This list must begin with the 'moves' token, e.g. `position startpos moves e2e4 e7e5 g1f3`.
+Used to set up a chess position, which must be done prior to any search. The starting position is set up using `position startpos`. Set up a position using a FEN string so: `position fen <fen_string>`. The FEN string must include the position, side to move, en passant square and castling rights. Fullmove and halfmove clocks are optional. After both startpos and FEN strings may follow a list of moves played from the position. This list must begin with the `moves` token, e.g. `position startpos moves e2e4 e7e5 g1f3`.
 
 ### `go [depth n | movetime t | wtime x btime y ...]`
 
-Tells the engine it should start searching the current position. None of the arguments are mandatory, and if none are provided, the default time budget is used. `wtime` indicates white's time left, `btime` is black's time left, `winc` tells white's time increment after a move and `binc` is black's time increment. The search can also be run as `go movetime <x>`, which sets exactly the time the search should take. `go depth <x>` runs a search with unlimited time, but a strictly set maximum search depth. `go infinite` starts a neverending search. All time arguments shall be passed in milliseconds.
+Starts searching the current position. None of the arguments are mandatory, and if none are provided, the default time budget is used. `wtime` indicates white's time left, `btime` is black's time left, `winc` tells white's time increment after each move and `binc` is black's time increment. The search can also be run as `go movetime <x>`, which precisely specifies the time the search should take. `go depth <x>` runs a search with unrestricted time, but a strict maximum search depth. `go infinite` starts a neverending search. All time arguments shall be passed in milliseconds.
 
 ### `stop`
 
@@ -124,23 +128,38 @@ Interrupts search immediately. Works both for perft and regular search.
 
 ### `setoption name [option] value [value]`
 
-Changes engine configuration. Available options are OwnBook, Hash, NKLogs and PrintStats.
+Changes engine configuration. Available options:
+
+- **PolyglotUseBook** (check): enables/disables retrieving and playing moves from the specified Polyglot book
+- **PolyglotBook** (string): sets the path to the Polyglot book
+- **PolyglotRisk** (spin): decides how risky the engine will play when choosing from multiple differently weighted moves in the Polyglot book
+- **Hash** (spin): size of the TT in megabytes (other tables are not affected)
+- **NKLogs** (check): enables/disables logging all UCI communication into an external log file
+- **PrintStats** (check): enables/disables printing fancy statistics at the end of regular and perft searches
 
 ### `quit`
 
 Shuts down the engine immediately.
 
-### `perft` (non-UCI command)
+### `perft` (non-UCI)
 
 Stands for PERFormance Test. This command is used to measure the move generation algorithm's speed and correctness. The syntax is `perft <x>`, which specifies the depth at which the test shall be performed. The output is the number of nodes found exactly at the specified depth and the total time spent to find this number.
 
-### `d` (non-UCI command)
+### `d` (non-UCI)
 
 Prints the currently set position.
 
-### `bench` (non-UCI command)
+### `cls` (non UCI)
+
+Clears the console window.
+
+### `bench` (non-UCI)
 
 Runs current benchmarks.
+
+### `help` (non-UCI)
+
+Redirects you here.
 
 ---
 
