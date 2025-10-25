@@ -1,19 +1,19 @@
-# 🦐 Kreveta Chess Engine
+<div align="center">
 
-![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=success)
+# Kreveta Chess Engine
+
+![.NET](https://img.shields.io/badge/.NET-9.0-lightblue?style=for-the-badge)
+![License](https://img.shields.io/github/license/ZlomenyMesic/Kreveta?style=for-the-badge&label=license&color=lightgreen)
+![Commits](https://img.shields.io/github/commit-activity/m/ZlomenyMesic/Kreveta?style=for-the-badge&logo=github&color=lightsalmon&label=commits)
+
+</div>
+
+## About
 
 A high-performance UCI-compatible chess engine written in C#.
-Designed to be fast and strong, with a main focus on optimizing C# to its limits.
-Development started on **4/3/2025**.
+Designed to be fast and strong, with a main focus on optimizing C# to its limits. Development started on **4/3/2025**.
 
 ---
-
-## Features at a Glance
-
-- 🎮 **UCI Protocol Support**
-- ⚡ **High-speed move generation using Magic Bitboards**
-- ♟️ **PV Search with various enhancements**
-- 📊 **Performance benchmarking**
 
 ### ELO Ratings
 
