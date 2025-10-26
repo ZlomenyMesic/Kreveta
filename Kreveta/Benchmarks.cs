@@ -71,12 +71,12 @@ public class Benchmarks {
     // }
     
     
-    //private Board _position = Board.CreateStartpos();
+    private Board _position = Board.CreateStartpos();
 
-    // [Benchmark]
-    // public void GetLegalMoves() {
-    //     _ = Movegen.GetLegalMoves(ref _position, stackalloc Move[128]);
-    // }
+    [Benchmark]
+    public void GetLegalMoves() {
+        _ = Movegen.GetLegalMoves(ref _position, stackalloc Move[128]);
+    }
 
     /*
     [Benchmark]
