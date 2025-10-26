@@ -16,10 +16,12 @@ using System;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Kreveta;
 
 // can be neither readonly nor record
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct Board {
 
     // all pieces are saved here in so called bitboards.
@@ -29,6 +31,7 @@ internal struct Board {
     // since a chessboard has 64 squares and ulong has 64
     // bits, we don't waste any memory or anything else.
     [DebuggerDisplay("indexed [color * 6 + piece_type]")]
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
     internal ulong[] Pieces = new ulong[12];
 
     // these two bitboards simply represent all occupied

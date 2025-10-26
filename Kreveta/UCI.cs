@@ -273,7 +273,8 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        
+        ulong result = NativeBridge.NativeMovegen.Factorial(5);
+        Log(result.ToString());
     }
 }
 

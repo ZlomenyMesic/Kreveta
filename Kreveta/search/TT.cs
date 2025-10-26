@@ -249,19 +249,11 @@ internal static unsafe class TT {
             return true;
         }
         
-        
-
-        if (entry.Flags.GetHasSCORE_EXACT()) {
-            ;
-        }
-
-        
-        
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        if (entry.Flags.GetHasSCORE_EXACT()
-            || (entry.Flags.GetHasSCORE_LOWER_BOUND() && score <= window.Alpha)
-            || (entry.Flags.GetHasSCORE_UPPER_BOUND() && score >= window.Beta)) {
+        if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
+            || (entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha)
+            || (entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta)) {
 
             TTHits++;
             return true;

@@ -232,7 +232,7 @@ internal static class Options {
 
                     // the value of a string option type can be
                     // any length, and can be divided by spaces
-                    for (byte j = 3; j < tokens.Length; j++)
+                    for (byte j = 4; j < tokens.Length; j++)
                         sb.Append(tokens[j]);
 
                     opt.Value = sb.ToString().Trim();

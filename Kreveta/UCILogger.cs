@@ -100,7 +100,7 @@ internal static partial class UCI {
     }
 
     // combining sync and async code is generally a bad idea, but we must avoid slowing
-    // down the code if something takes too long in NK (although it's probably unlikely)
+    // down the engine if something takes too long in NK (although it's probably unlikely)
     private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
         if (!Options.NKLogs)
             return;
