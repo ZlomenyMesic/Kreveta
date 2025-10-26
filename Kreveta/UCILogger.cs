@@ -16,8 +16,14 @@ internal static partial class UCI {
         INFO, WARNING, ERROR, RAW
     }
 
+    private static bool _isNKInitialized;
     private static void InitNK() {
         const string NKLogFilePath = @".\out.log";
+        
+        if (_isNKInitialized) 
+            return;
+        
+        _isNKInitialized = true;
         
         try {
             var nkOutput = new StreamWriter(NKLogFilePath);
@@ -98,6 +104,8 @@ internal static partial class UCI {
     private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
         if (!Options.NKLogs)
             return;
+        
+        InitNK();
 
         // using KryKomDev's NeoKolors library for fancy logs
         // this option can be toggled via the NKLogs option

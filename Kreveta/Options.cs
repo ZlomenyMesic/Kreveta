@@ -69,8 +69,8 @@ internal static class Options {
         new() {
             Name         = nameof(PolyglotBook),
             Type         = OpType.STRING,
-            DefaultValue = @"C:\Users\michn\Downloads\rodent.bin",
-            Value        = @"C:\Users\michn\Downloads\rodent.bin",
+            DefaultValue = string.Empty,
+            Value        = string.Empty,
         },
         
         new() {
@@ -78,8 +78,8 @@ internal static class Options {
             Type         = OpType.SPIN,
             MinValue     = 0L,
             MaxValue     = 100L,
-            DefaultValue = 30L,
-            Value        = 30L
+            DefaultValue = 0L,
+            Value        = 0L
         },
 
         // size of the hash table in megabytes. this only

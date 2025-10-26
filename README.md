@@ -19,13 +19,13 @@ Designed to be fast and strong, with a main focus on optimizing C# to its limits
 
 ---
 
-### ELO Ratings
+### Elo Ratings
 
 No official ratings yet.
 
 Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutechess/cutechess):
 
-| Opponent        | Time Control | Games   | ELO estimate |
+| Opponent        | Time Control | Games   | Elo estimate |
 |-----------------|--------------|---------|--------------|
 | Stockfish 17    | 40/100       | ~800    | 2381         |
 | Stockfish 17    | 40/120       | ~1400   | 2362         |
