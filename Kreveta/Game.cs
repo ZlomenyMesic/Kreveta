@@ -208,9 +208,6 @@ internal static class Game {
 
         // save drawing positions in "draws"
         List3FoldDraws();
-        
-        static bool IsStartpos(ReadOnlySpan<string> tokens)
-            => tokens[1] == "startpos" || tokens[2] == Consts.StartposFEN.Split(' ')[0];
     }
 
     // save all positions that would cause a 3-fold repetition draw in

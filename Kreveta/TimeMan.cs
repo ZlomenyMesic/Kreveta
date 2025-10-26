@@ -175,11 +175,11 @@ internal static class TimeMan {
     // and rises), we can try to increase our time budget to search this
     // turn a bit deeper
     internal static void TryIncreaseTimeBudget() {
-        if (!Game.FullGame) return;
+        //if (!Game.FullGame) return;
         
         // TODO - make this actually so that it improves the playing strength :/
 
-        const int minScoreChange = 150;
+        //const int minScoreChange = 150;
         //if (Math.Abs(Game.PreviousScore - PVSearch.PVScore) > minScoreChange && _movesToGo > 5) 
         //    TimeBudget *= 2;
     }

@@ -45,8 +45,6 @@ internal static partial class UCI {
         // handle long move lines, thus we use a larger buffer size
         Input  = new StreamReader(Console.OpenStandardInput(InputBufferSize));
         Output = Console.Out;
-
-        InitNK();
     }
 
     internal static void InputLoop() {
