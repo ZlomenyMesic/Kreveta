@@ -1,5 +1,7 @@
 // ReSharper disable InconsistentNaming
 
+using Kreveta.uci.options;
+
 using System;
 using System.Globalization;
 using System.IO;
@@ -12,10 +14,7 @@ using NK = NeoKolors.Console;
 namespace Kreveta.uci;
 
 internal static partial class UCI {
-    internal enum LogLevel : byte {
-        INFO, WARNING, ERROR, RAW
-    }
-
+    
     private static bool _isNKInitialized;
     private static void InitNK() {
         const string NKLogFilePath = @".\out.log";
@@ -47,7 +46,8 @@ internal static partial class UCI {
     }
 
     // had to use this crazy syntax just because it exists
-    internal static void LogMultiDebug(__arglist) {
+    // ReSharper disable once UnusedMember.Global
+    internal static void LogMultiple(__arglist) {
         var iter = new ArgIterator(__arglist);
 
         while (iter.GetRemainingCount() > 0) {

@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.moveorder;
+namespace Kreveta.moveorder.historyheuristics;
 
 // to help move ordering, we use a few different history heuristics.
 // the idea of these is that we save moves that proved to be good
@@ -125,7 +125,7 @@ internal static class QuietHistory {
         PType piece = move.Piece;
         
         // figure out the color of the piece based on whether it is present in the bitboard
-        Color col = (board.Pieces[(byte)Color.WHITE * 6 + (byte)piece] ^ (1UL << move.Start)) == 0UL
+        Color col = (board.Pieces[(byte)Color.WHITE * 6 + (byte)piece] ^ 1UL << move.Start) == 0UL
             ? Color.BLACK
             : Color.WHITE;
 

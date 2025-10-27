@@ -6,11 +6,9 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.moveorder;
+using Kreveta.moveorder.historyheuristics;
 
 using System;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
 
@@ -26,7 +24,7 @@ internal static class LateMoveReductions {
 
     // once again we set a minimum ply and depth
     internal const byte MinPly   = 4;
-    internal const byte MinDepth = 0;
+    //internal const byte MinDepth = 0;
 
     // minimum nodes expanded before lmr
     // (we obviously don't want to reduce the pv)

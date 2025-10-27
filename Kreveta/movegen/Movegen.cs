@@ -202,7 +202,7 @@ internal static unsafe class Movegen {
     }
 
     private static void LoopTargets(in Board board, byte start, ulong targets, PType type, Color col, Span<Move> buffer) {
-        var colOpp = col == Color.WHITE
+        Color colOpp = col == Color.WHITE
             ? Color.BLACK
             : Color.WHITE;
 
@@ -215,7 +215,7 @@ internal static unsafe class Movegen {
             // get the potential capture type
             if (type != PType.NONE) {
                 for (int i = 0; i < 5; i++) {
-                    if ((board.Pieces[(byte)colOpp * 6 + i] & (1UL << end)) == 0UL)
+                    if ((board.Pieces[(byte)colOpp * 6 + i] & 1UL << end) == 0UL)
                         continue;
 
                     capt = (PType)i;
@@ -231,6 +231,7 @@ internal static unsafe class Movegen {
     private static void AddMoveToBuffer(PType type, Color col, byte start, byte end, PType capt, int enPassantSq, Span<Move> buffer) {
 
         // add the generated move to the list
+        // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
         switch (type) {
             case PType.PAWN: {
                 if ((end < 8 && col == Color.WHITE) | (end > 55 && col == Color.BLACK)) {

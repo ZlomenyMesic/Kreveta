@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 // ReSharper disable InvokeAsExtensionMethod
 
-namespace Kreveta.moveorder;
+namespace Kreveta.moveorder.historyheuristics;
 
 internal static unsafe class Killers {
 

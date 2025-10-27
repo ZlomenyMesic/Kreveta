@@ -3,7 +3,6 @@
 // started 4-3-2025
 //
 
-using System;
 using Kreveta.consts;
 
 namespace Kreveta.movegen.pieces;
@@ -26,10 +25,10 @@ internal static class Rook {
                               
                     // now we shift this bitboard by the rounded square
                     // index (this essentially puts it on the first rank)
-                    >> ((sq >> 3) << 3));
+                    >> (sq >> 3 << 3));
         
         // now we take the lookup targets
-        ulong targets = LookupTables.RankTargets[sq * 64 + ((occupancy >> 1) & 63)];
+        ulong targets = LookupTables.RankTargets[sq * 64 + (occupancy >> 1 & 63)];
 
         // this time we want the relevant file
         occupancy = (int)((occupied & Consts.RelevantFileMask[sq & 7])

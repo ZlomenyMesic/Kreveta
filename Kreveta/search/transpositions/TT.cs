@@ -5,7 +5,7 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.uci;
+using Kreveta.uci.options;
 
 using System;
 using System.Runtime.CompilerServices;
@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.search;
+namespace Kreveta.search.transpositions;
 
 // during the search, most positions are usually achievable in many ways,
 // and they repeat themselves, which is obviously time-consuming. for
@@ -21,55 +21,10 @@ namespace Kreveta.search;
 // positions along with their score and the best move from that position.
 // this data can be used to order moves or greatly decrease the number
 // of nodes in the tree.
-internal static unsafe class TT {
+internal static unsafe partial class TT {
 
     // minimum ply needed to look up scores in tt
     internal const int MinProbingPly = 4;
-
-    // depending on where the score fell relatively
-    // to the window when saving, we store the score type
-    [Flags]
-    internal enum SpecialFlags : byte {
-        SCORE_UPPER_BOUND = 1, // the score was above beta
-        SCORE_LOWER_BOUND = 2, // the score was below alpha
-        SCORE_EXACT       = 4, // the score fell right into the window
-
-        SHOULD_OVERWRITE  = 8  // the node is old and should be overwritten
-    }
-
-    // this entry is stored for every position
-    [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
-    private record struct Entry {
-
-        // we store the board hash, because different hashes can
-        // result in the same table index due to its size.
-        // (8 bytes)
-        [field: FieldOffset(0)]
-        internal ulong Hash;
-
-        // the best move found in this position - used for move ordering
-        // (4 bytes)
-        [field: FieldOffset(8)]
-        internal Move BestMove;
-
-        // the score of the position
-        // (2 bytes)
-        [field: FieldOffset(8 + 4)]
-        internal short Score;
-
-        // the depth at which the search was performed
-        // => higher depth means a more truthful score
-        // (1 byte)
-        [field: FieldOffset(8 + 4 + 2)]
-        internal sbyte Depth;
-
-        // (1 byte)
-        [field: FieldOffset(8 + 4 + 2 + 1)]
-        internal SpecialFlags Flags;
-    }
-
-    // size of a single hash entry
-    private const int EntrySize = 16;
 
     // size of the table
     private static int TableSize = GetTableSize();
@@ -131,13 +86,13 @@ internal static unsafe class TT {
             alignment: EntrySize);
     }
 
-    internal static void IncreaseAge() {
+    /*internal static void IncreaseAge() {
         // for (int i = 0; i < TableSize; i++) {
         //     
         //     if (Table[i].Hash != 0UL)
         //         Table[i].Flags |= SpecialFlags.SHOULD_OVERWRITE;
         // }
-    }
+    }*/
 
     // store a position in the table. the best move doesn't have to be specified
     internal static void Store(in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
@@ -145,7 +100,7 @@ internal static unsafe class TT {
         int i = HashIndex(hash);
 
         // maybe an entry is already saved
-        var existing = Table[i];
+        Entry existing = Table[i];
 
         //bool isOld = (existing.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
 

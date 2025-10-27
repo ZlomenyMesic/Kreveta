@@ -8,8 +8,9 @@ using System.Diagnostics;
 
 using Kreveta.movegen;
 using Kreveta.moveorder;
+using Kreveta.moveorder.historyheuristics;
 using Kreveta.perft;
-using Kreveta.search;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 namespace Kreveta;
@@ -17,7 +18,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "1.1.1";
+    internal const string Version = "1.1.2";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {

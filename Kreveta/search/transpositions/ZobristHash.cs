@@ -17,7 +17,7 @@ using Kreveta.consts;
 using System;
 using System.Runtime.InteropServices;
 
-namespace Kreveta;
+namespace Kreveta.search.transpositions;
 
 // this zobrist hash shall not be used for Polyglot indexing
 internal static unsafe class ZobristHash {

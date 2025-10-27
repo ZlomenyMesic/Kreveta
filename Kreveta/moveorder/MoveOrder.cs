@@ -5,7 +5,8 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
-using Kreveta.search;
+using Kreveta.moveorder.historyheuristics;
+using Kreveta.search.transpositions;
 
 using System;
 using System.Runtime.InteropServices;
@@ -66,7 +67,8 @@ internal static unsafe class MoveOrder {
             }
         }
 
-        Span<Move> mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
+        var mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
+        // ReSharper disable once ForCanBeConvertedToForeach
         for (int i = 0; i < mvvlva.Length; i++) {
             sorted[cur++] = mvvlva[i];
         }
@@ -75,9 +77,10 @@ internal static unsafe class MoveOrder {
         // 3. killer moves
         //
         
-        Span<Move> killers = Killers.GetCluster(depth);
+        var killers = Killers.GetCluster(depth);
+        // ReSharper disable once ForCanBeConvertedToForeach
         for (int k = 0; k < killers.Length; k++) {
-            var killer = killers[k];
+            Move killer = killers[k];
             if (killer == default) continue;
 
             for (int i = 0; i < legalCount; i++) {

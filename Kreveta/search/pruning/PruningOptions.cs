@@ -7,7 +7,7 @@ namespace Kreveta.search.pruning;
 
 internal readonly record struct PruningOptions {
     internal const bool AllowNullMovePruning        = true;
-    internal const bool AllowProbCut                = true;
+    //internal const bool AllowProbCut                = true;
 
     internal const bool AllowFutilityPruning        = true;
 

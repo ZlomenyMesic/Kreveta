@@ -63,11 +63,11 @@ internal static unsafe class LookupTables {
             ulong king = 1UL << i;
 
             // starting, right and left square
-            ulong sides = (king << 1 & 0xFEFEFEFEFEFEFEFE) | (king >> 1 & 0x7F7F7F7F7F7F7F7F);
+            ulong sides = king << 1 & 0xFEFEFEFEFEFEFEFE | king >> 1 & 0x7F7F7F7F7F7F7F7F;
             king |= sides;
 
             // also move these up and down and remove the king from the center
-            ulong all = sides | (king >> 8) | (king << 8);
+            ulong all = sides | king >> 8 | king << 8;
             KingTargets[i] = all;
         }
     }
@@ -82,16 +82,16 @@ internal static unsafe class LookupTables {
             ulong left  = knight >> 1 & 0x7F7F7F7F7F7F7F7F;
 
             // shift the side squares up and down to generate "vertical" moves
-            ulong vertical = ((right | left) >> 16) 
-                           | ((right | left) << 16);
+            ulong vertical = (right | left) >> 16 
+                           | (right | left) << 16;
 
             // shift the side squares to the side again
             right = right << 1 & 0xFEFEFEFEFEFEFEFE;
             left  = left  >> 1 & 0x7F7F7F7F7F7F7F7F;
 
             // move these up and down to generate "horizontal" moves
-            ulong horizontal = ((right | left) >> 8) 
-                             | ((right | left) << 8);
+            ulong horizontal = (right | left) >> 8 
+                             | (right | left) << 8;
 
             KnightTargets[i] = vertical | horizontal;
         }
@@ -140,7 +140,7 @@ internal static unsafe class LookupTables {
                     if (!BB.IsBitSet(rankTargets, bit))
                         continue;
                     
-                    targets |= 1UL << ((i & 7) + 8 * (7 - bit));
+                    targets |= 1UL << (i & 7) + 8 * (7 - bit);
                 }
 
                 FileTargets[i * 64 + o] = targets;
@@ -158,7 +158,7 @@ internal static unsafe class LookupTables {
                 ulong targets = 0;
                 ulong rankTargets = diag > 0 
                     ? RankTargets[(i & 7) * 64 + o] 
-                    : RankTargets[(i / 8) * 64 + o];
+                    : RankTargets[i / 8 * 64 + o];
 
                 for (int bit = 0; bit < 8; bit++) {
 
@@ -178,7 +178,7 @@ internal static unsafe class LookupTables {
                     }
 
                     if (file is >= 0 and <= 7 && rank is >= 0 and <= 7) {
-                        targets |= 1UL << (file + 8 * rank);
+                        targets |= 1UL << file + 8 * rank;
                     }
                 }
 
@@ -217,7 +217,7 @@ internal static unsafe class LookupTables {
                     }
 
                     if (file is >= 0 and <= 7 && rank is >= 0 and <= 7) {
-                        targets |= 1UL << (file + 8 * rank);
+                        targets |= 1UL << file + 8 * rank;
                     }
                 }
 

@@ -5,6 +5,7 @@
 
 namespace Kreveta.syzygy;
 
+// ReSharper disable once UnusedType.Global
 internal static class Syzygy {
     
 }

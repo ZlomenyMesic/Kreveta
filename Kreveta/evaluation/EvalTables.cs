@@ -3,9 +3,9 @@
 // started 4-3-2025
 //
 
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using Kreveta.consts;
+
+using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
 
@@ -97,7 +97,7 @@ internal static class EvalTables {
           -45,  -30,  -45,  -60,  -60,  -45,  -30,  -45,
           -25,  -25,  -60,  -75,  -75,  -60,  -25,  -25,
           -15,  -20,  -25,  -70,  -70,  -25,  -20,  -15,
-          -5,   -15,  -20,  -35,  -35,  -20,  -15,   -5,
+          -5,   -15,  -20,  -35,  -35,  -20,  -15,   -5
         ];
     #endregion
     #region ENDGAME
@@ -155,7 +155,7 @@ internal static class EvalTables {
           -10,  -0,    5,    25,   25,   5,    0,   -10,
           -20,  -10,   0,    5,    5,    0,   -10,  -20,
           -35,  -20,  -10,   0,    0,   -10,  -20,  -35,
-          -70,  -35,  -20,  -10,  -10,  -20,  -35,  -70,
+          -70,  -35,  -20,  -10,  -10,  -20,  -35,  -70
         ];
     #endregion
 }

@@ -3,7 +3,6 @@
 // started 4-3-2025
 //
 
-using System;
 using Kreveta.consts;
 
 namespace Kreveta.movegen.pieces;

@@ -7,11 +7,12 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
+using Kreveta.moveorder.historyheuristics;
 using Kreveta.search.pruning;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
-using System.ComponentModel;
 
 // ReSharper disable InconsistentNaming
 
@@ -46,8 +47,7 @@ internal static class PVSearch {
 
     // after this time the engine aborts the search
     private static long AbortTimeThreshold;
-
-    [ReadOnly(true), DefaultValue(false)]
+    
     internal static bool Abort 
         => UCI.ShouldAbortSearch
            || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
@@ -317,7 +317,7 @@ internal static class PVSearch {
             bool interesting = searchedMoves == 1
                                || inCheck
                                || isPV
-                               || (ply <= 4 && isCapture)
+                               || ply <= 4 && isCapture
                                || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
             // static eval of the child node
@@ -345,7 +345,7 @@ internal static class PVSearch {
             if ((PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
                 && ply           >= LateMoveReductions.MinPly
-                && depth         >= LateMoveReductions.MinDepth
+                //&& depth         >= LateMoveReductions.MinDepth
                 && searchedMoves >= LateMoveReductions.MinExpNodes) {
 
                 // try to fail low

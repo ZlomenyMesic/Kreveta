@@ -68,6 +68,7 @@ internal struct Board {
         Pieces = new ulong[12];
     }
 
+    /*
     internal void Clear() {
         Array.Clear(Pieces);
 
@@ -78,7 +79,8 @@ internal struct Board {
         CastRights = CastRights.NONE;
         Color          = Color.NONE;
     }
-
+    */
+    
     // returns the piece at a certain square. this method isn't
     // really the fastest, but it's useful in the case where we
     // generate piece types for input moves
@@ -296,7 +298,7 @@ internal struct Board {
     // null move used for null move pruning
     [Pure]
     internal Board GetNullChild() {
-        var @null = Clone() with {
+        Board @null = Clone() with {
             EnPassantSq = 64, 
             Color = Color == Color.WHITE 
                 ? Color.BLACK : Color.WHITE
@@ -317,7 +319,7 @@ internal struct Board {
 
     [Pure]
     internal Board Clone() {
-        var @new = this with {
+        Board @new = this with {
             Pieces = new ulong[12]
         };
 

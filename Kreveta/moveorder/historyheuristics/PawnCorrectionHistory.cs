@@ -5,13 +5,13 @@
 
 using Kreveta.consts;
 using Kreveta.evaluation;
+using Kreveta.search.transpositions;
 
 using System;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Kreveta.moveorder;
+namespace Kreveta.moveorder.historyheuristics;
 
 // this class is based on the idea of pawn correction history, but the uses are
 // slightly different. static eval correction history records the differences

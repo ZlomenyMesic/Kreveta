@@ -8,10 +8,9 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.search.pruning;
+using Kreveta.search.transpositions;
 
 using System;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
 
@@ -132,7 +131,7 @@ internal static class QSearch {
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
 
-            var child = board.Clone();
+            Board child = board.Clone();
             child.PlayMove(moves[i]);
 
             // value of the piece we just captured
