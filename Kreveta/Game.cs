@@ -8,6 +8,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;

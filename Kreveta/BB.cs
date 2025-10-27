@@ -16,7 +16,7 @@ internal static class BB {
     // whether the bit at the specified index is 1
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsBitSet(ulong bb, int index) {
-        return (bb & ((ulong)1 << index)) != 0UL;
+        return (bb & (ulong)1 << index) != 0UL;
     }
 
     // Least Significant 1 Bit (also called bit scan forward

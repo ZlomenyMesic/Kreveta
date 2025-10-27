@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+/*
 using Kreveta.consts;
 
 using System.ComponentModel;
@@ -33,4 +34,4 @@ internal static class ProbCut {
             ? probCutScore + Margin <= window.Alpha
             : probCutScore - Margin >= window.Beta;
     }
-}
+}*/

@@ -9,16 +9,18 @@
 // Initialize reference type static fields inline    
 #pragma warning disable CA1810
 
+using Kreveta.movegen;
+using Kreveta.openings;
+using Kreveta.perft;
+using Kreveta.search;
+using Kreveta.search.transpositions;
+using Kreveta.uci.options;
+
 using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
-
-using Kreveta.movegen;
-using Kreveta.openings;
-using Kreveta.search;
-using Kreveta.perft;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming

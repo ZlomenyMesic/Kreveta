@@ -81,7 +81,7 @@ internal static class Perft {
         for (byte i = 0; i < count; i++) {
 
             // create a copy of the board and play the move
-            var child = board.Clone();
+            Board child = board.Clone();
             child.PlayMove(moves[i]);
 
             // the move is illegal (we moved to or stayed in check)

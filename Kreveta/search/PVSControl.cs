@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
@@ -177,7 +178,7 @@ internal static class PVSControl {
                       $"score {score} " +
 
                       // principal variation
-                      $"pv";
+                      "pv";
 
         // print the actual moves in the pv. Move.ToString()
         // is overriden so there's no need to explicitly type it

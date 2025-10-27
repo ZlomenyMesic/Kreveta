@@ -9,7 +9,6 @@ using Kreveta.movegen.pieces;
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace Kreveta.evaluation;
 
@@ -60,7 +59,7 @@ internal static class Eval {
     // structure, king safety, etc. the score returned is color relative,
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
-    internal static unsafe short StaticEval(in Board board) {
+    internal static short StaticEval(in Board board) {
 
         // increment the counter for stats
         StaticEvalCount++;
@@ -193,10 +192,10 @@ internal static class Eval {
             // penalize blocked pawns - pawns that have a friendly piece directly in
             // front of them and thus cannot push further. in order to push this pawn,
             // you first have to move the other piece, which makes it worse.
-            if (col == Color.WHITE && ((1UL << (sq - 8)) & wOccupied) != 0UL)
+            if (col == Color.WHITE && (1UL << sq - 8 & wOccupied) != 0UL)
                 eval += BlockedPawnPenalty;
 
-            else if (col == Color.BLACK && ((1UL << (sq + 8)) & bOccupied) != 0UL)
+            else if (col == Color.BLACK && (1UL << sq + 8 & bOccupied) != 0UL)
                 eval -= BlockedPawnPenalty;
         }
 

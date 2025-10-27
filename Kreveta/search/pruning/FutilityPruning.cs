@@ -4,7 +4,7 @@
 //
 
 using Kreveta.consts;
-using Kreveta.moveorder;
+using Kreveta.moveorder.historyheuristics;
 
 // ReSharper disable InconsistentNaming
 

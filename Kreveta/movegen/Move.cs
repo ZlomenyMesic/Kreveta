@@ -8,8 +8,6 @@
 
 using Kreveta.consts;
 using System;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -125,7 +123,7 @@ internal readonly struct Move : IEquatable<Move>
             && (str.Length == 4
 
             // a promotion (from-to squares + promotion piece)    
-            || (str.Length == 5 && Consts.Pieces.Contains(str[4], StringComparison.Ordinal)));
+            || str.Length == 5 && Consts.Pieces.Contains(str[4], StringComparison.Ordinal));
     }
 }
 
@@ -135,6 +133,7 @@ internal static class MoveExtenstions {
 
     // converts a move back to the long algebraic notation
     // format, see the next method for more information
+    // ReSharper disable once InconsistentNaming
     internal static string ToLAN(this Move move) {
 
         int start  = move.Start;

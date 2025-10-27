@@ -21,43 +21,16 @@
 
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.uci;
+namespace Kreveta.uci.options;
 
 // this class manages the internal options that can
 // be modified via the "setoption" command. see UCI
 // documentation for more details
 internal static partial class Options {
-
-    // the UCI Protocol defines a couple option types (we only
-    // implement the ones we want). CHECK is essentially a boolean
-    // value. SPIN is an integer value. BUTTON has no value but
-    // should trigger an action, and STRING has a text value
-    private enum OpType : byte {
-        CHECK, SPIN, BUTTON, STRING
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private sealed record Option {
-        public required string Name { get; init; }
-        public required OpType Type { get; init; }
-
-        // min and max values are only used with the
-        // "spin" option type
-        internal long MinValue;
-        internal long MaxValue;
-
-        // default value is displayed when the "uci"
-        // command is received. current value of the
-        // option is stored in Value
-        internal required object DefaultValue;
-        internal required object Value;
-    }
-
     private static readonly Option[] options = [
         new() {
             Name         = nameof(PolyglotUseBook),
@@ -70,7 +43,7 @@ internal static partial class Options {
             Name         = nameof(PolyglotBook),
             Type         = OpType.STRING,
             DefaultValue = Default.DPolyglotBook,
-            Value        = Default.DPolyglotBook,
+            Value        = Default.DPolyglotBook
         },
         
         new() {
@@ -130,7 +103,7 @@ internal static partial class Options {
             OpType.CHECK  => "check",
             OpType.SPIN   => "spin",
             OpType.BUTTON => "button",
-            OpType.STRING => "string",
+            OpType.STRING => "string"
         };
     
     // after receiving the "uci" command, the engine must
@@ -140,7 +113,7 @@ internal static partial class Options {
         // when displaying options, we must provide the name,
         // option type, default value and possibly the range
         // of values the option can hold
-        foreach (var opt in options) {
+        foreach (Option opt in options) {
             StringBuilder sb = new();
 
             // append the option name and type
@@ -162,6 +135,9 @@ internal static partial class Options {
                     var defaultValue = (long)opt.DefaultValue;
                     // spin option type must provide the range of values it can hold
                     sb.Append($" default {defaultValue} min {opt.MinValue} max {opt.MaxValue}");
+                    break;
+                
+                case OpType.BUTTON: 
                     break;
             }
 

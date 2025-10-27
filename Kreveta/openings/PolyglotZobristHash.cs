@@ -4,12 +4,15 @@
 //
 
 using Kreveta.consts;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.openings;
 
 // Polyglot indexes positions with their Zobrist hash, which
 // although is already implemented in this engine, needs its
-// specific "random" values.
+// specific "random" values, and also has some very unusual
+// rules for hashing found here:
+// http://hgm.nubati.net/book_format.html
 internal static class PolyglotZobristHash {
     
     // the whole process of the hashing is very similar to
@@ -17,7 +20,9 @@ internal static class PolyglotZobristHash {
     internal static ulong Hash(Board board) {
         ulong hash = 0UL;
 
-        // XOR all pieces
+        // XOR all pieces - this approach is fairly inefficient and
+        // thus isn't used anywhere else, but here only a single hash
+        // is reuired, so no problem
         for (int sq = 0; sq < 64; sq++) {
             PType piece = board.PieceAt(sq);
 
@@ -40,28 +45,34 @@ internal static class PolyglotZobristHash {
             hash ^= PGRandomU64[index];
         }
 
-        // castling rights
+        // castling rights - this chunk of code is disgusting.
+        // i am terribly sorry for anyone having to read this,
+        // it breaks my heart
         if (board.CastRights.HasFlag(CastRights.K)) hash ^= PGRandomU64[CastlingRightsOffset];
         if (board.CastRights.HasFlag(CastRights.Q)) hash ^= PGRandomU64[CastlingRightsOffset + 1];
         if (board.CastRights.HasFlag(CastRights.k)) hash ^= PGRandomU64[CastlingRightsOffset + 2];
         if (board.CastRights.HasFlag(CastRights.q)) hash ^= PGRandomU64[CastlingRightsOffset + 3];
-        
-        // http://hgm.nubati.net/book_format.html
 
+        // en passant once again has its specific rules - as opposed
+        // to FEN, en passant is only valid IF an opposite-color pawn
+        // that could make use of the opportunity exists.
         if (board.EnPassantSq != 64) {
             int   eps   = board.EnPassantSq;
             ulong eps64 = 1UL << eps;
             
+            // we have the square over which the pawn double pushed. so first,
+            // the destination square is calculated and then the two adjacent
             ulong sqMovedTo = eps > 32 ? eps64 >> 8 : eps64 << 8;
-            ulong adjacent = (sqMovedTo >> 1 & 0x7F7F7F7F7F7F7F7F)  // to the left
-                           | (sqMovedTo << 1 & 0xFEFEFEFEFEFEFEFE); // to the right
+            ulong adjacent = sqMovedTo >> 1 & 0x7F7F7F7F7F7F7F7F  // to the left
+                           | sqMovedTo << 1 & 0xFEFEFEFEFEFEFEFE; // to the right
             
             Color moved = eps > 32 ? Color.WHITE : Color.BLACK;
 
             // check if an opposite color pawn exists on one of the adjacent squares
-            if ((moved == Color.WHITE && (board.Pieces[6] & adjacent) != 0UL)
-                || (moved == Color.BLACK && (board.Pieces[0] & adjacent) != 0UL)) {
+            if (moved == Color.WHITE && (board.Pieces[6] & adjacent) != 0UL
+                || moved == Color.BLACK && (board.Pieces[0] & adjacent) != 0UL) {
                 
+                // also, indexing is done by file rather than square
                 hash ^= PGRandomU64[EnPassantSqOffset + (board.EnPassantSq & 7)];
             }
         }
@@ -77,7 +88,8 @@ internal static class PolyglotZobristHash {
     private const int EnPassantSqOffset    = 772; // 8 bytes
     private const int SideToMoveOffset     = 780; // 1 byte
 
-    // ReSharper disable once InconsistentNaming
+    // and the cherry on top, polyglot requires
+    // these 781 specific values to be used
     private static readonly ulong[] PGRandomU64 = [
         0x9D39247E33776D41, 0x2AF7398005AAA5C7, 0x44DB015024623547, 0x9C15F73E62A76AE2,
         0x75834465489C0C89, 0x3290AC3A203001BF, 0x0FBBAD1F61042279, 0xE83A908FF2FB60CA,
@@ -275,5 +287,5 @@ internal static class PolyglotZobristHash {
         0x70CC73D90BC26E24, 0xE21A6B35DF0C3AD7, 0x003A93D8B2806962, 0x1C99DED33CB890A1,
         0xCF3145DE0ADD4289, 0xD0E4427A5514FB72, 0x77C621CC9FB3A483, 0x67A34DAC4356550B,
         0xF8D626AAAF278509
-    ];
+    ]; // fuck you polyglot
 }
