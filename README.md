@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Docs/KrevetaLogo.png" alt="Logo" width="30%">
+<img src="Docs/KrevetaLogo.png" alt="Logo" width="25%">
 
 <br/>
 
