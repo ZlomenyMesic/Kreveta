@@ -47,11 +47,11 @@ internal static unsafe partial class TT {
     internal static int Hashfull =>
         (int)((float)Stored / TableSize * 1000);
 
-    // tt array size = megabytes * bytes_in_mb / entry_size
+    // tt array size = mebibytes * bytes_in_mib / entry_size
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
-        const long EntriesInMB = 1_048_576 / EntrySize;
-        return (int)(Options.Hash * EntriesInMB);
+        const long EntriesInMiB = 1_048_576 / EntrySize;
+        return (int)(Options.Hash * EntriesInMiB);
     }
 
     // generate an index in the tt for a specific board hash
