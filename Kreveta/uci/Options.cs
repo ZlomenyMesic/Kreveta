@@ -26,12 +26,12 @@ using System.Text;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta;
+namespace Kreveta.uci;
 
 // this class manages the internal options that can
 // be modified via the "setoption" command. see UCI
 // documentation for more details
-internal static class Options {
+internal static partial class Options {
 
     // the UCI Protocol defines a couple option types (we only
     // implement the ones we want). CHECK is essentially a boolean
@@ -62,15 +62,15 @@ internal static class Options {
         new() {
             Name         = nameof(PolyglotUseBook),
             Type         = OpType.CHECK,
-            DefaultValue = true,
-            Value        = true
+            DefaultValue = Default.DPolyglotUseBook,
+            Value        = Default.DPolyglotUseBook
         },
         
         new() {
             Name         = nameof(PolyglotBook),
             Type         = OpType.STRING,
-            DefaultValue = string.Empty,
-            Value        = string.Empty,
+            DefaultValue = Default.DPolyglotBook,
+            Value        = Default.DPolyglotBook,
         },
         
         new() {
@@ -78,8 +78,8 @@ internal static class Options {
             Type         = OpType.SPIN,
             MinValue     = 0L,
             MaxValue     = 100L,
-            DefaultValue = 0L,
-            Value        = 0L
+            DefaultValue = Default.DPolyglotRisk,
+            Value        = Default.DPolyglotRisk
         },
 
         // size of the hash table in megabytes. this only
@@ -91,8 +91,8 @@ internal static class Options {
             Type         = OpType.SPIN,
             MinValue     = 1L,    // always keep at least some memory
             MaxValue     = 1024L, 
-            DefaultValue = 32L,   // this seems to work the best
-            Value        = 32L
+            DefaultValue = Default.DHash,
+            Value        = Default.DHash
         },
 
         // log into a file using NKLogger by KryKomDev. the engine
@@ -100,16 +100,16 @@ internal static class Options {
         new() {
             Name         = nameof(NKLogs),
             Type         = OpType.CHECK,
-            DefaultValue = false,
-            Value        = false
+            DefaultValue = Default.DNKLogs,
+            Value        = Default.DNKLogs
         },
         
         // print fancy statistics after each finished search
         new() {
             Name         = nameof(PrintStats),
             Type         = OpType.CHECK,
-            DefaultValue = true,
-            Value        = true
+            DefaultValue = Default.DPrintStats,
+            Value        = Default.DPrintStats
         }
     ];
 

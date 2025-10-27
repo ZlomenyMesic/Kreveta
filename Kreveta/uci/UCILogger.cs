@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 // ReSharper disable once RedundantUsingDirective
 using NK = NeoKolors.Console;
 
-namespace Kreveta;
+namespace Kreveta.uci;
 
 internal static partial class UCI {
     internal enum LogLevel : byte {

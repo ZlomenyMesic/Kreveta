@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
+using Kreveta.uci;
 
 using System;
 using System.Collections.Generic;

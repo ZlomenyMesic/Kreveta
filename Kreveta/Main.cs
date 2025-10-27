@@ -10,6 +10,7 @@ using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.perft;
 using Kreveta.search;
+using Kreveta.uci;
 
 namespace Kreveta;
 

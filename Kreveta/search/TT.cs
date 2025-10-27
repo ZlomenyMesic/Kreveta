@@ -5,9 +5,9 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.uci;
 
 using System;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -252,8 +252,8 @@ internal static unsafe class TT {
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
         if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
-            || (entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha)
-            || (entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta)) {
+            || entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha
+            || entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta) {
 
             TTHits++;
             return true;

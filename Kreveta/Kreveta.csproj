@@ -27,14 +27,5 @@
     <PackageReference Include="NeoKolors.Common" Version="0.25.16" />
     <PackageReference Include="NeoKolors.Console" Version="0.25.16" />
   </ItemGroup>
-  
-
-
-
-  <ItemGroup>
-    <Reference Include="KrevetaNativeBridge">
-      <HintPath>..\x64\Release\KrevetaNativeBridge.dll</HintPath>
-    </Reference>
-  </ItemGroup>
 
 </Project>

@@ -8,6 +8,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
+using Kreveta.uci;
 
 using System;
 using System.Collections.Generic;
