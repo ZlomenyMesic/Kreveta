@@ -8,11 +8,10 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.search.pruning;
+using Kreveta.uci;
 
 using System;
 using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 

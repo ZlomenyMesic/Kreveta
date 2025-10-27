@@ -1,7 +1,13 @@
+//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
+
 #pragma warning disable CA5394
 
 using Kreveta.consts;
 using Kreveta.movegen;
+using Kreveta.uci;
 
 using System;
 using System.IO;
@@ -35,6 +41,9 @@ internal static class Polyglot {
             return default;
         
         PolyglotEntry selection = SelectMove(possible);
+
+        if (selection == default)
+            return default;
             
         int end   = selection.Move       & 0x3F;
         int start = selection.Move >> 6  & 0x3F;

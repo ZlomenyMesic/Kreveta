@@ -1,6 +1,9 @@
-using Kreveta.consts;
+//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
-using System;
+using Kreveta.consts;
 
 namespace Kreveta.openings;
 
@@ -57,7 +60,7 @@ internal static class PolyglotZobristHash {
 
             // check if an opposite color pawn exists on one of the adjacent squares
             if ((moved == Color.WHITE && (board.Pieces[6] & adjacent) != 0UL)
-                | (moved == Color.BLACK && (board.Pieces[0] & adjacent) != 0UL)) {
+                || (moved == Color.BLACK && (board.Pieces[0] & adjacent) != 0UL)) {
                 
                 hash ^= PGRandomU64[EnPassantSqOffset + (board.EnPassantSq & 7)];
             }

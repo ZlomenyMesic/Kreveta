@@ -13,7 +13,6 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Running;
 
 using Kreveta.movegen;
@@ -24,7 +23,7 @@ using Kreveta.perft;
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta;
+namespace Kreveta.uci;
 
 internal static partial class UCI {
     private const int InputBufferSize = 4096;
@@ -125,7 +124,6 @@ internal static partial class UCI {
 
     // when the engine receives the "uci" command, it is supposed
     // to respond with "uciok" to let the GUI know UCI is supported
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CmdUCI() {
         const string UCIOK = "uciok";
 
@@ -185,7 +183,7 @@ internal static partial class UCI {
             // we launch a separate thread for this to allow "stop" command
             // and anything else. i don't know, it's just better
             SearchThread = new Thread(() => Perft.Run(depth)) {
-                Name     = $"{Program.Name}-{Program.Version}.PerftSearch",
+                Name     = $"{Program.Name}-{Program.Version}_Perft",
                 Priority = ThreadPriority.Highest
             };
 
@@ -234,6 +232,9 @@ internal static partial class UCI {
             return;
         }
 
+        if (tokens.Contains("nodes"))
+            Log("Node count restrictions are not supported", LogLevel.WARNING);
+
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
         if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.PolyglotUseBook) {
@@ -251,7 +252,7 @@ internal static partial class UCI {
         // other commands while the search is running - this usually isn't
         // needed, but the "stop" command is very important
         SearchThread = new Thread(() => PVSControl.StartSearch(depth)) {
-            Name     = $"{Program.Name}-{Program.Version}.Search",
+            Name     = $"{Program.Name}-{Program.Version}_Search",
             Priority = ThreadPriority.Highest
         };
         SearchThread.Start();
@@ -273,8 +274,6 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        ulong result = NativeBridge.NativeMovegen.Factorial(5);
-        Log(result.ToString());
     }
 }
 

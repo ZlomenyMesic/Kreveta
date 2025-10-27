@@ -4,9 +4,9 @@
 //
 
 using Kreveta.consts;
+using Kreveta.uci;
 
 using System;
-using Kreveta.search;
 
 namespace Kreveta;
 
