@@ -38,17 +38,21 @@ Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutech
 
 ## Benchmarks
 
+All measurements were performed on a 12th Gen Intel(R) Core(TM) i7-12700H (2.30 GHz) processor.
+
 ### Regular search (initial position)
 
-| Depth | Sel. Depth | Time (s) | Nodes Searched | NPS       | Best Move |
-|-------|------------|----------|----------------|-----------|-----------|
-| 5     | 15         | 0.031    | 11,392         | 367,484   | d4        |
-| 10    | 22         | 0.364    | 665,708        | 1,828,868 | e4        |
-| 15    | 27         | 6.828    | 13,549,138     | 1,984,349 | e4        |
-| 20    | 32         | 58.48    | 324,517,712    | 2,047,715 | e3        |
+Default hash table size (64 MiB) was used.
+
+| Full Depth | Sel. Depth | Time      | Nodes Searched | NPS       | Best Move |
+|------------|------------|-----------|----------------|-----------|-----------|
+| 5          | 15         | 00:00.013 | 11,022         | 918,500   | d4        |
+| 10         | 22         | 00:00.349 | 603,888        | 1,730,338 | e4        |
+| 15         | 27         | 00:05.569 | 10,757,336     | 1,931,993 | Nf3       |
+| 20         | 32         | 04:28.291 | 530,456,261    | 1,977,175 | d4        |
 
 > [!NOTE]
-> Depth is the full depth. Selective depth is the actual achieved depth via quiescence search.
+> Selective depth is the actual depth achieved via quiescence search.
 
 ### Perft results (initial position)
 
