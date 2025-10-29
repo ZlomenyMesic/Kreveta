@@ -96,7 +96,7 @@ internal static unsafe partial class TT {
 
     // store a position in the table. the best move doesn't have to be specified
     internal static void Store(in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
-        ulong hash = ZobristHash.GetHash(board);
+        ulong hash = ZobristHash.Hash(board);
         int i = HashIndex(hash);
 
         // maybe an entry is already saved
@@ -157,7 +157,7 @@ internal static unsafe partial class TT {
     }
 
     internal static bool TryGetBestMove(in Board board, out Move bestMove) {
-        ulong hash = ZobristHash.GetHash(board);
+        ulong hash = ZobristHash.Hash(board);
         bestMove = default;
 
         int i = HashIndex(hash);
@@ -178,7 +178,7 @@ internal static unsafe partial class TT {
     }
 
     internal static bool TryGetScore(in Board board, int depth, int ply, Window window, out short score) {
-        ulong hash = ZobristHash.GetHash(board);
+        ulong hash = ZobristHash.Hash(board);
         score = 0;
 
         int i = HashIndex(hash);
@@ -206,13 +206,21 @@ internal static unsafe partial class TT {
         
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
+        if (entry.Flags.GetHasSCORE_EXACT()
+            || entry.Flags.GetHasSCORE_LOWER_BOUND() && score <= window.Alpha
+            || entry.Flags.GetHasSCORE_UPPER_BOUND() && score >= window.Beta) {
+
+            TTHits++;
+            return true;
+        }
+        
+        /*if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
             || entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha
             || entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta) {
 
             TTHits++;
             return true;
-        }
+        }*/
         
         return false;
     }

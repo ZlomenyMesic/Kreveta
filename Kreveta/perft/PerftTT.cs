@@ -26,10 +26,8 @@ internal static unsafe partial class PerftTT {
     private const int EntrySize = 16;
 
     // MUST be a power of 2 in order to allow & instead of modulo indexing
-    private const int TableSize = 1_048_576;
-
-
-
+    private static int TableSize;
+    
     // perftt.clear is called prior to every perft test,
     // so we don't have to initialize the table inline
     private static Entry* Table;
@@ -43,11 +41,18 @@ internal static unsafe partial class PerftTT {
         }
     }
 
-    internal static void Init() {
+    internal static void Init(int depth) {
         Clear();
         
+        // these table sizes i have best experience with
+        TableSize = depth switch {
+            < 6 => 1_048_576,
+            6   => 8_388_608,
+            > 6 => 16_777_216
+        };
+        
         Table = (Entry*)NativeMemory.AlignedAlloc(
-            byteCount: TableSize * EntrySize,
+            byteCount: (nuint)TableSize * EntrySize,
             alignment: EntrySize);
     }
 
@@ -63,7 +68,7 @@ internal static unsafe partial class PerftTT {
     // of nodes. we don't care what has been stored prior
     // to this, we just overwrite everything
     internal static void Store(in Board board, byte depth, ulong nodes) {
-        ulong hash = ZobristHash.GetHash(in board);
+        ulong hash = ZobristHash.Hash(in board);
         int index = HashIndex(hash);
 
         // store the new entry or overwrite the old one
@@ -76,7 +81,7 @@ internal static unsafe partial class PerftTT {
 
     // try to find the same position at the SAME DEPTH (very important)
     internal static bool TryGetNodes(in Board board, byte depth, out ulong nodes) {
-        ulong hash = ZobristHash.GetHash(in board);
+        ulong hash = ZobristHash.Hash(in board);
         int index = HashIndex(hash);
 
         nodes = (*(Table + index)).Nodes;

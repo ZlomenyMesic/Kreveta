@@ -6,6 +6,7 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
+using Kreveta.moveorder.historyheuristics;
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -135,8 +136,8 @@ internal static class Eval {
 
         // side to move should also get a slight advantage
         eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
-
-        //eval += (short)History.GetPawnCorrection(board);
+        
+        //eval += PawnCorrectionHistory.GetCorrection(in board);
 
         return eval;
     }

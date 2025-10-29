@@ -40,7 +40,9 @@ one of the shown positions would hash into something like this
 all the irrelevant pieces would get removed, and the occupancy would be compressed
 */
 internal static unsafe class LookupTables {
-
+    
+    internal static readonly ulong* PawnPushTargets = (ulong*)NativeMemory.AlignedAlloc(2  * 64 * sizeof(ulong),      64);
+    internal static readonly ulong* PawnCaptTargets = (ulong*)NativeMemory.AlignedAlloc(2  * 64 * sizeof(ulong),      64);
     internal static readonly ulong* KingTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
     internal static readonly ulong* KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
     internal static readonly ulong* RankTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * 64 * sizeof(ulong), 4);
@@ -53,11 +55,32 @@ internal static unsafe class LookupTables {
     // all lookup tables need to be initialized right as the engine launches
     static LookupTables() 
         // what the actual fuck is this syntactic sugar? how is this legal C#?
-        => ((Action)InitKingTargets + InitKnightTargets + InitRankTargets + InitFileTargets + InitAntidiagTargets + InitDiagTargets)();
+        => ((Action)InitPawnTargets + InitKingTargets + InitKnightTargets + InitRankTargets + InitFileTargets + InitAntidiagTargets + InitDiagTargets)();
+    
+    // pawn, king and knight targets don't use the occupancy as explained above. the
+    // target bitboard includes every single landing square, regardless of other pieces.
+    // only later are these moves filtered if the square is blocked
+    private static void InitPawnTargets() {
+        // pawns cannot exist on 1st and 8th ranks
+        for (int i = 0; i < 64; i++) {
+            ulong pawn = 1UL << i;
+            
+            // in both cases we ensure the pawn hasn't jumped to the other side of the board
+            // captures to the left
+            ulong wleft = pawn >> 9 & 0x7F7F7F7F7F7F7F7F;
+            ulong bleft = pawn << 7 & 0x7F7F7F7F7F7F7F7F;
 
-    // king and knight targets don't use the occupancy as explained above. the target
-    // bitboard includes every single landing square, regardless of other pieces. only
-    // later are these moves filtered if the square is blocked
+            // captures to the right
+            ulong wright = pawn >> 7 & 0xFEFEFEFEFEFEFEFE;
+            ulong bright = pawn << 9 & 0xFEFEFEFEFEFEFEFE;
+            
+            //Console.WriteLine($"{BB.LS1B(pawn)} {BB.LS1B(wleft)} {BB.LS1B(wright)}");
+            
+            PawnCaptTargets[i     ] = wleft | wright;
+            PawnCaptTargets[i + 64] = bleft | bright;
+        }
+    }
+    
     private static void InitKingTargets() {
         for (int i = 0; i < 64; i++) {
             ulong king = 1UL << i;
@@ -230,6 +253,8 @@ internal static unsafe class LookupTables {
         if (_memoryFreed) 
             return;
         
+        NativeMemory.AlignedFree(PawnPushTargets);
+        NativeMemory.AlignedFree(PawnCaptTargets);
         NativeMemory.AlignedFree(KingTargets);
         NativeMemory.AlignedFree(KnightTargets);
         NativeMemory.AlignedFree(RankTargets);

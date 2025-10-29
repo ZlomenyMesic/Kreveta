@@ -23,9 +23,9 @@ internal static class Pawn {
 
         return singlePush | doublePush;
     }
-
+    
     // returns a bitboard of possible capture end squares
-    internal static ulong GetPawnCaptureTargets(ulong pawn, int enPassantSq, Color col, ulong occupiedOpp) {
+    /*internal static ulong GetPawnCaptureTargetsX(ulong pawn, int enPassantSq, Color col, ulong occupiedOpp) {
         // in both cases we ensure the pawn hasn't jumped to the other side of the board
 
         // captures to the left
@@ -43,5 +43,17 @@ internal static class Pawn {
 
         // & with occupied sqaures of opposite color and en passant square
         return (left | right) & (occupiedOpp | enPassantMask);
+    }*/
+
+    // returns a bitboard of possible capture end squares
+    internal static unsafe ulong GetPawnCaptureTargets(ulong pawn, int enPassantSq, Color col, ulong occupiedOpp) {
+        ulong targets = LookupTables.PawnCaptTargets[BB.LS1B(pawn) + (int)col * 64];
+
+        // must be validated - otherwise illegal a8 promotions
+        ulong enPassantMask = enPassantSq != 64
+            ? 1UL << enPassantSq : 0UL;
+
+        // & with occupied sqaures of opposite color and en passant square
+        return targets & (occupiedOpp | enPassantMask);
     }
 }
