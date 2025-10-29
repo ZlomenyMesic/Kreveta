@@ -77,20 +77,20 @@ internal static class Perft {
 
         // once we get to depth 1, simply return the number of legal moves
         if (depth == 1) {
-            //if (PerftTT.TryGetNodes(in board, 1, out ulong leafNodes))
-            //    return leafNodes;
+            if (PerftTT.TryGetNodes(in board, 1, out ulong leafNodes))
+                return leafNodes;
             
-            ulong leafNodes = (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
-            //PerftTT.Store(in board, 1, leafNodes);
+            leafNodes = (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
+            PerftTT.Store(in board, 1, leafNodes);
             return leafNodes;
         }
 
         // try to find this position at this depth in the perftt
-        //if (PerftTT.TryGetNodes(in board, depth, out ulong nodes)) {
-        //    return nodes;
-        //}
+        if (PerftTT.TryGetNodes(in board, depth, out ulong nodes)) {
+            return nodes;
+        }
 
-        ulong nodes = 0UL;
+        nodes = 0UL;
         depth--;
 
         // only generate pseudolegal moves, legality is checked inside
@@ -115,7 +115,7 @@ internal static class Perft {
         }
 
         // store the new position in perftt
-        //PerftTT.Store(in board, ++depth, nodes);
+        PerftTT.Store(in board, ++depth, nodes);
 
         return nodes;
     }
