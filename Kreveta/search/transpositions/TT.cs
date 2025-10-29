@@ -206,21 +206,21 @@ internal static unsafe partial class TT {
         
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        if (entry.Flags.GetHasSCORE_EXACT()
+        /*if (entry.Flags.GetHasSCORE_EXACT()
             || entry.Flags.GetHasSCORE_LOWER_BOUND() && score <= window.Alpha
             || entry.Flags.GetHasSCORE_UPPER_BOUND() && score >= window.Beta) {
 
             TTHits++;
             return true;
-        }
+        }*/
         
-        /*if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
+        if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
             || entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha
             || entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta) {
 
             TTHits++;
             return true;
-        }*/
+        }
         
         return false;
     }

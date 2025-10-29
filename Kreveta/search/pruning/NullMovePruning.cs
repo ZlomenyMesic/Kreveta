@@ -46,8 +46,8 @@ internal static class NullMovePruning {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 
-            ? new((short)(window.Beta - 1), window.Beta) 
-            : new(window.Alpha, (short)(window.Alpha + 1));
+            ? new Window((short)(window.Beta - 1), window.Beta) 
+            : new Window(window.Alpha, (short)(window.Alpha + 1));
 
         // child with no move played
         Board nullChild = board.GetNullChild();
@@ -65,8 +65,20 @@ internal static class NullMovePruning {
         if (PVSearch.CurDepth > MinAddRedDepth)
             R += depth / AddDepthDivisor;
 
+        // a desparate attempt to make NMP not as aggressive in endgames
+        //if (ulong.PopCount(board.Occupied) < 12) 
+        //    R--;
+
         // do the reduced search
-        score = PVSearch.ProbeTT(ref nullChild, ply + 1, depth - R - 1, nullWindowBeta).Score;
+        score = PVSearch.ProbeTT(
+            board:    ref nullChild, 
+            ply:      ply + 1,
+            depth:    depth - R - 1,
+            window:   nullWindowBeta,
+            previous: default,
+            isPV:     false
+            //canNMP:   false
+        ).Score;
 
         // if we failed high, that means the score is above beta and is "too good" to be
         // allowed by the opponent. if we don't fail high, we just continue the expansion

@@ -16,6 +16,8 @@ namespace Kreveta.search.pruning;
 // alpha, we can prune this branch. we assume there probably isn't a phenomenal move
 // that could save this position
 internal static class FutilityPruning {
+    //internal static ulong Attempts = 0UL;
+    //internal static ulong Prunes   = 0UL;
 
     // minimum ply and maximum depth to allow futility pruning
     internal const int MinPly   = 4;
@@ -23,8 +25,8 @@ internal static class FutilityPruning {
 
     // magical constants - DON'T MODIFY
     // higher margin => fewer reductions
-    private const int FutilityMarginBase       = 66;
-    private const int FutilityMarginMultiplier = 102;
+    private const int MarginBase       = 66;
+    private const int DepthMultiplier = 102;
 
     // if improving we make the margin smaller (this seems a bit counter-intuitive,
     // as we are pruning improving positions more, but it works)
@@ -32,22 +34,28 @@ internal static class FutilityPruning {
     private const int NotImprovingMargin       = 23; 
 
     // try futility pruning
-    internal static bool TryPrune(in Board board, int depth, Color col, short staticEval, bool improving, Window window) {
-
-        //int pawnCorrection = PawnCorrectionHistory.GetCorrection(board);
+    internal static bool TryPrune(in Board child, int depth, Color col, short staticEval, bool improving, Window window) {
+        // VERY COUNTER-INTUITIVE
+        // white + positive pawncorrhist => prune more
+        // white + negative pawncorrhist => prune less
+        // black + negative pawncorrhist => prune more
+        // black + positive pawncorrhist => prune less
+        int pawnCorrection = PawnCorrectionHistory.GetCorrection(child) * (col == Color.WHITE ? -2 : 2);
         int _improving     = improving ? ImprovingMargin : NotImprovingMargin;
 
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at
         // depth 2 it should be more like the value of a rook."
         // we don't really follow this exactly, but our approach is kind of similar
-        int margin = (FutilityMarginBase + _improving + FutilityMarginMultiplier * depth) * (col == Color.WHITE ? 1 : -1);
+        int margin = MarginBase
+                     + pawnCorrection
+                     + _improving 
+                     + depth * DepthMultiplier;
 
-        // if we failed low (fell under alpha), it means we already know of a better
+        // if we failed low (fell under alpha). this means we already know of a better
         // alternative somewhere else in the search tree, and we can prune this branch.
-        staticEval += (short)(margin);
         return col == Color.WHITE
-            ? staticEval <= window.Alpha
-            : staticEval >= window.Beta;
+            ? staticEval + margin <= window.Alpha
+            : staticEval - margin >= window.Beta;
     }
 }

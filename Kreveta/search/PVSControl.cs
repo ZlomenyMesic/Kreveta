@@ -100,6 +100,9 @@ internal static class PVSControl {
             ("average NPS",        (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
             ("static evaluations", Eval.StaticEvalCount),
             ("tt hits",            TT.TTHits));
+        
+        //Console.WriteLine($"fp attempts: {FutilityPruning.Attempts}");
+        //Console.WriteLine($"fp prunes: {FutilityPruning.Prunes}");
 
         // the final response of the engine to the gui
         UCI.Log($"bestmove {BestMove.ToLAN()}");

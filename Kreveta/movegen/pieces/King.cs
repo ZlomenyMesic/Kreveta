@@ -46,7 +46,7 @@ internal static class King {
         kingside  &= (occ & (isWhite ? OOMask  : ooMask))  == 0UL;
         queenside &= (occ & (isWhite ? OOOMask : oooMask)) == 0UL;
 
-        if (!(kingside && queenside))
+        if (!(kingside || queenside))
             return 0UL;
 
         // starting squares of kings
