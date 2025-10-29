@@ -14,7 +14,7 @@
 
 ## About
 
-A high-performance UCI-compatible chess engine written in C#.
+A high-performance UCI-compatible chess engine written entirely in C#.
 Designed to be fast and strong, with a main focus on optimizing C# to its limits. Development started on **4/3/2025**.
 
 ---
@@ -25,11 +25,11 @@ No official ratings yet.
 
 Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutechess/cutechess):
 
-| Opponent        | Time Control | Games   | Elo estimate |
-|-----------------|--------------|---------|--------------|
-| Stockfish 17    | 40/100       | ~800    | 2381         |
-| Stockfish 17    | 40/120       | ~1400   | 2362         |
-| ...             | ...          | ...     | ...          |
+| Opponent        | Time Control | Games | Elo estimate |
+|-----------------|--------------|-------|--------------|
+| Stockfish 17    | 40/100       | ~800  | 2381         |
+| Stockfish 17    | 40/120       | ~200  | 2395         |
+| ...             | ...          | ...   | ...          |
 
 > [!NOTE]
 > Time Control is in format moves/time in seconds
@@ -48,7 +48,7 @@ Default hash table size (64 MiB) was used.
 |------------|------------|-----------|----------------|-----------|-----------|
 | 5          | 15         | 00:00.013 | 11,022         | 918,500   | d4        |
 | 10         | 22         | 00:00.349 | 603,888        | 1,730,338 | e4        |
-| 15         | 27         | 00:05.569 | 10,757,336     | 1,931,993 | Nf3       |
+| 15         | 27         | 00:06.091 | 11,314,139     | 1,857,822 | Nf3       |
 | 20         | 32         | 04:28.291 | 530,456,261    | 1,977,175 | d4        |
 
 > [!NOTE]
@@ -56,15 +56,15 @@ Default hash table size (64 MiB) was used.
 
 ### Perft results (initial position)
 
-| Depth | Nodes           | Time (s)     | NPS           |
-|-------|-----------------|--------------|---------------|
-| 1     | 20              | 00.00001     | 20,000        |
-| 2     | 400             | 00.00005     | 400,000       |
-| 3     | 8,902           | 00.00024     | 8,902,000     |
-| 4     | 197,281         | 00.0052      | 39,456,200    |
-| 5     | 4,865,609       | 00.095       | 51,216,937    |
-| 6     | 119,060,324     | 01.427       | 83,434,004    |
-| 7     | 3,195,901,860   | 24.147       | 132,357,403   |
+| Depth | Nodes           | Time (s) | NPS         |
+|-------|-----------------|----------|-------------|
+| 1     | 20              | 00.00138 | 14,493      |
+| 2     | 400             | 00.00157 | 254,777     |
+| 3     | 8,902           | 00.00227 | 3,921,586   |
+| 4     | 197,281         | 00.01306 | 15,105,742  |
+| 5     | 4,865,609       | 00.08228 | 59,134,772  |
+| 6     | 119,060,324     | 01.05957 | 112,366,643 |
+| 7     | 3,195,901,860   | 16.66118 | 191,817,258 |
 
 ---
 
@@ -153,7 +153,7 @@ Shuts down the engine immediately.
 
 ### `perft` (non-UCI)
 
-Stands for PERFormance Test. This command is used to measure the move generation algorithm's speed and correctness. The syntax is `perft <x>`, which specifies the depth at which the test shall be performed. The output is the number of nodes found exactly at the specified depth and the total time spent to find this number.
+Stands for PERFormance Test. This command is used to measure the move generation algorithm's speed and correctness. The syntax is `perft <x>`, which specifies the depth at which the test shall be performed. The output is the number of nodes found exactly at the specified depth, and the total time spent to find this number.
 
 ### `d` (non-UCI)
 
