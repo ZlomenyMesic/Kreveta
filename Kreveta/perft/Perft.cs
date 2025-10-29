@@ -6,8 +6,6 @@
 using Kreveta.movegen;
 using Kreveta.uci;
 
-using Perfolizer.Mathematics.QuantileEstimators;
-
 using System;
 using System.Diagnostics;
 

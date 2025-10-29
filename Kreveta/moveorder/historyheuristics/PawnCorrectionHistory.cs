@@ -1,4 +1,4 @@
-﻿//
+﻿﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -54,7 +54,7 @@ internal static unsafe class PawnCorrectionHistory {
         Clear();
         
         _correctionTable = (short**)NativeMemory.AlignedAlloc(
-            byteCount: CorrTableSize * 2 * sizeof(short),
+            byteCount: (nuint)(2 * sizeof(short*)),
             alignment: 64);
 
         for (int i = 0; i < 2; i++) {
@@ -90,8 +90,8 @@ internal static unsafe class PawnCorrectionHistory {
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
 
         // get the indices for both sides
-        int wIndex = (int)(wHash & (CorrTableSize - 1));
-        int bIndex = (int)(bHash & (CorrTableSize - 1));
+        int wIndex = (int)(wHash & CorrTableSize - 1);
+        int bIndex = (int)(bHash & CorrTableSize - 1);
 
         // first we add or subtract the shift depending
         // on the color and whether the search score
@@ -100,22 +100,13 @@ internal static unsafe class PawnCorrectionHistory {
         _correctionTable[(byte)Color.BLACK][bIndex] += shift;
 
         // only after we added the shift we check whether
-        // the new stored value is outside the bounds. we
-        // limit this using min and max functions
+        // the new stored value is outside the bounds.
         _correctionTable[(byte)Color.WHITE][wIndex] 
-            = Math.Min(MaxCorrection,
-                Math.Max(_correctionTable[(byte)Color.WHITE][wIndex],
-                    (short)-MaxCorrection
-                )
-              );
+            = (short)Math.Clamp((int)_correctionTable[(byte)Color.WHITE][wIndex], -MaxCorrection, MaxCorrection);
 
         // and for black the same
         _correctionTable[(byte)Color.BLACK][bIndex] 
-            = Math.Min(MaxCorrection,
-                Math.Max(_correctionTable[(byte)Color.BLACK][bIndex],
-                    (short)-MaxCorrection
-                )
-              );
+            = (short)Math.Clamp((int)_correctionTable[(byte)Color.BLACK][bIndex], -MaxCorrection, MaxCorrection);
     }
 
     // try to retrieve a correction of the static eval of a position
@@ -126,8 +117,8 @@ internal static unsafe class PawnCorrectionHistory {
         ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
 
-        int wIndex = (int)(wHash & (CorrTableSize - 1));
-        int bIndex = (int)(bHash & (CorrTableSize - 1));
+        int wIndex = (int)(wHash & CorrTableSize - 1);
+        int bIndex = (int)(bHash & CorrTableSize - 1);
 
         // the resulting correction is the white correction
         // minus the black correction (each color has its own)

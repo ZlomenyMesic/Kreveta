@@ -85,7 +85,7 @@ internal static class PVSearch {
         improvStack.Expand(CurDepth);
 
         // actual start of the search tree
-        (PVScore, PV) = Search(ref Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default, true);
+        (PVScore, PV) = Search(ref Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default, true/*, true*/);
     }
 
     // completely reset everything
@@ -127,7 +127,7 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    internal static (short Score, Move[] PV) ProbeTT(ref Board board, int ply, int depth, Window window, Move previous = default, bool isPV = false) {
+    internal static (short Score, Move[] PV) ProbeTT(ref Board board, int ply, int depth, Window window, Move previous = default, bool isPV = false/*, bool canNMP = true*/) {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -140,7 +140,7 @@ internal static class PVSearch {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        var search = Search(ref board, ply, depth, window, previous, isPV);
+        var search = Search(ref board, ply, depth, window, previous, isPV/*, canNMP*/);
         TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
 
         // store the current two-move sequence in countermove history - the previously
@@ -170,7 +170,8 @@ internal static class PVSearch {
         int depth,       // plies yet to be searched (can be reduced)
         Window window,   // alpha and beta values
         Move previous,   // the previously played move
-        bool isPV        // was the previous node a PV node?
+        bool isPV       // was the previous node a PV node?
+        //bool canNMP      // can null move prune? (avoids recursive NMP)
         ) {
 
         // either crossed the time budget or maximum nodes.
@@ -238,6 +239,8 @@ internal static class PVSearch {
         short staticEval = Eval.StaticEval(board);
         improvStack.AddStaticEval(staticEval, ply);
 
+        //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
+
         // if we got here from a PV node, and the move that was played to get
         // here was the move from the previous PV, we are in a PV node as well
         isPV = isPV && (ply == 0 || ply - 1 < PV.Length && PV[ply - 1] == previous);
@@ -250,6 +253,7 @@ internal static class PVSearch {
         // can be found directly in the nmp file.
         // are the conditions for nmp satisfied?
         if (PruningOptions.AllowNullMovePruning
+            //&& canNMP
             && ply >= NullMovePruning.CurMinPly
             && !inCheck
 
@@ -337,6 +341,7 @@ internal static class PVSearch {
                 // we check for failing low despite a margin.
                 // if we fail low, don't search this move any further
                 if (FutilityPruning.TryPrune(child, depth, col, childStaticEval, improving, window)) {
+                    //FutilityPruning.Prunes++;
                     continue;
                 }
             }
@@ -363,7 +368,7 @@ internal static class PVSearch {
 
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
-            var fullSearch = ProbeTT(ref child, ply + 1, curDepth, window, curMove, isPV);
+            var fullSearch = ProbeTT(ref child, ply + 1, curDepth, window, curMove, isPV/*, canNMP*/);
 
             // we somehow still failed low
             if (col == Color.WHITE

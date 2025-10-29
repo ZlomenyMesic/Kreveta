@@ -137,7 +137,7 @@ internal static class Eval {
         // side to move should also get a slight advantage
         eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
         
-        //eval += PawnCorrectionHistory.GetCorrection(in board);
+        //eval += (short)Math.Clamp((int)PawnCorrectionHistory.GetCorrection(in board), -5, 5);
 
         return eval;
     }
