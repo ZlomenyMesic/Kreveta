@@ -6,6 +6,8 @@
 using Kreveta.movegen;
 using Kreveta.uci;
 
+using Perfolizer.Mathematics.QuantileEstimators;
+
 using System;
 using System.Diagnostics;
 
@@ -21,14 +23,31 @@ namespace Kreveta.perft;
 // a shallower depth aren't included
 internal static class Perft {
     internal static void Run(int depth) {
-        PerftTT.Init();
+        PerftTT.Init(depth);
         
         // we probably could use something more sophisticated
         // than a stopwatch, but i'm too lazy to do so
         var sw = Stopwatch.StartNew();
 
-        // the recursive search starts here
-        ulong nodes = CountNodes(ref Game.Board, (byte)depth);
+        Span<Move> moves = stackalloc Move[128];
+        int mcount = Movegen.GetLegalMoves(ref Game.Board, moves);
+
+        ulong nodes = 0UL;
+        for (int i = 0; i < mcount; i++) {
+            ulong curNodes = 1UL;
+            
+            if (depth > 1) {
+                Board child = Game.Board.Clone();
+                child.PlayMove(moves[i]);
+            
+                // the recursive search starts here
+                curNodes = CountNodes(ref child, (byte)(depth - 1));
+            }
+            
+            // print each move after 1 ply and its respective node count
+            UCI.Log($"{moves[i].ToLAN()}: {curNodes} nodes");
+            nodes += curNodes;
+        }
 
         sw.Stop();
 
@@ -60,15 +79,20 @@ internal static class Perft {
 
         // once we get to depth 1, simply return the number of legal moves
         if (depth == 1) {
-            return (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
+            //if (PerftTT.TryGetNodes(in board, 1, out ulong leafNodes))
+            //    return leafNodes;
+            
+            ulong leafNodes = (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
+            //PerftTT.Store(in board, 1, leafNodes);
+            return leafNodes;
         }
 
         // try to find this position at this depth in the perftt
-        if (PerftTT.TryGetNodes(in board, depth, out ulong nodes)) {
-            return nodes;
-        }
+        //if (PerftTT.TryGetNodes(in board, depth, out ulong nodes)) {
+        //    return nodes;
+        //}
 
-        nodes = 0UL;
+        ulong nodes = 0UL;
         depth--;
 
         // only generate pseudolegal moves, legality is checked inside
@@ -93,7 +117,7 @@ internal static class Perft {
         }
 
         // store the new position in perftt
-        PerftTT.Store(in board, ++depth, nodes);
+        //PerftTT.Store(in board, ++depth, nodes);
 
         return nodes;
     }

@@ -20,7 +20,10 @@ using BenchmarkDotNet.Attributes;
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.movegen.pieces;
 using Kreveta.moveorder;
+using Kreveta.openings;
+using Kreveta.search.transpositions;
 
 namespace Kreveta;
 
@@ -73,16 +76,22 @@ public class Benchmarks {
     
     private Board _position = Board.CreateStartpos();
 
-    [Benchmark]
-    public void GetLegalMoves() {
-        _ = Movegen.GetLegalMoves(ref _position, stackalloc Move[128]);
-    }
+    //[Benchmark]
+    //public void GetLegalMoves() {
+    //    _ = Movegen.GetLegalMoves(ref _position, stackalloc Move[128]);
+    //}
 
-    /*
+    
     [Benchmark]
     public void ZobristGetHash() {
-        ulong hash = ZobristHash.GetHash(_position);
+        ulong hash = ZobristHash.Hash(_position);
     }
+    
+    /*[Benchmark]
+    public void ZobristLookupGetHash() {
+        ulong hash = PolyglotZobristHash.Hash(_position);
+    }*/
+    /*
 
     [Benchmark]
     public void StaticEval() {
@@ -100,6 +109,20 @@ public class Benchmarks {
     public void PlayMoveReversible() {
         var clone = _position.Clone();
         clone.PlayReversibleMove(_move, Color.WHITE);
+    }*/
+/*
+    [Benchmark]
+    public void PawnCapturesCalculated() {
+        ulong pawn = 1UL << 31;
+        ulong targets = Pawn.GetPawnCaptureTargets(pawn, 64, Color.WHITE, 1UL << 13) | 1UL << 50;
+        ulong targets2 = Pawn.GetPawnCaptureTargets(targets, 64, Color.WHITE, 1UL << 13);
+    }
+    
+    [Benchmark]
+    public void PawnCapturesLookup() {
+        ulong pawn = 1UL << 31;
+        ulong targets = Pawn.GetPawnCaptureTargetsLookup(pawn, 64, Color.WHITE, 1UL << 13) | 1UL << 50;
+        ulong targets2 = Pawn.GetPawnCaptureTargetsLookup(targets, 64, Color.WHITE, 1UL << 13);
     }*/
 }
 

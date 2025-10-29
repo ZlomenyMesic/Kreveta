@@ -48,10 +48,15 @@ internal static class PolyglotZobristHash {
         // castling rights - this chunk of code is disgusting.
         // i am terribly sorry for anyone having to read this,
         // it breaks my heart
-        if (board.CastRights.HasFlag(CastRights.K)) hash ^= PGRandomU64[CastlingRightsOffset];
+        if (board.CastRights.GetHasK()) hash ^= PGRandomU64[CastlingRightsOffset];
+        if (board.CastRights.GetHasQ()) hash ^= PGRandomU64[CastlingRightsOffset + 1];
+        if (board.CastRights.GetHask()) hash ^= PGRandomU64[CastlingRightsOffset + 2];
+        if (board.CastRights.GetHasq()) hash ^= PGRandomU64[CastlingRightsOffset + 3];
+        
+        /*if (board.CastRights.HasFlag(CastRights.K)) hash ^= PGRandomU64[CastlingRightsOffset];
         if (board.CastRights.HasFlag(CastRights.Q)) hash ^= PGRandomU64[CastlingRightsOffset + 1];
         if (board.CastRights.HasFlag(CastRights.k)) hash ^= PGRandomU64[CastlingRightsOffset + 2];
-        if (board.CastRights.HasFlag(CastRights.q)) hash ^= PGRandomU64[CastlingRightsOffset + 3];
+        if (board.CastRights.HasFlag(CastRights.q)) hash ^= PGRandomU64[CastlingRightsOffset + 3];*/
 
         // en passant once again has its specific rules - as opposed
         // to FEN, en passant is only valid IF an opposite-color pawn

@@ -46,8 +46,6 @@ internal static unsafe class ZobristHash {
         var rand = new Random(Seed);
 
         for (int sq = 0; sq < 64; sq++) {
-            //Pieces[sq] = (ulong*)NativeMemory.AlignedAlloc(12 * sizeof(ulong), 64);
-
             for (int p = 0; p < 12; p++) {
                 Pieces[sq * 12 + p] = NextUInt64(rand);
             }
@@ -65,7 +63,7 @@ internal static unsafe class ZobristHash {
         }
     }
 
-    internal static ulong GetHash(in Board board) {
+    internal static ulong Hash(in Board board) {
         ulong hash = board.Color == Color.WHITE
             ? WhiteToMove
             : BlackToMove;
@@ -101,7 +99,7 @@ internal static unsafe class ZobristHash {
     }
 
     internal static ulong GetPawnHash(in Board board, Color col) {
-        ulong hash = 0;
+        ulong hash = 0UL;
         ulong copy = board.Pieces[(byte)col * 6 /* + PType.PAWN */];
         
         // since we only hash pawns, we don't need to include the piece
@@ -129,6 +127,11 @@ internal static unsafe class ZobristHash {
         // work nearly as well as Random does
         rand.NextBytes(bytes);
         return BitConverter.ToUInt64(bytes);
+    }
+
+    internal static void Clear() {
+        NativeMemory.AlignedFree(EnPassant);
+        NativeMemory.AlignedFree(Castling);
     }
 }
 

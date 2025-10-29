@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
+using Kreveta.moveorder.historyheuristics;
 using Kreveta.search.pruning;
 using Kreveta.search.transpositions;
 

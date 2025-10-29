@@ -216,7 +216,7 @@ internal static class PVSearch {
 
         // if the position is saved as a 3-fold repetition draw, return 0.
         // we have to check at ply 2 as well to prevent a forced draw by the opponent
-        if (ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.GetHash(board))) {
+        if (ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.Hash(board))) {
             return (0, []);
         }
 
