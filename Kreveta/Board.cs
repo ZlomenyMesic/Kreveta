@@ -64,6 +64,8 @@ internal struct Board {
     // the side to move
     internal Color Color = Color.NONE;
 
+    internal byte HalfMoveClock = 0;
+
     public Board() {
         Pieces = new ulong[12];
     }
@@ -133,6 +135,11 @@ internal struct Board {
         PType prom  = move.Promotion;
         PType piece = move.Piece;
         PType capt  = move.Capture;
+
+        // reset the half move clock
+        if (piece == PType.PAWN || capt != PType.NONE)
+            HalfMoveClock = 0;
+        else HalfMoveClock++;
 
         // en passant
         if (prom == PType.PAWN) {
@@ -354,18 +361,19 @@ internal struct Board {
             UCI.Output.Write($"{chars[i]} {
 
                 // newline character at the end of each rank
-                (((i + 1) & 7) == 0 ? '\n' : string.Empty)}");
+                ((i + 1 & 7) == 0 ? '\n' : string.Empty)}");
         }
     }
 
     internal static Board CreateStartpos() {
         var board = new Board {
-            WOccupied      = 0xFFFF000000000000UL,
-            BOccupied      = 0x000000000000FFFFUL,
+            WOccupied     = 0xFFFF000000000000UL,
+            BOccupied     = 0x000000000000FFFFUL,
             
-            EnPassantSq    = 64,
-            CastRights = CastRights.ALL,
-            Color          = Color.WHITE,
+            EnPassantSq   = 64,
+            CastRights    = CastRights.ALL,
+            Color         = Color.WHITE,
+            HalfMoveClock = 0,
             
             Pieces = {
                 [0] =  0x00FF000000000000UL, // P

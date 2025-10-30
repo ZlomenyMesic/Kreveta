@@ -6,7 +6,6 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
-using Kreveta.moveorder.historyheuristics;
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -69,15 +68,14 @@ internal static class Eval {
         ulong bOccupied = board.BOccupied;
 
         byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
-
-        short wEval = 0, bEval = 0;
-
-        // this is used to minimize array bound checks, since
-        // profiling shows that we spend a lot of time on static
-        // eval, so i really want to optimize it
-        //fixed (ulong* pieces = &board.Pieces[0]) { }
         
         ReadOnlySpan<ulong> pieces = board.Pieces;
+
+        // don't check for insufficient material draw if there are more than 4 pieces
+        if (pieceCount <= 4 && IsInsufficientMaterialDraw(pieces, pieceCount))
+            return 0;
+        
+        short wEval = 0, bEval = 0;
         
         // loop over all piece types
         for (byte i = 0; i < 6; i++) {
@@ -341,5 +339,31 @@ internal static class Eval {
         eval += (short)(wProtBonus - bProtBonus);
 
         return eval;
+    }
+
+    // in certain endgames, insufficient material draw happens when
+    // there aren't enough pieces of either color for checkmate.
+    // the general rules may vary, this is from 
+    /*
+     * If both sides have any one of the following, and there are no pawns on the board: 
+     *
+     * a lone king 
+     * a king and bishop
+     * a king and knight
+     */
+    internal static bool IsInsufficientMaterialDraw(ReadOnlySpan<ulong> pieces, ulong pieceCount) {
+        
+        // pieces that prevent inssuficient material draw - pawns, rooks and queens
+        ulong matingPieces = pieces[0] | pieces[3] | pieces[4] | pieces[6] | pieces[9] | pieces[10];
+        if (ulong.PopCount(matingPieces) != 0UL)
+            return false;
+        
+        // two kings
+        if (pieceCount == 2) 
+            return true;
+
+        // both white and black have 0 or 1 knights or bishops
+        return ulong.PopCount(pieces[1] | pieces[2]) < 2UL
+               && ulong.PopCount(pieces[7] | pieces[8]) < 2UL;
     }
 }

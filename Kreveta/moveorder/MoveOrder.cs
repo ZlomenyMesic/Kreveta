@@ -38,7 +38,7 @@ internal static unsafe class MoveOrder {
     // don't use "in" keyword!!! it becomes much slower
     internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
 
-        Span<Move> legal  = stackalloc Move[128];        // all legal moves
+        Span<Move> legal  = stackalloc Move[Consts.MoveBufferSize];        // all legal moves
         int legalCount    = Movegen.GetLegalMoves(ref board, legal);
         
         Span<Move> sorted = stackalloc Move[legalCount]; // already sorted legal moves

@@ -73,12 +73,11 @@ internal static unsafe class PawnCorrectionHistory {
         // get the static eval of the current position and the
         // absolute difference between it and the search score
         short staticEval = Eval.StaticEval(board);
-        short diff       = (short)(score - staticEval);
+        short diff = (short)(score - staticEval);//(short)Math.Abs(score - staticEval);
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference
-        short shift = (short)(Shift(Math.Abs(diff), depth) 
-                              * Math.Sign(diff));
+        short shift = (short)(Shift(Math.Abs(diff), depth) * Math.Sign(diff));
 
         // don't bother wasting time with a zero shift
         if (shift == 0) 
@@ -88,6 +87,9 @@ internal static unsafe class PawnCorrectionHistory {
         // each side has its own pawn hash
         ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
+        
+        wHash &= wHash >> 32;
+        bHash &= bHash >> 32;
 
         // get the indices for both sides
         int wIndex = (int)(wHash & CorrTableSize - 1);
@@ -96,17 +98,19 @@ internal static unsafe class PawnCorrectionHistory {
         // first we add or subtract the shift depending
         // on the color and whether the search score
         // was higher or lower than the static eval
-        _correctionTable[(byte)Color.WHITE][wIndex] += shift;
-        _correctionTable[(byte)Color.BLACK][bIndex] += shift;
+        _correctionTable[(byte)Color.WHITE][wIndex] += shift; //(short)(score > staticEval ? shift : -shift);
+        _correctionTable[(byte)Color.BLACK][bIndex] += shift; //(short)(score > staticEval ? -shift : shift);
 
         // only after we added the shift we check whether
         // the new stored value is outside the bounds.
         _correctionTable[(byte)Color.WHITE][wIndex] 
-            = (short)Math.Clamp((int)_correctionTable[(byte)Color.WHITE][wIndex], -MaxCorrection, MaxCorrection);
+            = (short)Math.Clamp((int)_correctionTable[(byte)Color.WHITE][wIndex],
+                -MaxCorrection, MaxCorrection);
 
         // and for black the same
         _correctionTable[(byte)Color.BLACK][bIndex] 
-            = (short)Math.Clamp((int)_correctionTable[(byte)Color.BLACK][bIndex], -MaxCorrection, MaxCorrection);
+            = (short)Math.Clamp((int)_correctionTable[(byte)Color.BLACK][bIndex],
+                -MaxCorrection, MaxCorrection);
     }
 
     // try to retrieve a correction of the static eval of a position
@@ -116,14 +120,18 @@ internal static unsafe class PawnCorrectionHistory {
         // and get the indices for both sides
         ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
+        
+        wHash &= wHash >> 32;
+        bHash &= bHash >> 32;
 
         int wIndex = (int)(wHash & CorrTableSize - 1);
         int bIndex = (int)(bHash & CorrTableSize - 1);
 
-        // the resulting correction is the white correction
-        // minus the black correction (each color has its own)
+        // the resulting correction is white - black. i have no idea
+        // why. this just seems wrong, and i think there should be +
+        // instead, but then the engine plays much worse
         return (short)((_correctionTable[(byte)Color.WHITE][wIndex] 
-                        + _correctionTable[(byte)Color.BLACK][bIndex]) / CorrScale);
+                        - _correctionTable[(byte)Color.BLACK][bIndex]) / CorrScale);
     }
 
     // values used when calculating shifts
