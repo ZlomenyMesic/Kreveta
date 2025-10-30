@@ -5,6 +5,8 @@ VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreveta", "Kreveta\Kreveta.csproj", "{D22E95B6-C2C7-4002-8831-71A05D8BFE6B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TableGenerator", "TableGenerator\TableGenerator.csproj", "{9C457246-19E1-4F6C-AF54-25AFF5CDB2B9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +17,10 @@ Global
 		{D22E95B6-C2C7-4002-8831-71A05D8BFE6B}.Debug|x64.Build.0 = Debug|Any CPU
 		{D22E95B6-C2C7-4002-8831-71A05D8BFE6B}.Release|x64.ActiveCfg = Release|Any CPU
 		{D22E95B6-C2C7-4002-8831-71A05D8BFE6B}.Release|x64.Build.0 = Release|Any CPU
+		{9C457246-19E1-4F6C-AF54-25AFF5CDB2B9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9C457246-19E1-4F6C-AF54-25AFF5CDB2B9}.Debug|x64.Build.0 = Debug|Any CPU
+		{9C457246-19E1-4F6C-AF54-25AFF5CDB2B9}.Release|x64.ActiveCfg = Release|Any CPU
+		{9C457246-19E1-4F6C-AF54-25AFF5CDB2B9}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

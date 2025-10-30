@@ -41,7 +41,7 @@ internal static class Eval {
     // calls of StaticEval during the entire search
     internal static ulong StaticEvalCount;
 
-    static Eval() {
+    internal static void Init() {
 
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
@@ -184,7 +184,7 @@ internal static class Eval {
                 // add a bonus for connected pawns in the opponent's half of the board.
                 // this should (and hopefully does) increase the playing strength in
                 // endgames and also allow better progressing into endgames
-                ulong targets = Pawn.GetPawnCaptureTargets(1UL << sq, 64, col, p);
+                ulong targets = Pawn.GetPawnCaptureTargets(sq, 64, col, p);
                 eval += (short)((sbyte)ulong.PopCount(targets) * ConnectedPassedPawnBonus);
             }
 
@@ -329,8 +329,8 @@ internal static class Eval {
         short eval = 0;
 
         // same color pieces around the king - protection
-        ulong wProtection = King.GetKingTargets(pieces[5], wOccupied);
-        ulong bProtection = King.GetKingTargets(pieces[11], bOccupied);
+        ulong wProtection = King.GetKingTargets(BB.LS1B(pieces[5]),  wOccupied);
+        ulong bProtection = King.GetKingTargets(BB.LS1B(pieces[11]), bOccupied);
 
         // bonus for the number of friendly pieces protecting the king
         short wProtBonus = (short)(ulong.PopCount(wProtection) * 2);

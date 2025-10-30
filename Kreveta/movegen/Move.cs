@@ -23,8 +23,7 @@ namespace Kreveta.movegen;
 #pragma warning disable CA1305
 
 [StructLayout(LayoutKind.Explicit, Size = 4)]
-internal readonly struct Move : IEquatable<Move>
-{
+internal readonly struct Move : IEquatable<Move> {
 
 #pragma warning restore CS0660
 #pragma warning restore CS0661

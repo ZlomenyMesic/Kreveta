@@ -9,7 +9,8 @@ namespace Kreveta.movegen.pieces;
 
 internal static class Pawn {
     // returns a bitboard of possible move end squares
-    internal static ulong GetPawnPushTargets(ulong pawn, Color col, ulong empty) {
+    internal static ulong GetPawnPushTargets(byte sq, Color col, ulong empty) {
+        ulong pawn = 1UL << sq;
 
         // chess speaks for itself
         ulong singlePush = col == Color.WHITE
@@ -23,31 +24,10 @@ internal static class Pawn {
 
         return singlePush | doublePush;
     }
-    
-    // returns a bitboard of possible capture end squares
-    /*internal static ulong GetPawnCaptureTargetsX(ulong pawn, int enPassantSq, Color col, ulong occupiedOpp) {
-        // in both cases we ensure the pawn hasn't jumped to the other side of the board
-
-        // captures to the left
-        ulong left = col == Color.WHITE
-            ? pawn >> 9 & 0x7F7F7F7F7F7F7F7F
-            : pawn << 7 & 0x7F7F7F7F7F7F7F7F;
-
-        // captures to the right
-        ulong right = col == Color.WHITE
-            ? pawn >> 7 & 0xFEFEFEFEFEFEFEFE
-            : pawn << 9 & 0xFEFEFEFEFEFEFEFE;
-
-        ulong enPassantMask = enPassantSq != 64 
-            ? 1UL << enPassantSq : 0;
-
-        // & with occupied sqaures of opposite color and en passant square
-        return (left | right) & (occupiedOpp | enPassantMask);
-    }*/
 
     // returns a bitboard of possible capture end squares
-    internal static unsafe ulong GetPawnCaptureTargets(ulong pawn, int enPassantSq, Color col, ulong occupiedOpp) {
-        ulong targets = LookupTables.PawnCaptTargets[BB.LS1B(pawn) + (int)col * 64];
+    internal static unsafe ulong GetPawnCaptureTargets(byte sq, int enPassantSq, Color col, ulong occupiedOpp) {
+        ulong targets = LookupTables.PawnCaptTargets[sq + (int)col * 64];
 
         // must be validated - otherwise illegal a8 promotions
         ulong enPassantMask = enPassantSq != 64

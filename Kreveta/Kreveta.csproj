@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <ApplicationIcon>..\Docs\KrevetaLogo.ico</ApplicationIcon>
+    <ApplicationIcon>..\Resources\images\KrevetaLogo.ico</ApplicationIcon>
 	<LangVersion>13.0</LangVersion>
     <RootNamespace>Kreveta</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -16,9 +16,12 @@
     <PlatformTarget>x64</PlatformTarget>
     <Prefer32Bit>False</Prefer32Bit>
   </PropertyGroup>
-  
 
-
+  <ItemGroup>
+    <EmbeddedResource Include="..\Resources\slider_tables.bin">
+      <LogicalName>slider_tables.bin</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
@@ -26,6 +29,15 @@
     <PackageReference Include="HasFlagExtension" Version="1.1.0.3" />
     <PackageReference Include="NeoKolors.Common" Version="0.25.16" />
     <PackageReference Include="NeoKolors.Console" Version="0.25.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Resources\images\KrevetaLogo.ico">
+      <Link>KrevetaLogo.ico</Link>
+    </None>
+    <None Include="..\Resources\KrevetaLogo.ico">
+      <Link>KrevetaLogo.ico</Link>
+    </None>
   </ItemGroup>
 
 </Project>

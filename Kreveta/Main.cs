@@ -40,11 +40,15 @@ internal static class Program {
         
         // this forces running static constructors to ensure everything
         // is initialized right at the beginning - otherwise crash :(
-        RuntimeHelpers.RunClassConstructor(typeof(LookupTables).TypeHandle);
         RuntimeHelpers.RunClassConstructor(typeof(ZobristHash).TypeHandle);
-        RuntimeHelpers.RunClassConstructor(typeof(Eval).TypeHandle);
-        RuntimeHelpers.RunClassConstructor(typeof(CounterMoveHistory).TypeHandle);
-        RuntimeHelpers.RunClassConstructor(typeof(QuietHistory).TypeHandle);
+        
+        PextLookupTables.Init();
+        LookupTables.Init();
+        
+        CounterMoveHistory.Init();
+        QuietHistory.Init();
+        
+        Eval.Init();
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
