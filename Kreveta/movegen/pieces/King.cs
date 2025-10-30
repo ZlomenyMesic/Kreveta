@@ -23,12 +23,12 @@ internal static class King {
     // returns a bitboard of all moves targets (ending squares)
     // of a certain king (does not include castling)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static unsafe ulong GetKingTargets(ulong king, ulong free) {
+    internal static unsafe ulong GetKingTargets(byte sq, ulong free) {
         
         // same as with knights, the king targets are indexed
         // directly by the square index and then & with empty
         // and enemy-occupied squares to avoid friendly captures
-        ulong targets = LookupTables.KingTargets[BB.LS1B(king)];
+        ulong targets = LookupTables.KingTargets[sq];
         return targets & free;
     }
 

@@ -13,12 +13,12 @@ internal static class Knight {
     // a certain knight. the free parameter is a combination of empty
     // and enemy-occupied squares
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static unsafe ulong GetKnightTargets(ulong knight, ulong free) {
+    internal static unsafe ulong GetKnightTargets(byte sq, ulong free) {
         
         // since knight moves aren't really based on pieces around (knights
         // can jump over them), we simply index the move bitboard directly
         // by the square index
-        ulong targets = LookupTables.KnightTargets[BB.LS1B(knight)];
+        ulong targets = LookupTables.KnightTargets[sq];
         
         // we now just & the targets with both empty
         // and enemy squares to avoid friendly captures

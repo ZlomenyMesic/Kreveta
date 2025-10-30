@@ -45,7 +45,7 @@ internal static class QuietHistory {
     // there is still some scale, though
     private const int RelHHScale = 12;
 
-    static QuietHistory() {
+    internal static void Init() {
         for (int i = 0; i < 64; i++) {
             QuietScores[i]    = new int[12];
             ButterflyBoard[i] = new int[12];

@@ -260,7 +260,7 @@ internal static class Game {
         }
 
         // no legal moves for the engine in this position
-        if (Movegen.GetLegalMoves(ref Board, stackalloc Move[128]) == 0) {
+        if (Movegen.GetLegalMoves(ref Board, stackalloc Move[Consts.MoveBufferSize]) == 0) {
             error = Movegen.IsKingInCheck(Board, EngineColor)
             
                 // if we are in check and have no legal moves, that means

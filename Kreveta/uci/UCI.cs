@@ -22,6 +22,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
+using Kreveta.consts;
+
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
@@ -276,6 +278,7 @@ internal static partial class UCI {
     }
 
     private static void Test() {
+
     }
 }
 

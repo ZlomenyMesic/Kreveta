@@ -7,6 +7,210 @@ using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System;
+using System.Runtime.CompilerServices;
+
+namespace Kreveta.movegen;
+
+internal static unsafe class Movegen {
+    
+    // current index in pseudo-legal move buffer
+    private static int _curPsL;
+    
+    internal static int GetLegalMoves(ref Board board, Span<Move> legalBuffer, bool onlyCaptures = false) {
+        Span<Move> pseudoBuffer = stackalloc Move[Consts.MoveBufferSize];
+        _curPsL = 0;
+
+        if (onlyCaptures)
+            GeneratePseudoLegalCaptures(in board, board.Color, pseudoBuffer);
+        else GeneratePseudoLegalMoves(in board, board.Color, pseudoBuffer);
+
+        int legalCount = 0;
+        for (int i = 0; i < _curPsL; i++) {
+            if (board.IsMoveLegal(pseudoBuffer[i], board.Color))
+                legalBuffer[legalCount++] = pseudoBuffer[i];
+        }
+
+        return legalCount;
+    }
+
+    internal static int GetPseudoLegalMoves(ref Board board, Span<Move> pseudoBuffer) {
+        _curPsL = 0;
+        GeneratePseudoLegalMoves(in board, board.Color, pseudoBuffer);
+        return _curPsL;
+    }
+
+    internal static bool IsKingInCheck(in Board board, Color col) {
+        byte  kingSq      = BB.LS1B(board.Pieces[(byte)col * 6 + 5]);
+        int   oppBase     = col == Color.WHITE ? 6 : 0;
+        
+        ulong occupied    = board.Occupied;
+        ulong oppOccupied = col == Color.WHITE
+            ? board.BOccupied : board.WOccupied;
+
+        // bishop check
+        ulong bishopRays = Pext.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
+        if ((bishopRays & board.Pieces[oppBase + 2]) != 0UL) return true;
+
+        // rook check
+        ulong rookRays = Pext.GetRookTargets(kingSq, ulong.MaxValue, occupied);
+        if ((rookRays & board.Pieces[oppBase + 3]) != 0UL) 
+            return true;
+
+        // queen check - union of bishop and rook
+        if (((bishopRays | rookRays) & board.Pieces[oppBase + 4]) != 0UL) 
+            return true;
+
+        // knight check
+        if ((Knight.GetKnightTargets(kingSq, ulong.MaxValue) & board.Pieces[oppBase + 1]) != 0UL)
+            return true;
+
+        // pawn check
+        if ((Pawn.GetPawnCaptureTargets(kingSq, 0, col, oppOccupied) & board.Pieces[oppBase + 0]) != 0UL)
+            return true;
+
+        // opposing king
+        return (King.GetKingTargets(kingSq, ulong.MaxValue) & board.Pieces[oppBase + 5]) != 0UL;
+    }
+
+    private static void GeneratePseudoLegalMoves(in Board board, Color col, Span<Move> moveBuffer) {
+        int   baseIndex        = (byte)col * 6;
+        ulong occupied         = board.Occupied;
+        ulong opponentOccupied = col == Color.WHITE ? board.BOccupied : board.WOccupied;
+        ulong empty            = ~occupied;
+        ulong moveDestMask     = empty | opponentOccupied;
+
+        // promotion ranks as masks for quick check
+        ulong promotionRank = col == Color.WHITE
+            ? 0xFFUL : 0xFF00000000000000UL;
+
+        // generate per piece type
+        for (int pt = 0; pt < 6; pt++) {
+            ulong pieces = board.Pieces[baseIndex + pt];
+            if (pieces != 0UL)
+                GeneratePieceMoves(in board, pieces, (PType)pt, col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
+        }
+
+        // castling
+        if (board.CastRights != CastRights.NONE && !IsKingInCheck(in board, col)) {
+            ulong castTargets = King.GetCastlingTargets(in board, col);
+            if (castTargets == 0UL)
+                return;
+            
+            byte kingSq = BB.LS1B(board.Pieces[baseIndex + 5]);
+            GenerateCastlingMoves(kingSq, castTargets, moveBuffer);
+        }
+    }
+
+    private static void GeneratePseudoLegalCaptures(in Board board, Color col, Span<Move> moveBuffer) {
+        int baseIndex = (byte)col * 6;
+        
+        ulong occupied    = board.Occupied;
+        ulong oppOccupied = col == Color.WHITE 
+            ? board.BOccupied : board.WOccupied;
+        
+        ulong promotionRank = col == Color.WHITE 
+            ? 0xFFUL : 0xFF00000000000000UL;
+
+        for (int pt = 0; pt < 6; pt++) {
+            ulong pieces = board.Pieces[baseIndex + pt];
+            if (pieces != 0UL)
+                GeneratePieceMoves(in board, pieces, (PType)pt, col, oppOccupied, occupied, oppOccupied, oppOccupied, moveBuffer, promotionRank, onlyCaptures: true);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void GeneratePieceMoves(
+        in Board board,
+        ulong pieces,
+        PType pieceType,
+        Color col,
+        ulong opponentOccupied,
+        ulong occupied,
+        ulong empty,
+        ulong destMask,
+        Span<Move> moveBuffer,
+        ulong promotionRankMask,
+        bool onlyCaptures)
+    {
+        int oppBase     = col == Color.WHITE ? 6 : 0;
+        int enPassantSq = board.EnPassantSq;
+
+        while (pieces != 0UL) {
+            byte start = BB.LS1BReset(ref pieces);
+
+            ulong targets = pieceType switch {
+                PType.PAWN => (onlyCaptures ? 0UL : Pawn.GetPawnPushTargets(start, col, empty))
+                              | Pawn.GetPawnCaptureTargets(start, enPassantSq, col, opponentOccupied),
+                PType.KNIGHT => Knight.GetKnightTargets(start, destMask),
+                PType.BISHOP => Pext.GetBishopTargets(start, destMask, occupied),
+                PType.ROOK => Pext.GetRookTargets(start, destMask, occupied),
+                PType.QUEEN => Pext.GetBishopTargets(start, destMask, occupied)
+                              | Pext.GetRookTargets(start, destMask, occupied),
+                PType.KING => King.GetKingTargets(start, destMask),
+                _ => 0UL
+            };
+
+            while (targets != 0UL) {
+                byte end   = BB.LS1BReset(ref targets);
+                PType capt = PType.NONE;
+                
+                // detect captured piece using bitmask
+                ulong targetMask = 1UL << end;
+                if (pieceType != PType.NONE) {
+                    if ((board.Pieces[oppBase + 0] & targetMask) != 0UL)      capt = PType.PAWN;
+                    else if ((board.Pieces[oppBase + 1] & targetMask) != 0UL) capt = PType.KNIGHT;
+                    else if ((board.Pieces[oppBase + 2] & targetMask) != 0UL) capt = PType.BISHOP;
+                    else if ((board.Pieces[oppBase + 3] & targetMask) != 0UL) capt = PType.ROOK;
+                    else if ((board.Pieces[oppBase + 4] & targetMask) != 0UL) capt = PType.QUEEN;
+                }
+                
+                if (pieceType == PType.PAWN) {
+                    bool promote = (1UL << end & promotionRankMask) != 0UL;
+                    
+                    // handle promotions
+                    if (promote) {
+                        moveBuffer[_curPsL++] = new Move(start, end, PType.PAWN, capt, PType.KNIGHT);
+                        moveBuffer[_curPsL++] = new Move(start, end, PType.PAWN, capt, PType.BISHOP);
+                        moveBuffer[_curPsL++] = new Move(start, end, PType.PAWN, capt, PType.ROOK);
+                        moveBuffer[_curPsL++] = new Move(start, end, PType.PAWN, capt, PType.QUEEN);
+                        continue;
+                    }
+
+                    // en passant
+                    if (end == enPassantSq) {
+                        moveBuffer[_curPsL++] = new Move(start, end, PType.PAWN, PType.NONE, PType.PAWN);
+                        continue;
+                    }
+                }
+
+                // handle castling
+                /*if (pieceType == PType.NONE)
+                    moveBuffer[_curPsL++] = new Move(start, end, PType.KING, PType.NONE, PType.KING);
+                else
+                    moveBuffer[_curPsL++] = new Move(start, end, pieceType, capt, PType.NONE);*/
+                moveBuffer[_curPsL++] = new Move(start, end, pieceType, capt, PType.NONE);
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void GenerateCastlingMoves(byte kingSquare, ulong castTargets, Span<Move> moveBuffer) {
+        while (castTargets != 0UL) {
+            byte end = BB.LS1BReset(ref castTargets);
+            moveBuffer[_curPsL++] = new Move(kingSquare, end, PType.KING, PType.NONE, PType.KING);
+        }
+    }
+}/*
+
+//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
+
+using Kreveta.consts;
+using Kreveta.movegen.pieces;
+
+using System;
 
 // ReSharper disable InconsistentNaming
 
@@ -107,7 +311,7 @@ internal static unsafe class Movegen {
     // by pretending the king is a different piece and generating captures for it,
     // and then testing whether it could capture any of the same opponent pieces
     internal static bool IsKingInCheck(in Board board, Color col) {
-        ulong kingSq   = board.Pieces[(byte)col * 6 + 5];
+        byte  kingSq   = BB.LS1B(board.Pieces[(byte)col * 6 + 5]);
         byte  colOpp   = (byte)(col == Color.WHITE ? 6 : 0);
         ulong occupied = board.Occupied;
 
@@ -119,11 +323,11 @@ internal static unsafe class Movegen {
         // likely to be checking the king, but i am still unsure whether it
         // actually has any performance benefits
 
-        ulong targets = Bishop.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
+        ulong targets = Pext.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
         if ((targets & board.Pieces[colOpp + 2]) != 0UL)
             return true;
 
-        ulong rookTargets = Rook.GetRookTargets(kingSq, ulong.MaxValue, occupied);
+        ulong rookTargets = Pext.GetRookTargets(kingSq, ulong.MaxValue, occupied);
         if ((rookTargets & board.Pieces[colOpp + 3]) != 0UL)
             return true;
 
@@ -158,19 +362,18 @@ internal static unsafe class Movegen {
         while (pieces != 0UL) {
 
             // "bit scan forward reset" also removes the least significant bit
-            byte start = BB.LS1BReset(ref pieces);
-            ulong sq = 1UL << start;
+            byte sq = BB.LS1BReset(ref pieces);
 
             // generate the moves
             ulong targets = GetTargets(sq, type, col, occupiedOpp, occupied, empty, free, board.EnPassantSq, onlyCaptures);
 
             // loop the found moves and add them
-            LoopTargets(in board, start, targets, type, col, buffer);
+            LoopTargets(in board, sq, targets, type, col, buffer);
         }
     }
 
     private static ulong GetTargets(
-        ulong sq,
+        byte sq,
         PType type,
         Color col,
         ulong occupiedOpp,
@@ -188,12 +391,12 @@ internal static unsafe class Movegen {
                           | Pawn.GetPawnCaptureTargets(sq, enPassantSq, col, occupiedOpp),
 
             PType.KNIGHT => Knight.GetKnightTargets(sq, free),
-            PType.BISHOP => Bishop.GetBishopTargets(sq, free, occupied),
-            PType.ROOK   => Rook.GetRookTargets(sq, free, occupied),
+            PType.BISHOP => Pext.GetBishopTargets(sq, free, occupied),
+            PType.ROOK   => Pext.GetRookTargets(sq, free, occupied),
 
             // queen = bishop + rook
-            PType.QUEEN => Bishop.GetBishopTargets(sq, free, occupied)
-                          | Rook.GetRookTargets(sq, free, occupied),
+            PType.QUEEN => Pext.GetBishopTargets(sq, free, occupied)
+                          | Pext.GetRookTargets(sq, free, occupied),
 
             PType.KING  => King.GetKingTargets(sq, free),
             _ => 0UL
@@ -265,4 +468,4 @@ internal static unsafe class Movegen {
             }
         }
     }
-}
+}*/

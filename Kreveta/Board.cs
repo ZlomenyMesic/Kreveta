@@ -108,7 +108,7 @@ internal struct Board {
 
     // performs a move on the board
     internal void PlayMove(Move move) {
-
+        
         EnPassantSq = 64;
         Color = Color == Color.WHITE
             ? Color.BLACK
@@ -195,7 +195,6 @@ internal struct Board {
 
         // regular move
         else {
-            //Console.WriteLine($"{col} {piece} {prom}");
             Pieces[(byte)col * 6 + (byte)piece] ^= start | end;
 
             // if we double pushed a pawn, set the en passant square
@@ -251,7 +250,9 @@ internal struct Board {
         }
     }
 
-    private void PlayReversibleMove(Move move, Color col) {
+    private void PlayReversibleMove(Move move) {
+        Color col = Color;
+        
         // start & end squares
         ulong start = 1UL << move.Start;
         ulong end   = 1UL << move.End;
@@ -275,12 +276,34 @@ internal struct Board {
             Pieces[(byte)colOpp * 6] ^= captureSq;
             Pieces[(byte)col    * 6] ^= start | end;
             
-            if (colOpp == Color.WHITE) WOccupied ^= captureSq;
-            else                       BOccupied ^= captureSq;
+            if (col == Color.WHITE) BOccupied ^= captureSq;
+            else                    WOccupied ^= captureSq;
+        }
+        
+        else if (prom == PType.KING) {
+            // get the rook move respective to the king move
+            ulong rook = end switch {
+                0x0000000000000004 => 0x0000000000000009, // q
+                0x0000000000000040 => 0x00000000000000A0, // k
+                0x0400000000000000 => 0x0900000000000000, // Q
+                0x4000000000000000 => 0xA000000000000000, // K
+                _                  => 0UL
+            };
+
+            // move king (MISSING in original)
+            Pieces[(byte)col * 6 + (byte)PType.KING] ^= start | end;
+
+            // rook
+            Pieces[(byte)col * 6 + (byte)PType.ROOK] ^= rook;
+
+            // update rook occupancy now; king occupancy will be toggled
+            // by the final occupancy XOR that happens after this branch
+            if (col == Color.WHITE) WOccupied ^= rook;
+            else                    BOccupied ^= rook;
         }
 
         // promotion
-        else if (prom is not PType.KING and not PType.NONE) {
+        else if (prom != PType.NONE) {
             Pieces[(byte)col * 6 + (byte)piece] ^= start;
             Pieces[(byte)col * 6 + (byte)prom]  ^= end;
         }
@@ -317,10 +340,10 @@ internal struct Board {
     // checks whether a move is legal from this position
     [Pure]
     internal bool IsMoveLegal(Move move, Color col) {
-        PlayReversibleMove(move, col);
-        bool isLegal = !Movegen.IsKingInCheck(this, col);
-        PlayReversibleMove(move, col);
-
+        PlayReversibleMove(move);
+        bool isLegal = !Movegen.IsKingInCheck(in this, col);
+        PlayReversibleMove(move);
+        
         return isLegal;
     }
 
