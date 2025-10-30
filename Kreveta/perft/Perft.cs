@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.uci;
 
@@ -95,7 +96,7 @@ internal static class Perft {
 
         // only generate pseudolegal moves, legality is checked inside
         // the loop to save time (early legality checking is wasteful)
-        Span<Move> moves = stackalloc Move[128];
+        Span<Move> moves = stackalloc Move[Consts.MoveBufferSize];
         int count = Movegen.GetPseudoLegalMoves(ref board, moves);
         
         //ReadOnlySpan<Move> moves = buffer.Slice(0, count);

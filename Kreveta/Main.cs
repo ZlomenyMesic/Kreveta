@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+using Kreveta.evaluation;
+
 using System;
 using System.Diagnostics;
 
@@ -40,6 +42,7 @@ internal static class Program {
         // is initialized right at the beginning - otherwise crash :(
         RuntimeHelpers.RunClassConstructor(typeof(LookupTables).TypeHandle);
         RuntimeHelpers.RunClassConstructor(typeof(ZobristHash).TypeHandle);
+        RuntimeHelpers.RunClassConstructor(typeof(Eval).TypeHandle);
         RuntimeHelpers.RunClassConstructor(typeof(CounterMoveHistory).TypeHandle);
         RuntimeHelpers.RunClassConstructor(typeof(QuietHistory).TypeHandle);
         

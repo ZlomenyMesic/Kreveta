@@ -8,6 +8,9 @@
 namespace Kreveta.consts;
 
 internal static class Consts {
+    
+    // capacity of the buffer in movegen. also used in MoveOrder and Perft
+    internal const int MoveBufferSize = 110;
 
     //internal const string StartposFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     internal const string Pieces      = "pnbrqk";

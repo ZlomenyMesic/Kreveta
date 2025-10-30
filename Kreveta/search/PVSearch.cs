@@ -308,6 +308,12 @@ internal static class PVSearch {
             Board child = board.Clone();
             child.PlayMove(curMove);
 
+            ulong pieceCount = ulong.PopCount(child.Occupied);
+            
+            // skip any pruning, AND the full search if there is a known draw
+            bool skipFullSearch = child.HalfMoveClock >= 100 
+                                  || pieceCount <= 4 && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount);
+
             // did this move capture a piece?
             bool isCapture = curMove.Capture != PType.NONE;
 
@@ -333,7 +339,8 @@ internal static class PVSearch {
             bool improving = improvStack.IsImproving(ply + 1, col);
 
             // must meet certain conditions for fp
-            if (PruningOptions.AllowFutilityPruning
+            if (!skipFullSearch 
+                && PruningOptions.AllowFutilityPruning
                 && ply   >= FutilityPruning.MinPly
                 && depth <= FutilityPruning.MaxDepth
                 && !interesting) {
@@ -347,7 +354,8 @@ internal static class PVSearch {
             }
 
             // more conditions (late move pruning and reductions are kind of combined)
-            if ((PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
+            if (!skipFullSearch 
+                &&(PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
                 && ply           >= LateMoveReductions.MinPly
                 //&& depth         >= LateMoveReductions.MinDepth
@@ -368,7 +376,10 @@ internal static class PVSearch {
 
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
-            var fullSearch = ProbeTT(ref child, ply + 1, curDepth, window, curMove, isPV/*, canNMP*/);
+            (short Score, Move[] PV) fullSearch = (0, []);
+            
+            if (!skipFullSearch)
+                fullSearch = ProbeTT(ref child, ply + 1, curDepth, window, curMove, isPV/*, canNMP*/);
 
             // we somehow still failed low
             if (col == Color.WHITE

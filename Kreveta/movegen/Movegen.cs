@@ -13,8 +13,7 @@ using System;
 namespace Kreveta.movegen;
 
 internal static unsafe class Movegen {
-    private const int MoveBufferSize = 110;
-
+    
     // indices used to access the buffers; also act as move counters
     private static byte _curPL;
 
@@ -27,7 +26,7 @@ internal static unsafe class Movegen {
         _curPL = 0;
         byte _curL  = 0;
         
-        Span<Move> pseudoLegalBuffer = stackalloc Move[MoveBufferSize];
+        Span<Move> pseudoLegalBuffer = stackalloc Move[Consts.MoveBufferSize];
 
         // only generate pseudolegal captures (used in qsearch)
         if (onlyCaptures) {

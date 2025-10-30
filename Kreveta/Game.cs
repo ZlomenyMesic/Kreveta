@@ -166,6 +166,11 @@ internal static class Game {
 
         else if (tokens[5].Length == 1 && tokens[5][0] == '-')
             Board.EnPassantSq = 64;
+        
+        // the fifth token is the halfmove clock - how many quiet half moves have
+        // happened in a row already. this is used to check for 50 move rule draw
+        if (tokens.Length >= 7 && byte.TryParse(tokens[6], out byte halfmoveclock))
+            Board.HalfMoveClock = halfmoveclock;
 
         else {
             InvalidFENCallback($"invalid en passant square: \"{tokens[5]}\"");

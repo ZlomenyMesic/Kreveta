@@ -7,7 +7,6 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
-using Kreveta.moveorder.historyheuristics;
 using Kreveta.search.pruning;
 using Kreveta.search.transpositions;
 
@@ -95,7 +94,7 @@ internal static class QSearch {
         onlyCaptures = !inCheck || onlyCaptures;
 
         // if we aren't in check we only generate captures
-        Span<Move> moves = stackalloc Move[128];
+        Span<Move> moves = stackalloc Move[Consts.MoveBufferSize];
         int count = Movegen.GetLegalMoves(ref board, moves, onlyCaptures);
 
         // no moves have been generated
