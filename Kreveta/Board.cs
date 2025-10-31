@@ -221,23 +221,28 @@ internal struct Board {
         }
 
         if (CastRights != CastRights.NONE && piece == PType.KING) {
-
             // remove castling rights after a king moves
             CastRights &= (CastRights)(col == Color.WHITE
                 ? 0xC   // all except KQ
                 : 0x3); // all except kq
         }
 
-        if (CastRights != CastRights.NONE
-            && (piece == PType.ROOK || capt == PType.ROOK)) {
+        // moving and capturing rooks must be separated
+        if (CastRights != CastRights.NONE && piece == PType.ROOK) {
+            byte mask = start8 switch {
+                63 => 0xE, // all except K
+                56 => 0xD, // all except Q
+                7  => 0xB, // all except k
+                0  => 0x7, // all except q
+                _  => 0xF
+            };
 
-            // if rook moved we need the starting square
-            // if rook was captured we need the ending square
-            byte rookSq = piece == PType.ROOK
-                ? start8
-                : end8;
+            // remove castling rights after a rook moves
+            CastRights &= (CastRights)mask;
+        }
 
-            byte mask = rookSq switch {
+        if (CastRights != CastRights.NONE && capt == PType.ROOK) {
+            byte mask = end8 switch {
                 63 => 0xE, // all except K
                 56 => 0xD, // all except Q
                 7  => 0xB, // all except k

@@ -39,16 +39,16 @@ internal readonly struct Move : IEquatable<Move> {
     [field: FieldOffset(0)] private readonly int _flags = 0;
 
     // constants for proper information lookups
-    private const int EndOffset = 6;
+    private const int EndOffset   = 6;
     private const int PieceOffset = 12;
-    private const int CaptOffset = 15;
-    private const int PromOffset = 18;
+    private const int CaptOffset  = 15;
+    private const int PromOffset  = 18;
 
-    private const int StartMask = 0x0000003F;
-    private const int EndMask = 0x00000FC0;
-    private const int PieceMask = 0x00007000;
-    private const int CaptMask = 0x00038000;
-    private const int PromMask = 0x001C0000;
+    private const int StartMask   = 0x0000003F;
+    private const int EndMask     = 0x00000FC0;
+    private const int PieceMask   = 0x00007000;
+    private const int CaptMask    = 0x00038000;
+    private const int PromMask    = 0x001C0000;
 
     // we define the move as readonly, so values can only be set
     // during initialization, and then the move becomes immutable

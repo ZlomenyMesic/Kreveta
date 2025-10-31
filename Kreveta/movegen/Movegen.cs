@@ -49,7 +49,8 @@ internal static unsafe class Movegen {
 
         // bishop check
         ulong bishopRays = Pext.GetBishopTargets(kingSq, ulong.MaxValue, occupied);
-        if ((bishopRays & board.Pieces[oppBase + 2]) != 0UL) return true;
+        if ((bishopRays & board.Pieces[oppBase + 2]) != 0UL) 
+            return true;
 
         // rook check
         ulong rookRays = Pext.GetRookTargets(kingSq, ulong.MaxValue, occupied);
@@ -91,7 +92,10 @@ internal static unsafe class Movegen {
         }
 
         // castling
-        if (board.CastRights != CastRights.NONE && !IsKingInCheck(in board, col)) {
+        if ((col == Color.WHITE && (board.CastRights & CastRights.WHITE) != 0UL 
+             || col == Color.BLACK && (board.CastRights & CastRights.BLACK) != 0UL) 
+            && !IsKingInCheck(in board, col)) 
+        {
             ulong castTargets = King.GetCastlingTargets(in board, col);
             if (castTargets == 0UL)
                 return;
@@ -139,14 +143,14 @@ internal static unsafe class Movegen {
             byte start = BB.LS1BReset(ref pieces);
 
             ulong targets = pieceType switch {
-                PType.PAWN => (onlyCaptures ? 0UL : Pawn.GetPawnPushTargets(start, col, empty))
+                PType.PAWN   => (onlyCaptures ? 0UL : Pawn.GetPawnPushTargets(start, col, empty))
                               | Pawn.GetPawnCaptureTargets(start, enPassantSq, col, opponentOccupied),
                 PType.KNIGHT => Knight.GetKnightTargets(start, destMask),
                 PType.BISHOP => Pext.GetBishopTargets(start, destMask, occupied),
-                PType.ROOK => Pext.GetRookTargets(start, destMask, occupied),
-                PType.QUEEN => Pext.GetBishopTargets(start, destMask, occupied)
+                PType.ROOK   => Pext.GetRookTargets(start, destMask, occupied),
+                PType.QUEEN  => Pext.GetBishopTargets(start, destMask, occupied)
                               | Pext.GetRookTargets(start, destMask, occupied),
-                PType.KING => King.GetKingTargets(start, destMask),
+                PType.KING   => King.GetKingTargets(start, destMask),
                 _ => 0UL
             };
 
@@ -156,13 +160,11 @@ internal static unsafe class Movegen {
                 
                 // detect captured piece using bitmask
                 ulong targetMask = 1UL << end;
-                if (pieceType != PType.NONE) {
-                    if ((board.Pieces[oppBase + 0] & targetMask) != 0UL)      capt = PType.PAWN;
-                    else if ((board.Pieces[oppBase + 1] & targetMask) != 0UL) capt = PType.KNIGHT;
-                    else if ((board.Pieces[oppBase + 2] & targetMask) != 0UL) capt = PType.BISHOP;
-                    else if ((board.Pieces[oppBase + 3] & targetMask) != 0UL) capt = PType.ROOK;
-                    else if ((board.Pieces[oppBase + 4] & targetMask) != 0UL) capt = PType.QUEEN;
-                }
+                if      ((board.Pieces[oppBase + 0] & targetMask) != 0UL) capt = PType.PAWN;
+                else if ((board.Pieces[oppBase + 1] & targetMask) != 0UL) capt = PType.KNIGHT;
+                else if ((board.Pieces[oppBase + 2] & targetMask) != 0UL) capt = PType.BISHOP;
+                else if ((board.Pieces[oppBase + 3] & targetMask) != 0UL) capt = PType.ROOK;
+                else if ((board.Pieces[oppBase + 4] & targetMask) != 0UL) capt = PType.QUEEN;
                 
                 if (pieceType == PType.PAWN) {
                     bool promote = (1UL << end & promotionRankMask) != 0UL;
@@ -182,12 +184,7 @@ internal static unsafe class Movegen {
                         continue;
                     }
                 }
-
-                // handle castling
-                /*if (pieceType == PType.NONE)
-                    moveBuffer[_curPsL++] = new Move(start, end, PType.KING, PType.NONE, PType.KING);
-                else
-                    moveBuffer[_curPsL++] = new Move(start, end, pieceType, capt, PType.NONE);*/
+                
                 moveBuffer[_curPsL++] = new Move(start, end, pieceType, capt, PType.NONE);
             }
         }
