@@ -55,21 +55,6 @@ internal static class King {
         // and last but not least we check whether castling
         // would make us go through check, which is illegal
         // (moving into check is handled elsewhere)
-        /*if (kingside) {
-            Board clone = board.Clone();
-            
-            // shift the king to the right
-            clone.Pieces[(byte)col * 6 + 5] <<= 2;
-            kingside &= !Movegen.IsKingInCheck(clone, col);
-        }
-        if (queenside) {
-            Board clone = board.Clone();
-            
-            // shift the king to the left
-            clone.Pieces[(byte)col * 6 + 5] >>= 2;
-            queenside &= !Movegen.IsKingInCheck(clone, col);
-        }*/
-        
         if (kingside)  kingside  &= board.IsMoveLegal(new(start, isWhite ? 61 : 5, PType.KING, PType.NONE, PType.NONE), col);
         if (queenside) queenside &= board.IsMoveLegal(new(start, isWhite ? 59 : 3, PType.KING, PType.NONE, PType.NONE), col);
 
