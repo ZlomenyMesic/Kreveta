@@ -14,8 +14,8 @@ internal static class LookupTables {
     internal static readonly ulong[] RookMask           = new ulong[64];
     internal static readonly int[]   BishopOffset       = new int[64];
     internal static readonly int[]   RookOffset         = new int[64];
-    internal static readonly byte[]  BishopRelevantBits = new byte[64];
-    internal static readonly byte[]  RookRelevantBits   = new byte[64];
+    private  static readonly byte[]  BishopRelevantBits = new byte[64];
+    private  static readonly  byte[] RookRelevantBits   = new byte[64];
 
     internal static void Init() {
         GenerateMasks();

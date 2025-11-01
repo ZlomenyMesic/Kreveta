@@ -4,10 +4,6 @@
 //
 
 using Kreveta.evaluation;
-
-using System;
-using System.Diagnostics;
-
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.moveorder.historyheuristics;
@@ -15,6 +11,8 @@ using Kreveta.perft;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
+using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta;
@@ -22,14 +20,14 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "1.1.3";
+    internal const string Version = "1.2.0";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
         using var cur = Process.GetCurrentProcess();
         
         // this does actually make stuff a bit faster
-        cur.PriorityClass = ProcessPriorityClass.High;
+        cur.PriorityClass = ProcessPriorityClass.AboveNormal;
 
         // free manually allocated memory before exiting
         AppDomain.CurrentDomain.ProcessExit += FreeMemory;
@@ -45,8 +43,8 @@ internal static class Program {
         PextLookupTables.Init();
         LookupTables.Init();
         
-        CounterMoveHistory.Init();
-        QuietHistory.Init();
+        //CounterMoveHistory.Init();
+        //QuietHistory.Init();
         
         Eval.Init();
         
