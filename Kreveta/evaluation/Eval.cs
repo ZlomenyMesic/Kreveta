@@ -142,7 +142,6 @@ internal static class Eval {
 
     // bonuses or penalties for pawn structure
     private static short PawnEval(ulong p, Color col, ulong wOccupied, ulong bOccupied) {
-
         short eval = 0;
 
         sbyte colMult = (sbyte)(col == Color.WHITE ? 1 : -1);

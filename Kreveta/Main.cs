@@ -21,14 +21,14 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "1.2.0";
+    internal const string Version = "1.2.1";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
         using var cur = Process.GetCurrentProcess();
         
         // this does actually make stuff a bit faster
-        cur.PriorityClass = ProcessPriorityClass.AboveNormal;
+        cur.PriorityClass = ProcessPriorityClass.RealTime;
 
         // free manually allocated memory before exiting
         AppDomain.CurrentDomain.ProcessExit += FreeMemory;

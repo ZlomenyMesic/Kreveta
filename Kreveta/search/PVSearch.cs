@@ -60,7 +60,7 @@ internal static class PVSearch {
         QSearch.CurQSDepth = CurDepth + QSearch.QSDepth;
 
         // reset total nodes
-        CurNodes = 0L;
+        CurNodes = 0UL;
 
         AbortTimeThreshold = TimeMan.TimeBudget != long.MaxValue 
             // approximately subtracting 1/128
@@ -236,8 +236,7 @@ internal static class PVSearch {
         bool inCheck = Movegen.IsKingInCheck(board, col);
 
         // update the static eval search stack
-        short staticEval = Eval.StaticEval(board);
-        improvStack.AddStaticEval(staticEval, ply);
+        improvStack.AddStaticEval(board.StaticEval, ply);
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
 
@@ -331,7 +330,7 @@ internal static class PVSearch {
                                || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
             // static eval of the child node
-            short childStaticEval = Eval.StaticEval(child);
+            short childStaticEval = child.StaticEval;
 
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
