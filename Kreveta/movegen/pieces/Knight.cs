@@ -14,7 +14,6 @@ internal static class Knight {
     // and enemy-occupied squares
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static unsafe ulong GetKnightTargets(byte sq, ulong free) {
-        
         // since knight moves aren't really based on pieces around (knights
         // can jump over them), we simply index the move bitboard directly
         // by the square index

@@ -55,12 +55,12 @@ internal static class PextLookupTables {
         ulong mask = 0;
 
         // ranks, excluding edges
-        for (int f = file + 1; f < 7; f++) mask |= 1UL << (rank * 8 + f);
-        for (int f = file - 1; f > 0;  f--) mask |= 1UL << (rank * 8 + f);
+        for (int f = file + 1; f < 7; f++) mask |= 1UL << rank * 8 + f;
+        for (int f = file - 1; f > 0;  f--) mask |= 1UL << rank * 8 + f;
 
         // files, excluding edges
-        for (int r = rank + 1; r < 7; r++) mask |= 1UL << (r * 8 + file);
-        for (int r = rank - 1; r > 0;  r--) mask |= 1UL << (r * 8 + file);
+        for (int r = rank + 1; r < 7; r++) mask |= 1UL << r * 8 + file;
+        for (int r = rank - 1; r > 0;  r--) mask |= 1UL << r * 8 + file;
 
         return mask;
     }
@@ -72,19 +72,19 @@ internal static class PextLookupTables {
 
         // up-right
         for (int r = rank + 1, f = file + 1; r < 7 && f < 7; r++, f++)
-            mask |= 1UL << (r * 8 + f);
+            mask |= 1UL << r * 8 + f;
 
         // up-left
         for (int r = rank + 1, f = file - 1; r < 7 && f > 0; r++, f--)
-            mask |= 1UL << (r * 8 + f);
+            mask |= 1UL << r * 8 + f;
 
         // down-right
         for (int r = rank - 1, f = file + 1; r > 0 && f < 7; r--, f++)
-            mask |= 1UL << (r * 8 + f);
+            mask |= 1UL << r * 8 + f;
 
         // down-left
         for (int r = rank - 1, f = file - 1; r > 0 && f > 0; r--, f--)
-            mask |= 1UL << (r * 8 + f);
+            mask |= 1UL << r * 8 + f;
 
         return mask;
     }
@@ -123,10 +123,9 @@ internal static class PextLookupTables {
         int bitPosition = 0;
 
         while (relevantMask != 0) {
-            ulong leastBit = relevantMask & (ulong)-(long)relevantMask;
-            relevantMask ^= leastBit;
+            ulong leastBit = 1UL << BB.LS1BReset(ref relevantMask);
 
-            if (((index >> bitPosition) & 1) != 0)
+            if ((index >> bitPosition & 1) != 0)
                 result |= leastBit;
 
             bitPosition++;
@@ -141,15 +140,15 @@ internal static class PextLookupTables {
         int rank = square / 8;
         int file = square % 8;
 
-        int[] deltaRank = bishop ? new[] { 1,  1, -1, -1 } : new[] { 1, -1, 0, 0 };
-        int[] deltaFile = bishop ? new[] { 1, -1,  1, -1 } : new[] { 0,  0, 1, -1 };
+        int[] deltaRank = bishop ? [1,  1, -1, -1] : [1, -1, 0, 0];
+        int[] deltaFile = bishop ? [1, -1,  1, -1] : [0,  0, 1, -1];
 
         for (int d = 0; d < 4; d++) {
             int r = rank + deltaRank[d];
             int f = file + deltaFile[d];
 
-            while (r >= 0 && r < 8 && f >= 0 && f < 8) {
-                ulong squareMask = 1UL << (r * 8 + f);
+            while (r is >= 0 and < 8 && f is >= 0 and < 8) {
+                ulong squareMask = 1UL << r * 8 + f;
                 attacks |= squareMask;
 
                 if ((blockers & squareMask) != 0)
@@ -163,78 +162,3 @@ internal static class PextLookupTables {
         return attacks;
     }
 }
-
-//
-// Kreveta chess engine by ZlomenyMesic
-// started 4-3-2025
-//
-/*
-using System;
-using System.IO;
-using System.IO.Compression;
-using System.Reflection;
-
-namespace Kreveta.movegen;
-
-internal static class PextLookupTables {
-    internal static ulong[]          FlatBishopTable    = null!;
-    internal static ulong[]          FlatRookTable      = null!;
-    internal static readonly ulong[] BishopMask         = new ulong[64];
-    internal static readonly ulong[] RookMask           = new ulong[64];
-    internal static readonly int[]   BishopOffset       = new int[64];
-    internal static readonly int[]   RookOffset         = new int[64];
-
-    private const int    ExpectedTableLayoutVersion = 2;
-    private const string TableFileName              = "slider_tables.bin";
-
-    internal static void Init() {
-        if (TryLoadEmbeddedTables())
-            return;
-
-        // If the embedded resource is missing, throw — we won't create files at runtime.
-        throw new InvalidOperationException("slider_tables.bin not found. Please check the resources.");
-    }
-    
-    private static bool TryLoadEmbeddedTables() {
-        var asm = Assembly.GetExecutingAssembly();
-        using Stream? stream = asm.GetManifestResourceStream(TableFileName);
-        
-        if (stream is null) 
-            return false;
-
-        // decompress and read
-        using var brotli = new BrotliStream(stream, CompressionMode.Decompress);
-        using var reader = new BinaryReader(brotli);
-
-        // header & version
-        var magic = reader.ReadBytes(4);
-        
-        // Kreveta Runtime Tables - magic
-        if (magic is not [(byte)'K', (byte)'R', (byte)'T', _]) 
-            throw new InvalidDataException("Bad slider table resource magic.");
-
-        int version = reader.ReadInt32();
-        if (version != ExpectedTableLayoutVersion) 
-            throw new InvalidDataException($"Slider table versions mismatch. (resource={version}, expected={ExpectedTableLayoutVersion})");
-
-        // read masks
-        for (int i = 0; i < 64; i++) BishopMask[i] = reader.ReadUInt64();
-        for (int i = 0; i < 64; i++) RookMask[i]   = reader.ReadUInt64();
-
-        // read offsets
-        for (int i = 0; i < 64; i++) BishopOffset[i] = reader.ReadInt32();
-        for (int i = 0; i < 64; i++) RookOffset[i]   = reader.ReadInt32();
-
-        // read flat bishop table
-        int bishopLength = reader.ReadInt32();
-        FlatBishopTable = new ulong[bishopLength];
-        for (int i = 0; i < bishopLength; i++) FlatBishopTable[i] = reader.ReadUInt64();
-
-        // read flat rook table
-        int rookLength = reader.ReadInt32();
-        FlatRookTable = new ulong[rookLength];
-        for (int i = 0; i < rookLength; i++) FlatRookTable[i] = reader.ReadUInt64();
-
-        return true;
-    }
-}*/

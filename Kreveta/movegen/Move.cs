@@ -36,7 +36,8 @@ internal readonly struct Move : IEquatable<Move> {
     0 0 0 0 0 0 0 0 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 | 0 0 0 0 0 0 | 0 0 0 0 0 0
 
     */
-    [field: FieldOffset(0)] private readonly int _flags = 0;
+    [field: FieldOffset(0)] 
+    private readonly int _flags = 0;
 
     // constants for proper information lookups
     private const int EndOffset   = 6;
@@ -52,14 +53,13 @@ internal readonly struct Move : IEquatable<Move> {
 
     // we define the move as readonly, so values can only be set
     // during initialization, and then the move becomes immutable
-    internal Move(int start, int end, PType piece, PType capture, PType promotion)
-    {
+    internal Move(int start, int end, PType piece, PType capture, PType promotion) {
 
         // flags are only set when the constructor is called, after that they cannot be changed
         _flags |= start;
-        _flags |= end << EndOffset;
-        _flags |= (byte)piece << PieceOffset;
-        _flags |= (byte)capture << CaptOffset;
+        _flags |= end             << EndOffset;
+        _flags |= (byte)piece     << PieceOffset;
+        _flags |= (byte)capture   << CaptOffset;
         _flags |= (byte)promotion << PromOffset;
     }
 
@@ -92,11 +92,11 @@ internal readonly struct Move : IEquatable<Move> {
     internal int End
         => (_flags & EndMask) >> EndOffset;
 
-// the moved piece type
+    // the moved piece type
     internal PType Piece
         => (PType)((_flags & PieceMask) >> PieceOffset);
 
-// captured piece
+    // captured piece
     internal PType Capture
         => (PType)((_flags & CaptMask) >> CaptOffset);
 
@@ -104,9 +104,7 @@ internal readonly struct Move : IEquatable<Move> {
     // (pawn for en passant or king for castling)
     internal PType Promotion
         => (PType)((_flags & PromMask) >> PromOffset); 
-
-
-// taken from my previous engine
+    
     internal static bool IsCorrectFormat(string str) {
 
         // to prevent index out of range

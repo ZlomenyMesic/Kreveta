@@ -25,7 +25,8 @@ internal static unsafe class LookupTables {
     // target bitboard includes every single landing square, regardless of other pieces.
     // only later are these moves filtered if the square is blocked
     private static void InitPawnTargets() {
-        // pawns cannot exist on 1st and 8th ranks
+        // pawns cannot exist on 1st and 8th ranks, but the
+        // loop cannot be shortened for an unknown cause
         for (int i = 0; i < 64; i++) {
             ulong pawn = 1UL << i;
             
@@ -37,8 +38,6 @@ internal static unsafe class LookupTables {
             // captures to the right
             ulong wright = pawn >> 7 & 0xFEFEFEFEFEFEFEFE;
             ulong bright = pawn << 9 & 0xFEFEFEFEFEFEFEFE;
-            
-            //Console.WriteLine($"{BB.LS1B(pawn)} {BB.LS1B(wleft)} {BB.LS1B(wright)}");
             
             PawnCaptTargets[i     ] = wleft | wright;
             PawnCaptTargets[i + 64] = bleft | bright;
