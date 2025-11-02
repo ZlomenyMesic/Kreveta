@@ -14,6 +14,7 @@ using Kreveta.uci;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace Kreveta;
 
@@ -43,10 +44,14 @@ internal static class Program {
         PextLookupTables.Init();
         LookupTables.Init();
         
-        //CounterMoveHistory.Init();
-        //QuietHistory.Init();
+        CounterMoveHistory.Init();
+        QuietHistory.Init();
         
         Eval.Init();
+
+        // the engine sometimes crashes unexplainably during initialization,
+        // and this tiny delay actually seems to be suppressing the issue
+        Thread.Sleep(250);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position

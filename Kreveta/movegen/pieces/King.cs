@@ -24,7 +24,6 @@ internal static class King {
     // of a certain king (does not include castling)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static unsafe ulong GetKingTargets(byte sq, ulong free) {
-        
         // same as with knights, the king targets are indexed
         // directly by the square index and then & with empty
         // and enemy-occupied squares to avoid friendly captures
@@ -52,11 +51,16 @@ internal static class King {
         // starting squares of kings
         int start = isWhite ? 60 : 4;
 
-        // and last but not least we check whether castling
-        // would make us go through check, which is illegal
-        // (moving into check is handled elsewhere)
-        if (kingside)  kingside  &= board.IsMoveLegal(new(start, isWhite ? 61 : 5, PType.KING, PType.NONE, PType.NONE), col);
-        if (queenside) queenside &= board.IsMoveLegal(new(start, isWhite ? 59 : 3, PType.KING, PType.NONE, PType.NONE), col);
+        // make sure we wouldn't be moving through a check,
+        // as that is illegal. starting and ending in check
+        // is handled directly in Movegen
+        if (kingside) kingside &= board.IsMoveLegal(
+            new Move(start, isWhite ? 61 : 5, PType.KING, PType.NONE, PType.NONE),
+            col);
+        
+        if (queenside) queenside &= board.IsMoveLegal(
+            new Move(start, isWhite ? 59 : 3, PType.KING, PType.NONE, PType.NONE),
+            col);
 
         // for each side return the btiboard containing
         // the target square of a certain castling move
