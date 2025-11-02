@@ -72,8 +72,7 @@ internal static unsafe class PawnCorrectionHistory {
 
         // get the static eval of the current position and the
         // absolute difference between it and the search score
-        short staticEval = Eval.StaticEval(board);
-        short diff = (short)(score - staticEval);//(short)Math.Abs(score - staticEval);
+        short diff = (short)(score - board.StaticEval);//(short)Math.Abs(score - staticEval);
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference

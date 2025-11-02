@@ -10,6 +10,7 @@
 #pragma warning disable CA1304
 
 using Kreveta.consts;
+using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.uci;
 
@@ -64,7 +65,10 @@ internal struct Board {
     // the side to move
     internal Color Color = Color.NONE;
 
+    // number of moves played that weren't pawn pushes or captures
     internal byte HalfMoveClock = 0;
+
+    internal short StaticEval = 0;
 
     public Board() {
         Pieces = new ulong[12];
@@ -253,6 +257,8 @@ internal struct Board {
             // remove castling rights after a rook moves
             CastRights &= (CastRights)mask;
         }
+
+        StaticEval = Eval.StaticEval(in this);
     }
 
     private void PlayReversibleMove(Move move) {
@@ -330,20 +336,27 @@ internal struct Board {
 
     #endregion
 
-    // null move used for null move pruning
+    // creates a child board with a null move played.
+    // a null move is exactly what it sounds like; no
+    // piece is moved. this is used for NMP
     [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal Board GetNullChild() {
         Board @null = Clone() with {
             EnPassantSq = 64, 
             Color = Color == Color.WHITE 
                 ? Color.BLACK : Color.WHITE
         };
-
+        
         return @null;
     }
 
-    // checks whether a move is legal from this position
+    // checks whether a move is legal from this position.
+    // this is done by using the reversible XOR-only play
+    // move function, which turns out to be faster than
+    // cloning this board and playing the move regularly
     [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool IsMoveLegal(Move move, Color col) {
         PlayReversibleMove(move);
         bool isLegal = !Movegen.IsKingInCheck(in this, col);
@@ -351,15 +364,20 @@ internal struct Board {
         
         return isLegal;
     }
-
+    
     [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal Board Clone() {
-        Board @new = this with {
-            Pieces = new ulong[12]
+        
+        var newPieces = new ulong[12];
+        Unsafe.CopyBlockUnaligned(
+            destination: ref Unsafe.As<ulong, byte>(ref newPieces[0]),
+            source:      ref Unsafe.As<ulong, byte>(ref Pieces[0]),
+            byteCount:   96);
+        
+        return this with {
+            Pieces = newPieces
         };
-
-        Array.Copy(Pieces, @new.Pieces, 12);
-        return @new;
     }
 
     internal void Print() {
@@ -402,6 +420,11 @@ internal struct Board {
             CastRights    = CastRights.ALL,
             Color         = Color.WHITE,
             HalfMoveClock = 0,
+            
+            // Stockfish initial position evaluation, which changes
+            // absolutely, literally nothing. this number couldn't
+            // possibly be more useless, and yet, here it is
+            StaticEval    = 17,
             
             Pieces = {
                 [0] =  0x00FF000000000000UL, // P

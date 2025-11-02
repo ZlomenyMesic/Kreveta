@@ -62,7 +62,7 @@ internal static class QSearch {
 
         // we reached the maximum allowed depth, return the static eval
         if (ply >= CurQSDepth)
-            return Eval.StaticEval(board);
+            return board.StaticEval;
 
         Color col = board.Color;
 
@@ -74,7 +74,7 @@ internal static class QSearch {
         bool inCheck = Movegen.IsKingInCheck(board, col);
 
         // stand pat is just a fancy word for static eval
-        short standPat = Eval.StaticEval(board);
+        short standPat = board.StaticEval;
 
         // don't try to cutoff when in check
         if (!inCheck) {

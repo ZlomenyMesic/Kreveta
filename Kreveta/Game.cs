@@ -274,15 +274,8 @@ internal static class Game {
         }
         
         // if the opposite side is in check, even though it's our turn to play,
-        // the position is obviously illegal and shouldn't be searched (no bugs
-        // should appear, but this is just in case)
-        //if (Movegen.IsKingInCheck(Game.Board, Game.EngineColor == Color.WHITE
-        //        ? Color.BLACK 
-        //        : Color.WHITE)) {
-            
-        //    CannotStartSearchCallback("the opposite side is in check");
-        //    return true;
-        //}
+        // the position is obviously illegal. however, allowing such positions
+        // makes it possible for Kreveta to capture the king :)
         
         error = string.Empty;
         return false;

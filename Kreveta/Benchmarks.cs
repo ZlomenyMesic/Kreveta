@@ -67,12 +67,6 @@ public class Benchmarks {
             .Where(item => item.move.Capture == PType.NONE)
         ];
     }*/
-
-    // [Benchmark]
-    // public void CloneBoard() { 
-    //     var clone = _position.Clone();
-    // }
-    
     
     private Board _position = Board.CreateStartpos();
 
@@ -82,10 +76,10 @@ public class Benchmarks {
     //}
 
     
-    [Benchmark]
-    public void ZobristGetHash() {
-        ulong hash = ZobristHash.Hash(_position);
-    }
+    //[Benchmark]
+    //public void ZobristGetHash() {
+    //    ulong hash = ZobristHash.Hash(_position);
+    //}
     
     /*[Benchmark]
     public void ZobristLookupGetHash() {
