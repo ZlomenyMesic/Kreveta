@@ -20,7 +20,7 @@ internal static class Program {
     private const int MoveTime = 500;
     
     // how many "new engines" to create/test
-    private const  int Cycles = 25;
+    private const  int Cycles = 3000;
     
     private static int PositionCount;
 
@@ -46,19 +46,18 @@ internal static class Program {
             newKreveta.Send(paramCMD);
 
             (float MSE, float MoveAccuracy) result = EvaluateKreveta(newKreveta);
-            float total = result.MSE + 80 * (100 - result.MoveAccuracy);
+            float total = result.MSE + 120 * (100 - result.MoveAccuracy);
             
             newKreveta.Quit();
             Console.WriteLine($"Done evaluating another Kreveta:\nMSE = {result.MSE}, MoveAccuracy = {result.MoveAccuracy}%");
             Console.WriteLine($"Is it better: {total < _krevetaBaseTotal}\n");
 
             UpdateTweaks(paramCMD, total);
+            StoreResult();
         }
-
-        StoreResult();
         
         sw.Stop();
-        Console.WriteLine($"Selfplay finished in {sw.Elapsed}");
+        Console.WriteLine($"Tuning finished in {sw.Elapsed}");
     }
 
     private static void GenerateStockfishOutputs() {
@@ -71,7 +70,9 @@ internal static class Program {
             if (string.IsNullOrWhiteSpace(fen) || fen.StartsWith('#'))
                 continue;
             
-            (int eval, string move) = stockfish.EvaluateFEN(fen, MoveTime);
+            // Stockfish gets more time to evaluate the positions,
+            // so that the tweaks based on its outputs are precise
+            (int eval, string move) = stockfish.EvaluateFEN(fen, MoveTime * 4);
             outputLines.Add($"{fen};{eval};{move}");
             
             Console.Write($"Finished: {++counter}/?\r");
@@ -91,7 +92,7 @@ internal static class Program {
         
         _krevetaBaseMSE          = result.MSE;
         _krevetaBaseMoveAccuracy = result.MoveAccuracy;
-        _krevetaBaseTotal        = _krevetaBaseMSE + 80 * (100 - _krevetaBaseMoveAccuracy);
+        _krevetaBaseTotal        = _krevetaBaseMSE + 120 * (100 - _krevetaBaseMoveAccuracy);
 
         kreveta.Quit();
         Console.WriteLine($"\nDone evaluating Kreveta base:\nMSE = {_krevetaBaseMSE}, MoveAccuracy = {_krevetaBaseMoveAccuracy}%\n");
@@ -130,32 +131,55 @@ internal static class Program {
         int[] shifts = paramCMD.Split(' ')[1..(Tweaks.Length + 1)]
             .Select(int.Parse).ToArray();
 
-        // this version seems to be better
-        if (total < _krevetaBaseTotal) {
+        // this version seems to be worse
+        if (total <= _krevetaBaseTotal) {
+            // update only when this version is better
             for (int i = 0; i < shifts.Length; i++) {
+                if (shifts[i] == 0)
+                    continue;
+            
                 Tweaks[i].Item1 += shifts[i];
                 Tweaks[i].Item2++;
             }
-        }
-        
-        // this version is probably worse
-        else if (total > _krevetaBaseTotal) {
+        } else {
             for (int i = 0; i < shifts.Length; i++) {
-                Tweaks[i].Item1 -= (float)shifts[i] / 20;
+                if (shifts[i] == 0)
+                    continue;
+
+                // by increasing the visit count, the
+                // eventual result is essentially pulled
+                // closer toward zero
                 Tweaks[i].Item2++;
             }
         }
     }
-
-    // TODO - read previously saved results and update
-    // them instead of completely overwriting them
+    
     private static void StoreResult() {
-        var tweakResult = new List<string>();
-        for (int i = 0; i < Tweaks.Length; i++) {
-            tweakResult.Add(
-                (Tweaks[i].Item1 / Tweaks[i].Item2).ToString()
-            );
+        string[] lines = new string[Tweaks.Length];
+        for (int i = 0; i < Tweaks.Length; i++)
+            lines[i] = "0 0 mean_shift: 0";
+        
+        if (File.Exists(OutputPath))
+            lines = File.ReadAllLines(OutputPath);
+        
+        var newLines = new List<string>();
+        
+        for (int i = 0; i < lines.Length; i++) {
+            var toks = lines[i].Split(' ');
+
+            float prevSum = float.Parse(toks[0]);
+            int   prevCnt = int.Parse(toks[1]);
+            
+            prevSum += Tweaks[i].Item1;
+            prevCnt += Tweaks[i].Item2;
+
+            // reset tweaks, so they don't get counted multiple times
+            Tweaks[i] = (0, 0);
+            
+            float meanShift = prevCnt == 0 ? 0 : prevSum / prevCnt;
+            newLines.Add($"{prevSum} {prevCnt} mean_shift: {meanShift}");
         }
-        File.WriteAllLines(OutputPath, tweakResult);
+        
+        File.WriteAllLines(OutputPath, newLines);
     }
 }

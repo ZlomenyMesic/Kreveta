@@ -8,49 +8,39 @@ using System.Text;
 
 namespace KrevetaTuning;
 
-file class FancyRandom(Random rand) {
-    internal int Next(int min, int max)
-        => rand.Next(0, 11) > 3 
-            ? 0 : rand.Next(min, max);
-}
-
 internal static class ParamGenerator {
     internal const int ParamCount = 25;
     
     internal static string CreateCMD() {
-        var r  = new FancyRandom(new Random());
-        var sb = new StringBuilder();
-        
-        sb.Append("tune");
-        sb.Append($" {r.Next(-15, 16)}");
-        sb.Append($" {r.Next(-12, 13)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
+        var rnd = new Random();
+        int i   = rnd.Next(0, ParamCount);
 
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-100, 101)}");
-        sb.Append($" {r.Next(-10, 11)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
+        // define custom steps for different parameters
+        int maxStep = i switch {
+            0  => 25,
+            1  => 16,
+            6  => 150,
+            7  => 12,
+            11 => 18,
+            12 => 25,
+            15 => 18,
+            _  => 2
+        };
         
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-15, 16)}");
-        sb.Append($" {r.Next(-20, 21)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
+        // this can possibly create a neverending loop
+        int shift = rnd.Next(-maxStep, maxStep + 1);
+        while (shift == 0) {
+            shift = rnd.Next(-maxStep, maxStep + 1);
+        }
         
-        sb.Append($" {r.Next(-15, 16)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
-        sb.Append($" {r.Next(-1, 2)}");
+        var sb = new StringBuilder();
+        sb.Append("tune");
+
+        for (int j = 0; j < ParamCount; j++) {
+            sb.Append(j == i 
+                ? $" {shift}" : " 0"
+            );
+        }
         
         return sb.ToString();
     }
