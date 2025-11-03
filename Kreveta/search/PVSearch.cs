@@ -87,7 +87,6 @@ internal static class PVSearch {
         // actual start of the search tree
         (PVScore, PV) = Search(ref Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default, true/*, true*/);
     }
-
     // completely reset everything
     internal static void Reset() {
         QSearch.CurQSDepth = 0;
@@ -118,10 +117,10 @@ internal static class PVSearch {
         // loop all pv-nodes
         for (int i = 0; i < pv.Length; i++) {
             // store the pv-node
-            TT.Store(board, (sbyte)--depth, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
+            TT.Store(board, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
-            board.PlayMove(pv[i]);
+            board.PlayMove(pv[i], false);
         }
     }
 
@@ -233,7 +232,7 @@ internal static class PVSearch {
         }
 
         // is the color to play currently in check?
-        bool inCheck = Movegen.IsKingInCheck(board, col);
+        bool inCheck = Check.IsKingChecked(board, col);
 
         // update the static eval search stack
         improvStack.AddStaticEval(board.StaticEval, ply);
@@ -305,7 +304,7 @@ internal static class PVSearch {
 
             // create a child board with the move played
             Board child = board.Clone();
-            child.PlayMove(curMove);
+            child.PlayMove(curMove, true);
 
             ulong pieceCount = ulong.PopCount(child.Occupied);
             
@@ -327,7 +326,7 @@ internal static class PVSearch {
                                || inCheck
                                || isPV
                                || ply <= 4 && isCapture
-                               || Movegen.IsKingInCheck(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
+                               || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
             // static eval of the child node
             short childStaticEval = child.StaticEval;
