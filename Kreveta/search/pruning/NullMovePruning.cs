@@ -31,8 +31,8 @@ internal static class NullMovePruning {
     private const int PlySubtract     = 2;
     private const int ReductionBase   = 2;
     private const int CurDepthDivisor = 4;
-    private const int MinAddRedDepth  = 8;
-    private const int AddDepthDivisor = 5;
+    internal static int MinAddRedDepth  = 8;
+    internal static int AddDepthDivisor = 5;
 
     // as mentioned above, nmp sometimes fails in endgames, so we want to prune
     // less with fewer pieces on the board - we achieve this by progressively

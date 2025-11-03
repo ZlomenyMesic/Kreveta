@@ -8,6 +8,7 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.search.pruning;
 using Kreveta.search.transpositions;
+using Kreveta.tuning;
 using Kreveta.uci;
 
 using System;
@@ -146,7 +147,9 @@ internal static class PVSControl {
         // we either print the "mate in X" or the score in centipawns
         string score = Score.IsMateScore(PVSearch.PVScore) 
             ? $"mate {mateScore}"
-            : $"cp {Score.LimitScore(PVSearch.PVScore) * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
+            : $"cp {(Tuning.LimitScore 
+                ? Score.LimitScore(PVSearch.PVScore) : PVSearch.PVScore) 
+                    * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
 
         // nodes per second (searched) - a widely used measure to approximate
         // an engine's strength or efficiency. we need to maximize these. in

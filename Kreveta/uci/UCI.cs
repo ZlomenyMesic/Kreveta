@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
 using Kreveta.consts;
+using Kreveta.tuning;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
@@ -113,6 +114,10 @@ internal static partial class UCI {
                 
                 case "cls":
                     Console.Clear();
+                    break;
+                
+                case "tune":
+                    Tuning.TuneParams(tokens);
                     break;
                 
                 case "help":

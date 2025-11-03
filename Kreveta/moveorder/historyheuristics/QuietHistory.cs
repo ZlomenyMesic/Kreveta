@@ -43,7 +43,7 @@ internal static class QuietHistory {
     private static readonly int[][] ButterflyBoard = new int[64][];
     
     // there is still some scale, though
-    private const int RelHHScale = 12;
+    internal static int RelHHScale = 12;
 
     internal static void Init() {
         for (int i = 0; i < 64; i++) {
@@ -79,8 +79,8 @@ internal static class QuietHistory {
     
     // i believe i stole these values from Stockfish, but
     // i am not sure. they do, however, work very great
-    private const int ShiftSubtract = 5;
-    private const int ShiftLimit    = 84;
+    internal static int ShiftSubtract = 5;
+    internal static int ShiftLimit    = 84;
     
     // modify the history reputation of a move. isMoveGood tells us how
     internal static void ChangeRep(in Board board, Move move, int depth, bool isMoveGood) {

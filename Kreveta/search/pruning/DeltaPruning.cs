@@ -17,7 +17,7 @@ namespace Kreveta.search.pruning;
 // can safely prune it
 internal static class DeltaPruning {
     internal const int MinPly          = 4;
-    private  const int DeltaMarginBase = 81;
+    internal static int DeltaMarginBase = 81;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool TryPrune(int ply, int curQSDepth, Color col, Window window, short standPat, int captured) {

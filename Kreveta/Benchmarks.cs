@@ -68,7 +68,7 @@ public class Benchmarks {
         ];
     }*/
     
-    private Board _position = Board.CreateStartpos();
+    //private Board _position = Board.CreateStartpos();
 
     //[Benchmark]
     //public void GetLegalMoves() {
