@@ -25,13 +25,13 @@ internal static class FutilityPruning {
 
     // magical constants - DON'T MODIFY
     // higher margin => fewer reductions
-    private const int MarginBase       = 66;
-    private const int DepthMultiplier = 102;
+    internal static int MarginBase       = 66;
+    internal static int DepthMultiplier = 102;
 
     // if improving we make the margin smaller (this seems a bit counter-intuitive,
     // as we are pruning improving positions more, but it works)
-    private const int ImprovingMargin          = -35;
-    private const int NotImprovingMargin       = 23; 
+    internal static int ImprovingMargin    = -35;
+    internal static int NotImprovingMargin = 23; 
 
     // try futility pruning
     internal static bool TryPrune(in Board child, int depth, Color col, short staticEval, bool improving, Window window) {
