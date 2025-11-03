@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Docs/KrevetaLogo.png" alt="Logo" width="25%">
+<img src="Resources/KrevetaLogo.png" alt="Logo" width="25%">
 
 <br/>
 
@@ -28,7 +28,7 @@ Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutech
 | Opponent        | Time Control | Games | Elo estimate |
 |-----------------|--------------|-------|--------------|
 | Stockfish 17    | 40/100       | ~800  | 2381         |
-| Stockfish 17    | 40/120       | ~200  | 2395         |
+| Stockfish 17    | 40/120       | ~500  | 2432         |
 | ...             | ...          | ...   | ...          |
 
 > [!NOTE]
@@ -73,7 +73,7 @@ Default hash table size (64 MiB) was used.
 ### Move Generation
 
 - Bitboard representation of pieces
-- Magic bitboards for sliding piece attacks
+- precomputed slider tables with PEXT-based lookups
 - Precomputed move lookup tables
 
 ### Search Features
