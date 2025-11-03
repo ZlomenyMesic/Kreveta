@@ -201,7 +201,7 @@ internal static class PVSControl {
         // the correct position is needed for correct tt lookups
         foreach (Move move in PVSearch.PV) {
             yield return move;
-            board.PlayMove(move);
+            board.PlayMove(move, false);
         }
             
         int depth = PVSearch.PV.Length;
@@ -215,7 +215,7 @@ internal static class PVSControl {
                 yield break;
                 
             yield return ttMove;
-            board.PlayMove(ttMove);
+            board.PlayMove(ttMove, false);
         }
     }
 }

@@ -204,7 +204,7 @@ internal static class Game {
                 return;
             }
 
-            Board.PlayMove(tokens[i].ToMove(Board));
+            Board.PlayMove(tokens[i].ToMove(Board), true);
             HistoryPositions.Add(ZobristHash.Hash(Board));
 
             // switch the engine's color
@@ -261,7 +261,7 @@ internal static class Game {
 
         // no legal moves for the engine in this position
         if (Movegen.GetLegalMoves(ref Board, stackalloc Move[Consts.MoveBufferSize]) == 0) {
-            error = Movegen.IsKingInCheck(Board, EngineColor)
+            error = Check.IsKingChecked(Board, EngineColor)
             
                 // if we are in check and have no legal moves, that means
                 // we are already checkmated and thus cannot search anything

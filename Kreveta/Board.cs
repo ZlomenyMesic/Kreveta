@@ -111,7 +111,7 @@ internal struct Board {
     #region MOVEPLAY    
 
     // performs a move on the board
-    internal void PlayMove(Move move) {
+    internal void PlayMove(Move move, bool updateStaticEval) {
         
         EnPassantSq = 64;
         Color = Color == Color.WHITE
@@ -258,7 +258,8 @@ internal struct Board {
             CastRights &= (CastRights)mask;
         }
 
-        StaticEval = Eval.StaticEval(in this);
+        if (updateStaticEval)
+            StaticEval = Eval.StaticEval(in this);
     }
 
     private void PlayReversibleMove(Move move) {
@@ -359,7 +360,7 @@ internal struct Board {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool IsMoveLegal(Move move, Color col) {
         PlayReversibleMove(move);
-        bool isLegal = !Movegen.IsKingInCheck(in this, col);
+        bool isLegal = !Check.IsKingChecked(in this, col);
         PlayReversibleMove(move);
         
         return isLegal;

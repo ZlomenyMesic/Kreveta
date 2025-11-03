@@ -71,7 +71,7 @@ internal static class QSearch {
         // TODO - if we are only generating captures from a certain point,
         //        do we still need to be checking whether we are checked?
         //
-        bool inCheck = Movegen.IsKingInCheck(board, col);
+        bool inCheck = Check.IsKingChecked(board, col);
 
         // stand pat is just a fancy word for static eval
         short standPat = board.StaticEval;
@@ -132,7 +132,7 @@ internal static class QSearch {
         for (int i = 0; i < count; ++i) {
 
             Board child = board.Clone();
-            child.PlayMove(moves[i]);
+            child.PlayMove(moves[i], true);
 
             // value of the piece we just captured
             int captured = (inCheck ? 0 : EvalTables.PieceValues[(byte)moves[i].Capture])

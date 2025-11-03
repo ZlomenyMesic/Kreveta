@@ -37,7 +37,7 @@ internal static class Perft {
             
             if (depth > 1) {
                 Board child = Game.Board.Clone();
-                child.PlayMove(moves[i]);
+                child.PlayMove(moves[i], false);
             
                 // the recursive search starts here
                 curNodes = CountNodes(ref child, (byte)(depth - 1));
@@ -105,10 +105,10 @@ internal static class Perft {
 
             // create a copy of the board and play the move
             Board child = board.Clone();
-            child.PlayMove(moves[i]);
+            child.PlayMove(moves[i], false);
 
             // the move is illegal (we moved to or stayed in check)
-            if (Movegen.IsKingInCheck(in child, board.Color))
+            if (Check.IsKingChecked(in child, board.Color))
                 continue;
 
             // otherwise continue the search deeper
