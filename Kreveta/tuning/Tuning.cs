@@ -16,13 +16,7 @@ using System;
 namespace Kreveta.tuning;
 
 internal static class Tuning {
-    internal static bool LimitScore = true;
-    
     internal static void TuneParams(ReadOnlySpan<string> tokens) {
-        // limiting score must be turned off during
-        // tuning to produce accurate MSE values
-        LimitScore = false;
-        
         try {
             FutilityPruning.MarginBase                += int.Parse(tokens[1]); // step 0-15
             FutilityPruning.DepthMultiplier           += int.Parse(tokens[2]); // step 0-12

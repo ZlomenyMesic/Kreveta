@@ -6,6 +6,7 @@
 // ReSharper disable InconsistentNaming
 // ReSharper disable SpecifyACultureInStringConversionExplicitly
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace KrevetaTuning;
 
@@ -21,41 +22,70 @@ internal static class Program {
     
     // how many "new engines" to create/test
     private const  int Cycles = 3000;
-    
-    private static int PositionCount;
 
     private static float _krevetaBaseMSE;
     private static float _krevetaBaseMoveAccuracy;
-    private static float _krevetaBaseTotal;
     
     // stores (shift_sum, number_of_shifts)
     private static readonly (float, int)[] Tweaks 
         = new (float, int)[ParamGenerator.ParamCount];
+
+    private const           int                     MaxThreads    = 8;
+    private static readonly CancellationTokenSource Cts           = new();
+    private static readonly Lock                    EnginesLock   = new();
+    private static readonly List<UCIEngine>         ActiveEngines = [];
     
     internal static void Main() {
+        Console.CancelKeyPress += (_, e) => {
+            e.Cancel = true;
+            Cts.Cancel();
+        };
+
+        try {
+            MainWrapperAsync(Cts.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) {
+            Console.WriteLine("Tuning canceled by user.");
+        }
+        finally {
+            CleanupEngines();
+            Console.WriteLine("All engines closed. Exiting...");
+        }
+    }
+
+    private static async Task MainWrapperAsync(CancellationToken token) {
         var sw = Stopwatch.StartNew();
-        
+
         GenerateStockfishOutputs();
         GenerateKrevetaBaseOutputs();
+        
+        ReadExistingOutput();
+
+        var semaphore = new SemaphoreSlim(MaxThreads);
+        var tasks = new List<Task>();
 
         for (int i = 0; i < Cycles; i++) {
-            var newKreveta = new UCIEngine(KrevetaPath);
-            var paramCMD = ParamGenerator.CreateCMD();
-            
-            Console.WriteLine($"Evaluating a new Kreveta ({i + 1}/{Cycles}) with params:\n{paramCMD}");
-            newKreveta.Send(paramCMD);
+            token.ThrowIfCancellationRequested();
+            await semaphore.WaitAsync(token);
 
-            (float MSE, float MoveAccuracy) result = EvaluateKreveta(newKreveta);
-            float total = result.MSE + 120 * (100 - result.MoveAccuracy);
-            
-            newKreveta.Quit();
-            Console.WriteLine($"Done evaluating another Kreveta:\nMSE = {result.MSE}, MoveAccuracy = {result.MoveAccuracy}%");
-            Console.WriteLine($"Is it better: {total < _krevetaBaseTotal}\n");
+            int cycleNum = i;
+            var task = Task.Run(() => {
+                try {
+                    EvaluateKrevetaThread(cycleNum, token);
+                }
+                catch (OperationCanceledException) {
+                    // task will end gracefully
+                }
+                finally {
+                    semaphore.Release();
+                }
+            }, token);
 
-            UpdateTweaks(paramCMD, total);
-            StoreResult();
+            tasks.Add(task);
         }
-        
+
+        await Task.WhenAll(tasks);
+
         sw.Stop();
         Console.WriteLine($"Tuning finished in {sw.Elapsed}");
     }
@@ -73,12 +103,11 @@ internal static class Program {
             // Stockfish gets more time to evaluate the positions,
             // so that the tweaks based on its outputs are precise
             (int eval, string move) = stockfish.EvaluateFEN(fen, MoveTime * 4);
-            outputLines.Add($"{fen};{eval};{move}");
+            eval = Math.Clamp(eval, -1000, 1000);
             
+            outputLines.Add($"{fen};{eval};{move}");
             Console.Write($"Finished: {++counter}/?\r");
         }
-
-        PositionCount = counter;
         
         File.WriteAllLines(DatasetPath, outputLines);
         stockfish.Quit();
@@ -88,22 +117,52 @@ internal static class Program {
     private static void GenerateKrevetaBaseOutputs() {
         Console.WriteLine("Evaluating Kreveta base...");
         var kreveta = new UCIEngine(KrevetaPath);
-        (float MSE, float MoveAccuracy) result = EvaluateKreveta(kreveta);
+        (float MSE, float MoveAccuracy) result = EvaluateKreveta(kreveta, CancellationToken.None);
         
         _krevetaBaseMSE          = result.MSE;
         _krevetaBaseMoveAccuracy = result.MoveAccuracy;
-        _krevetaBaseTotal        = _krevetaBaseMSE + 120 * (100 - _krevetaBaseMoveAccuracy);
-
+        
         kreveta.Quit();
         Console.WriteLine($"\nDone evaluating Kreveta base:\nMSE = {_krevetaBaseMSE}, MoveAccuracy = {_krevetaBaseMoveAccuracy}%\n");
     }
 
-    private static (float MSE, float MoveAccuracy) EvaluateKreveta(UCIEngine kreveta) {
+    private static void EvaluateKrevetaThread(int num, CancellationToken token) {
+        token.ThrowIfCancellationRequested();
+
+        var newKreveta = new UCIEngine(KrevetaPath);
+
+        lock (EnginesLock)
+            ActiveEngines.Add(newKreveta);
+
+        try {
+            var paramCMD = ParamGenerator.CreateCMD();
+            Console.WriteLine($"Evaluating a new Kreveta ({num + 1}/{Cycles}) with params:\n{paramCMD}\n");
+
+            newKreveta.Send(paramCMD);
+            (float MSE, float MoveAccuracy) result = EvaluateKreveta(newKreveta, token);
+
+            Console.WriteLine($"Done evaluating Kreveta {num + 1}/{Cycles}:\nMSE = {result.MSE}, MoveAccuracy = {result.MoveAccuracy}%\n"
+                            + $"Is it better: {result.MSE <= _krevetaBaseMSE && result.MoveAccuracy >= _krevetaBaseMoveAccuracy}\n");
+
+            UpdateTweaks(paramCMD, result.MSE, result.MoveAccuracy);
+            StoreResult();
+        }
+        finally {
+            newKreveta.Quit();
+
+            lock (EnginesLock)
+                ActiveEngines.Remove(newKreveta);
+        }
+    }
+
+    private static (float MSE, float MoveAccuracy) EvaluateKreveta(UCIEngine kreveta, CancellationToken token) {
         double totalSqError = 0;
         int    matchMoves   = 0;
         int    count        = 0;
 
         foreach (var line in File.ReadLines(DatasetPath)) {
+            token.ThrowIfCancellationRequested();
+
             var parts = line.Split(';');
             
             string fen           = parts[0];
@@ -117,8 +176,8 @@ internal static class Program {
             
             if (move == stockfishMove) 
                 matchMoves++;
-            
-            Console.Write($"Finished: {++count}/{PositionCount}\r");
+
+            count++;
         }
 
         float mse          = (float)(totalSqError / count);
@@ -127,12 +186,13 @@ internal static class Program {
         return (mse, moveAccuracy);
     }
 
-    private static void UpdateTweaks(string paramCMD, float total) {
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    private static void UpdateTweaks(string paramCMD, float MSE, float moveAccuracy) {
         int[] shifts = paramCMD.Split(' ')[1..(Tweaks.Length + 1)]
             .Select(int.Parse).ToArray();
 
         // this version seems to be worse
-        if (total <= _krevetaBaseTotal) {
+        if (MSE <= _krevetaBaseMSE && moveAccuracy >= _krevetaBaseMoveAccuracy) {
             // update only when this version is better
             for (int i = 0; i < shifts.Length; i++) {
                 if (shifts[i] == 0)
@@ -143,43 +203,58 @@ internal static class Program {
             }
         } else {
             for (int i = 0; i < shifts.Length; i++) {
-                if (shifts[i] == 0)
-                    continue;
+                if (shifts[i] != 0
+                    && Math.Sign(shifts[i]) == Math.Sign(Tweaks[i].Item1)
+                    && Tweaks[i].Item2 != 0) 
+                {
+                    // by increasing the visit count, the
+                    // result is essentially pulled closer
+                    // toward zero, which is the base value
+                    Tweaks[i].Item2++;
+                }
+            }
+        }
+    }
 
-                // by increasing the visit count, the
-                // eventual result is essentially pulled
-                // closer toward zero
-                Tweaks[i].Item2++;
+    private static void ReadExistingOutput() {
+        if (File.Exists(OutputPath)) {
+            var lines = File.ReadAllLines(OutputPath);
+
+            lock (Tweaks) {
+                for (int i = 0; i < Tweaks.Length; i++) {
+                    var toks = lines[i].Split(' ');
+                
+                    Tweaks[i].Item1 = float.Parse(toks[0]);
+                    Tweaks[i].Item2 = int.Parse(toks[1]);
+                }
             }
         }
     }
     
+    [MethodImpl(MethodImplOptions.Synchronized)]
     private static void StoreResult() {
-        string[] lines = new string[Tweaks.Length];
-        for (int i = 0; i < Tweaks.Length; i++)
-            lines[i] = "0 0 mean_shift: 0";
-        
-        if (File.Exists(OutputPath))
-            lines = File.ReadAllLines(OutputPath);
-        
         var newLines = new List<string>();
         
-        for (int i = 0; i < lines.Length; i++) {
-            var toks = lines[i].Split(' ');
-
-            float prevSum = float.Parse(toks[0]);
-            int   prevCnt = int.Parse(toks[1]);
+        for (int i = 0; i < Tweaks.Length; i++) {
+            var sum = Tweaks[i].Item1;
+            var cnt = Tweaks[i].Item2;
             
-            prevSum += Tweaks[i].Item1;
-            prevCnt += Tweaks[i].Item2;
-
-            // reset tweaks, so they don't get counted multiple times
-            Tweaks[i] = (0, 0);
-            
-            float meanShift = prevCnt == 0 ? 0 : prevSum / prevCnt;
-            newLines.Add($"{prevSum} {prevCnt} mean_shift: {meanShift}");
+            float meanShift = cnt == 0 ? 0 : sum / cnt;
+            newLines.Add($"{sum} {cnt} mean_shift: {meanShift}");
         }
         
         File.WriteAllLines(OutputPath, newLines);
+    }
+    
+    private static void CleanupEngines() {
+        lock (EnginesLock) {
+            foreach (UCIEngine engine in ActiveEngines.ToArray()) {
+                try {
+                    engine.Quit();
+                }
+                catch { /* ignore */ }
+            }
+            ActiveEngines.Clear();
+        }
     }
 }
