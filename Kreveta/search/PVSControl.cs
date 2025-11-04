@@ -147,8 +147,7 @@ internal static class PVSControl {
         // we either print the "mate in X" or the score in centipawns
         string score = Score.IsMateScore(PVSearch.PVScore) 
             ? $"mate {mateScore}"
-            : $"cp {(Tuning.LimitScore 
-                ? Score.LimitScore(PVSearch.PVScore) : PVSearch.PVScore) 
+            : $"cp {Score.LimitScore(PVSearch.PVScore) 
                     * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
 
         // nodes per second (searched) - a widely used measure to approximate

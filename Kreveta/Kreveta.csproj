@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <ApplicationIcon>..\Resources\images\KrevetaLogo.ico</ApplicationIcon>
-	<LangVersion>13.0</LangVersion>
+	<LangVersion>13</LangVersion>
     <RootNamespace>Kreveta</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -21,6 +21,8 @@
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageReference Include="BenchmarkDotNet.Annotations" Version="0.14.0" />
     <PackageReference Include="HasFlagExtension.Generator" Version="2.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.14.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageReference Include="NeoKolors.Common" Version="0.25.16" />
     <PackageReference Include="NeoKolors.Console" Version="0.25.16" />
   </ItemGroup>
