@@ -22,16 +22,15 @@ internal static class FutilityPruning {
     // minimum ply and maximum depth to allow futility pruning
     internal const int MinPly   = 4;
     internal const int MaxDepth = 5;
-
-    // magical constants - DON'T MODIFY
+    
     // higher margin => fewer reductions
-    internal static int MarginBase       = 66;
-    internal static int DepthMultiplier = 102;
+    private const int MarginBase      = 60;
+    private const int DepthMultiplier = 97;
 
-    // if improving we make the margin smaller (this seems a bit counter-intuitive,
+    // if improving, make the margin smaller (this seems a bit counter-intuitive,
     // as we are pruning improving positions more, but it works)
-    internal static int ImprovingMargin    = -35;
-    internal static int NotImprovingMargin = 23; 
+    private const int ImprovingMargin    = -35;
+    private const int NotImprovingMargin = 23; 
 
     // try futility pruning
     internal static bool TryPrune(in Board child, int depth, Color col, short staticEval, bool improving, Window window) {

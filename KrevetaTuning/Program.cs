@@ -56,7 +56,8 @@ internal static class Program {
     private static async Task MainWrapperAsync(CancellationToken token) {
         var sw = Stopwatch.StartNew();
 
-        GenerateStockfishOutputs();
+        if (!File.Exists(DatasetPath))
+            GenerateStockfishOutputs();
         GenerateKrevetaBaseOutputs();
         
         ReadExistingOutput();

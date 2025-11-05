@@ -36,19 +36,21 @@ internal static class LateMoveReductions {
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
-    internal static short HistReductionThreshold = -720;
+    private const short HistReductionThreshold = -689;
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.
-    private const byte InternalR         = 3;
-    private const byte InternalBadHistR  = 4;
+    private const byte InternalR        = 3;
+    private const byte InternalBadHistR = 4;
 
-    internal static sbyte MaxReduceMargin   = 66;
-    internal static sbyte WindowSizeDivisor = 9;
-    internal static sbyte MarginDivisor     = 6;
-    internal static sbyte ImprovingMargin   = 12;
+    private const sbyte MarginBase        = 1;
+    private const sbyte MaxReduceMargin   = 64;
+    private const sbyte WindowSizeDivisor = 9;
+    private const sbyte MarginDivisor     = 6;
+    private const sbyte ImprovingMargin   = 12;
+    internal static sbyte SearchedMovesMult = 100;
 
-    private const byte ReductionDepth    = 4;
+    private const sbyte ReductionDepth = 4;
 
     // should we prune or reduce?
     internal static (bool Prune, bool Reduce) TryPrune(in Board board, ref Board child, Move move, int ply, int depth, Color col, byte searchedMoves, bool improving, Window window) {
@@ -90,10 +92,11 @@ internal static class LateMoveReductions {
         int windowSize = Math.Abs(window.Beta - window.Alpha);
 
         // a fraction of the window is the margin
-        short margin = (short)(Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor
+        short margin = (short)(MarginBase
+            + Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor
             
             // be more aggressive with later moves
-            + searchedMoves 
+            + searchedMoves * SearchedMovesMult / 100
                           
             // be less aggressive when improving
             + (improving ? -ImprovingMargin : 0));

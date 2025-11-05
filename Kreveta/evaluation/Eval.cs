@@ -7,7 +7,6 @@ using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
@@ -15,21 +14,20 @@ namespace Kreveta.evaluation;
 internal static class Eval {
     
     // the side to play gets a small bonus
-    internal static sbyte SideToMoveBonus = 5;
+    private const sbyte SideToMoveBonus = 6;
 
-    // POSITION STRUCTURE BONUSES & PENALTIES
-
-    internal static sbyte DoubledPawnPenalty = -6;
-    internal static sbyte IsolatedPawnPenalty = -21;
-    internal static sbyte IsolaniAddPenalty = -4;
-    internal static sbyte ConnectedPassedPawnBonus = 9;
-    internal static sbyte BlockedPawnPenalty = -4;
+    // POSITION STRUCTURE BONUSES & MALUSES
+    private const sbyte DoubledPawnPenalty       = -6;
+    private const sbyte IsolatedPawnPenalty      = -21;
+    private const sbyte IsolaniAddPenalty        = -4;
+    private const sbyte ConnectedPassedPawnBonus = 9;
+    private const sbyte BlockedPawnPenalty       = -3;
     //private const int OpenPawnBonus            = 5;
 
-    internal static sbyte BishopPairBonus = 35;
+    private const sbyte BishopPairBonus = 35;
 
-    internal static sbyte OpenFileRookBonus = 18;
-    internal static sbyte SemiOpenFileRookBonus = 7;
+    private const sbyte OpenFileRookBonus     = 17;
+    private const sbyte SemiOpenFileRookBonus = 7;
     //private const int SeventhRankRookBonus     = 3;
 
     //internal const int KingInCheckPenalty      = 72;
