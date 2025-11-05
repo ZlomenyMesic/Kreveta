@@ -46,10 +46,11 @@ Default hash table size (64 MiB) was used.
 
 | Full Depth | Sel. Depth | Time      | Nodes Searched | NPS       | Best Move |
 |------------|------------|-----------|----------------|-----------|-----------|
-| 5          | 15         | 00:00.013 | 11,022         | 918,500   | d4        |
-| 10         | 22         | 00:00.349 | 603,888        | 1,730,338 | e4        |
-| 15         | 27         | 00:06.091 | 11,314,139     | 1,857,822 | Nf3       |
-| 20         | 32         | 04:28.291 | 530,456,261    | 1,977,175 | d4        |
+| 5          | 15         | 00:00.013 | 10,742         | 895,167   | d4        |
+| 10         | 22         | 00:00.286 | 593,955        | 2,076,766 | e4        |
+| 15         | 27         | 00:06.329 | 14,827,467     | 2,343,152 | e4        |
+| 20         | 32         | 01:06.297 | 161,188,842    | 2,431,314 | Nf3       |
+| 25         | 37         | 35:42.661 | 5,077,397,129  | 2,369,669 | e4        |
 
 > [!NOTE]
 > Selective depth is the actual depth achieved via quiescence search.
@@ -61,10 +62,10 @@ Default hash table size (64 MiB) was used.
 | 1     | 20              | 00.00138 | 14,493      |
 | 2     | 400             | 00.00157 | 254,777     |
 | 3     | 8,902           | 00.00227 | 3,921,586   |
-| 4     | 197,281         | 00.01306 | 15,105,742  |
-| 5     | 4,865,609       | 00.08228 | 59,134,772  |
-| 6     | 119,060,324     | 01.05957 | 112,366,643 |
-| 7     | 3,195,901,860   | 16.66118 | 191,817,258 |
+| 4     | 197,281         | 00.00867 | 22,757,065  |
+| 5     | 4,865,609       | 00.06918 | 70,332,596  |
+| 6     | 119,060,324     | 00.89998 | 132,291,615 |
+| 7     | 3,195,901,860   | 13.14543 | 243,118,769 |
 
 ---
 
@@ -72,9 +73,8 @@ Default hash table size (64 MiB) was used.
 
 ### Move Generation
 
-- Bitboard representation of pieces
-- precomputed slider tables with PEXT-based lookups
-- Precomputed move lookup tables
+- Bitboard representation of positions
+- Precomputed slider tables with PEXT-based lookups
 
 ### Search Features
 
@@ -88,21 +88,22 @@ Default hash table size (64 MiB) was used.
 - Killer move table + countermove heuristics
 - Quiet history and pawn corrections
 - Improving search stack
-- Resizable Transposition Table (1-1000 MB)
+- Resizable transposition table (1-1000 MiB)
 - Rational time management
 
 ### Static Evaluation
 
 - Piece-Square Tables with tapering evaluation
 - Pawn structure eval (doubling, isolation, connection, blocking)
-- Bishop pairs and open-file rooks
+- Bishop pairs and open/semi-open file rooks
 - Tapering evaluation for knights and rooks
-- King safety based on protecting pieces
+- King safety based on friendly protection
 
 ### Others
 
 - Generic Polyglot opening book support
 - [NeoKolors](https://github.com/KryKomDev/NeoKolors) library for logging UCI communication
+- Custom [parameter tuning](https://github.com/ZlomenyMesic/Kreveta/KrevetaTuning) project
 
 ---
 
@@ -142,8 +143,8 @@ Changes engine configuration. Available options:
 
 - **PolyglotUseBook** (check): enables/disables retrieving and playing moves from the specified Polyglot book
 - **PolyglotBook** (string): sets the path to the Polyglot book
-- **PolyglotRisk** (spin): decides how risky the engine will play when choosing from multiple differently weighted moves in the Polyglot book
-- **Hash** (spin): size of the TT in megabytes (other tables are not affected)
+- **PolyglotRisk** (spin): decides how risky the engine acts when choosing from multiple differently weighted moves in the Polyglot book
+- **Hash** (spin): size of the TT in MiB (other tables are not affected)
 - **NKLogs** (check): enables/disables logging all UCI communication into an external log file
 - **PrintStats** (check): enables/disables printing fancy statistics at the end of regular and perft searches
 
@@ -166,6 +167,14 @@ Clears the console window.
 ### `bench` (non-UCI)
 
 Runs current benchmarks.
+
+### `test` (non-UCI)
+
+Performs currently set up tests.
+
+### `tune <p1 p2 p3 ...>` (non-UCI)
+
+Tunes internal parameters. Don't worry, you'll figure it out.
 
 ### `help` (non-UCI)
 
