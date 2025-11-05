@@ -9,6 +9,7 @@ using Kreveta.moveorder;
 using Kreveta.moveorder.historyheuristics;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
+using Kreveta.tuning;
 using Kreveta.uci;
 
 using System;
@@ -49,10 +50,13 @@ internal static class Program {
         QuietHistory.Init();
         
         Eval.Init();
+        
+        // just for experimental purposes
+        Tuning.ShiftParams();
 
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue
-        Thread.Sleep(250);
+        Thread.Sleep(400);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
@@ -64,7 +68,7 @@ internal static class Program {
         
         return 0;
         
-        // the manually allocated memory is spread throughout the whole
+        // manually allocated memory is spread throughout the whole
         // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
             ((Action)TT.Clear + PerftTT.Clear + PawnCorrectionHistory.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear + ZobristHash.Clear)();

@@ -33,7 +33,7 @@ internal static unsafe class PawnCorrectionHistory {
     private const short MaxCorrection = 2048;
 
     // a scale, which lowers the corrections when retrieving
-    internal static short CorrScale     = 128;
+    private const short CorrScale     = 128;
 
     // the table itself
     private static short** _correctionTable;

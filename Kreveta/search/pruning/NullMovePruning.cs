@@ -23,7 +23,8 @@ namespace Kreveta.search.pruning;
 internal static class NullMovePruning {
 
     // the absolute minimum ply required for nmp
-    private const int AbsMinPly = 3;
+    private const int AbsMinPly    = 3;
+    private const int PieceDivisor = 7;
     
     // current minimum ply needed for nmp
     internal static int CurMinPly = 3;
@@ -31,15 +32,15 @@ internal static class NullMovePruning {
     private const int PlySubtract     = 2;
     private const int ReductionBase   = 2;
     private const int CurDepthDivisor = 4;
-    internal static int MinAddRedDepth  = 8;
-    internal static int AddDepthDivisor = 5;
+    private const int MinAddRedDepth  = 8;
+    private const int AddDepthDivisor = 5;
 
     // as mentioned above, nmp sometimes fails in endgames, so we want to prune
     // less with fewer pieces on the board - we achieve this by progressively
     // raising the minimum ply required for nmp
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void UpdateMinPly(int pieceCount)
-        => CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / 7);
+        => CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / PieceDivisor);
 
     // try null move pruning
     internal static bool TryPrune(in Board board, int depth, int ply, Window window, Color col, out short score) {

@@ -12,18 +12,7 @@
 // Mark members as static
 #pragma warning disable CA1822
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using BenchmarkDotNet.Attributes;
-
-using Kreveta.consts;
-using Kreveta.evaluation;
-using Kreveta.movegen;
-using Kreveta.movegen.pieces;
-using Kreveta.moveorder;
-using Kreveta.openings;
-using Kreveta.search.transpositions;
 
 namespace Kreveta;
 

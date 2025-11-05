@@ -46,7 +46,7 @@ internal static class Game {
     }
 
     internal static void SetStartpos(ReadOnlySpan<string> tokens) {
-        Board = Board.CreateStartpos();
+        Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
         
         PlayMoves(tokens);
@@ -64,6 +64,7 @@ internal static class Game {
         }
 
         // clear the board from previous game/search
+        
         Board = new Board();
 
         // erase the draw counters
