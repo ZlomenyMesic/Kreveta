@@ -43,18 +43,18 @@ internal static class NullMovePruning {
         => CurMinPly = Math.Max(AbsMinPly, (32 - pieceCount) / PieceDivisor);
 
     // try null move pruning
-    internal static bool TryPrune(in Board board, int depth, int ply, Window window, Color col, out short score) {
+    internal static bool TryPrune(in Board board, SearchState ss, Color col, out short score) {
 
         // null window around beta
         Window nullWindowBeta = col == Color.WHITE 
-            ? new Window((short)(window.Beta - 1), window.Beta) 
-            : new Window(window.Alpha, (short)(window.Alpha + 1));
+            ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta) 
+            : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
 
         // child with no move played
         Board nullChild = board.GetNullChild();
 
         // the reduction is based on ply, depth, etc.
-        int R = Math.Min(ply - PlySubtract,
+        int R = Math.Min(ss.Ply - PlySubtract,
                          ReductionBase + PVSearch.CurDepth / CurDepthDivisor);
 
         //if (!improving) R++;
@@ -64,7 +64,7 @@ internal static class NullMovePruning {
         // later than it is at the beginning. not adding this threshold
         // causes some troubles in evaluation, though.
         if (PVSearch.CurDepth > MinAddRedDepth)
-            R += depth / AddDepthDivisor;
+            R += ss.Depth / AddDepthDivisor;
 
         // a desparate attempt to make NMP not as aggressive in endgames
         //if (ulong.PopCount(board.Occupied) < 12) 
@@ -72,12 +72,14 @@ internal static class NullMovePruning {
 
         // do the reduced search
         score = PVSearch.ProbeTT(
-            board:    ref nullChild, 
-            ply:      ply + 1,
-            depth:    depth - R - 1,
-            window:   nullWindowBeta,
-            previous: default,
-            isPV:     false
+            ref nullChild,
+            new SearchState(
+                ply:      (sbyte)(ss.Ply + 1),
+                depth:    (sbyte)(ss.Depth - R - 1),
+                window:   nullWindowBeta,
+                previous: default,
+                isPVNode: false
+            )
             //canNMP:   false
         ).Score;
 
@@ -87,7 +89,7 @@ internal static class NullMovePruning {
         // currently we are returning the null search score, but returning beta
         // may also work. this needs some testing
         return col == Color.WHITE
-            ? score >= window.Beta
-            : score <= window.Alpha;
+            ? score >= ss.Window.Beta
+            : score <= ss.Window.Alpha;
     }
 }

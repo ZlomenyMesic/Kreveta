@@ -7,8 +7,6 @@ using Kreveta.consts;
 using Kreveta.movegen;
 
 using System;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.moveorder.historyheuristics;
@@ -28,31 +26,16 @@ internal static class CounterMoveHistory {
 
     // in order to store actually correct counters, we only save the
     // ones found at higher depths
-    internal const int MinStoreDepth    = 4;
-
-    // indexed [color, starting_square, ending_square]
+    internal const int MinStoreDepth    = 5;
+    
     // !!! the color is of the side that is to play the counter, while
     // the starting and targets squares are of the other side's move !!!
-    [ReadOnly(true), DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    private static readonly Move[][][] CounterMoves = new Move[2][][];
-
-    internal static void Init() {
-        CounterMoves[(byte)Color.WHITE] = new Move[64][];
-        CounterMoves[(byte)Color.BLACK] = new Move[64][];
-
-        for (int i = 0; i < 64; i++) {
-            CounterMoves[(byte)Color.WHITE][i] = new Move[64];
-            CounterMoves[(byte)Color.BLACK][i] = new Move[64];
-        }
-    }
+    private static readonly Move[] CounterMoves = new Move[2 * 64 * 64];
 
     // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear() {
-        for (int i = 0; i < 64; i++) {
-            Array.Clear(CounterMoves[(byte)Color.WHITE][i]);
-            Array.Clear(CounterMoves[(byte)Color.BLACK][i]);
-        }
+        Array.Clear(CounterMoves, 0, CounterMoves.Length);
     }
 
     // store a new counter - we don't give higher priority to counters
@@ -63,7 +46,7 @@ internal static class CounterMoveHistory {
         int end   = previous.End;
 
         // as already mentioned, we always overwrite old counters
-        CounterMoves[(byte)col][start][end] = counter;
+        CounterMoves[((uint)col << 12) + start * 64 + end] = counter;
     }
 
     // try to retrieve a counter using the previously played move,
@@ -73,6 +56,6 @@ internal static class CounterMoveHistory {
         int end   = previous.End;
 
         // if the counter isn't present, this simply returns the "default"
-        return CounterMoves[(byte)col][start][end];
+        return CounterMoves[((uint)col << 12) + start * 64 + end];
     }
 }

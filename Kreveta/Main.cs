@@ -46,8 +46,8 @@ internal static class Program {
         LookupTables.Init();
         Check.Init();
         
-        CounterMoveHistory.Init();
         QuietHistory.Init();
+        ContinuationHistory.Init();
         
         Eval.Init();
         
