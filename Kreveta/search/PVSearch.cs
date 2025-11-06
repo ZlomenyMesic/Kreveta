@@ -84,8 +84,16 @@ internal static class PVSearch {
         // increase the number of plies we can hold
         improvStack.Expand(CurDepth);
 
+        SearchState defaultSS = new(
+            ply:      0, 
+            depth:    (sbyte)CurDepth,
+            window:   new(short.MinValue, short.MaxValue),
+            previous: default,
+            isPVNode: true
+        );
+
         // actual start of the search tree
-        (PVScore, PV) = Search(ref Game.Board, 0, CurDepth, new Window(short.MinValue, short.MaxValue), default, true/*, true*/);
+        (PVScore, PV) = Search(ref Game.Board, defaultSS/*, true*/);
     }
     // completely reset everything
     internal static void Reset() {
@@ -126,11 +134,11 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    internal static (short Score, Move[] PV) ProbeTT(ref Board board, int ply, int depth, Window window, Move previous = default, bool isPV = false/*, bool canNMP = true*/) {
+    internal static (short Score, Move[] PV) ProbeTT(ref Board board, SearchState ss/*, bool canNMP = true*/) {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
-        if (ply >= TT.MinProbingPly && TT.TryGetScore(board, depth, ply, window, out short ttScore)) {
+        if (ss.Ply >= TT.MinProbingPly && TT.TryGetScore(board, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
             CurNodes++;
             PVSControl.TotalNodes++;
 
@@ -139,20 +147,24 @@ internal static class PVSearch {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        var search = Search(ref board, ply, depth, window, previous, isPV/*, canNMP*/);
-        TT.Store(board, (sbyte)depth, ply, window, search.Score, search.PV.Length != 0 ? search.PV[0] : default);
+        var result = Search(ref board, ss/*, canNMP*/);
+        TT.Store(board, ss.Depth, ss.Ply, ss.Window, result.Score, result.PV.Length != 0 ? result.PV[0] : default);
 
         // store the current two-move sequence in countermove history - the previously
         // played move, and the best response (counter) to this move found by the search
-        if (search.PV.Length != 0 && depth > CounterMoveHistory.MinStoreDepth) {
-            CounterMoveHistory.Add(board.Color, previous, search.PV[0]);
+        if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth) {
+            CounterMoveHistory.Add(board.Color, ss.Previous, result.PV[0]);
         }
-
+        
+        //if (search.PV.Length != 0 && depth >= ContinuationHistory.MinStoreDepth && previous != default) {
+        //    ContinuationHistory.Add(previous, search.PV[0], search.PV[1]);
+        //}
+        
         // update this position's score in pawncorrhist. we have to do this
         // here, otherwise repeating positions would take over the whole thing
-        PawnCorrectionHistory.Update(board, search.Score, depth);
+        PawnCorrectionHistory.Update(board, result.Score, ss.Depth);
 
-        return search;
+        return result;
     }
     
 #region PVS 
@@ -165,11 +177,7 @@ internal static class PVSearch {
     // once we get to depth = 0, we drop into the qsearch.
     private static (short Score, Move[] PV) Search(
         ref Board board, // the position to be searched
-        int ply,         // current search ply (independent of depth)
-        int depth,       // plies yet to be searched (can be reduced)
-        Window window,   // alpha and beta values
-        Move previous,   // the previously played move
-        bool isPV       // was the previous node a PV node?
+        SearchState ss
         //bool canNMP      // can null move prune? (avoids recursive NMP)
         ) {
 
@@ -193,55 +201,56 @@ internal static class PVSearch {
         // find a shorter path to mate
         if (Score.IsMateScore(PVScore)) {
             int matePly = Math.Abs(Score.GetMateInX(PVScore));
-            if (ply > matePly)
+            if (ss.Ply > matePly)
                 return (0, []);
         }
 
         // based on mate distance pruning - very similar to the algorithm above,
         // but applied in the current iteration. if there's already an ensured
         // mate found in this iteration, we also don't search any further
-        if (col == Color.WHITE && Score.IsMateScore(window.Alpha) && window.Alpha > 0) {
-            int matePly = Score.GetMateInX(window.Alpha);
-            if (ply >= matePly)
-                return (Score.CreateMateScore(col, ply + 1), []);
+        if (col == Color.WHITE && Score.IsMateScore(ss.Window.Alpha) && ss.Window.Alpha > 0) {
+            int matePly = Score.GetMateInX(ss.Window.Alpha);
+            if (ss.Ply >= matePly)
+                return (Score.CreateMateScore(col, ss.Ply + 1), []);
         }
             
         // and the same for black
-        else if (col == Color.BLACK && Score.IsMateScore(window.Beta) && window.Beta < 0) {
-            int matePly = -Score.GetMateInX(window.Beta);
-            if (ply >= matePly)
-                return (Score.CreateMateScore(col, ply + 1), []);
+        else if (col == Color.BLACK && Score.IsMateScore(ss.Window.Beta) && ss.Window.Beta < 0) {
+            int matePly = -Score.GetMateInX(ss.Window.Beta);
+            if (ss.Ply >= matePly)
+                return (Score.CreateMateScore(col, ss.Ply + 1), []);
         }
 
 
         // if the position is saved as a 3-fold repetition draw, return 0.
         // we have to check at ply 2 as well to prevent a forced draw by the opponent
-        if (ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.Hash(board))) {
+        if (ss.Ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.Hash(board))) {
             return (0, []);
         }
 
         // we reached depth zero or lower => evaluate the leaf node though qsearch
-        if (depth <= 0) {
+        if (ss.Depth <= 0) {
             
             // we incremented this value above, but if we go into qsearch, we must
             // decrement it, so the node doesn't count twice (qsearch does it too)
             CurNodes--;
             PVSControl.TotalNodes--;
             
-            return (QSearch.Search(ref board, ply, window), []);
+            return (QSearch.Search(ref board, ss.Ply, ss.Window), []);
         }
 
         // is the color to play currently in check?
         bool inCheck = Check.IsKingChecked(board, col);
 
         // update the static eval search stack
-        improvStack.AddStaticEval(board.StaticEval, ply);
+        improvStack.AddStaticEval(board.StaticEval, ss.Ply);
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
 
         // if we got here from a PV node, and the move that was played to get
         // here was the move from the previous PV, we are in a PV node as well
-        isPV = isPV && (ply == 0 || ply - 1 < PV.Length && PV[ply - 1] == previous);
+        ss.IsPVNode = ss.IsPVNode && (ss.Ply == 0 
+                                      || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.Previous);
         
         // has the static eval improved from two plies ago?
         //bool improving = improvStack.IsImproving(ply, col);
@@ -252,18 +261,18 @@ internal static class PVSearch {
         // are the conditions for nmp satisfied?
         if (PruningOptions.AllowNullMovePruning
             //&& canNMP
-            && ply >= NullMovePruning.CurMinPly
+            && ss.Ply >= NullMovePruning.CurMinPly
             && !inCheck
 
             // in the early stages of the search, alpha and beta are set to
             // their limit values, so doing the reduced search would only
             // waste time, since we are unable to fail high
             && (col == Color.WHITE
-                ? window.Beta  < short.MaxValue
-                : window.Alpha > short.MinValue)) {
+                ? ss.Window.Beta  < short.MaxValue
+                : ss.Window.Alpha > short.MinValue)) {
 
             // we try the reduced search and check for failing high
-            if (NullMovePruning.TryPrune(board, depth, ply, window, col, out short score)) {
+            if (NullMovePruning.TryPrune(board, ss, col, out short score)) {
 
                 // we failed high - prune this branch
                 return (score, []);
@@ -288,7 +297,7 @@ internal static class PVSearch {
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
         // then killer moves and last quiet moves sorted by history
-        var moves = MoveOrder.GetOrderedMoves(board, depth, previous);
+        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Previous);
 
         // counter for expanded nodes
         byte searchedMoves = 0;
@@ -299,8 +308,9 @@ internal static class PVSearch {
         // loop the possible moves
         for (byte i = 0; i < moves.Length; i++) {
             searchedMoves++;
+            
             Move curMove = moves[i];
-            int curDepth = depth - 1;
+            int curDepth = ss.Depth - 1;
 
             // create a child board with the move played
             Board child = board.Clone();
@@ -324,8 +334,8 @@ internal static class PVSearch {
             // 4 - are checking the opposite king
             bool interesting = searchedMoves == 1
                                || inCheck
-                               || isPV
-                               || ply <= 4 && isCapture
+                               || ss.IsPVNode
+                               || ss.Ply <= 4 && isCapture
                                || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
             // static eval of the child node
@@ -333,19 +343,19 @@ internal static class PVSearch {
 
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
-            improvStack.AddStaticEval(childStaticEval, ply + 1); 
-            bool improving = improvStack.IsImproving(ply + 1, col);
+            improvStack.AddStaticEval(childStaticEval, ss.Ply + 1); 
+            bool improving = improvStack.IsImproving(ss.Ply + 1, col);
 
             // must meet certain conditions for fp
             if (!skipFullSearch 
                 && PruningOptions.AllowFutilityPruning
-                && ply   >= FutilityPruning.MinPly
-                && depth <= FutilityPruning.MaxDepth
+                && ss.Ply   >= FutilityPruning.MinPly
+                && ss.Depth <= FutilityPruning.MaxDepth
                 && !interesting) {
 
                 // we check for failing low despite a margin.
                 // if we fail low, don't search this move any further
-                if (FutilityPruning.TryPrune(child, depth, col, childStaticEval, improving, window)) {
+                if (FutilityPruning.TryPrune(child, ss.Depth, col, childStaticEval, improving, ss.Window)) {
                     //FutilityPruning.Prunes++;
                     continue;
                 }
@@ -353,14 +363,14 @@ internal static class PVSearch {
 
             // more conditions (late move pruning and reductions are kind of combined)
             if (!skipFullSearch 
-                &&(PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
+                && (PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
-                && ply           >= LateMoveReductions.MinPly
+                && ss.Ply        >= LateMoveReductions.MinPly
                 //&& depth         >= LateMoveReductions.MinDepth
                 && searchedMoves >= LateMoveReductions.MinExpNodes) {
 
                 // try to fail low
-                var result = LateMoveReductions.TryPrune(board, ref child, curMove, ply, depth, col, searchedMoves, improving, window);
+                var result = LateMoveReductions.TryPrune(board, ref child, curMove, ss, col, searchedMoves, improving);
 
                 // we failed low - prune this branch completely
                 if (result.Prune) 
@@ -377,17 +387,21 @@ internal static class PVSearch {
             (short Score, Move[] PV) fullSearch = (0, []);
             
             if (!skipFullSearch)
-                fullSearch = ProbeTT(ref child, ply + 1, curDepth, window, curMove, isPV/*, canNMP*/);
+                fullSearch = ProbeTT(ref child, ss 
+                    with { Ply = (sbyte)(ss.Ply + 1),
+                        Depth = (sbyte)curDepth 
+                    }
+                );
 
             // we somehow still failed low
             if (col == Color.WHITE
-                    ? fullSearch.Score <= window.Alpha
-                    : fullSearch.Score >= window.Beta) {
+                    ? fullSearch.Score <= ss.Window.Alpha
+                    : fullSearch.Score >= ss.Window.Beta) {
 
                 // decrease the move's reputation
                 // (although we are modifying quiet history, not checking
                 // whether this move is a capture yields better results)
-                QuietHistory.ChangeRep(board, curMove, depth, isMoveGood: false);
+                QuietHistory.ChangeRep(board, curMove, ss.Depth, isMoveGood: false);
             }
 
             // we went through all the pruning and didn't fail low
@@ -395,7 +409,7 @@ internal static class PVSearch {
             else {
 
                 // store the new move in tt
-                TT.Store(board, (sbyte)depth, ply, window, fullSearch.Score, moves[i]);
+                TT.Store(board, ss.Depth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
 
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];
@@ -405,15 +419,15 @@ internal static class PVSearch {
                 // if we get a beta cutoff, that means the move
                 // is too good, so we don't have to search the
                 // remaining moves
-                if (window.TryCutoff(fullSearch.Score, col)) {
+                if (ss.Window.TryCutoff(fullSearch.Score, col)) {
 
                     // is it quiet?
                     if (!isCapture) {
 
                         // if a quiet move caused a beta cutoff, we increase its history
                         // score and store it as a killer move on the current depth
-                        QuietHistory.ChangeRep(board, curMove, depth, isMoveGood: true);
-                        Killers.Add(curMove, depth);
+                        QuietHistory.ChangeRep(board, curMove, ss.Depth, isMoveGood: true);
+                        Killers.Add(curMove, ss.Depth);
                     }
 
                     // quit searching other moves and return this score
@@ -431,15 +445,15 @@ internal static class PVSearch {
             ? (inCheck 
 
                 // if we are checked this means we got mated
-                ? Score.CreateMateScore(col, ply)
+                ? Score.CreateMateScore(col, ss.Ply)
 
                 // if we aren't checked, we return draw (stalemate)
                 : (short)0, []) 
 
             // otherwise return the bound score as usual
             : (col == Color.WHITE 
-                ? window.Alpha 
-                : window.Beta, pv);
+                ? ss.Window.Alpha 
+                : ss.Window.Beta, pv);
     }
         
     #endregion   

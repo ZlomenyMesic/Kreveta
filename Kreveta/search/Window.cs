@@ -4,7 +4,6 @@
 //
 
 using Kreveta.consts;
-using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -18,14 +17,12 @@ internal ref struct Window {
 
     // floor/lower bound, which acts as the upper bound for black
     // scores under alpha are bad for white and too good for black
-    [Required]
     [field: FieldOffset(0)] 
     internal short Alpha;
 
     // ceiling/upper bound, which acts as the lower bound for black
     // scores above beta are too good for white and bad for black
-    [Required]
-    [field: FieldOffset(sizeof(short))] 
+    [field: FieldOffset(2)]
     internal short Beta;
 
     internal Window(short alpha, short beta) {

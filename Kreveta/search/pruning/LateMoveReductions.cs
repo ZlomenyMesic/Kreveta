@@ -53,7 +53,7 @@ internal static class LateMoveReductions {
     private const sbyte ReductionDepth = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune(in Board board, ref Board child, Move move, int ply, int depth, Color col, byte searchedMoves, bool improving, Window window) {
+    internal static (bool Prune, bool Reduce) TryPrune(in Board board, ref Board child, Move move, SearchState ss, Color col, byte searchedMoves, bool improving) {
 
         // depth reduce is larger with bad quiet history
         // ReSharper disable once LocalVariableHidesMember
@@ -65,11 +65,12 @@ internal static class LateMoveReductions {
 
         // null window around alpha
         Window nullAlphaWindow = col == Color.WHITE 
-            ? new(window.Alpha, (short)(window.Alpha + 1)) 
-            : new((short)(window.Beta - 1), window.Beta);
+            ? new(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
+            : new((short)(ss.Window.Beta - 1), ss.Window.Beta);
 
         // once again a reduced depth search
-        short score = PVSearch.ProbeTT(ref child, ply + 1, depth - R - 1, nullAlphaWindow).Score;
+        short score = PVSearch.ProbeTT(ref child, 
+            new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R - 1), nullAlphaWindow, default, false)).Score;
 
         // continuing without this causes weird behaviour. the engine somehow
         // rates regular positions as mate in X. keep this. it's important.
@@ -78,18 +79,18 @@ internal static class LateMoveReductions {
 
         // we failed low, we prune this branch. it is not good enough
         if (col == Color.WHITE
-            ? score <= window.Alpha
-            : score >= window.Beta 
+            ? score <= ss.Window.Alpha
+            : score >= ss.Window.Beta 
             && PruningOptions.AllowNullMovePruning)
 
             return (true, false);
 
-        if (!PruningOptions.AllowLateMoveReductions || depth != ReductionDepth) 
+        if (!PruningOptions.AllowLateMoveReductions || ss.Depth != ReductionDepth) 
             return (false, false);
 
         // REDUCTIONS PART:
         // size of the window
-        int windowSize = Math.Abs(window.Beta - window.Alpha);
+        int windowSize = Math.Abs(ss.Window.Beta - ss.Window.Alpha);
 
         // a fraction of the window is the margin
         short margin = (short)(MarginBase
@@ -113,8 +114,8 @@ internal static class LateMoveReductions {
         score -= margin;
         bool shouldReduce = R == InternalBadHistR 
             && col == Color.WHITE
-                ? score <= window.Alpha
-                : score >= window.Beta;
+                ? score <= ss.Window.Alpha
+                : score >= ss.Window.Beta;
 
         return (false, shouldReduce);
     }

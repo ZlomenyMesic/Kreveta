@@ -103,7 +103,7 @@ Default hash table size (64 MiB) was used.
 
 - Generic Polyglot opening book support
 - [NeoKolors](https://github.com/KryKomDev/NeoKolors) library for logging UCI communication
-- Custom [parameter tuning](https://github.com/ZlomenyMesic/Kreveta/KrevetaTuning) project
+- Custom [parameter tuning](https://github.com/ZlomenyMesic/Kreveta/tree/master/KrevetaTuning) project
 
 ---
 
