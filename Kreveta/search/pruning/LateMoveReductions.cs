@@ -36,15 +36,15 @@ internal static class LateMoveReductions {
     // when a move's history rep falls below this threshold,
     // we use a larger R (we assume the move isn't that good
     // and save some time by not searching it that deeply)
-    private const short HistReductionThreshold = -689;
+    private const short HistReductionThreshold = -715;
 
     // depth reduce normally and with bad history rep. this
     // reduce is used internally to evaluate positions.
     private const byte InternalR        = 3;
     private const byte InternalBadHistR = 4;
 
-    private const sbyte MarginBase        = 1;
-    private const sbyte MaxReduceMargin   = 64;
+    private const sbyte MarginBase        = 0;
+    private const sbyte MaxReduceMargin   = 66;
     private const sbyte WindowSizeDivisor = 9;
     private const sbyte MarginDivisor     = 6;
     private const sbyte ImprovingMargin   = 12;

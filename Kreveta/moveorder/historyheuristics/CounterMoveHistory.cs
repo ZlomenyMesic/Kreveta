@@ -26,7 +26,7 @@ internal static class CounterMoveHistory {
 
     // in order to store actually correct counters, we only save the
     // ones found at higher depths
-    internal const int MinStoreDepth    = 5;
+    internal const int MinStoreDepth    = 4;
     
     // !!! the color is of the side that is to play the counter, while
     // the starting and targets squares are of the other side's move !!!

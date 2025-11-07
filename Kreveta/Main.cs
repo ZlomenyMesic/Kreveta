@@ -22,7 +22,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "1.2.2";
+    internal const string Version = "1.2.3";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {

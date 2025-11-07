@@ -19,7 +19,7 @@ internal static class DeltaPruning {
     internal const int MinPly = 4;
 
     internal static int DeltaMarginBase      = 0;
-    private const int DeltaDepthMultiplier = 75;
+    private const int DeltaDepthMultiplier = 77;
     internal static int CapturedMultiplier   = 105;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

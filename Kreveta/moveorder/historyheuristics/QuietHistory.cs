@@ -28,7 +28,6 @@ internal static class QuietHistory {
     // be a failure in my implementation, though.
 
     // this array stores history values of quiet moves - no captures
-    [ReadOnly(true)]
     private static readonly int[][] QuietScores = new int[64][];
 
     // idea taken from Chess Programming Wiki:
