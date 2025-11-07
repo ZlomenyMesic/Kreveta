@@ -388,8 +388,10 @@ internal static class PVSearch {
             
             if (!skipFullSearch)
                 fullSearch = ProbeTT(ref child, ss 
-                    with { Ply = (sbyte)(ss.Ply + 1),
-                        Depth = (sbyte)curDepth 
+                    with { 
+                        Ply      = (sbyte)(ss.Ply + 1),
+                        Depth    = (sbyte)curDepth,
+                        Previous = curMove
                     }
                 );
 
