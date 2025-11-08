@@ -53,7 +53,7 @@ internal static class LateMoveReductions {
     private const sbyte ReductionDepth = 4;
 
     // should we prune or reduce?
-    internal static (bool Prune, bool Reduce) TryPrune(in Board board, ref Board child, Move move, SearchState ss, Color col, byte searchedMoves, bool improving) {
+    internal static (bool ShouldPrune, bool ShouldReduce) TryPrune(in Board board, ref Board child, Move move, SearchState ss, Color col, byte searchedMoves, bool improving) {
 
         // depth reduce is larger with bad quiet history
         // ReSharper disable once LocalVariableHidesMember
@@ -70,7 +70,7 @@ internal static class LateMoveReductions {
 
         // once again a reduced depth search
         short score = PVSearch.ProbeTT(ref child, 
-            new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R - 1), nullAlphaWindow, default, false)).Score;
+            new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R - 1), nullAlphaWindow, default, default, false)).Score;
 
         // continuing without this causes weird behaviour. the engine somehow
         // rates regular positions as mate in X. keep this. it's important.

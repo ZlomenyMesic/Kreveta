@@ -14,6 +14,8 @@ namespace Kreveta.search;
 // sides should be okay with their scores
 [StructLayout(LayoutKind.Explicit, Size = 2 * sizeof(short))]
 internal ref struct Window {
+    internal static Window Infinite 
+        => new(short.MinValue, short.MaxValue);
 
     // floor/lower bound, which acts as the upper bound for black
     // scores under alpha are bad for white and too good for black

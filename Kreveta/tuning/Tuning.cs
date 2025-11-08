@@ -6,7 +6,7 @@
 #pragma warning disable CA1031
 #pragma warning disable CA1305
 
-using Kreveta.search.pruning;
+using Kreveta.moveorder.historyheuristics;
 using Kreveta.uci;
 
 using System;
@@ -52,9 +52,13 @@ internal static class Tuning {
             LateMoveReductions.SearchedMovesMult      += sbyte.Parse(tokens[29]); // step 50
             NullMovePruning.PieceDivisor              += int.Parse(tokens[30]);*/
 
-            DeltaPruning.DeltaMarginBase         += int.Parse(tokens[1]);
-            DeltaPruning.CapturedMultiplier      += int.Parse(tokens[2]);
-            LateMoveReductions.SearchedMovesMult += sbyte.Parse(tokens[3]);
+            
+            
+            //DeltaPruning.DeltaMarginBase         += int.Parse(tokens[1]);
+            //DeltaPruning.CapturedMultiplier      += int.Parse(tokens[2]);
+            //LateMoveReductions.SearchedMovesMult += sbyte.Parse(tokens[3]);
+            
+            ContinuationHistory.Seed += int.Parse(tokens[1]);
         } 
         catch (Exception e) 
             when (UCI.LogException("Tuning params failed", e)) 

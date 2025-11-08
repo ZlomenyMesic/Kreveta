@@ -3,31 +3,34 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA5394
+
 using Kreveta.movegen;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Kreveta.moveorder.historyheuristics;
 
-[SuppressMessage("Security", "CA5394:Do not use insecure randomness")]
 internal static class ContinuationHistory {
-    internal const int MaxRetrieveDepth = 6;
+    internal static int MaxRetrieveDepth = 4;
 
     // only save moves at higher depths to be precise
-    internal const int MinStoreDepth    = 5;
+    internal static int MinStoreDepth    = 4;
 
-    private static readonly ushort[] Hashes        = new ushort[4 * 64];
-    private static readonly Move[]   Continuations = new Move[ushort.MaxValue + 1];
+    internal static int Seed      = 66;
+    private const   int TableSize = 524288;
+
+    private static readonly uint[] Hashes        = new uint[4 * 64 + 2 * 6];
+    private static readonly Move[] Continuations = new Move[TableSize];
 
     internal static unsafe void Init() {
-        var rnd = new Random();
-        Span<byte> bytes = stackalloc byte[2];
+        var rnd = new Random(Seed);
+        Span<byte> bytes = stackalloc byte[4];
         
         for (int i = 0; i < 256; i++) {
             rnd.NextBytes(bytes);
-            Hashes[i] = BitConverter.ToUInt16(bytes);
+            Hashes[i] = BitConverter.ToUInt32(bytes);
         }
     }
 
@@ -37,30 +40,37 @@ internal static class ContinuationHistory {
         Array.Clear(Continuations, 0, Continuations.Length);
     }
 
-    // store a new counter - we don't give higher priority to counters
-    // found at higher depths (might change this later), so when there's
-    // a new counter, we always overwrite the old one
+    // store a new continuation - same as with counters, there
+    // is no priority measure, old continuations get overwritten
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Add(Move twoPlyBack, Move onePlyBack, Move best) {
-        ushort hash = HashMoves(twoPlyBack, onePlyBack);
+        uint hash = HashMoves(twoPlyBack, onePlyBack);
 
-        // as already mentioned, we always overwrite old counters
+        // as already mentioned, we always overwrite old continuations
         Continuations[hash] = best;
     }
 
-    // try to retrieve a counter using the previously played move,
-    // and the color that is currently on turn
-    internal static Move Get(Move twoPlyBack, Move onePlyBack, Move best) {
-        ushort hash = HashMoves(twoPlyBack, onePlyBack);
+    // try to retrieve the continuation
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Move Get(Move twoPlyBack, Move onePlyBack) {
+        uint hash = HashMoves(twoPlyBack, onePlyBack);
 
-        // if the counter isn't present, this simply returns the "default"
+        // if the continuation isn't present, this returns default
         return Continuations[hash];
     }
 
-    private static ushort HashMoves(Move m1, Move m2) {
-        ushort hash = Hashes[m1.Start];
-        hash       ^= Hashes[m2.Start];
-        hash       ^= Hashes[m1.End];
-        hash       ^= Hashes[m2.End];
-        return hash;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint HashMoves(Move m1, Move m2) {
+        uint hash = Hashes[m1.Start];
+        hash     ^= Hashes[m2.Start];
+        hash     ^= Hashes[m1.End];
+        hash     ^= Hashes[m2.End];
+
+        hash ^= Hashes[256 + (int)m1.Piece];
+        hash ^= Hashes[262 + (int)m2.Piece];
+        
+        return hash & TableSize - 1;
     }
 }
+
+#pragma warning restore CA5394

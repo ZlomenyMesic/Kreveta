@@ -55,7 +55,7 @@ internal static class CounterMoveHistory {
         int start = previous.Start;
         int end   = previous.End;
 
-        // if the counter isn't present, this simply returns the "default"
+        // if the counter isn't present, this returns default
         return CounterMoves[((uint)col << 12) + start * 64 + end];
     }
 }

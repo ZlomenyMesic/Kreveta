@@ -35,17 +35,22 @@ internal static unsafe class MoveOrder {
         }
     }
 
-    // don't use "in" keyword!!! it becomes much slower
-    internal static Span<Move> GetOrderedMoves(Board board, int depth, Move previous) {
+    // don't use "in" keyword!!! it gets much slower
+    internal static Span<Move> GetOrderedMoves(Board board, int depth, Move penultimate, Move previous) {
 
-        Span<Move> legal  = stackalloc Move[Consts.MoveBufferSize];        // all legal moves
-        int legalCount    = Movegen.GetLegalMoves(ref board, legal);
+        // all legal moves
+        Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
+        int legalCount   = Movegen.GetLegalMoves(ref board, legal);
         
-        Span<Move> sorted = stackalloc Move[legalCount]; // already sorted legal moves
-        Span<bool> used   = stackalloc bool[legalCount]; // legal moves that have been sorted to avoid Contains()
+        // already sorted legal moves
+        Span<Move> sorted = stackalloc Move[legalCount];
+        Span<bool> used   = stackalloc bool[legalCount];
         int cur = 0, curCapt = 0;
 
-        // 1. TT best move first
+        //
+        // 1. TT BEST MOVE
+        //
+        
         if (TT.TryGetBestMove(board, out var ttMove) && ttMove != default) {
             for (int i = 0; i < legalCount; i++) {
                 if (legal[i] == ttMove) {
@@ -57,7 +62,23 @@ internal static unsafe class MoveOrder {
         }
         
         //
-        // 2. captures ordered by MVV-LVA
+        // 2. TWO-PLY CONTINUATION
+        //
+        if (depth < ContinuationHistory.MaxRetrieveDepth) {
+            Move continuation = ContinuationHistory.Get(penultimate, previous);
+            if (continuation != default) {
+                for (int i = 0; i < legalCount; i++) {
+                    if (!used[i] && legal[i] == continuation) {
+                        sorted[cur++] = continuation;
+                        used[i] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        //
+        // 2. CAPTURES ORDERED BY MVV-LVA
         //
         
         for (int i = 0; i < legalCount; i++) {
@@ -74,7 +95,7 @@ internal static unsafe class MoveOrder {
         }
 
         //
-        // 3. killer moves
+        // 3. KILLER MOVES
         //
         
         var killers = Killers.GetCluster(depth);
@@ -93,7 +114,7 @@ internal static unsafe class MoveOrder {
         }
         
         //
-        // 4. counter move
+        // 4. COUNTER MOVE
         //
         
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
@@ -108,8 +129,9 @@ internal static unsafe class MoveOrder {
                 }
             }
         }
+        
         //
-        // 5. remaining quiets ordered by history
+        // 5. QUIETS ORDERED BY HISTORY
         //
         
         Span<(Move move, int score)> quiets = stackalloc (Move, int)[legalCount];

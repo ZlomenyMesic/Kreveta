@@ -74,11 +74,12 @@ internal static class NullMovePruning {
         score = PVSearch.ProbeTT(
             ref nullChild,
             new SearchState(
-                ply:      (sbyte)(ss.Ply + 1),
-                depth:    (sbyte)(ss.Depth - R - 1),
-                window:   nullWindowBeta,
-                previous: default,
-                isPVNode: false
+                ply:         (sbyte)(ss.Ply + 1),
+                depth:       (sbyte)(ss.Depth - R - 1),
+                window:      nullWindowBeta,
+                penultimate: default,
+                previous:    default,
+                isPVNode:    false
             )
             //canNMP:   false
         ).Score;
