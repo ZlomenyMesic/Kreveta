@@ -9,7 +9,7 @@ using System.Text;
 namespace KrevetaTuning;
 
 internal static class ParamGenerator {
-    internal const int ParamCount = 3;
+    internal const int ParamCount = 1;
     
     internal static string CreateCMD() {
         var rnd = new Random();
@@ -29,7 +29,7 @@ internal static class ParamGenerator {
             27 => 15,
             28 => 50,*/
             
-            _  => 18
+            _  => 100
         };
         
         // this can possibly create a neverending loop

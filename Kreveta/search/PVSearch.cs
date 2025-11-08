@@ -85,11 +85,12 @@ internal static class PVSearch {
         improvStack.Expand(CurDepth);
 
         SearchState defaultSS = new(
-            ply:      0, 
-            depth:    (sbyte)CurDepth,
-            window:   new(short.MinValue, short.MaxValue),
-            previous: default,
-            isPVNode: true
+            ply:         0, 
+            depth:       (sbyte)CurDepth,
+            window:      Window.Infinite,
+            penultimate: default,
+            previous:    default,
+            isPVNode:    true
         );
 
         // actual start of the search tree
@@ -113,6 +114,7 @@ internal static class PVSearch {
         QuietHistory.Clear();
         PawnCorrectionHistory.Clear();
         CounterMoveHistory.Clear();
+        ContinuationHistory.Clear();
         
         TT.Clear();
     }
@@ -156,9 +158,9 @@ internal static class PVSearch {
             CounterMoveHistory.Add(board.Color, ss.Previous, result.PV[0]);
         }
         
-        //if (search.PV.Length != 0 && depth >= ContinuationHistory.MinStoreDepth && previous != default) {
-        //    ContinuationHistory.Add(previous, search.PV[0], search.PV[1]);
-        //}
+        if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
+            ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
+        }
         
         // update this position's score in pawncorrhist. we have to do this
         // here, otherwise repeating positions would take over the whole thing
@@ -297,7 +299,7 @@ internal static class PVSearch {
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
         // then killer moves and last quiet moves sorted by history
-        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Previous);
+        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Penultimate, ss.Previous);
 
         // counter for expanded nodes
         byte searchedMoves = 0;
@@ -373,11 +375,11 @@ internal static class PVSearch {
                 var result = LateMoveReductions.TryPrune(board, ref child, curMove, ss, col, searchedMoves, improving);
 
                 // we failed low - prune this branch completely
-                if (result.Prune) 
+                if (result.ShouldPrune) 
                     continue;
 
                 // we failed low with a margin - only reduce, don't prune
-                if (result.Reduce) {
+                if (result.ShouldReduce) {
                     curDepth -= LateMoveReductions.R;
                 }
             }
@@ -389,9 +391,10 @@ internal static class PVSearch {
             if (!skipFullSearch)
                 fullSearch = ProbeTT(ref child, ss 
                     with { 
-                        Ply      = (sbyte)(ss.Ply + 1),
-                        Depth    = (sbyte)curDepth,
-                        Previous = curMove
+                        Ply         = (sbyte)(ss.Ply + 1),
+                        Depth       = (sbyte)curDepth,
+                        Penultimate = ss.Previous,
+                        Previous    = curMove
                     }
                 );
 
