@@ -24,8 +24,7 @@ internal static class LateMoveReductions {
 
     // once again we set a minimum ply and depth
     internal const byte MinPly   = 4;
-    //internal const byte MinDepth = 0;
-
+    
     // minimum nodes expanded before lmr
     // (we obviously don't want to reduce the pv)
     internal const byte MinExpNodes = 3;

@@ -18,10 +18,10 @@ internal static class Program {
     private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net9.0\Kreveta.exe";
 
     // time for evaluation of each single position in ms
-    private const int MoveTime = 500;
+    private const int MoveTime = 60;
     
     // how many "new engines" to create/test
-    private const  int Cycles = 3000;
+    private const  int Cycles = 1_000_000;
 
     private static float _krevetaBaseMSE;
     private static float _krevetaBaseMoveAccuracy;
@@ -34,6 +34,9 @@ internal static class Program {
     private static readonly CancellationTokenSource Cts           = new();
     private static readonly Lock                    EnginesLock   = new();
     private static readonly List<UCIEngine>         ActiveEngines = [];
+    
+    internal enum EvalMode { FullSearch, StaticEval }
+    private const EvalMode _mode = EvalMode.StaticEval;
     
     internal static void Main() {
         Console.CancelKeyPress += (_, e) => {
@@ -93,7 +96,6 @@ internal static class Program {
 
     private static void GenerateStockfishOutputs() {
         Console.WriteLine("Generating Stockfish outputs...");
-        var stockfish   = new UCIEngine(StockfishPath);
         var outputLines = new List<string>();
 
         int counter = 0;
@@ -101,17 +103,21 @@ internal static class Program {
             if (string.IsNullOrWhiteSpace(fen) || fen.StartsWith('#'))
                 continue;
             
+            var stockfish = new UCIEngine(StockfishPath);
+            
             // Stockfish gets more time to evaluate the positions,
             // so that the tweaks based on its outputs are precise
-            (int eval, string move) = stockfish.EvaluateFEN(fen, MoveTime * 4);
-            eval = Math.Clamp(eval, -1000, 1000);
+            (int eval, string move) = stockfish.EvaluateFEN(fen, MoveTime * 4, EvalMode.FullSearch);
+            if (_mode == EvalMode.FullSearch)
+                eval = Math.Clamp(eval, -1000, 1000);
+            
+            stockfish.Quit();
             
             outputLines.Add($"{fen};{eval};{move}");
             Console.Write($"Finished: {++counter}/?\r");
         }
         
         File.WriteAllLines(DatasetPath, outputLines);
-        stockfish.Quit();
         Console.WriteLine("\nDone generating Stockfish outputs.");
     }
 
@@ -136,7 +142,7 @@ internal static class Program {
             ActiveEngines.Add(newKreveta);
 
         try {
-            var paramCMD = ParamGenerator.CreateCMD();
+            var paramCMD = ParamGenerator.CreateCMD(20);
             Console.WriteLine($"Evaluating a new Kreveta ({num + 1}/{Cycles}) with params:\n{paramCMD}\n");
 
             newKreveta.Send(paramCMD);
@@ -170,7 +176,7 @@ internal static class Program {
             int    stockfishEval = int.Parse(parts[1]);
             string stockfishMove = parts[2];
 
-            (int eval, string move) = kreveta.EvaluateFEN(fen, MoveTime);
+            (int eval, string move) = kreveta.EvaluateFEN(fen, MoveTime, _mode);
             
             double diff   = eval - stockfishEval;
             totalSqError += diff * diff;
@@ -191,9 +197,13 @@ internal static class Program {
     private static void UpdateTweaks(string paramCMD, float MSE, float moveAccuracy) {
         int[] shifts = paramCMD.Split(' ')[1..(Tweaks.Length + 1)]
             .Select(int.Parse).ToArray();
+        
+        // if in static eval mode, don't measure move accuracy
+        bool areMovesAccurate = _mode == EvalMode.StaticEval 
+                                || moveAccuracy >= _krevetaBaseMoveAccuracy;
 
         // this version seems to be worse
-        if (MSE <= _krevetaBaseMSE && moveAccuracy >= _krevetaBaseMoveAccuracy) {
+        if (MSE <= _krevetaBaseMSE && areMovesAccurate) {
             // update only when this version is better
             for (int i = 0; i < shifts.Length; i++) {
                 if (shifts[i] == 0)
