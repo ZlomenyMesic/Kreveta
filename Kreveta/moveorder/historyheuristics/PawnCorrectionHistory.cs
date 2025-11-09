@@ -4,7 +4,6 @@
 //
 
 using Kreveta.consts;
-using Kreveta.evaluation;
 using Kreveta.search.transpositions;
 
 using System;

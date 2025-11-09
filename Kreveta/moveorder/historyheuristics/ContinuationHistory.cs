@@ -19,7 +19,7 @@ internal static class ContinuationHistory {
     internal static int MinStoreDepth    = 4;
 
     internal static int Seed      = 66;
-    private const   int TableSize = 524288;
+    private const   int TableSize = 1;// 524_288;
 
     private static readonly uint[] Hashes        = new uint[4 * 64 + 2 * 6];
     private static readonly Move[] Continuations = new Move[TableSize];

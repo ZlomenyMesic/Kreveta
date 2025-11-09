@@ -12,13 +12,6 @@ namespace Kreveta;
 // some bit operations
 internal static class BB {
 
-    // only used for initializing lookup tables, checks
-    // whether the bit at the specified index is 1
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsBitSet(ulong bb, int index) {
-        return (bb & 1UL << index) != 0UL;
-    }
-
     // Least Significant 1 Bit (also called bit scan forward
     // or trailing zero count). returns the index of the first
     // 1-bit in the ulong (the 1-bit with the lowest index)

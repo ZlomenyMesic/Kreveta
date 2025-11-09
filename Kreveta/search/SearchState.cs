@@ -24,17 +24,17 @@ internal ref struct SearchState {
     internal Window Window;
     
     // the last two played moves that got us here
-    internal Move Penultimate;
+    //internal Move Penultimate;
     internal Move Previous;
     
     // is this a PV node from the previous search iteration?
     internal bool IsPVNode;
 
-    internal SearchState(sbyte ply, sbyte depth, Window window, Move penultimate, Move previous, bool isPVNode) {
+    internal SearchState(sbyte ply, sbyte depth, Window window,/* Move penultimate,*/ Move previous, bool isPVNode) {
         Ply         = ply;
         Depth       = depth;
         Window      = window;
-        Penultimate = penultimate;
+        //Penultimate = penultimate;
         Previous    = previous;
         IsPVNode    = isPVNode;
     }

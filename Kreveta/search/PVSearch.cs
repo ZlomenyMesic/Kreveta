@@ -88,7 +88,7 @@ internal static class PVSearch {
             ply:         0, 
             depth:       (sbyte)CurDepth,
             window:      Window.Infinite,
-            penultimate: default,
+            //penultimate: default,
             previous:    default,
             isPVNode:    true
         );
@@ -158,9 +158,9 @@ internal static class PVSearch {
             CounterMoveHistory.Add(board.Color, ss.Previous, result.PV[0]);
         }
         
-        if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
+        /*if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
             ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
-        }
+        }*/
         
         // update this position's score in pawncorrhist. we have to do this
         // here, otherwise repeating positions would take over the whole thing
@@ -299,7 +299,7 @@ internal static class PVSearch {
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
         // then killer moves and last quiet moves sorted by history
-        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Penultimate, ss.Previous);
+        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth,/* ss.Penultimate,*/ ss.Previous);
 
         // counter for expanded nodes
         byte searchedMoves = 0;
@@ -393,7 +393,7 @@ internal static class PVSearch {
                     with { 
                         Ply         = (sbyte)(ss.Ply + 1),
                         Depth       = (sbyte)curDepth,
-                        Penultimate = ss.Previous,
+                        //Penultimate = ss.Previous,
                         Previous    = curMove
                     }
                 );

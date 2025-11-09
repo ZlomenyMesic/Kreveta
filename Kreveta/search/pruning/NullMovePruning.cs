@@ -77,7 +77,7 @@ internal static class NullMovePruning {
                 ply:         (sbyte)(ss.Ply + 1),
                 depth:       (sbyte)(ss.Depth - R - 1),
                 window:      nullWindowBeta,
-                penultimate: default,
+                //penultimate: default,
                 previous:    default,
                 isPVNode:    false
             )
