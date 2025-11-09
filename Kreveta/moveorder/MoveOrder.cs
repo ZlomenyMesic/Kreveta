@@ -36,7 +36,7 @@ internal static unsafe class MoveOrder {
     }
 
     // don't use "in" keyword!!! it gets much slower
-    internal static Span<Move> GetOrderedMoves(Board board, int depth, Move penultimate, Move previous) {
+    internal static Span<Move> GetOrderedMoves(Board board, int depth,/* Move penultimate,*/ Move previous) {
 
         // all legal moves
         Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
@@ -51,7 +51,7 @@ internal static unsafe class MoveOrder {
         // 1. TT BEST MOVE
         //
         
-        if (TT.TryGetBestMove(board, out var ttMove) && ttMove != default) {
+        if (TT.TryGetBestMove(board, out Move ttMove) && ttMove != default) {
             for (int i = 0; i < legalCount; i++) {
                 if (legal[i] == ttMove) {
                     sorted[cur++] = ttMove;
@@ -64,7 +64,7 @@ internal static unsafe class MoveOrder {
         //
         // 2. TWO-PLY CONTINUATION
         //
-        if (depth < ContinuationHistory.MaxRetrieveDepth) {
+        /*if (depth < ContinuationHistory.MaxRetrieveDepth) {
             Move continuation = ContinuationHistory.Get(penultimate, previous);
             if (continuation != default) {
                 for (int i = 0; i < legalCount; i++) {
@@ -75,7 +75,7 @@ internal static unsafe class MoveOrder {
                     }
                 }
             }
-        }
+        }*/
         
         //
         // 2. CAPTURES ORDERED BY MVV-LVA
@@ -157,7 +157,7 @@ internal static unsafe class MoveOrder {
     // insertion sort of remaining quiets (descending by score)
     private static void InsertionSort(Span<(Move move, int score)> quiets, int count) {
         for (int i = 1; i < count; i++) {
-            var key = quiets[i];
+            (Move move, int score) key = quiets[i];
             int j = i - 1;
             while (j >= 0 && quiets[j].score < key.score) {
                 quiets[j + 1] = quiets[j];

@@ -70,7 +70,7 @@ internal static class LateMoveReductions {
 
         // once again a reduced depth search
         short score = PVSearch.ProbeTT(ref child, 
-            new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R - 1), nullAlphaWindow, default, default, false)).Score;
+            new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R - 1), nullAlphaWindow, default, false)).Score;
 
         // continuing without this causes weird behaviour. the engine somehow
         // rates regular positions as mate in X. keep this. it's important.

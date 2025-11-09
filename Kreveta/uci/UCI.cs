@@ -14,6 +14,7 @@ using Kreveta.openings;
 using Kreveta.perft;
 using Kreveta.search;
 using Kreveta.search.transpositions;
+using Kreveta.tuning;
 using Kreveta.uci.options;
 
 using System;
@@ -21,9 +22,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
-
-using Kreveta.consts;
-using Kreveta.tuning;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming

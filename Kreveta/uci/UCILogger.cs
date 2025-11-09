@@ -71,7 +71,7 @@ internal static partial class UCI {
 
         Log(STATS_HEADER);
 
-        foreach (var stat in stats) {
+        foreach ((string Name, object Data) stat in stats) {
             string  name = stat.Name + new string(' ', dataOffset - stat.Name.Length);
             string? data = stat.Data.ToString();
 
