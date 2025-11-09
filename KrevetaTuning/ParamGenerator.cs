@@ -9,42 +9,46 @@ using System.Text;
 namespace KrevetaTuning;
 
 internal static class ParamGenerator {
-    internal const int ParamCount = 1;
+    internal const int ParamCount = 384;
     
-    internal static string CreateCMD() {
-        var rnd = new Random();
-        int i   = rnd.Next(0, ParamCount);
+    internal static string CreateCMD(int paramCount) {
+        int[] shifts = new int[ParamCount];
+        var   rnd    = new Random();
 
-        // define custom steps for different parameters
-        int maxStep = i switch {
-            /*0  => 25,
-            1  => 16,
-            6  => 150,
-            7  => 12,
-            11 => 18,
-            12 => 25,
-            15 => 18,
-            25 => 40,
-            26 => 30,
-            27 => 15,
-            28 => 50,*/
-            
-            _  => 100
-        };
+        for (int j = 0; j < paramCount; j++) {
+            // choose, which parameter will be shifted
+            int i = rnd.Next(0, ParamCount);
+
+            // define custom steps for different parameters
+            int maxStep = i switch {
+                /*0  => 25,
+                1  => 16,
+                6  => 150,
+                7  => 12,
+                11 => 18,
+                12 => 25,
+                15 => 18,
+                25 => 40,
+                26 => 30,
+                27 => 15,
+                28 => 50,*/
+                _  => 15
+            };
         
-        // this can possibly create a neverending loop
-        int shift = rnd.Next(-maxStep, maxStep + 1);
-        while (shift == 0) {
-            shift = rnd.Next(-maxStep, maxStep + 1);
+            // this can possibly create a neverending loop
+            int shift = rnd.Next(-maxStep, maxStep + 1);
+            while (shift == 0) {
+                shift = rnd.Next(-maxStep, maxStep + 1);
+            }
+
+            shifts[i] = shift;
         }
         
         var sb = new StringBuilder();
         sb.Append("tune");
 
-        for (int j = 0; j < ParamCount; j++) {
-            sb.Append(j == i 
-                ? $" {shift}" : " 0"
-            );
+        for (int i = 0; i < ParamCount; i++) {
+            sb.Append($" {shifts[i]}");
         }
         
         return sb.ToString();

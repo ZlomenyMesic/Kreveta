@@ -43,26 +43,40 @@ internal sealed class UCIEngine {
         }
     }
 
-    internal (int eval, string bestMove) EvaluateFEN(string fen, int moveTime) {
+    internal (int eval, string bestMove) EvaluateFEN(string fen, int moveTime, Program.EvalMode mode) {
         Send("position fen " + fen);
-        Send($"go movetime {moveTime}");
+
+        if (mode == Program.EvalMode.FullSearch) {
+            Send($"go movetime {moveTime}");
         
-        string bestMove = string.Empty;
-        int    eval     = 0;
+            string bestMove = string.Empty;
+            int    eval     = 0;
         
-        while (_output.ReadLine() is { } line) {
-            if (line.StartsWith("info") && line.Contains("score cp")) {
-                var tokens = line.Split(' ');
-                int scoreIndex = Array.IndexOf(tokens, "cp");
-                if (scoreIndex != 0 && int.TryParse(tokens[scoreIndex + 1], out int val))
-                    eval = val;
+            while (_output.ReadLine() is { } line) {
+                if (line.StartsWith("info") && line.Contains("score cp")) {
+                    var tokens = line.Split(' ');
+                    int scoreIndex = Array.IndexOf(tokens, "cp");
+                    if (scoreIndex != 0 && int.TryParse(tokens[scoreIndex + 1], out int val))
+                        eval = val;
+                }
+                else if (line.StartsWith("bestmove")) {
+                    bestMove = line.Split(' ')[1];
+                    break;
+                }
             }
-            else if (line.StartsWith("bestmove")) {
-                bestMove = line.Split(' ')[1];
-                break;
+            return (eval, bestMove);
+        } else {
+            Send("eval");
+            
+            while (_output.ReadLine() is { } line) {
+                if (line.StartsWith("se")) {
+                    var tokens = line.Split(' ');
+                    if (short.TryParse(tokens[1], out short eval))
+                        return (eval, string.Empty);
+                }
             }
         }
-        return (eval, bestMove);
+        return (0, string.Empty);
     }
 
     internal void Quit() {

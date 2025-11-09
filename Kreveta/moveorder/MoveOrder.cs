@@ -77,6 +77,13 @@ internal static unsafe class MoveOrder {
             }
         }*/
         
+        for (int i = 0; i < legalCount; i++) {
+            if (!used[i] && legal[i].Promotion is PType.QUEEN) {
+                sorted[cur++] = legal[i];
+                used[i]       = true;
+            }
+        }
+        
         //
         // 2. CAPTURES ORDERED BY MVV-LVA
         //

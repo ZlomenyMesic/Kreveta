@@ -169,7 +169,7 @@ internal static class PVSearch {
         return result;
     }
     
-#region PVS 
+#region PVS
 
     // finally the actual PVS recursive function
     //
@@ -321,7 +321,7 @@ internal static class PVSearch {
             ulong pieceCount = ulong.PopCount(child.Occupied);
             
             // skip any pruning, AND the full search if there is a known draw
-            bool skipFullSearch = child.HalfMoveClock >= 100 
+            bool skipFullSearch = child.HalfMoveClock >= 100
                                   || pieceCount <= 4 && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount);
 
             // did this move capture a piece?
@@ -368,7 +368,6 @@ internal static class PVSearch {
                 && (PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
                 && ss.Ply        >= LateMoveReductions.MinPly
-                //&& depth         >= LateMoveReductions.MinDepth
                 && searchedMoves >= LateMoveReductions.MinExpNodes) {
 
                 // try to fail low

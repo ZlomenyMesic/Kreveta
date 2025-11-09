@@ -9,6 +9,8 @@
 // Initialize reference type static fields inline    
 #pragma warning disable CA1810
 
+#pragma warning disable CA1305
+
 using Kreveta.movegen;
 using Kreveta.openings;
 using Kreveta.perft;
@@ -116,6 +118,10 @@ internal static partial class UCI {
                 
                 case "tune":
                     Tuning.TuneParams(tokens);
+                    break;
+                
+                case "eval":
+                    Log($"se {Game.Board.StaticEval}");
                     break;
                 
                 case "help":
@@ -286,4 +292,6 @@ internal static partial class UCI {
 }
 
 #pragma warning restore CA1810
+#pragma warning restore CA1305
+
 #pragma warning restore IDE0079
