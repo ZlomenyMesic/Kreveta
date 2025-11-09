@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kreveta Chess Engine</title>
+
+  <!-- Font Awesome for icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <style>
+    :root {
+      --cream: #fff7e6;
+      --orange: #f79e02;
+      --accent: #ffca3a;
+      --dark: #2b2b2b;
+      --light-text: #555;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, sans-serif;
+      background-color: var(--cream);
+      color: var(--dark);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background-color: white;
+      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .sidebar img {
+      width: 125px;
+      height: auto;
+      margin-bottom: 0.5rem;
+    }
+
+    .sidebar h2 {
+      font-size: 1.4rem;
+      margin: 0.3rem 0 1rem 0;
+      text-align: center;
+      color: var(--orange);
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      width: 100%;
+    }
+
+    .nav button {
+      background: none;
+      border: none;
+      text-align: left;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--dark);
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s;
+    }
+
+    .nav button:hover {
+      background-color: var(--cream);
+      color: var(--orange);
+    }
+
+    .nav button.active {
+      background-color: var(--orange);
+      color: white;
+    }
+
+    .nav button i {
+      width: 18px;
+    }
+
+    footer {
+      margin-top: auto;
+      font-size: 0.85rem;
+      color: #777;
+      text-align: center;
+    }
+
+    footer a {
+      color: var(--orange);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Main content area */
+    .content {
+      flex: 1;
+      padding: 2rem 3rem;
+      overflow-y: auto;
+    }
+
+    .content a {
+      color: var(--orange);
+      text-decoration: none;
+    }
+
+    .content a:hover {
+      text-decoration: underline;
+    }
+
+    section {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .buttons {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    a.button {
+      background-color: var(--orange);
+      color: white;
+      text-decoration: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 50px;
+      font-weight: 600;
+      transition: background 0.3s, transform 0.2s;
+      box-shadow: 0 4px 12px rgba(247, 158, 2, 0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    a.button:hover {
+      background-color: var(--accent);
+      transform: translateY(-3px);
+    }
+
+    a.button i {
+      font-size: 1.1rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--dark);
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      color: var(--dark);
+    }
+
+    p {
+      color: var(--light-text);
+      line-height: 1.6;
+      max-width: 700px;
+    }
+
+    ul {
+      color: var(--light-text);
+      line-height: 1.6;
+      max-width: 700px;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <img src="..\Resources\images\KrevetaLogo.png" alt="Kreveta Logo" />
+    <h2>Kreveta</h2>
+    <nav class="nav">
+      <button data-target="download" class="active"><i class="fa-solid fa-download"></i> Download</button>
+      <button data-target="about"><i class="fa-solid fa-info-circle"></i> About</button>
+      <button data-target="docs"><i class="fa-solid fa-book"></i> Documentation</button>
+    </nav>
+    <footer>
+      <p>Made by <a href="https://github.com/ZlomenyMesic">ZlomenyMesic</a></p>
+    </footer>
+  </aside>
+
+  <main class="content">
+    <section id="download" class="active">
+      <h1>Download Kreveta</h1>
+      <p>Kreveta is just a chess engine, with no built-in GUI. To play against Kreveta,
+         or let it compete with other engines, you may want to download an external GUI,
+         such as <a href="https://cutechess.com/">Cutechess</a>.
+        <br/>
+        <br/>
+         UCI is the only communication protocol supported.
+      </p>
+
+      <div class="buttons">
+        <a href="https://github.com/ZlomenyMesic/Kreveta/releases" class="button">
+          <i class="fa-solid fa-download"></i> Download
+        </a>
+        <a href="https://github.com/ZlomenyMesic/Kreveta" class="button" style="background-color: var(--accent);">
+          <i class="fa-brands fa-github"></i> View on GitHub
+        </a>
+      </div>
+    </section>
+
+    <section id="about">
+      <h1>About Kreveta</h1>
+      <p>
+        An open-source UCI-compliant chess engine written <b>entirely in C# 13</b>, with .NET 9.0.
+        Designed to be fast, strong and reliable, while still aiming for code clarity
+        and proper code documentation, making it ideal for others to study, experiment with,
+        or use as a foundation for new engines.
+        <br/>
+        <br/>
+        Kreveta is a long-term project, which I've been working on for a few years now, with
+        each engine being derived from the previous one. The development of the current version
+        started on 4/3/2025.
+      </p>
+      <h2>Cool Features</h2>
+      <p>
+        Apart from the generic bitboards, move lookups, PVS and pruning techniques, Kreveta also
+        provides various cool features and enhancaments, such as:
+      </p>
+      <ul>
+          <li>Polyglot opening book support (see options)</li>
+          <li><a href="https://github.com/KryKomDev/NeoKolors/">NeoKolors</a> UCI communication logging</li>
+          <li>Custom <a href="https://github.com/ZlomenyMesic/Kreveta/tree/master/KrevetaTuning/">parameter tuning project</a></li>
+      </ul>
+      <h2>Contributions</h2>
+      <p>
+        So far, I am the only contributor to the engine and the author of this website. However,
+        any contributions, bug reports, and feature ideas are always welcome. If you'd like to help,
+        open an issue or pull request on <a href="https://github.com/ZlomenyMesic/Kreveta">Github</a>,
+        or star the project to support its development.
+      </p>
+      <h2>License</h2>
+      <p>
+        Kreveta is released under the <a href="https://github.com/ZlomenyMesic/Kreveta/blob/master/LICENSE">MIT License</a>, meaning it's free to use, modify, and distribute.
+      </p>
+    </section>
+
+    <section id="docs">
+      <h1>Documentation</h1>
+      <p>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum ante ipsum primis in faucibus orci luctus et
+        ultrices posuere cubilia curae; Sed euismod nulla ut fermentum bibendum. Integer eget nisl urna. Mauris
+        efficitur vel sapien vel fermentum.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    const buttons  = document.querySelectorAll(".nav button");
+    const sections = document.querySelectorAll("section");
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((b)  => b.classList.remove("active"));
+        sections.forEach((s) => s.classList.remove("active"));
+
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.target).classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>
