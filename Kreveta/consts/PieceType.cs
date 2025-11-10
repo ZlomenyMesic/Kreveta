@@ -21,7 +21,6 @@ internal enum PType : byte {
 }
 
 internal static class PTypeExtensions {
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PType ToPType(this char c)
         => (PType)Consts.Pieces.IndexOf(c, StringComparison.Ordinal);
