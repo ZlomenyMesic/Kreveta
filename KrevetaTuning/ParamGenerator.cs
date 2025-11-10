@@ -32,7 +32,7 @@ internal static class ParamGenerator {
                 26 => 30,
                 27 => 15,
                 28 => 50,*/
-                _  => 15
+                _  => 10
             };
         
             // this can possibly create a neverending loop

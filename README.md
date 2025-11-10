@@ -14,8 +14,13 @@
 
 ## About
 
-A high-performance UCI-compatible chess engine written entirely in C#.
-Designed to be fast and strong, with a main focus on optimizing C# to its limits. Development started on **4/3/2025**.
+An amateur, UCI-compatible chess engine written entirely in C#.
+Although originally developed as a hobby project, it now serves
+as the basis for my SOČ paper. It is designed to be fast, strong
+and reliable, while still aiming for code clarity and proper
+documentation, making it ideal for others to study, experiment
+with, or use as a foundation for future engines.
+Development started on **March 3, 2025**.
 
 ---
 
@@ -27,8 +32,7 @@ Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutech
 
 | Opponent        | Time Control | Games | Elo estimate |
 |-----------------|--------------|-------|--------------|
-| Stockfish 17    | 40/100       | ~800  | 2381         |
-| Stockfish 17    | 40/120       | ~500  | 2432         |
+| Stockfish 17    | 40/120       | ~1000 | 2450         |
 | ...             | ...          | ...   | ...          |
 
 > [!NOTE]
@@ -57,15 +61,15 @@ Default hash table size (64 MiB) was used.
 
 ### Perft results (initial position)
 
-| Depth | Nodes           | Time (s) | NPS         |
-|-------|-----------------|----------|-------------|
-| 1     | 20              | 00.00138 | 14,493      |
-| 2     | 400             | 00.00157 | 254,777     |
-| 3     | 8,902           | 00.00227 | 3,921,586   |
-| 4     | 197,281         | 00.00867 | 22,757,065  |
-| 5     | 4,865,609       | 00.06918 | 70,332,596  |
-| 6     | 119,060,324     | 00.89998 | 132,291,615 |
-| 7     | 3,195,901,860   | 13.14543 | 243,118,769 |
+| Depth | Nodes           | Time (s)   | NPS         |
+|-------|-----------------|------------|-------------|
+| 1     | 20              | 00.00138   | 14,493      |
+| 2     | 400             | 00.00157   | 254,777     |
+| 3     | 8,902           | 00.00227   | 3,921,586   |
+| 4     | 197,281         | 00.00867   | 22,757,065  |
+| 5     | 4,865,609       | 00.06745   | 72,133,857  |
+| 6     | 119,060,324     | 00.89998   | 132,291,615 |
+| 7     | 3,195,901,860   | 13.14543   | 243,118,769 |
 
 ---
 
