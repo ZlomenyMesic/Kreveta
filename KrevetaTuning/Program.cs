@@ -15,10 +15,10 @@ internal static class Program {
     private const string DatasetPath   = "dataset.txt";
     private const string OutputPath    = "output.txt";
     private const string StockfishPath = @"C:\Users\michn\Downloads\stockfish-windows-x86-64-avx2\stockfish\stockfish-windows-x86-64-avx2.exe";
-    private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net9.0\Kreveta.exe";
+    private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net10.0\Kreveta.exe";
 
     // time for evaluation of each single position in ms
-    private const int MoveTime = 100;
+    private const int MoveTime = 200;
     
     // how many "new engines" to create/test
     private const  int Cycles = 1_000_000;
@@ -36,7 +36,7 @@ internal static class Program {
     private static readonly List<UCIEngine>         ActiveEngines = [];
     
     internal enum EvalMode { FullSearch, StaticEval }
-    private const EvalMode _mode = EvalMode.StaticEval;
+    private const EvalMode _mode = EvalMode.FullSearch;
     
     internal static void Main() {
         Console.CancelKeyPress += (_, e) => {
