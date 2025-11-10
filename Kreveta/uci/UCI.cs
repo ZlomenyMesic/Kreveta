@@ -68,7 +68,7 @@ internal static partial class UCI {
             ReadOnlySpan<string> tokens = input.Split(' ');
 
             // we log the input commands as well
-            Task.Run(() => LogIntoFile($"USER COMMAND: {input}"));
+            Task.Run(() => LogIntoFile($"GUI/USER COMMAND: {input}"));
 
             // the first token is obviously the command itself
             switch (tokens[0]) {

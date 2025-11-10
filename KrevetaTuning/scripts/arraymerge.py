@@ -6,10 +6,10 @@
 import re
 
 shifts_path   = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\KrevetaTuning\\bin\\Release\\net9.0\\output.txt"
-init_arr_path = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\KrevetaTuning\\initarr.txt"
-output_path   = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\KrevetaTuning\\output.txt"
+init_arr_path = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\KrevetaTuning\\scripts\\initarr.txt"
+output_path   = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\KrevetaTuning\\scripts\\output.txt"
 
-shift_scale   = 1.2
+shift_scale   = 0.9
 
 
 with open(init_arr_path, "r") as file:

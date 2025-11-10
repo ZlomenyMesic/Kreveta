@@ -18,7 +18,7 @@ internal static class Program {
     private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net9.0\Kreveta.exe";
 
     // time for evaluation of each single position in ms
-    private const int MoveTime = 60;
+    private const int MoveTime = 100;
     
     // how many "new engines" to create/test
     private const  int Cycles = 1_000_000;
