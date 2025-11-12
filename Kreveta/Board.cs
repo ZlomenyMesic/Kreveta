@@ -12,6 +12,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.nnue;
 using Kreveta.uci;
 
 using System;
@@ -68,10 +69,12 @@ internal struct Board {
     // number of moves played that weren't pawn pushes or captures
     internal byte HalfMoveClock = 0;
 
-    internal short StaticEval = 0;
+    internal NNUEEvaluator NNUEEvaluator;
+    internal short         StaticEval = 0;
 
     public Board() {
-        Pieces = new ulong[12];
+        Pieces     = new ulong[12];
+        NNUEEvaluator = new NNUEEvaluator();
     }
 
     /*
@@ -112,7 +115,6 @@ internal struct Board {
 
     // performs a move on the board
     internal void PlayMove(Move move, bool updateStaticEval) {
-        
         EnPassantSq = 64;
         Color = Color == Color.WHITE
             ? Color.BLACK
@@ -257,9 +259,11 @@ internal struct Board {
             // remove castling rights after a rook moves
             CastRights &= (CastRights)mask;
         }
-
-        if (updateStaticEval)
-            StaticEval = Eval.StaticEval(in this);
+        
+        if (updateStaticEval) {
+            NNUEEvaluator.Update(NNUEEvaluator, move, this);
+            StaticEval = NNUEEvaluator.Score;
+        }
     }
 
     private void PlayReversibleMove(Move move) {
@@ -422,11 +426,6 @@ internal struct Board {
             Color         = Color.WHITE,
             HalfMoveClock = 0,
             
-            // Stockfish initial position evaluation, which changes
-            // absolutely, literally nothing. this number couldn't
-            // possibly be more useless, and yet, here it is
-            StaticEval    = 17,
-            
             Pieces = {
                 [0] =  0x00FF000000000000UL, // P
                 [1] =  0x4200000000000000UL, // N
@@ -441,8 +440,11 @@ internal struct Board {
                 [9] =  0x0000000000000081UL, // r
                 [10] = 0x0000000000000008UL, // q
                 [11] = 0x0000000000000010UL  // k
-            }
+            },
         };
+        
+        board.NNUEEvaluator = new NNUEEvaluator(board);
+        board.StaticEval    = board.NNUEEvaluator.Score;
 
         return board;
     }

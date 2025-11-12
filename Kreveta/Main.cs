@@ -3,10 +3,12 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.moveorder.historyheuristics;
+using Kreveta.nnue;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
 using Kreveta.tuning;
@@ -15,6 +17,7 @@ using Kreveta.uci;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using System.Threading;
 
 namespace Kreveta;
@@ -49,6 +52,7 @@ internal static class Program {
         QuietHistory.Init();
         ContinuationHistory.Init();
         
+        NNUENetwork.LoadDefaultNetwork();
         Eval.Init();
         
         // just for experimental purposes
@@ -61,7 +65,7 @@ internal static class Program {
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
         Game.Board = Board.CreateStartpos();
-
+        
         // header text when launching the engine
         UCI.Log($"{Name}-{Version} by {Author}");
         UCI.InputLoop();
