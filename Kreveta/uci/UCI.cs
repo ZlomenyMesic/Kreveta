@@ -25,9 +25,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
-using Kreveta.consts;
-using Kreveta.nnue;
-
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 

@@ -3,12 +3,10 @@
 // started 4-3-2025
 //
 
-using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.moveorder.historyheuristics;
-using Kreveta.nnue;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
 using Kreveta.tuning;
@@ -52,7 +50,6 @@ internal static class Program {
         QuietHistory.Init();
         ContinuationHistory.Init();
         
-        NNUENetwork.LoadDefaultNetwork();
         Eval.Init();
         
         // just for experimental purposes

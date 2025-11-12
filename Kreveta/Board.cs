@@ -12,7 +12,6 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.nnue;
 using Kreveta.uci;
 
 using System;
@@ -68,13 +67,11 @@ internal struct Board {
 
     // number of moves played that weren't pawn pushes or captures
     internal byte HalfMoveClock = 0;
-
-    internal NNUEEvaluator NNUEEvaluator;
+    
     internal short         StaticEval = 0;
 
     public Board() {
-        Pieces     = new ulong[12];
-        NNUEEvaluator = new NNUEEvaluator();
+        Pieces = new ulong[12];
     }
 
     /*
@@ -261,8 +258,7 @@ internal struct Board {
         }
         
         if (updateStaticEval) {
-            NNUEEvaluator.Update(NNUEEvaluator, move, this);
-            StaticEval = NNUEEvaluator.Score;
+            StaticEval = Eval.StaticEval(in this);
         }
     }
 
@@ -443,8 +439,8 @@ internal struct Board {
             },
         };
         
-        board.NNUEEvaluator = new NNUEEvaluator(board);
-        board.StaticEval    = board.NNUEEvaluator.Score;
+        // this piece of junk is absolutely useless
+        board.StaticEval = 17;
 
         return board;
     }
