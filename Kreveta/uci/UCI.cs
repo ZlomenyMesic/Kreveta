@@ -25,6 +25,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
+using Kreveta.consts;
+using Kreveta.nnue;
+
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
@@ -119,10 +122,11 @@ internal static partial class UCI {
                 case "tune":
                     Tuning.TuneParams(tokens);
                     break;
-                
-                case "eval":
+
+                case "eval": {
                     Log($"se {Game.Board.StaticEval}");
                     break;
+                }
                 
                 case "help":
                     Log("Kreveta uses the UCI protocol to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta", LogLevel.INFO);

@@ -8,6 +8,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
+using Kreveta.nnue;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -177,6 +178,8 @@ internal static class Game {
             InvalidFENCallback($"invalid en passant square: \"{tokens[5]}\"");
             return;
         }
+        
+        Board.NNUEEvaluator = new NNUEEvaluator(Board);
 
         // after these tokens may also follow a fullmove and halfmove clock,
         // but we don't need this information for anything

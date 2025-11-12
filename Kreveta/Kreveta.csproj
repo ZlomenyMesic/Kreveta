@@ -24,6 +24,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageReference Include="NeoKolors.Common" Version="0.25.16" />
     <PackageReference Include="NeoKolors.Console" Version="0.25.16" />
+    <PackageReference Include="ZstdSharp" Version="0.7.2" />
   </ItemGroup>
 
   <ItemGroup>
