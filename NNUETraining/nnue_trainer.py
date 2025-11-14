@@ -1,5 +1,11 @@
+#
+# Kreveta chess engine by ZlomenyMesic
+# started 4-3-2025
+#
+
 import os
 import time
+from datetime import datetime
 import signal
 import random
 import multiprocessing as mp
@@ -11,6 +17,9 @@ from keras import layers, models, optimizers, losses
 import keras
 import chess
 import chess.engine
+
+# only log warnings and errors
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 # the absolute path to where the script is running
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,12 +33,12 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 # that is used for self-play and position evaluation
 STOCKFISH_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 
-EVAL_TIME         = 0.3    # the time for the engine to evaluate each position (in seconds)
-NUM_WORKERS       = 6      # the number of individual "threads" working in parallel 
-BATCH_SIZE        = 256
-EMBED_DIM         = 128    # dimensions/size of the feature embedding vectors
-HIDDEN_NEURONS    = 128    # number of neurons in the single hidden layer
-LEARNING_RATE     = 1e-3
+EVAL_TIME         = 0.4    # the time for the engine to evaluate each position (in seconds)
+NUM_WORKERS       = 10     # the number of individual "threads" working in parallel 
+BATCH_SIZE        = 2048
+EMBED_DIM         = 256    # dimensions/size of the feature embedding vectors
+HIDDEN_NEURONS    = 32     # number of neurons in the hidden layers
+LEARNING_RATE     = 1e-4
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300    # the current model version is saved every once in a while
 MAX_PLIES         = 200    # stop self-play games after this many plies
@@ -40,9 +49,28 @@ NUM_FEATURES = 768
 
 # maps a piece of certain color and position combo
 # to a single feature index in range 0-767. color
-# becomes 0 for black, 1 for white
+# becomes 1 for black, 0 for white
 def feature_index(piece_type: int, color: bool, square: int) -> int:
     return (int(color) * 6 + (piece_type - 1)) * 64 + square
+
+# mirror a single feature index (0..767) -> returns mirrored index (0..767).
+# for every position in the training batch we also train on the mirrored one
+def mirror_feature_index(idx: int) -> int:
+    # decode
+    square     = idx % 64
+    rest       = idx // 64
+    color_bit  = rest // 6       # 0 for white, 1 for black
+    piece_type = (rest % 6) + 1  # 1..6
+
+    # mirror square and flip color
+    mirrored_square    = chess.square_mirror(square)
+    mirrored_color_bit = 1 - color_bit
+
+    return (mirrored_color_bit * 6 + (piece_type - 1)) * 64 + mirrored_square
+
+# mirror a list of feature indices
+def mirror_indices(indices: list) -> list:
+    return [mirror_feature_index(i) for i in indices]
 
 # creates a list of all active features on the board
 def board_features(board: chess.Board):
@@ -72,17 +100,17 @@ def SCReLU():
                          output_shape = lambda s: s)
 
 def build_model(num_features = NUM_FEATURES, embed_dim = EMBED_DIM, hidden_units = HIDDEN_NEURONS):
-    # the input layer takes 32 feature embedding vectors
+    # the input layer takes 32 feature indices
     inp = layers.Input(
         shape = (32,),
         dtype = 'int32',
         name  = 'feature_indices'
     )
 
-    # then a lambda layer, that increments the indices by 1
+    # then shift the indices to be non-negative
     shifted = layers.Lambda(lambda x: x + 1,
                             output_shape = lambda s: s,
-                            name         = 'shift_indices')(input)
+                            name         = 'shift_indices')(inp)
 
     # the embedding layer - maps each feature index to its
     # respective feature embedding vector (128-dimensional)
@@ -93,10 +121,8 @@ def build_model(num_features = NUM_FEATURES, embed_dim = EMBED_DIM, hidden_units
                            output_shape = lambda s: (s[0], s[2]),
                            name         = 'embed_sum')(embedding)
 
-    # a single dense hidden layer
-    hidden = layers.Dense(hidden_units)(summed)
-    
-    # SCReLU activation
+    # a hidden dense layer and SCReLU activation
+    hidden    = layers.Dense(hidden_units)(summed)
     activated = SCReLU()(hidden)
     
     # the output layer is a single sigmoid-activation neuron.
@@ -114,10 +140,12 @@ def build_model(num_features = NUM_FEATURES, embed_dim = EMBED_DIM, hidden_units
     return model
 
 def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
-    print(f"[worker {worker_id}] starting self-play, stockfish = {STOCKFISH_CMD}, eval_time = {EVAL_TIME}s")
+    print(f"[worker {worker_id}] starting self-play, stockfish = {STOCKFISH_CMD}")
+
     try:
         engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_CMD)
-        engine.configure({"Skill Level": random.randint(1, 20)})
+        engine.configure({"Hash": 16})
+
     except Exception as e:
         print(f"[worker {worker_id}] failed to start Stockfish: {e}")
         return
@@ -128,18 +156,21 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
         board = chess.Board()
         plies = 0
         while not board.is_game_over() and plies < MAX_PLIES and not stop_event.is_set():
-            # occasionally play a random move
-            if rng.random() < 0.22:  # 22 % chance for random moves
+
+            # 25 % chance for random moves during the game.
+            if rng.random() < 0.25:
                 legal_moves = list(board.legal_moves)
-                move = rng.choice(legal_moves)
+                move        = rng.choice(legal_moves)
                 board.push(move)
+
             else:
                 try:
                     # sometimes limit time more for randomness
-                    move_time = EVAL_TIME * rng.uniform(0.2, 0.9)
-                    result = engine.play(board, chess.engine.Limit(time=move_time))
+                    move_time = EVAL_TIME * rng.uniform(0.1, 1.0)
+                    result = engine.play(board, chess.engine.Limit(time = move_time))
                     if result.move is None:
                         break
+                    
                     board.push(result.move)
                 except Exception as e:
                     print(f"[worker {worker_id}] play() error: {e}")
@@ -147,10 +178,10 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
 
             plies += 1
 
-            # evaluate position
             try:
                 info  = engine.analyse(board, chess.engine.Limit(time = EVAL_TIME))
                 score = info.get("score")
+
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")
                 break
@@ -159,20 +190,27 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
             if score:
                 sc = score.white()
                 if sc.is_mate():
-                    cp = 2000 if sc.mate() > 0 else -2000
+                    cp = 1000 if sc.mate() > 0 else -1000
                 else:
-                    cp = sc.score()
-            if board.turn == chess.BLACK:
-                cp = -cp
+                    cp = np.clip(sc.score(), -1000, 1000)
 
-            cp = max(-2000.0, min(2000.0, cp))
-            target = target = 1.0 / (1.0 + np.exp(-cp / 150.0))
+            # squeeze all evals into 0..1 interval
+            target = 1.0 / (1.0 + np.exp(-cp / 400.0))
 
+            # the feature indices for this position
             indices = board_features(board)
-            padded  = indices + [-1] * (32 - len(indices))
+
+            # mirror the board and piece colors, and compute indices as well
+            mirrored = mirror_indices(indices)
+
+            # padd all indices to 32 (input layer size)
+            padded_original = indices  + [-1] * (32 - len(indices))
+            padded_mirror   = mirrored + [-1] * (32 - len(mirrored))
 
             try:
-                samples_queue.put((np.array(padded, dtype = np.int32), float(target)), timeout = 1.0)
+                samples_queue.put((np.array(padded_original, dtype = np.int32), float(target)),       timeout=1.0)
+                samples_queue.put((np.array(padded_mirror,   dtype = np.int32), float(1.0 - target)), timeout=1.0) # mirrored target
+                
             except Exception:
                 time.sleep(0.05)
 
@@ -184,7 +222,7 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
 
 def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
     last_save = time.time()
-    X_batch, y_batch = [], []
+    x_batch, y_batch = [], []
     seen = 0
     try:
         while not stop_event.is_set():
@@ -193,17 +231,25 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
             except Exception:
                 continue
 
-            X_batch.append(x)
+            x_batch.append(x)
             y_batch.append(y)
 
-            if len(X_batch) >= BATCH_SIZE:
-                X_np = np.stack(X_batch, axis = 0)
+            if len(x_batch) >= BATCH_SIZE:
+                x_np = np.stack(x_batch, axis = 0)
                 y_np = np.array(y_batch, dtype = np.float32).reshape(-1, 1)
-                loss, mse = model.train_on_batch(X_np, y_np)
-                seen += len(X_batch)
 
-                print(f"samples = {seen} loss = {loss:.6f} MSE = {mse:.6f}")
-                X_batch.clear(); y_batch.clear()
+                loss, mse = model.train_on_batch(x_np, y_np)
+
+                seen += len(x_batch)
+                x_batch.clear()
+                y_batch.clear()
+
+                timestamp = datetime.now().isoformat()
+                log_info  = f"[{timestamp}] samples = {seen} loss = {loss:.6f} MSE = {mse:.6f}"
+
+                print(log_info)
+                with open("log.txt", "a") as f:
+                    f.write(log_info + '\n')
 
             if time.time() - last_save > SAVE_EVERY_SEC:
                 print("Saving current model version...")
@@ -211,13 +257,13 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
                 last_save = time.time()
 
     except KeyboardInterrupt:
-        print("Training interrupted, exiting gracefully (fuck you)")
+        print("Training interrupted, exiting gracefully...")
     finally:
         model.save(MODEL_DIR, include_optimizer = True)
         stop_event.set()
 
 def main():
-    # Build or load model
+    # build or load model
     if os.path.exists(MODEL_DIR):
         try:
             print(f"Loading model from {MODEL_DIR}")

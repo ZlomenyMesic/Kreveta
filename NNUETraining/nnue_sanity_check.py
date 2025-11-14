@@ -10,14 +10,17 @@ import tensorflow as tf
 import keras
 import chess
 
+# only log warnings and errors
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 # model path is the name of the loaded model
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 
 # must match the training setup
 NUM_FEATURES = 768 # 64 * 6 * 2
-EMBED_DIM    = 128
-HIDDEN_UNITS = 128
+EMBED_DIM    = 256
+HIDDEN_UNITS = 32
 
 
 # maps a piece of certain color and position combo
@@ -74,12 +77,17 @@ print("Injected screlu_tf and tf into all Lambda layers.\n")
 
 # set of tested positions. feel free to add new ones
 test_positions = {
-    "start position":   chess.Board(),
-    "white up a queen": chess.Board("4k3/8/8/8/8/8/8/3QK3 w - - 0 1"),
-    "black up a queen": chess.Board("3qk3/8/8/8/8/8/8/4K3 w - - 0 1"),
-    "1. e4":            chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"),
-    "1. e4 e5":         chess.Board("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1"),
-    "1. e4 c5":         chess.Board("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 1"),
+    "start position":        chess.Board(),
+    "white up a queen":      chess.Board("4k3/8/8/8/8/8/8/3QK3 w - - 0 1"),
+    "black up a queen":      chess.Board("3qk3/8/8/8/8/8/8/4K3 w - - 0 1"),
+    "white queen x rook":    chess.Board("8/4r3/3k4/8/8/5Q2/2K5/8 w - - 0 1"),
+    "white queen x rook 2":  chess.Board("8/Q7/3k4/8/8/5r2/2K5/8 w - - 0 1"),
+    "black queen x rook":    chess.Board("8/4R3/3K4/8/8/5q2/2k5/8 w - - 0 1"),
+    "black queen x rook 2":  chess.Board("8/q7/3K4/8/8/5R2/2k5/8 w - - 0 1"),
+    "1. e4 (good)":          chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"),
+    "1. f4 (bad)":           chess.Board("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq e3 0 1"),
+    "1. e4 e5":              chess.Board("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1"),
+    "1. e4 c5":              chess.Board("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 1"),
 }
 
 # evaluate all positions

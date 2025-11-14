@@ -113,8 +113,8 @@ internal readonly struct Move : IEquatable<Move> {
 
         // checks if the move from the user input makes sense (doesn't check legality)
         // caution: don't try to understand this mess
-        return Consts.Files.Contains(str[0], StringComparison.Ordinal) && char.IsDigit(str[1])
-            && Consts.Files.Contains(str[2], StringComparison.Ordinal) && char.IsDigit(str[3])
+        return Consts.Files.Contains(str[0], StringComparison.Ordinal) && char.IsDigit(str[1]) && str[1] is >= '1' and <= '8'
+            && Consts.Files.Contains(str[2], StringComparison.Ordinal) && char.IsDigit(str[3]) && str[3] is >= '1' and <= '8'
 
             // a regular move (from-to squares)
             && (str.Length == 4
