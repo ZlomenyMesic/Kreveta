@@ -9,6 +9,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.nnue;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -179,7 +180,8 @@ internal static class Game {
             return;
         }
 
-        Board.StaticEval = Eval.StaticEval(in Board);
+        Board.NNUEEval   = new NNUEEvaluator(in Board);
+        Board.StaticEval = (short)((Board.NNUEEval.Score + Eval.StaticEval(in Board)) / 2);
 
         // after these tokens may also follow a fullmove and halfmove clock,
         // but we don't need this information for anything

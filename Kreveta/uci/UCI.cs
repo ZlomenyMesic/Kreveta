@@ -25,6 +25,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
+using Kreveta.nnue;
+
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
@@ -288,7 +290,10 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-
+        Console.WriteLine(Game.Board.StaticEval);
+        Board cl = Game.Board.Clone();
+        
+        Console.WriteLine(cl.StaticEval);
     }
 }
 

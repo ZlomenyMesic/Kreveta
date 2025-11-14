@@ -34,11 +34,11 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 STOCKFISH_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 
 EVAL_TIME         = 0.4    # the time for the engine to evaluate each position (in seconds)
-NUM_WORKERS       = 10     # the number of individual "threads" working in parallel 
+NUM_WORKERS       = 12     # the number of individual "threads" working in parallel 
 BATCH_SIZE        = 2048
 EMBED_DIM         = 256    # dimensions/size of the feature embedding vectors
 HIDDEN_NEURONS    = 32     # number of neurons in the hidden layers
-LEARNING_RATE     = 1e-4
+LEARNING_RATE     = 5e-6
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300    # the current model version is saved every once in a while
 MAX_PLIES         = 200    # stop self-play games after this many plies
