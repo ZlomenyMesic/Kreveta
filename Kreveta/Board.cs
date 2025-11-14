@@ -12,6 +12,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.nnue;
 using Kreveta.uci;
 
 using System;
@@ -67,25 +68,14 @@ internal struct Board {
 
     // number of moves played that weren't pawn pushes or captures
     internal byte HalfMoveClock = 0;
-    
+
+    internal NNUEEvaluator NNUEEval;
     internal short         StaticEval = 0;
 
     public Board() {
-        Pieces = new ulong[12];
+        Pieces   = new ulong[12];
+        NNUEEval = new NNUEEvaluator();
     }
-
-    /*
-    internal void Clear() {
-        Array.Clear(Pieces);
-
-        WOccupied      = 0UL;
-        BOccupied      = 0UL;
-
-        EnPassantSq    = 64;
-        CastRights = CastRights.NONE;
-        Color          = Color.NONE;
-    }
-    */
     
     // returns the piece at a certain square. this method isn't
     // really the fastest, but it's useful in the case where we
@@ -258,7 +248,8 @@ internal struct Board {
         }
         
         if (updateStaticEval) {
-            StaticEval = Eval.StaticEval(in this);
+            NNUEEval.Update(move, col);
+            StaticEval = (short)((NNUEEval.Score + Eval.StaticEval(in this)) / 2);
         }
     }
 
@@ -377,7 +368,8 @@ internal struct Board {
             byteCount:   96);
         
         return this with {
-            Pieces = newPieces
+            Pieces     = newPieces,
+            NNUEEval   = new NNUEEvaluator(NNUEEval)
         };
     }
 
@@ -436,12 +428,12 @@ internal struct Board {
                 [9] =  0x0000000000000081UL, // r
                 [10] = 0x0000000000000008UL, // q
                 [11] = 0x0000000000000010UL  // k
-            },
+            }
         };
-        
-        // this piece of junk is absolutely useless
-        board.StaticEval = 17;
 
+        board.NNUEEval   = new NNUEEvaluator(in board);
+        board.StaticEval = (short)((board.NNUEEval.Score + Eval.StaticEval(in board)) / 2);
+        
         return board;
     }
 }

@@ -97,5 +97,6 @@ for name, board in test_positions.items():
     predict = float(model.predict(expand, verbose=0)[0][0])
 
     print(board)
+    print(f"FEN:       {board.fen()}")
     print(f"Position:  {name}")
     print(f"NNUE Eval: {predict:.4f}\n")

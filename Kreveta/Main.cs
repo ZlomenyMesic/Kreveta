@@ -7,6 +7,7 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.moveorder.historyheuristics;
+using Kreveta.nnue;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
 using Kreveta.tuning;
@@ -15,7 +16,6 @@ using Kreveta.uci;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.Intrinsics;
 using System.Threading;
 
 namespace Kreveta;
@@ -51,6 +51,8 @@ internal static class Program {
         ContinuationHistory.Init();
         
         Eval.Init();
+        
+        NNUEWeights.Load(@"C:\Users\michn\Desktop\Kreveta\Kreveta\NNUETraining\export\nnue_weights.bin");
         
         // just for experimental purposes
         Tuning.ShiftParams();
