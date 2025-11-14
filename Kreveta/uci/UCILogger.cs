@@ -14,21 +14,25 @@ using NK = NeoKolors.Console;
 namespace Kreveta.uci;
 
 internal static partial class UCI {
-    
     private static bool _isNKInitialized;
     private static void InitNK() {
-        const string NKLogFilePath = @".\out.log";
+        const string NKLogDirectory = "./logs/";
+        const string NKLogFilePath  = NKLogDirectory + "{0}.log";
         
         if (_isNKInitialized) 
             return;
         
         _isNKInitialized = true;
         
+        if (!Directory.Exists(NKLogDirectory))
+            Directory.CreateDirectory(NKLogDirectory);
+        
         try {
             var nkOutput = new StreamWriter(NKLogFilePath);
 
             NK::NKDebug.Logger.Output         = nkOutput;
             NK::NKDebug.Logger.SimpleMessages = true;
+            NK::NKDebug.Logger.FileConfig     = NK.LogFileConfig.NewCount(NKLogFilePath);
         }
 
         // we are catching a "general exception type", because we have
