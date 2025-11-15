@@ -26,7 +26,7 @@ internal static class NNUEWeights {
     // Architecture parameters
     private const int EmbedCount   = 769;
     private const int EmbedDims    = 256;
-    private const int DenseNeurons = 32;
+    internal const int DenseNeurons = 32;
 
     
     internal static void Load(string binPath) {

@@ -198,8 +198,8 @@ internal sealed class NNUEEvaluator {
         float[] acc         = _accumulator;
         float[] denseBias   = NNUEWeights.DenseBias;
         float[] denseKernel = NNUEWeights.DenseKernelByNeuron;
-
-        for (int j = 0; j < 32; j++) {
+        
+        for (int j = 0; j < NNUEWeights.DenseNeurons; j++) {
             float sum = denseBias[j];
 
             int i = 0;
@@ -216,7 +216,7 @@ internal sealed class NNUEEvaluator {
             // scalar remainder
             for (; i < 256; i++)
                 sum += acc[i] * denseKernel[wBase + i];
-
+            
             // SCReLU activation function (Square Clipped ReLU)
             sum = Math.Clamp(sum, 0f, 1f);
             hiddenActivation[j] = sum * sum;
@@ -227,21 +227,21 @@ internal sealed class NNUEEvaluator {
         float[] outputKernel = NNUEWeights.OutputKernel;
 
         int k = 0;
-        for (; k <= 32 - vecWidth; k += vecWidth) {
+        for (; k <= NNUEWeights.DenseNeurons - vecWidth; k += vecWidth) {
             var vH = new Vector<float>(hiddenActivation, k);
             var vW = new Vector<float>(outputKernel, k);
             
             prediction += Vector.Dot(vH, vW);
         }
 
-        for (; k < 32; k++)
+        for (; k < NNUEWeights.DenseNeurons; k++)
             prediction += hiddenActivation[k] * outputKernel[k];
 
         // sigmoid final probability
         prediction = 1f / (1f + MathF.Exp(-prediction));
         
         // inverse to match correct score format
-        Score = InverseCPToP(prediction);
+        Score = (short)((prediction - 0.5f) * 2000);
     }
 
     // the python training script turns all evaluations (in cp)
