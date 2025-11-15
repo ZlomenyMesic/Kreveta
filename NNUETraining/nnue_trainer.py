@@ -31,14 +31,14 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 
 # the absolute path to Stockfish/any other UCI engine,
 # that is used for self-play and position evaluation
-STOCKFISH_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
+ENGINE_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 
-EVAL_TIME         = 0.4    # the time for the engine to evaluate each position (in seconds)
-NUM_WORKERS       = 12     # the number of individual "threads" working in parallel 
+EVAL_TIME         = 0.25   # the time for the engine to evaluate each position (in seconds)
+NUM_WORKERS       = 10     # the number of individual "threads" working in parallel 
 BATCH_SIZE        = 2048
-EMBED_DIM         = 256    # dimensions/size of the feature embedding vectors
-HIDDEN_NEURONS    = 32     # number of neurons in the hidden layers
-LEARNING_RATE     = 5e-6
+EMBED_DIM         = 128    # dimensions/size of the feature embedding vectors
+HIDDEN_NEURONS    = 32     # number of neurons in the hidden layer
+LEARNING_RATE     = 1e-3
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300    # the current model version is saved every once in a while
 MAX_PLIES         = 200    # stop self-play games after this many plies
@@ -139,15 +139,19 @@ def build_model(num_features = NUM_FEATURES, embed_dim = EMBED_DIM, hidden_units
     )
     return model
 
-def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
-    print(f"[worker {worker_id}] starting self-play, stockfish = {STOCKFISH_CMD}")
+def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
+    print(f"[worker {worker_id}] starting self-play; cmd = {ENGINE_CMD}")
 
     try:
-        engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_CMD)
-        engine.configure({"Hash": 16})
+        engine = chess.engine.SimpleEngine.popen_uci(ENGINE_CMD)
+        #engine.configure({
+        #    "PolyglotBook":    "C:\\Users\\michn\\Downloads\\rodent.bin",
+        #    "PolyglotUseBook": True,
+        #    "PrintStats":      False
+        #})
 
     except Exception as e:
-        print(f"[worker {worker_id}] failed to start Stockfish: {e}")
+        print(f"[worker {worker_id}] failed to start engine: {e}")
         return
 
     rng = random.Random(time.time() + worker_id)
@@ -155,10 +159,10 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
     while not stop_event.is_set():
         board = chess.Board()
         plies = 0
-        while not board.is_game_over() and plies < MAX_PLIES and not stop_event.is_set():
+        while plies < MAX_PLIES and not stop_event.is_set():
 
-            # 25 % chance for random moves during the game.
-            if rng.random() < 0.25:
+            # 15 % chance for random moves during the game.
+            if rng.random() < 0.15:
                 legal_moves = list(board.legal_moves)
                 move        = rng.choice(legal_moves)
                 board.push(move)
@@ -166,17 +170,22 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
             else:
                 try:
                     # sometimes limit time more for randomness
-                    move_time = EVAL_TIME * rng.uniform(0.1, 1.0)
-                    result = engine.play(board, chess.engine.Limit(time = move_time))
+                    move_time = EVAL_TIME * rng.uniform(0.5, 1.0)
+                    result    = engine.play(board, chess.engine.Limit(time = move_time))
+
                     if result.move is None:
                         break
                     
                     board.push(result.move)
+
                 except Exception as e:
                     print(f"[worker {worker_id}] play() error: {e}")
                     break
 
             plies += 1
+
+            if board.is_game_over():
+                break
 
             try:
                 info  = engine.analyse(board, chess.engine.Limit(time = EVAL_TIME))
@@ -192,10 +201,12 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
                 if sc.is_mate():
                     cp = 1000 if sc.mate() > 0 else -1000
                 else:
+                    # Kreveta already clips the score into [-1000..1000]
                     cp = np.clip(sc.score(), -1000, 1000)
 
-            # squeeze all evals into 0..1 interval
+            # squeeze all evals into [0..1] interval
             target = 1.0 / (1.0 + np.exp(-cp / 400.0))
+            #target = (cp / 2000) + 0.5
 
             # the feature indices for this position
             indices = board_features(board)
@@ -208,8 +219,8 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
             padded_mirror   = mirrored + [-1] * (32 - len(mirrored))
 
             try:
-                samples_queue.put((np.array(padded_original, dtype = np.int32), float(target)),       timeout=1.0)
-                samples_queue.put((np.array(padded_mirror,   dtype = np.int32), float(1.0 - target)), timeout=1.0) # mirrored target
+                samples_queue.put((np.array(padded_original, dtype = np.int32), float(target)),       timeout = 1.0)
+                samples_queue.put((np.array(padded_mirror,   dtype = np.int32), float(1.0 - target)), timeout = 1.0) # mirrored target
                 
             except Exception:
                 time.sleep(0.05)
@@ -218,7 +229,7 @@ def stockfish_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event)
         time.sleep(0.05)
 
     engine.quit()
-    print(f"[worker {worker_id}] stopping.")
+    print(f"[worker {worker_id}] Stopping.")
 
 def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
     last_save = time.time()
@@ -253,11 +264,13 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
 
             if time.time() - last_save > SAVE_EVERY_SEC:
                 print("Saving current model version...")
+
                 model.save(MODEL_DIR, include_optimizer = True)
                 last_save = time.time()
 
     except KeyboardInterrupt:
         print("Training interrupted, exiting gracefully...")
+
     finally:
         model.save(MODEL_DIR, include_optimizer = True)
         stop_event.set()
@@ -283,6 +296,7 @@ def main():
         except Exception as e:
             print(f"Load failed: {e}, building new model...")
             model = build_model()
+
     else:
         model = build_model()
         print("Finished building new model.")
@@ -294,20 +308,22 @@ def main():
     workers = []
     for i in range(NUM_WORKERS):
         p = mp_ctx.Process(
-            target = stockfish_worker,
+            target = engine_worker,
             args   = (i, samples_queue, stop_event),
             daemon = True
         )
+
         p.start()
         workers.append(p)
 
     def handle_sigint(signum, frame):
-        print("SIGINT received; stopping...")
+        print("Stopping...")
         stop_event.set()
     signal.signal(signal.SIGINT, handle_sigint)
 
     try:
         trainer_loop(model, samples_queue, stop_event)
+
     finally:
         print("Waiting for workers...")
         stop_event.set()
