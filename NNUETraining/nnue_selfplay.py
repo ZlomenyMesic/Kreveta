@@ -33,19 +33,21 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 # that is used for self-play and position evaluation
 ENGINE_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 
-EVAL_TIME         = 0.25   # the time for the engine to evaluate each position (in seconds)
+EVAL_TIME         = 0.4    # the time for the engine to evaluate each position (in seconds)
 NUM_WORKERS       = 10     # the number of individual "threads" working in parallel 
-BATCH_SIZE        = 2048
-EMBED_DIM         = 128    # dimensions/size of the feature embedding vectors
-HIDDEN_NEURONS    = 32     # number of neurons in the hidden layer
-LEARNING_RATE     = 1e-3
-SAMPLES_QUEUE_MAX = 10000
-SAVE_EVERY_SEC    = 300    # the current model version is saved every once in a while
-MAX_PLIES         = 200    # stop self-play games after this many plies
 
 # the number of unique vectors that will be used in the accumulator.
 # corresponds to 2 colors * 6 piece types * 64 squares = 768 features
-NUM_FEATURES = 768
+NUM_FEATURES      = 768
+EMBED_DIM         = 128    # dimensions/size of the feature embedding vectors
+H1_NEURONS        = 32     # number of neurons in the first hidden layer
+H2_NEURONS        = 16     # second hidden layer
+LEARNING_RATE     = 1e-3
+BATCH_SIZE        = 2048
+
+SAMPLES_QUEUE_MAX = 10000
+SAVE_EVERY_SEC    = 300    # the current model version is saved every once in a while
+MAX_PLIES         = 200    # stop self-play games after this many plies
 
 # maps a piece of certain color and position combo
 # to a single feature index in range 0-767. color
@@ -57,16 +59,16 @@ def feature_index(piece_type: int, color: bool, square: int) -> int:
 # for every position in the training batch we also train on the mirrored one
 def mirror_feature_index(idx: int) -> int:
     # decode
-    square     = idx % 64
-    rest       = idx // 64
-    color_bit  = rest // 6       # 0 for white, 1 for black
-    piece_type = (rest % 6) + 1  # 1..6
+    square     = idx   % 64
+    rest       = idx  // 64
+    color_bit  = rest // 6  # 0 for white, 1 for black
+    piece_type = rest  % 6  # 0..5
 
     # mirror square and flip color
     mirrored_square    = chess.square_mirror(square)
     mirrored_color_bit = 1 - color_bit
 
-    return (mirrored_color_bit * 6 + (piece_type - 1)) * 64 + mirrored_square
+    return (mirrored_color_bit * 6 + piece_type) * 64 + mirrored_square
 
 # mirror a list of feature indices
 def mirror_indices(indices: list) -> list:
@@ -88,54 +90,44 @@ def board_features(board: chess.Board):
             
     return indices
 
-# SCReLU activation function
-@tf.function
-def screlu_tf(x):
-    return tf.square(tf.clip_by_value(x, 0.0, 1.0))
-
-def SCReLU():
-    # output shape must be present, so Keras know it's the same as input
-    return layers.Lambda(lambda x: screlu_tf(x), 
-                         name         = "SCReLU", 
-                         output_shape = lambda s: s)
-
-def build_model(num_features = NUM_FEATURES, embed_dim = EMBED_DIM, hidden_units = HIDDEN_NEURONS):
-    # the input layer takes 32 feature indices
-    inp = layers.Input(
-        shape = (32,),
-        dtype = 'int32',
-        name  = 'feature_indices'
+def build_model():
+    # the input layer takes at most 32 feature indices
+    input = layers.Input(
+        shape  = (None,),
+        ragged = True,
+        dtype  = 'int32',
+        name   = 'FeatureIndices'
     )
-
-    # then shift the indices to be non-negative
-    shifted = layers.Lambda(lambda x: x + 1,
-                            output_shape = lambda s: s,
-                            name         = 'shift_indices')(inp)
 
     # the embedding layer - maps each feature index to its
     # respective feature embedding vector (128-dimensional)
-    embedding = layers.Embedding(num_features + 1, embed_dim, name = 'feature_embedding')(shifted)
+    embedding = layers.Embedding(
+        NUM_FEATURES,
+        EMBED_DIM,
+        name = 'Embedding'
+    )(input)
 
     # all embedding vectors are summed (future accumulator)
-    summed = layers.Lambda(lambda x: tf.reduce_sum(x, axis = 1),
-                           output_shape = lambda s: (s[0], s[2]),
-                           name         = 'embed_sum')(embedding)
+    summed = layers.Lambda(
+        lambda x: tf.reduce_sum(x, axis = 1),
+        output_shape = (EMBED_DIM,),
+        name         = 'EmbeddingSum'
+    )(embedding)
 
-    # a hidden dense layer and SCReLU activation
-    hidden    = layers.Dense(hidden_units)(summed)
-    activated = SCReLU()(hidden)
+    h1 = layers.Dense(H1_NEURONS, activation = 'relu', name = "Hidden_32")(summed)
+    h2 = layers.Dense(H2_NEURONS, activation = 'relu', name = "Hidden_8")(h1)
     
     # the output layer is a single sigmoid-activation neuron.
     # values closer to 1 denote a position better for white,
     # while values closer to 0 are better for black
-    output = layers.Dense(1, activation = 'sigmoid')(activated)
+    output = layers.Dense(1, activation = 'sigmoid', name = 'Output')(h2)
 
     # compile the model
-    model = models.Model(inp, output)
+    model = models.Model(input, output)
     model.compile(
         optimizer = optimizers.Adam(LEARNING_RATE),
         loss      = losses.BinaryCrossentropy(),
-        metrics   = [tf.keras.metrics.MeanSquaredError(name = 'mse')]
+        metrics   = [keras.metrics.MeanAbsoluteError(name = 'mae')]
     )
     return model
 
@@ -162,7 +154,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
         while plies < MAX_PLIES and not stop_event.is_set():
 
             # 15 % chance for random moves during the game.
-            if rng.random() < 0.15:
+            if rng.random() < 0.25:
                 legal_moves = list(board.legal_moves)
                 move        = rng.choice(legal_moves)
                 board.push(move)
@@ -170,7 +162,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             else:
                 try:
                     # sometimes limit time more for randomness
-                    move_time = EVAL_TIME * rng.uniform(0.5, 1.0)
+                    move_time = EVAL_TIME * rng.uniform(0.3, 1.0)
                     result    = engine.play(board, chess.engine.Limit(time = move_time))
 
                     if result.move is None:
@@ -208,15 +200,15 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             target = 1.0 / (1.0 + np.exp(-cp / 400.0))
             #target = (cp / 2000) + 0.5
 
-            # the feature indices for this position
-            indices = board_features(board)
-
-            # mirror the board and piece colors, and compute indices as well
+            # feature indices for this position, and for a mirrored 
+            # version - opposite indices and piece colors
+            indices  = board_features(board)
             mirrored = mirror_indices(indices)
 
             try:
+                # add the features to the queue along with their evaluations
                 samples_queue.put((np.array(indices,  dtype = np.int32), float(target)),       timeout = 1.0)
-                samples_queue.put((np.array(mirrored, dtype = np.int32), float(1.0 - target)), timeout = 1.0) # mirrored target
+                samples_queue.put((np.array(mirrored, dtype = np.int32), float(1.0 - target)), timeout = 1.0)
                 
             except Exception:
                 time.sleep(0.05)
@@ -229,12 +221,15 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
 
 def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
     last_save = time.time()
-    x_batch, y_batch = [], []
-    seen = 0
+    x_batch   = []
+    y_batch   = []
+    seen      = 0
+
     try:
         while not stop_event.is_set():
             try:
                 x, y = samples_queue.get(timeout = 1.0)
+
             except Exception:
                 continue
 
@@ -242,30 +237,30 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
             y_batch.append(y)
 
             if len(x_batch) >= BATCH_SIZE:
-                x_np = np.stack(x_batch, axis = 0)
-                y_np = np.array(y_batch, dtype = np.float32).reshape(-1, 1)
+                x_ragged = tf.ragged.constant(x_batch, dtype = tf.int32)
+                y_np     = np.array(y_batch, dtype = np.float32).reshape(-1, 1)
 
-                loss, mse = model.train_on_batch(x_np, y_np)
+                loss, mae = model.train_on_batch(x_ragged, y_np)
 
                 seen += len(x_batch)
                 x_batch.clear()
                 y_batch.clear()
 
                 timestamp = datetime.now().isoformat()
-                log_info  = f"[{timestamp}] samples = {seen} loss = {loss:.6f} MSE = {mse:.6f}"
+                log_info  = f"[{timestamp}] samples: {seen} loss: {loss:.5f} mae: {mae:.5f}"
 
                 print(log_info)
                 with open("log.txt", "a") as f:
                     f.write(log_info + '\n')
 
             if time.time() - last_save > SAVE_EVERY_SEC:
-                print("Saving current model version...")
+                print("saving current model version...")
 
                 model.save(MODEL_DIR, include_optimizer = True)
                 last_save = time.time()
 
     except KeyboardInterrupt:
-        print("Training interrupted, exiting gracefully...")
+        print("training interrupted, exiting gracefully...")
 
     finally:
         model.save(MODEL_DIR, include_optimizer = True)
@@ -275,27 +270,25 @@ def main():
     # build or load model
     if os.path.exists(MODEL_DIR):
         try:
-            print(f"Loading model from {MODEL_DIR}")
+            print(f"loading model from {MODEL_DIR}")
             model = tf.keras.models.load_model(
                 MODEL_DIR,
-                custom_objects = {'SCReLU': SCReLU, 'screlu_tf': screlu_tf},
-                safe_mode      = False
+                safe_mode = False
             )
 
-            # --- force all Lambda layers to know about tf and screlu_tf ---
+            # force the embedding sum lambda layer to know about tf
             for layer in model.layers:
                 if isinstance(layer, keras.layers.Lambda):
                     fn_globals = layer.function.__globals__
-                    fn_globals['tf']        = tf
-                    fn_globals['screlu_tf'] = screlu_tf
+                    fn_globals['tf'] = tf
 
         except Exception as e:
-            print(f"Load failed: {e}, building new model...")
+            print(f"load failed: {e}, building new model...")
             model = build_model()
 
     else:
         model = build_model()
-        print("Finished building new model.")
+        print("finished building new model.")
 
     mp_ctx        = mp.get_context("spawn")
     samples_queue = mp_ctx.Queue(maxsize = SAMPLES_QUEUE_MAX)
@@ -313,7 +306,7 @@ def main():
         workers.append(p)
 
     def handle_sigint(signum, frame):
-        print("Stopping...")
+        print("stopping...")
         stop_event.set()
     signal.signal(signal.SIGINT, handle_sigint)
 
@@ -321,7 +314,7 @@ def main():
         trainer_loop(model, samples_queue, stop_event)
 
     finally:
-        print("Waiting for workers...")
+        print("waiting for workers...")
         stop_event.set()
         for p in workers:
             p.join(timeout = 2)

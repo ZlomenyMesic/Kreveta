@@ -196,10 +196,10 @@ internal sealed class NNUEEvaluator {
         float[] hiddenActivation = _hiddenLayerActivation;
 
         float[] acc         = _accumulator;
-        float[] denseBias   = NNUEWeights.DenseBias;
-        float[] denseKernel = NNUEWeights.DenseKernelByNeuron;
+        float[] denseBias   = NNUEWeights.H1Bias;
+        float[] denseKernel = NNUEWeights.H1Kernel;
         
-        for (int j = 0; j < NNUEWeights.DenseNeurons; j++) {
+        for (int j = 0; j < NNUEWeights.H1Neurons; j++) {
             float sum = denseBias[j];
 
             int i = 0;
@@ -227,14 +227,14 @@ internal sealed class NNUEEvaluator {
         float[] outputKernel = NNUEWeights.OutputKernel;
 
         int k = 0;
-        for (; k <= NNUEWeights.DenseNeurons - vecWidth; k += vecWidth) {
+        for (; k <= NNUEWeights.H1Neurons - vecWidth; k += vecWidth) {
             var vH = new Vector<float>(hiddenActivation, k);
             var vW = new Vector<float>(outputKernel, k);
             
             prediction += Vector.Dot(vH, vW);
         }
 
-        for (; k < NNUEWeights.DenseNeurons; k++)
+        for (; k < NNUEWeights.H1Neurons; k++)
             prediction += hiddenActivation[k] * outputKernel[k];
 
         // sigmoid final probability
