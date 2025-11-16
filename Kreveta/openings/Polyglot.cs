@@ -33,7 +33,7 @@ internal static partial class Polyglot {
         ulong hash = PolyglotZobristHash.Hash(board);
         var book = LoadBook();
 
-        var possible = GetMovesForPosition(hash, book);
+        var possible = GetMovesForPosition(hash, [..book]);
 
         // no possible moves have been found
         if (possible.Length == 0) return default;
@@ -104,11 +104,11 @@ internal static partial class Polyglot {
     // moves, but the probability of playing a lower-weight move is still smaller
     // compared to better moves. so increasing the risk only allows the engine to
     // play worse, but by no means is it forced
-    private static PolyglotEntry SelectMove(PolyglotEntry[] possibleMoves) {
+    private static PolyglotEntry SelectMove(ReadOnlySpan<PolyglotEntry> possibleMoves) {
         // first, the weights are normalized - this might not be necessary,
         // but it makes things easier to visualize. simultaneously, as described
         // above - moves with weights too low get immediately discarded
-        var normalized = NormalizeWeights(possibleMoves, out int max).Where(i => i.Weight >= 1 - Risk)
+        var normalized = NormalizeWeights([..possibleMoves], out int max).Where(i => i.Weight >= 1 - Risk)
             .OrderByDescending(i => i.Weight).ToArray();
         
         /*
@@ -147,11 +147,11 @@ internal static partial class Polyglot {
     
     // returns all entries with keys matching to the zobrist hash
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static PolyglotEntry[] GetMovesForPosition(ulong hash, PolyglotEntry[] book)
+    private static ReadOnlySpan<PolyglotEntry> GetMovesForPosition(ulong hash, PolyglotEntry[] book)
         => book.Where(entry => entry.Key == hash).ToArray();
 
     // load all entries from the specified polyglot book
-    private static PolyglotEntry[] LoadBook() {
+    private static ReadOnlySpan<PolyglotEntry> LoadBook() {
         if (!File.Exists(Options.PolyglotBook)) {
             UCI.Log($"Polyglot file not found: {Options.PolyglotBook}", UCI.LogLevel.ERROR);
             return [];
