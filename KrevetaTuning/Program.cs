@@ -21,7 +21,9 @@ internal static class Program {
     private const int MoveTime = 200;
     
     // how many "new engines" to create/test
-    private const  int Cycles = 1_000_000;
+    private const int Cycles = 1_000_000;
+
+    private const int ShiftsPerEval = 1;
 
     private static float _krevetaBaseMSE;
     private static float _krevetaBaseMoveAccuracy;
@@ -142,7 +144,7 @@ internal static class Program {
             ActiveEngines.Add(newKreveta);
 
         try {
-            var paramCMD = ParamGenerator.CreateCMD(20);
+            var paramCMD = ParamGenerator.CreateCMD(ShiftsPerEval);
             Console.WriteLine($"Evaluating a new Kreveta ({num + 1}/{Cycles}) with params:\n{paramCMD}\n");
 
             newKreveta.Send(paramCMD);

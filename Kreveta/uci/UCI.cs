@@ -25,6 +25,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
+using Kreveta.evaluation;
 using Kreveta.nnue;
 
 // ReSharper disable InvokeAsExtensionMethod
@@ -81,7 +82,7 @@ internal static partial class UCI {
                 // yet, it's nice to have the option to do so implemented
                 case "ucinewgame":
                     Game.FullGame      = true;
-                    Game.PreviousScore = 0;
+                    //Game.PreviousScore = 0;
                     
                     TT.Clear();
                     break;
@@ -123,7 +124,24 @@ internal static partial class UCI {
                     break;
 
                 case "eval": {
-                    Log($"se {Game.Board.StaticEval}");
+                    // log the handcrafted static eval score
+                    Log($"se {Eval.StaticEval(in Game.Board)}");
+
+                    // and the NNUE predicted score
+                    var nnue = new NNUEEvaluator(Game.Board);
+                    Log($"nnue {nnue.Score}");
+                    
+                    /*nnue 14
+position startpos moves e2e4
+eval
+se 27
+nnue 50
+position startpos moves g1f3 c7c5
+eval
+se 9
+nnue 80
+*/
+                    
                     break;
                 }
                 

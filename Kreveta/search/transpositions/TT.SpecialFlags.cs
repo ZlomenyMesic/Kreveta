@@ -17,6 +17,6 @@ internal static partial class TT {
         SCORE_LOWER_BOUND = 2, // the score was below alpha
         SCORE_EXACT       = 4, // the score fell right into the window
 
-        SHOULD_OVERWRITE  = 8  // the node is old and should be overwritten
+        //SHOULD_OVERWRITE  = 8  // the node is old and should be overwritten
     }
 }

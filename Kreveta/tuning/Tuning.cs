@@ -6,18 +6,14 @@
 #pragma warning disable CA1031
 #pragma warning disable CA1305
 
-using Kreveta.evaluation;
-using Kreveta.moveorder.historyheuristics;
-using Kreveta.uci;
-
 using System;
 
 namespace Kreveta.tuning;
 
 internal static class Tuning {
     internal static void TuneParams(ReadOnlySpan<string> tokens) {
-        try {
-            /*FutilityPruning.MarginBase                += int.Parse(tokens[1]); // step 0-15
+        /*try {
+            FutilityPruning.MarginBase                += int.Parse(tokens[1]); // step 0-15
             FutilityPruning.DepthMultiplier           += int.Parse(tokens[2]); // step 0-12
             FutilityPruning.ImprovingMargin           += int.Parse(tokens[3]);
             FutilityPruning.NotImprovingMargin        += int.Parse(tokens[4]);
@@ -36,32 +32,16 @@ internal static class Tuning {
             QuietHistory.ShiftSubtract                += short.Parse(tokens[15]);
             
             QuietHistory.ShiftLimit                   += short.Parse(tokens[16]); // step 0-15
-            Eval.SideToMoveBonus                      += sbyte.Parse(tokens[17]);
-            Eval.DoubledPawnPenalty                   += sbyte.Parse(tokens[18]);
-            Eval.IsolatedPawnPenalty                  += sbyte.Parse(tokens[19]);
-            Eval.IsolaniAddPenalty                    += sbyte.Parse(tokens[20]);
+            DeltaPruning.DeltaMarginBase              += int.Parse(tokens[17]); // step 40
+            DeltaPruning.CapturedMultiplier           += int.Parse(tokens[18]); // step 30
+            LateMoveReductions.MarginBase             += sbyte.Parse(tokens[19]); // step 15
+            LateMoveReductions.SearchedMovesMult      += sbyte.Parse(tokens[20]); // step 50
             
-            Eval.ConnectedPassedPawnBonus             += sbyte.Parse(tokens[21]);
-            Eval.BlockedPawnPenalty                   += sbyte.Parse(tokens[22]);
-            Eval.BishopPairBonus                      += sbyte.Parse(tokens[23]);
-            Eval.OpenFileRookBonus                    += sbyte.Parse(tokens[24]);
-            Eval.SemiOpenFileRookBonus                += sbyte.Parse(tokens[25]);
-            
-            DeltaPruning.DeltaMarginBase              += int.Parse(tokens[26]); // step 40
-            DeltaPruning.CapturedMultiplier           += int.Parse(tokens[27]); // step 30
-            LateMoveReductions.MarginBase             += sbyte.Parse(tokens[28]); // step 15
-            LateMoveReductions.SearchedMovesMult      += sbyte.Parse(tokens[29]); // step 50
-            NullMovePruning.PieceDivisor              += int.Parse(tokens[30]);*/
-
-            for (int i = 1; i < tokens.Length; i++) {
-                if (short.TryParse(tokens[i], out short val) && val != 0) {
-                    EvalTables.Middlegame[i] += val;
-                }
-            }
+            NullMovePruning.PieceDivisor              += int.Parse(tokens[21]);
         } 
         catch (Exception e) 
             when (UCI.LogException("Tuning params failed", e)) 
-        { }
+        { }*/
     }
 
     internal static void ShiftParams() {

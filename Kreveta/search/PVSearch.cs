@@ -34,6 +34,9 @@ internal static class PVSearch {
     // evaluated final score of the principal variation
     internal static short PVScore;
 
+    internal static ulong NullSearchAttempts;
+    internal static ulong ReSearchedNodes;
+
     // PRINCIPAL VARIATION
     // in pvsearch, the pv represents a variation (sequence of moves),
     // which the engine considers the best. the moves in the pv represent
@@ -100,11 +103,14 @@ internal static class PVSearch {
     internal static void Reset() {
         QSearch.CurQSDepth = 0;
 
-        CurDepth = 0;
+        CurDepth      = 0;
         AchievedDepth = 0;
-        CurNodes = 0UL;
-        PVScore = 0;
-        PV = [];
+        CurNodes      = 0UL;
+        PVScore       = 0;
+        PV            = [];
+        
+        NullSearchAttempts = 0UL;
+        ReSearchedNodes    = 0UL;
 
         Eval.StaticEvalCount = 0UL;
 
@@ -114,7 +120,7 @@ internal static class PVSearch {
         QuietHistory.Clear();
         PawnCorrectionHistory.Clear();
         CounterMoveHistory.Clear();
-        ContinuationHistory.Clear();
+        //ContinuationHistory.Clear();
         
         TT.Clear();
     }
@@ -179,7 +185,7 @@ internal static class PVSearch {
     // once we get to depth = 0, we drop into the qsearch.
     private static (short Score, Move[] PV) Search(
         ref Board board, // the position to be searched
-        SearchState ss
+        SearchState ss   // stores window, color, ply, depth, previous move
         //bool canNMP      // can null move prune? (avoids recursive NMP)
         ) {
 
@@ -320,12 +326,12 @@ internal static class PVSearch {
 
             ulong pieceCount = ulong.PopCount(child.Occupied);
             
-            // skip any pruning, AND the full search if there is a known draw
-            bool skipFullSearch = child.HalfMoveClock >= 100
-                                  || pieceCount <= 4 && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount);
-
             // did this move capture a piece?
             bool isCapture = curMove.Capture != PType.NONE;
+            
+            // skip any pruning, AND the full search if there is a known draw
+            bool isKnownDraw = child.HalfMoveClock >= 100
+                                  || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount);
 
             // if a position is "interesting", we avoid pruning and reductions
             // a child node is marked as interesting if we:
@@ -349,7 +355,7 @@ internal static class PVSearch {
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
 
             // must meet certain conditions for fp
-            if (!skipFullSearch 
+            if (!isKnownDraw 
                 && PruningOptions.AllowFutilityPruning
                 && ss.Ply   >= FutilityPruning.MinPly
                 && ss.Depth <= FutilityPruning.MaxDepth
@@ -364,7 +370,7 @@ internal static class PVSearch {
             }
 
             // more conditions (late move pruning and reductions are kind of combined)
-            if (!skipFullSearch 
+            if (!isKnownDraw 
                 && (PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
                 && !interesting
                 && ss.Ply        >= LateMoveReductions.MinPly
@@ -386,16 +392,50 @@ internal static class PVSearch {
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
             (short Score, Move[] PV) fullSearch = (0, []);
-            
-            if (!skipFullSearch)
-                fullSearch = ProbeTT(ref child, ss 
+
+            if (!isKnownDraw) {
+                // on these moves perform a full search
+                bool pvs = interesting
+                           || ss.Depth      >  4
+                           || searchedMoves <= 7;
+
+                if (!pvs) NullSearchAttempts++;
+                
+                // pv search uses a full window, others do not
+                Window window = pvs ? ss.Window 
+                    : col == Color.BLACK
+                        ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta)
+                        : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
+                
+                fullSearch = ProbeTT(ref child, ss
                     with { 
                         Ply         = (sbyte)(ss.Ply + 1),
                         Depth       = (sbyte)curDepth,
+                        Window      = window,
                         //Penultimate = ss.Previous,
                         Previous    = curMove
                     }
                 );
+
+                // if the move failed high despite the null window search,
+                // we shall do a full re-search with a full window
+                if (!pvs && (col == Color.WHITE
+                        ? fullSearch.Score > window.Alpha
+                        : fullSearch.Score < window.Beta)) {
+
+                    ReSearchedNodes++;
+                    
+                    fullSearch = ProbeTT(ref child, ss 
+                        with { 
+                            Ply         = (sbyte)(ss.Ply + 1),
+                            Depth       = (sbyte)curDepth,
+                            //Penultimate = ss.Previous,
+                            Previous    = curMove
+                        }
+                    );
+                }
+            }
+
 
             // we somehow still failed low
             if (col == Color.WHITE

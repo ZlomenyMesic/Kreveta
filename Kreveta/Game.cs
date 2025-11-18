@@ -33,7 +33,7 @@ internal static class Game {
     internal static bool FullGame;
     
     // the score from the previous turn - applied when playing a full game
-    internal static int  PreviousScore;
+    //internal static int  PreviousScore;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
     private static  List<ulong>    HistoryPositions = [];
@@ -181,8 +181,8 @@ internal static class Game {
         }
 
         Board.NNUEEval   = new NNUEEvaluator(in Board);
-        //Board.StaticEval = Board.NNUEEval.Score;
-        Board.StaticEval = (short)((Board.NNUEEval.Score + Eval.StaticEval(in Board)) / 2);
+        Board.StaticEval = Board.NNUEEval.Score;
+        //Board.StaticEval = Eval.StaticEval(in Board);//(short)((Board.NNUEEval.Score + Eval.StaticEval(in Board)) / 2);
 
         // after these tokens may also follow a fullmove and halfmove clock,
         // but we don't need this information for anything
