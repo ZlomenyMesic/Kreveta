@@ -45,13 +45,13 @@ internal static class Program {
         
         PextLookupTables.Init();
         LookupTables.Init();
-        Check.Init();
+        //Check.Init();
         
         QuietHistory.Init();
-        ContinuationHistory.Init();
+        //ContinuationHistory.Init();
         
         Eval.Init();
-        
+
         NNUEWeights.Load(@"C:\Users\michn\Desktop\Kreveta\Kreveta\NNUETraining\export\nnue_weights.bin");
         
         // just for experimental purposes
@@ -59,7 +59,7 @@ internal static class Program {
 
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue
-        Thread.Sleep(400);
+        Thread.Sleep(500);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position

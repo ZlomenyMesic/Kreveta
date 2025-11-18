@@ -49,7 +49,7 @@ internal static class Check {
     // landing pieces on the blocking ray in regular check. tests done so
     // far actually show this greatly slows down the engine. might work on
     // this more in the future
-    internal static (byte Attackers, ulong BlockingRay) IsKingCheckedPrecise(in Board board, Color kingCol) {
+    /*internal static (byte Attackers, ulong BlockingRay) IsKingCheckedPrecise(in Board board, Color kingCol) {
         byte kingSq = BB.LS1B(board.Pieces[(byte)kingCol * 6 + 5]);
         int oppBase = kingCol == Color.WHITE ? 6 : 0;
 
@@ -126,5 +126,5 @@ internal static class Check {
             return true;
 
         return false;
-    }
+    }*/
 }

@@ -18,16 +18,16 @@ namespace Kreveta.search.pruning;
 internal static class DeltaPruning {
     internal const int MinPly = 4;
 
-    internal static int DeltaMarginBase      = 0;
+    //private const int DeltaMarginBase      = 0;
     private const int DeltaDepthMultiplier = 77;
-    internal static int CapturedMultiplier   = 105;
+    private const int CapturedMultiplier   = 105;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool TryPrune(int ply, int curQSDepth, Color col, Window window, short standPat, int captured) {
 
         // the delta base is multiplied by depth, but the depth must be calculated
         // in a bit more difficult way (maximum qsearch depth - current ply)
-        int delta = (DeltaMarginBase + (curQSDepth - ply) * DeltaDepthMultiplier) 
+        int delta = ((curQSDepth - ply) * DeltaDepthMultiplier)
             * (col == Color.WHITE ? 1 : -1);
 
         // add the value of the captured piece and delta

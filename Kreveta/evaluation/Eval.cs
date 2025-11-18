@@ -27,7 +27,7 @@ internal static class Eval {
     private const sbyte BishopPairBonus = 35;
 
     private const sbyte OpenFileRookBonus     = 18;
-    private const sbyte SemiOpenFileRookBonus = 7;
+    //private const sbyte SemiOpenFileRookBonus = 7;
     //private const int SeventhRankRookBonus     = 3;
 
     //internal const int KingInCheckPenalty      = 72;
@@ -261,7 +261,7 @@ internal static class Eval {
             byte sq = BB.LS1BReset(ref wCopy);
 
             // number of friendly pawns on the same file as the rook
-            byte ownPawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & wPawns);
+            //byte ownPawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & wPawns);
 
             // total number of pawns on the same file
             byte pawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
@@ -274,8 +274,8 @@ internal static class Eval {
             // those for open files). a file is semi-open only if there aren't
             // any friendly pawns on it. we assume this file might open in the
             // future since we can always capture the opposite pawns
-            else if (ownPawnCount == 0)
-                eval += SemiOpenFileRookBonus;
+            //else if (ownPawnCount == 0)
+            //    eval += SemiOpenFileRookBonus;
         }
 
         // the same exact principle as above, but for black. although repeating
@@ -287,14 +287,14 @@ internal static class Eval {
             
             byte sq           = BB.LS1BReset(ref bCopy);
             byte pawnCount    = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & (wPawns | bPawns));
-            byte ownPawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & bPawns);
+            //byte ownPawnCount = (byte)ulong.PopCount(Consts.FileMask[sq & 7] & bPawns);
 
             // we subtract this time for black
             if (pawnCount == 0)
                 eval -= OpenFileRookBonus;
 
-            else if (ownPawnCount == 0)
-                eval -= SemiOpenFileRookBonus;
+            //else if (ownPawnCount == 0)
+            //    eval -= SemiOpenFileRookBonus;
         }
 
         // rooks on the seventh rank (or second rank for black) are considered very

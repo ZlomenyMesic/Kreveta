@@ -92,14 +92,20 @@ internal static class PVSControl {
         }
        
         long time = sw.ElapsedMilliseconds == 0 ? 1 : sw.ElapsedMilliseconds;
+
+        double reSearchPercentage = Math.Round((double)PVSearch.ReSearchedNodes / PVSearch.NullSearchAttempts * 100, 2);
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
-            ("nodes searched",     TotalNodes),
-            ("time spent",         sw.Elapsed),
-            ("average NPS",        (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
-            ("static evaluations", Eval.StaticEvalCount),
-            ("tt hits",            TT.TTHits));
+            ("nodes searched",         TotalNodes),
+            ("time spent",             sw.Elapsed),
+            ("average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
+            ("static evaluations",     Eval.StaticEvalCount),
+            ("tt hits",                TT.TTHits),
+            ("null-search attempts",   PVSearch.NullSearchAttempts),
+            ("forced re-searches",     PVSearch.ReSearchedNodes),
+            ("forced re-searches (%)", reSearchPercentage)
+        );
         
         //Console.WriteLine($"fp attempts: {FutilityPruning.Attempts}");
         //Console.WriteLine($"fp prunes: {FutilityPruning.Prunes}");
@@ -108,8 +114,8 @@ internal static class PVSControl {
         UCI.Log($"bestmove {BestMove.ToLAN()}");
         
         // store this score for the next turn when playing a full game
-        if (Game.FullGame)
-            Game.PreviousScore = PVSearch.PVScore;
+        //if (Game.FullGame)
+        //    Game.PreviousScore = PVSearch.PVScore;
 
         // reset all counters for the next search
         // (not the next iteration of the current one)

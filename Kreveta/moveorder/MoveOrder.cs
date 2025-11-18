@@ -100,7 +100,7 @@ internal static unsafe class MoveOrder {
         for (int i = 0; i < mvvlva.Length; i++) {
             sorted[cur++] = mvvlva[i];
         }
-
+        
         //
         // 3. KILLER MOVES
         //

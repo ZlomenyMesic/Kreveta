@@ -19,7 +19,6 @@ def main():
     print("Loading model...")
     model = tf.keras.models.load_model(
         MODEL_PATH,
-        custom_objects = {"SCReLU": lambda: None, "screlu_tf": lambda x: x},
         safe_mode = False
     )
 

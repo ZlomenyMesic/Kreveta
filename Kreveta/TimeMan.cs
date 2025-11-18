@@ -147,6 +147,7 @@ internal static class TimeMan {
     }
 
     private static void CalculateTimeBudget() {
+        const float safetyMult = 1.15f;
 
         // we have a strictly set time for our search,
         // or are in an infinite search, so we don't
@@ -168,7 +169,7 @@ internal static class TimeMan {
         // and divided by the number of moves to go until the next clock
         // reset (little bit more than that, some calculations may take
         // longer than expected, and we don't want to lose on time)
-        TimeBudget = (int)(TimeBudget / (_movesToGo * 1.1f));
+        TimeBudget = (int)(TimeBudget / (_movesToGo * safetyMult));
     }
     
     // when the score suddenly changes from the previous turn (both drops

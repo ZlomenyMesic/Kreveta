@@ -29,7 +29,7 @@ internal static class FutilityPruning {
 
     // if improving, make the margin smaller (this seems a bit counter-intuitive,
     // as we are pruning improving positions more, but it works)
-    private const int ImprovingMargin    = -35;
+    private const int ImprovingMargin    = -35;  
     private const int NotImprovingMargin = 23; 
 
     // try futility pruning

@@ -2,7 +2,7 @@
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
-
+/*
 #pragma warning disable CA5394
 
 using Kreveta.movegen;
@@ -73,4 +73,4 @@ internal static class ContinuationHistory {
     }
 }
 
-#pragma warning restore CA5394
+#pragma warning restore CA5394*/

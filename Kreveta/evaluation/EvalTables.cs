@@ -44,7 +44,7 @@ internal static class EvalTables {
 
     #region MIDDLEGAME
 
-    internal static readonly short[] Middlegame =
+    private static readonly short[] Middlegame =
     [ // pawns
       100,  100,  100,  100,  100,  100,  100,  100,
       104,  109,  105,  90,   90,   101,  102,  104,
@@ -103,7 +103,7 @@ internal static class EvalTables {
 #endregion
     
 #region ENDGAME
-internal static readonly short[] Endgame =
+private static readonly short[] Endgame =
     [ // pawns
       100,  100,  100,  100,  100,  100,  100,  100,
       75,   75,   75,   70,   70,   75,   75,   75,

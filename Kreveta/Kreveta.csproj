@@ -20,11 +20,8 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageReference Include="BenchmarkDotNet.Annotations" Version="0.14.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.14.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageReference Include="NeoKolors.Common" Version="0.25.22" />
     <PackageReference Include="NeoKolors.Console" Version="0.25.22" />
-    <PackageReference Include="ZstdSharp" Version="0.7.2" />
   </ItemGroup>
 
   <ItemGroup>
