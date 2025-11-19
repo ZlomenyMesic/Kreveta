@@ -37,24 +37,14 @@ def board_features(board: chess.Board):
                 sq
             ))
 
-    return indices + [-1] * (32 - len(indices))
-
-# SCReLU activation definition
-@tf.function
-def screlu_tf(x):
-    return tf.square(tf.clip_by_value(x, 0.0, 1.0))
-
-def SCReLU():
-    from keras import layers
-    return layers.Lambda(lambda x: screlu_tf(x), name = "SCReLU")
+    return indices
 
 # next try to load the actual model
 print(f"Loading model from {MODEL_PATH} ...")
 
 model = tf.keras.models.load_model(
     MODEL_PATH,
-    custom_objects = {'SCReLU': SCReLU, 'screlu_tf': screlu_tf},
-    safe_mode      = False
+    safe_mode = False
 )
 
 print("Model loaded.")
@@ -65,9 +55,8 @@ for layer in model.layers:
     if isinstance(layer, keras.layers.Lambda):
         fn_globals = layer.function.__globals__
         fn_globals['tf']        = tf
-        fn_globals['screlu_tf'] = screlu_tf
 
-print("Injected screlu_tf and tf into all Lambda layers.\n")
+print("Injected tf into all Lambda layers.\n")
 
 # set of tested positions. feel free to add new ones
 test_positions = {

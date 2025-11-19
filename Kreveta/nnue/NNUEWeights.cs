@@ -25,12 +25,12 @@ internal static class NNUEWeights {
     internal static int     OutputBias;
 
     private  const int EmbedCount = 768;
-    internal const int EmbedDims  = 128;
+    internal const int EmbedDims  = 256;
     internal const int H1Neurons  = 32;
-    internal const int H2Neurons  = 16;
+    internal const int H2Neurons  = 32;
 
     // global quantization constant
-    internal const float Scale    = 256f;
+    internal const float Scale    = 512f;
 
     internal static void Load(string binPath) {
         byte[] rawBytes   = File.ReadAllBytes(binPath);
@@ -94,6 +94,7 @@ internal static class NNUEWeights {
 
         // ==== 7. Output bias ====
         OutputBias = (int)MathF.Round(all[off] * Scale);
+        
         return;
 
         // helper function: quantize one float → short

@@ -23,7 +23,7 @@ def main():
     )
 
     weights = model.get_weights()
-    shapes = [w.shape for w in weights]
+    shapes  = [w.shape for w in weights]
 
     # save shapes metadata
     with open(SHAPES_JSON, "w") as f:
@@ -32,7 +32,7 @@ def main():
     # flatten everything to float32 and write sequentially
     with open(WEIGHTS_BIN, "wb") as f:
         for w in weights:
-            arr = np.asarray(w, dtype=np.float32).flatten()
+            arr = np.asarray(w, dtype = np.float32).flatten()
             f.write(arr.tobytes())
 
     print("Saved:")

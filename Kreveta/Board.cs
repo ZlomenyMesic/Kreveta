@@ -249,8 +249,8 @@ internal struct Board {
         
         if (updateStaticEval) {
             NNUEEval.Update(move, col);
-            //StaticEval = (short)((NNUEEval.Score + Eval.StaticEval(in this)) / 2);
-            StaticEval = NNUEEval.Score;
+            StaticEval = (short)((NNUEEval.Score + Eval.StaticEval(in this)) / 2);
+            //StaticEval = NNUEEval.Score;
             //StaticEval = Eval.StaticEval(in this);
         }
     }
@@ -433,8 +433,8 @@ internal struct Board {
         };
 
         board.NNUEEval   = new NNUEEvaluator(in board);
-        board.StaticEval = board.NNUEEval.Score;
-        //board.StaticEval = 17;//(short)((board.NNUEEval.Score + Eval.StaticEval(in board)) / 2);
+        //board.StaticEval = board.NNUEEval.Score;
+        board.StaticEval = (short)((board.NNUEEval.Score + Eval.StaticEval(in board)) / 2);
         
         return board;
     }

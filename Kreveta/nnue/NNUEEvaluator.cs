@@ -51,7 +51,7 @@ internal unsafe sealed class NNUEEvaluator {
         Update(in board);
     }
 
-    internal void Update(in Board board) {
+    private void Update(in Board board) {
         // zero accumulator
         Array.Clear(_accumulator, 0, _accumulator.Length);
 
@@ -322,8 +322,11 @@ internal unsafe sealed class NNUEEvaluator {
         int scaledPrediction = NNUEWeights.OutputBias + dotScaled2;
 
         // Convert to float (units are now same as original float network * S)
-        float predFloat = scaledPrediction / NNUEWeights.Scale;
-        float prob      = 1f / (1f + MathF.Exp(-predFloat));
+        float pred = scaledPrediction / NNUEWeights.Scale;
+        float prob = 1f / (1f + MathF.Exp(-pred));
+
+        // very rough but fast sigmoid approximation
+        //pred = 0.5f * (pred / (1 + Math.Abs(pred)) + 1);
         
         Score = InverseCPToP(prob);
     }
@@ -347,293 +350,18 @@ internal unsafe sealed class NNUEEvaluator {
         return sum128.ToScalar();
     }
 
-    // the python training script turned cp -> probability. undo that
+    // the python training script turns cp into a probability,
+    // this is the inverse function that returns cp instead
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short InverseCPToP(float p) {
-        const float epsilon = 1e-6f;
-        p = Math.Clamp(p, epsilon, 1 - epsilon);
-            
-        float val = 400f * MathF.Log(p / (1f - p));
-        return (short)Math.Clamp((int)val, -3000, 3000);
+        const float epsilon  = 1e-6f;
+        const float addScale = 0.85f;
+        
+        float val = Math.Clamp(p, epsilon, 1 - epsilon);
+        
+        val  = 400f * MathF.Log(val / (1f - val));
+        val *= addScale;
+        
+        return (short)Math.Clamp(val, -3000, 3000);
     }
 }
-
-/*
-using Kreveta.consts;
-using Kreveta.movegen;
-
-using System;
-using System.Collections.Generic;
-using System.Numerics;
-using System.Runtime.CompilerServices;
-
-// ReSharper disable InconsistentNaming
-namespace Kreveta.nnue;
-
-internal sealed class NNUEEvaluator {
-
-// reusable buffer to avoid repeated allocations
-private readonly float[] _h1LayerActivation = new float[NNUEWeights.H1Neurons];
-private readonly float[] _h2LayerActivation = new float[NNUEWeights.H2Neurons];
-private readonly float[] _accumulator       = new float[NNUEWeights.EmbedDims];
-
-internal short Score { get; private set; }
-
-internal NNUEEvaluator() {}
-
-internal NNUEEvaluator(in NNUEEvaluator other) {
-    Array.Copy(other._accumulator,_accumulator, NNUEWeights.EmbedDims);
-    Score = other.Score;
-}
-
-internal NNUEEvaluator(in Board board) {
-    Update(in board);
-}
-
-internal void Update(in Board board) {
-    Array.Clear(_accumulator, 0, _accumulator.Length);
-
-    // rebuild the accumulator from scratch
-    var features = ExtractFeatures(in board);
-    foreach (int f in features)
-        UpdateFeatureInAccumulator(f, true);
-
-    UpdateEvaluation();
-}
-
-internal void Update(Move move, Color colMoved) {
-    int start = move.Start;
-    int end   = move.End;
-
-    PType piece = move.Piece;
-    PType capt  = move.Capture;
-    PType prom  = move.Promotion;
-
-    Color oppColor = colMoved == Color.WHITE
-        ? Color.BLACK : Color.WHITE;
-
-    // deactivate the piece that moved from its starting square
-    Deactivate(piece, colMoved, start);
-
-    // deactivate a potential capture
-    if (capt != PType.NONE)
-        Deactivate(capt, oppColor, end);
-
-    // regular move - just put the piece on its new square
-    if (prom == PType.NONE)
-        Activate(piece, colMoved, end);
-
-    // activate the new piece in case of promotion
-    else if (prom is PType.KNIGHT or PType.BISHOP or PType.ROOK or PType.QUEEN)
-        Activate(prom, colMoved, end);
-
-    // en passant - remove the captured pawn
-    else if (prom == PType.PAWN) {
-
-        // the pawn that is to be captured
-        int captureSq = colMoved == Color.WHITE
-            ? end + 8
-            : end - 8;
-
-        Activate(PType.PAWN, colMoved, end);
-        Deactivate(PType.PAWN, oppColor, captureSq);
-    }
-
-    // castling
-    else if (prom == PType.KING) {
-
-        // first move the king to its new square
-        Activate(PType.KING, colMoved, end);
-
-        // and then move the respective rook
-        switch (end) {
-            // white kingside
-            case 62: {
-                Deactivate(PType.ROOK, colMoved, 63);
-                Activate(PType.ROOK, colMoved, 61);
-                break;
-            }
-
-            // white queenside
-            case 58: {
-                Deactivate(PType.ROOK, colMoved, 56);
-                Activate(PType.ROOK, colMoved, 59);
-                break;
-            }
-
-            // black kingside
-            case 6: {
-                Deactivate(PType.ROOK, colMoved, 7);
-                Activate(PType.ROOK, colMoved, 5);
-                break;
-            }
-
-            // black queenside
-            case 2: {
-                Deactivate(PType.ROOK, colMoved, 0);
-                Activate(PType.ROOK, colMoved, 3);
-                break;
-            }
-        }
-    }
-
-    UpdateEvaluation();
-}
-
-[MethodImpl(MethodImplOptions.AggressiveInlining)]
-private void Activate(PType piece, Color col, int sq) {
-    int feature = CreateFeatureIndex(col, piece, sq);
-    UpdateFeatureInAccumulator(feature, true);
-}
-
-[MethodImpl(MethodImplOptions.AggressiveInlining)]
-private void Deactivate(PType piece, Color col, int sq) {
-    int feature = CreateFeatureIndex(col, piece, sq);
-    UpdateFeatureInAccumulator(feature, false);
-}
-
-[MethodImpl(MethodImplOptions.AggressiveInlining)]
-private static int CreateFeatureIndex(Color col, PType piece, int sq)
-    => ((int)col * 6 + (int)piece) * 64 + (sq ^ 56);
-
-// i don't care that a List is not as efficient as an array.
-// this function is only called once, when the root position
-// is being initialized. there is no performance loss
-private static List<int> ExtractFeatures(in Board board) {
-    List<int> features = [];
-
-    for (int sq = 0; sq < 64; sq++) {
-        if ((board.Occupied & 1UL << sq) == 0)
-            continue;
-
-        PType piece = board.PieceAt(sq);
-        Color col   = (board.WOccupied & 1UL << sq) != 0
-            ? Color.WHITE : Color.BLACK;
-
-        features.Add(CreateFeatureIndex(col, piece, sq));
-    }
-
-    return features;
-}
-
-[MethodImpl(MethodImplOptions.AggressiveInlining)]
-private void UpdateFeatureInAccumulator(int feature, bool activate) {
-    int   embedIndex = feature;
-    int   baseIndex  = embedIndex * NNUEWeights.EmbedDims;
-    float sign       = activate ? 1.0f : -1.0f;
-
-    float[] acc  = _accumulator;
-    float[] emb  = NNUEWeights.Embedding;
-    int vecWidth = Vector<float>.Count;
-
-    int i = 0;
-
-    // SIMD loop
-    for (; i <= NNUEWeights.EmbedDims - vecWidth; i += vecWidth) {
-        var vAcc = new Vector<float>(acc, i);
-        var vEmb = new Vector<float>(emb, baseIndex + i);
-
-        vAcc += vEmb * sign;
-        vAcc.CopyTo(acc, i);
-    }
-
-    // scalar tail
-    for (; i < NNUEWeights.EmbedDims; i++)
-        acc[i] += emb[baseIndex + i] * sign;
-}
-
-// forward pass through the network for a single position.
-// uses the accumulator as input and computes the evaluation
-private void UpdateEvaluation() {
-    int vecWidth = Vector<float>.Count;
-
-    // 32-neuron hidden dense layer; reuses a buffer instead of more
-    // allocating. no need to clear, as all entries are overwritten
-    float[] h1Activation = _h1LayerActivation;
-    float[] h2Activation = _h2LayerActivation;
-
-    float[] acc      = _accumulator;
-    float[] h1Bias   = NNUEWeights.H1Bias;
-    float[] h1Kernel = NNUEWeights.H1Kernel;
-
-    for (int j = 0; j < NNUEWeights.H1Neurons; j++) {
-        float sum = h1Bias[j];
-
-        int i = 0;
-        int wBase = j * NNUEWeights.EmbedDims;
-
-        // manual dot product with SIMD
-        for (; i <= NNUEWeights.EmbedDims - vecWidth; i += vecWidth) {
-            var vA = new Vector<float>(acc, i);
-            var vW = new Vector<float>(h1Kernel, wBase + i);
-
-            sum += Vector.Dot(vA, vW);
-        }
-
-        // scalar remainder
-        for (; i < NNUEWeights.EmbedDims; i++)
-            sum += acc[i] * h1Kernel[wBase + i];
-
-        h1Activation[j] = Math.Max(0, sum);
-    }
-
-    float[] h2Bias   = NNUEWeights.H2Bias;
-    float[] h2Kernel = NNUEWeights.H2Kernel;
-
-    for (int j = 0; j < NNUEWeights.H2Neurons; j++) {
-        float sum = h2Bias[j];
-
-        int i = 0;
-        int wBase = j * NNUEWeights.H1Neurons;
-
-        // manual dot product with SIMD
-        for (; i <= NNUEWeights.H1Neurons - vecWidth; i += vecWidth) {
-            var vH1 = new Vector<float>(h1Activation, i);
-            var vW  = new Vector<float>(h2Kernel, wBase + i);
-
-            sum += Vector.Dot(vH1, vW);
-        }
-
-        // scalar remainder
-        for (; i < NNUEWeights.H1Neurons; i++)
-            sum += h1Activation[i] * h2Kernel[wBase + i];
-
-        // ReLU activation
-        h2Activation[j] = Math.Max(0, sum);
-    }
-
-    // output layer (single neuron)
-    float   prediction   = NNUEWeights.OutputBias;
-    float[] outputKernel = NNUEWeights.OutputKernel;
-
-    int k = 0;
-    for (; k <= NNUEWeights.H2Neurons - vecWidth; k += vecWidth) {
-        var vH = new Vector<float>(h2Activation, k);
-        var vW = new Vector<float>(outputKernel, k);
-
-        prediction += Vector.Dot(vH, vW);
-    }
-
-    for (; k < NNUEWeights.H2Neurons; k++)
-        prediction += h2Activation[k] * outputKernel[k];
-
-    // sigmoid final probability
-    prediction = 1f / (1f + MathF.Exp(-prediction));
-
-    // inverse to match correct score format
-    Score = InverseCPToP(prediction);
-}
-
-// the python training script turns all evaluations (in cp)
-// into a probability score in range [0..1]. now that the
-// network predicted a probability, it shall be turned back
-// into a cp score using the inverse of the mentioned funcion
-[MethodImpl(MethodImplOptions.AggressiveInlining)]
-private static short InverseCPToP(float p) {
-    const float epsilon = 1e-6f;
-    p = Math.Clamp(p, epsilon, 1 - epsilon);
-
-    int cp = (int)(400 * MathF.Log(p / (1 - p), MathF.E));
-    return (short)Math.Clamp(cp, -3000, 3000);
-}
-}*/

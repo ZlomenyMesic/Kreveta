@@ -33,21 +33,21 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 # that is used for self-play and position evaluation
 ENGINE_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 
-EVAL_TIME         = 0.4    # the time for the engine to evaluate each position (in seconds)
+EVAL_TIME         = 0.4   # the time for the engine to evaluate each position (in seconds)
 NUM_WORKERS       = 10     # the number of individual "threads" working in parallel 
 
 # the number of unique vectors that will be used in the accumulator.
 # corresponds to 2 colors * 6 piece types * 64 squares = 768 features
 NUM_FEATURES      = 768
-EMBED_DIM         = 128    # dimensions/size of the feature embedding vectors
+EMBED_DIM         = 256    # dimensions/size of the feature embedding vectors
 H1_NEURONS        = 32     # number of neurons in the first hidden layer
-H2_NEURONS        = 16     # second hidden layer
-LEARNING_RATE     = 1e-3
-BATCH_SIZE        = 2048
+H2_NEURONS        = 32     # second hidden layer
+LEARNING_RATE     = 1e-5
+BATCH_SIZE        = 1500
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300    # the current model version is saved every once in a while
-MAX_PLIES         = 200    # stop self-play games after this many plies
+MAX_PLIES         = 225    # stop self-play games after this many plies
 
 # maps a piece of certain color and position combo
 # to a single feature index in range 0-767. color
@@ -100,7 +100,7 @@ def build_model():
     )
 
     # the embedding layer - maps each feature index to its
-    # respective feature embedding vector (128-dimensional)
+    # respective feature embedding vector (256-dimensional)
     embedding = layers.Embedding(
         NUM_FEATURES,
         EMBED_DIM,
@@ -114,8 +114,8 @@ def build_model():
         name         = 'EmbeddingSum'
     )(embedding)
 
-    h1 = layers.Dense(H1_NEURONS, activation = 'relu', name = "Hidden_32")(summed)
-    h2 = layers.Dense(H2_NEURONS, activation = 'relu', name = "Hidden_8")(h1)
+    h1 = layers.Dense(H1_NEURONS, activation = 'relu', name = "Hidden_1")(summed)
+    h2 = layers.Dense(H2_NEURONS, activation = 'relu', name = "Hidden_2")(h1)
     
     # the output layer is a single sigmoid-activation neuron.
     # values closer to 1 denote a position better for white,
@@ -125,8 +125,12 @@ def build_model():
     # compile the model
     model = models.Model(input, output)
     model.compile(
-        optimizer = optimizers.Adam(LEARNING_RATE),
-        loss      = losses.BinaryCrossentropy(),
+        optimizer = optimizers.AdamW(
+            learning_rate = LEARNING_RATE,
+            weight_decay  = 1e-5,
+            clipnorm      = 1.0
+        ),
+        loss      = losses.MeanSquaredError(),
         metrics   = [keras.metrics.MeanAbsoluteError(name = 'mae')]
     )
     return model
@@ -153,8 +157,8 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
         plies = 0
         while plies < MAX_PLIES and not stop_event.is_set():
 
-            # 15 % chance for random moves during the game.
-            if rng.random() < 0.25:
+            # 30 % chance for random moves during the game.
+            if rng.random() < 0.3:
                 legal_moves = list(board.legal_moves)
                 move        = rng.choice(legal_moves)
                 board.push(move)
@@ -191,14 +195,14 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             if score:
                 sc = score.white()
                 if sc.is_mate():
-                    cp = 1000 if sc.mate() > 0 else -1000
+                    cp = 1500 if sc.mate() > 0 else -1500
                 else:
                     # Kreveta already clips the score into [-1000..1000]
-                    cp = np.clip(sc.score(), -1000, 1000)
+                    cp = np.clip(sc.score(), -1350, 1350)
+            else: continue
 
             # squeeze all evals into [0..1] interval
             target = 1.0 / (1.0 + np.exp(-cp / 400.0))
-            #target = (cp / 2000) + 0.5
 
             # feature indices for this position, and for a mirrored 
             # version - opposite indices and piece colors
@@ -214,7 +218,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 time.sleep(0.05)
 
         # brief pause between games
-        time.sleep(0.05)
+        time.sleep(0.1)
 
     engine.quit()
     print(f"[worker {worker_id}] Stopping.")
