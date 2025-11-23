@@ -181,9 +181,9 @@ internal static class Game {
         }
 
         Board.NNUEEval   = new NNUEEvaluator(in Board);
-        //Board.StaticEval = Board.NNUEEval.Score;
-        Board.StaticEval = (short)((Board.NNUEEval.Score + Eval.StaticEval(in Board)) / 2);
-        //Board.StaticEval = Eval.StaticEval(in Board);}}
+        Board.StaticEval = Board.NNUEEval.Score;
+        //Board.StaticEval = (short)((Board.NNUEEval.Score + Eval.StaticEval(in Board)) / 2);
+        //Board.StaticEval = Eval.StaticEval(in Board);
 
         // after these tokens may also follow a fullmove and halfmove clock,
         // but we don't need this information for anything

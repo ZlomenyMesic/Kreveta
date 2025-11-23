@@ -3,8 +3,12 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-# Custom
-.idea/
+# NNUE Training archive
+archive/
+
+# NNUE Training logs and model snapshots
+*.keras
+*.csv
 
 # User-specific files
 *.rsuser

@@ -3,6 +3,7 @@
 # started 4-3-2025
 #
 
+import json
 import os
 import time
 from datetime import datetime
@@ -17,6 +18,7 @@ from keras import layers, models, optimizers, losses
 import keras
 import chess
 import chess.engine
+import chess.polyglot
 
 # only log warnings and errors
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -27,10 +29,11 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # model path
 MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 
-ENGINE_CMD = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
+ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
+NUM_WORKERS = 10
 
-EVAL_TIME         = 0.25
-NUM_WORKERS       = 10
+BOOK_PATH = "C:\\Users\\michn\\Downloads\\rodent.bin"
+BOOK_MOVES = 8
 
 # total features (two accumulators combined)
 NUM_FEATURES_TOTAL = 81920  # 2 * 64 * 64 * 5 * 2
@@ -39,12 +42,12 @@ FEATURES_PER_ACC   = 40960
 EMBED_DIM         = 256
 H1_NEURONS        = 32
 H2_NEURONS        = 32
-LEARNING_RATE     = 1e-3
-BATCH_SIZE        = 1024
+LEARNING_RATE     = 1e-8
+BATCH_SIZE        = 2048
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300
-MAX_PLIES         = 300
+MAX_PLIES         = 250
 
 def feature_index_for_acc(king_square: int, piece_type: int, piece_color: bool, piece_square: int) -> int:
     # skip kings (just to make sure)
@@ -59,10 +62,6 @@ def feature_index_for_acc(king_square: int, piece_type: int, piece_color: bool, 
     piece_offset = (piece_type_idx * 2 + color_bit) * 64 + piece_square
 
     f = king_offset + piece_offset
-
-    # safety measure
-    if f < 0 or f >= FEATURES_PER_ACC:
-        return -1
     
     return int(f)
 
@@ -213,6 +212,11 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     except Exception as e:
         print(f"[worker {worker_id}] failed to start engine: {e}")
         return
+    
+    try:
+        book = chess.polyglot.open_reader(BOOK_PATH)
+    except:
+        book = None
 
     rng = random.Random(time.time() + worker_id)
 
@@ -224,7 +228,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
         # other games will be very chaotic. this
         # should make the model learn both weird
         # and sophisticated positions
-        random_move_freq = rng.random() * 0.66
+        random_move_freq = rng.random() * 0.10
 
         while plies < MAX_PLIES and not stop_event.is_set():
 
@@ -234,10 +238,24 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 move        = rng.choice(legal_moves)
                 board.push(move)
 
+            # random polyglot book move
+            elif book is not None and plies < 8:
+                try:
+                    # get all entries for current position
+                    entries = list(book.find_all(board))
+                    if entries:
+                        # pick a completely random entry
+                        entry = random.choice(entries)
+                        board.push(entry.move)
+
+                except: 
+                    pass
+
+            # otherwise let the engine choose the move
             else:
                 try:
-                    move_time = EVAL_TIME * rng.uniform(0.3, 1.0)
-                    result    = engine.play(board, chess.engine.Limit(time = move_time))
+                    move_depth = rng.randint(8, 16)
+                    result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
                         break
@@ -253,7 +271,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(time = EVAL_TIME))
+                info  = engine.analyse(board, chess.engine.Limit(depth = 12))
                 score = info.get("score")
 
             except Exception as e:
@@ -370,6 +388,26 @@ def main():
     else:
         model = build_model()
         print("finished building new model.")
+
+    SHAPES_JSON = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\NNUETraining\\export\\nnue_shapes.json"
+    WEIGHTS_BIN = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\NNUETraining\\export\\nnue_weights.bin"
+
+    # Read all weights from the binary file
+    weights_flat = np.fromfile(WEIGHTS_BIN, dtype=np.float32)
+
+    with open(SHAPES_JSON, "r") as f:
+        shapes = json.load(f)  # list of tuples
+
+    # Reconstruct the weights
+    weights = []
+    idx = 0
+    for shape in shapes:
+        size = np.prod(shape)
+        w = weights_flat[idx:idx+size].reshape(shape)
+        weights.append(w)
+        idx += size
+
+    model.set_weights(weights)
 
     save_model_diag(model, 'architecture.png')
 
