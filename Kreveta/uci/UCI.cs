@@ -25,7 +25,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Running;
 
+using Kreveta.consts;
 using Kreveta.evaluation;
+using Kreveta.moveorder;
 using Kreveta.nnue;
 
 // ReSharper disable InvokeAsExtensionMethod
@@ -130,17 +132,6 @@ internal static partial class UCI {
                     // and the NNUE predicted score
                     var nnue = new NNUEEvaluator(Game.Board);
                     Log($"nnue {nnue.Score}");
-                    
-                    /*nnue 14
-position startpos moves e2e4
-eval
-se 27
-nnue 50
-position startpos moves g1f3 c7c5
-eval
-se 9
-nnue 80
-*/
                     
                     break;
                 }
@@ -305,13 +296,15 @@ nnue 80
         SearchThread = null;
 
         ShouldAbortSearch = false;
+        
+        // a forced reset is needed to avoid bugged PVs
+        PVSearch.Reset();
     }
 
     private static void Test() {
-        Console.WriteLine(Game.Board.StaticEval);
-        Board cl = Game.Board.Clone();
-        
-        Console.WriteLine(cl.StaticEval);
+        var move = "e3d4".ToMove(in Game.Board);
+        var see = SEE.Evaluate(Game.Board, Color.WHITE, move);
+        Console.WriteLine($"SEE: {see}");
     }
 }
 

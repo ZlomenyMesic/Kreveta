@@ -3,11 +3,12 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA2014
+
 using Kreveta.consts;
 using Kreveta.movegen;
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -20,30 +21,36 @@ internal unsafe sealed class NNUEEvaluator {
     // NOTE: This evaluator expects NNUEWeights to have been quantized
     // to short (int16) and biases stored as int (int32). See NNUEWeights.Load.
 
-    // accumulator is short[] (int16) for fastest PMADDWD dot-product.
-    // Ensure quantization SCALE was chosen to avoid accumulator overflow.
-    private readonly short[] _accumulator = new short[NNUEWeights.EmbedDims];
+    // Two accumulators: white / black (shorts)
+    private readonly short[] _accW = new short[NNUEWeights.EmbedDims];
+    private readonly short[] _accB = new short[NNUEWeights.EmbedDims];
 
     // small activation buffers (int32 accumulators for hidden neurons after dot)
-    // We'll store H1/H2 activations as int (accumulated int32) before clipping trim to short if desired.
     private readonly int[] _h1Activation = new int[NNUEWeights.H1Neurons];
     private readonly int[] _h2Activation = new int[NNUEWeights.H2Neurons];
+
+    private readonly int[] _wFeatures = new int[32];
+    private readonly int[] _bFeatures = new int[32];
 
     internal short Score { get; private set; }
 
     // shortcut to constants:
-    private const int EmbedDims = NNUEWeights.EmbedDims;
-    private const int H1Neurons = NNUEWeights.H1Neurons;
-    private const int H2Neurons = NNUEWeights.H2Neurons;
-        
-    private const int ScaleInt = (int)NNUEWeights.Scale;
+    private const int EmbedDims = NNUEWeights.EmbedDims;   // 256
+    private const int H1Neurons = NNUEWeights.H1Neurons;   // 32
+    private const int H2Neurons = NNUEWeights.H2Neurons;   // 32
+
+    // H1 input width after concatenation (white + black)
+    private const int H1Input = EmbedDims * 2;             // 512
+
+    private const int ScaleInt = (int)NNUEWeights.Scale;  // 512
 
     internal NNUEEvaluator() {
         // nothing
     }
 
     internal NNUEEvaluator(in NNUEEvaluator other) {
-        Array.Copy(other._accumulator, _accumulator, _accumulator.Length);
+        Array.Copy(other._accW, _accW, NNUEWeights.EmbedDims);
+        Array.Copy(other._accB, _accB, NNUEWeights.EmbedDims);
         Score = other.Score;
     }
 
@@ -52,19 +59,27 @@ internal unsafe sealed class NNUEEvaluator {
     }
 
     private void Update(in Board board) {
-        // zero accumulator
-        Array.Clear(_accumulator, 0, _accumulator.Length);
+        // zero accumulators
+        Array.Clear(_accW, 0, NNUEWeights.EmbedDims);
+        Array.Clear(_accB, 0, NNUEWeights.EmbedDims);
 
         // rebuild accumulator by summing embeddings for active features
-        var features = ExtractFeatures(in board);
-        foreach (int f in features)
-            UpdateFeatureInAccumulator(f, true);
+        int featureCount = ExtractFeatures(in board);
+
+        // White features -> _accW
+        for (int i = 0; i < featureCount; i++) {
+            UpdateFeature(_wFeatures[i], true, _accW, NNUEWeights.EmbeddingWhite);
+            UpdateFeature(_bFeatures[i], true, _accB, NNUEWeights.EmbeddingBlack);
+        }
 
         UpdateEvaluation();
     }
 
-    // incremental update on moves (same logic as before)
-    internal void Update(Move move, Color colMoved) {
+    // incremental update on moves (pass in current king squares)
+    internal void Update(in Board board, Move move, Color colMoved) {
+        int wKing = BB.LS1B(board.Pieces[5]);
+        int bKing = BB.LS1B(board.Pieces[11]);
+        
         int start = move.Start;
         int end   = move.End;
 
@@ -74,203 +89,227 @@ internal unsafe sealed class NNUEEvaluator {
 
         Color oppColor = colMoved == Color.WHITE ? Color.BLACK : Color.WHITE;
 
-        Deactivate(piece, colMoved, start);
+        if (piece != PType.KING)
+            Deactivate(wKing, bKing, (int)piece, colMoved, start);
 
-        if (capt != PType.NONE) Deactivate(capt, oppColor, end);
+        if (capt != PType.NONE) 
+            Deactivate(wKing, bKing, (int)capt, oppColor, end);
 
-        if (prom == PType.NONE) 
-            Activate(piece, colMoved, end);
-            
+        if (piece != PType.KING && prom == PType.NONE) 
+            Activate(wKing, bKing, (int)piece, colMoved, end);
+
         else if (prom is PType.KNIGHT or PType.BISHOP or PType.ROOK or PType.QUEEN)
-            Activate(prom, colMoved, end);
-            
+            Activate(wKing, bKing, (int)prom, colMoved, end);
+
         else if (prom == PType.PAWN) {
             int captureSq = colMoved == Color.WHITE 
                 ? end + 8 
                 : end - 8;
-            Activate(PType.PAWN, colMoved, end);
-            Deactivate(PType.PAWN, oppColor, captureSq);
+            Activate(  wKing, bKing, 0, colMoved, end);
+            Deactivate(wKing, bKing, 0, oppColor, captureSq);
         } 
         else if (prom == PType.KING) {
-            Activate(PType.KING, colMoved, end);
-                
+            // handle rook moves for castling
             switch (end) {
                 case 62:
-                    Deactivate(PType.ROOK, colMoved, 63); Activate(PType.ROOK, colMoved, 61); break;
+                    Deactivate(wKing, bKing, 3, colMoved, 63);
+                    Activate(  wKing, bKing, 3, colMoved, 61);
+                    break;
                 case 58:
-                    Deactivate(PType.ROOK, colMoved, 56); Activate(PType.ROOK, colMoved, 59); break;
+                    Deactivate(wKing, bKing, 3, colMoved, 56);
+                    Activate(  wKing, bKing, 3, colMoved, 59);
+                    break;
                 case 6:
-                    Deactivate(PType.ROOK, colMoved, 7);  Activate(PType.ROOK, colMoved, 5);  break;
+                    Deactivate(wKing, bKing, 3, colMoved, 7);
+                    Activate(  wKing, bKing, 3, colMoved, 5);
+                    break;
                 case 2:
-                    Deactivate(PType.ROOK, colMoved, 0);  Activate(PType.ROOK, colMoved, 3);  break;
+                    Deactivate(wKing, bKing, 3, colMoved, 0);
+                    Activate(  wKing, bKing, 3, colMoved, 3);
+                    break;
             }
         }
+
+        // if a king moves, the new feature embeddings are different,
+        // so we must completely refresh the accumulator. the other
+        // color ignores the king, so it can stay as is
+        if (move.Piece == PType.KING)
+            RebuildAccumulator(in board, colMoved);
 
         UpdateEvaluation();
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Activate(PType piece, Color col, int sq) {
-        int feature = CreateFeatureIndex(col, piece, sq);
-        UpdateFeatureInAccumulator(feature, true);
-    }
+    private void RebuildAccumulator(in Board board, Color col) {
+        int featureCount = ExtractFeatures(in board);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Deactivate(PType piece, Color col, int sq) {
-        int feature = CreateFeatureIndex(col, piece, sq);
-        UpdateFeatureInAccumulator(feature, false);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int CreateFeatureIndex(Color col, PType piece, int sq)
-        => ((int)col * 6 + (int)piece) * 64 + (sq ^ 56);
-
-    // Extract features as before
-    private static List<int> ExtractFeatures(in Board board) {
-        var features = new List<int>(32);
+        if (col == Color.WHITE) {
+            Array.Clear(_accW, 0, NNUEWeights.EmbedDims);
             
-        for (int sq = 0; sq < 64; sq++) {
-            if ((board.Occupied & 1UL << sq) == 0UL) 
-                continue;
-                
-            PType piece = board.PieceAt(sq);
-            Color col   = (board.WOccupied & 1UL << sq) != 0UL
-                ? Color.WHITE 
-                : Color.BLACK;
-                
-            features.Add(CreateFeatureIndex(col, piece, sq));
+            // rebuild white accumulator
+            for (int i = 0; i < featureCount; i++)
+                UpdateFeature(_wFeatures[i], true, _accW, NNUEWeights.EmbeddingWhite);
         }
-        return features;
+        else {
+            Array.Clear(_accB, 0, NNUEWeights.EmbedDims);
+
+            // rebuild black accumulator
+            for (int i = 0; i < featureCount; i++)
+                UpdateFeature(_bFeatures[i], true, _accB, NNUEWeights.EmbeddingBlack);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Activate(int wKing, int bKing, int piece, Color col, int sq) {
+        int idxW = FeatureIndex(wKing, piece, col, sq);
+        int idxB = FeatureIndex(bKing, piece, col, sq);
+
+        UpdateFeature(idxW, true, _accW, NNUEWeights.EmbeddingWhite);
+        UpdateFeature(idxB, true, _accB, NNUEWeights.EmbeddingBlack);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Deactivate(int wKing, int bKing, int piece, Color col, int sq) {
+        int idxW = FeatureIndex(wKing, piece, col, sq);
+        int idxB = FeatureIndex(bKing, piece, col, sq);
+
+        UpdateFeature(idxW, false, _accW, NNUEWeights.EmbeddingWhite);
+        UpdateFeature(idxB, false, _accB, NNUEWeights.EmbeddingBlack);
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int FeatureIndex(int kingSq, int piece, Color col, int sq)
+        => (kingSq ^ 56) * 640 
+           + (piece * 2 + (col == Color.WHITE ? 0 : 1)) * 64 
+           + (sq ^ 56);
+
+    // Extract features: returns per-accumulator feature indices (skips kings)
+    private int ExtractFeatures(in Board board) {
+        // get king squares in python-chess indexing (we'll store kings in engine indexing)
+        int wKing = BB.LS1B(board.Pieces[5]);   // engine square for white king
+        int bKing = BB.LS1B(board.Pieces[11]);  // engine square for black king
+        
+        int count = 0;
+
+        ReadOnlySpan<ulong> pieces = board.Pieces;
+        
+        // loop over all piece types except king
+        for (byte i = 0; i < 5; i++) {
+
+            // copy the respective piece bitboards for both colors
+            ulong wCopy = pieces[i];
+            ulong bCopy = pieces[6 + i];
+            
+            while (wCopy != 0UL) {
+                byte sq = BB.LS1BReset(ref wCopy);
+                _wFeatures[count]   = FeatureIndex(wKing, i, Color.WHITE, sq);
+                _bFeatures[count++] = FeatureIndex(bKing, i, Color.WHITE, sq);
+            }
+
+            while (bCopy != 0UL) {
+                byte sq = BB.LS1BReset(ref bCopy);
+                _wFeatures[count]   = FeatureIndex(wKing, i, Color.BLACK, sq);
+                _bFeatures[count++] = FeatureIndex(bKing, i, Color.BLACK, sq);
+            }
+        }
+        
+        return count;
     }
 
     // Update feature in accumulator: add or subtract embedding vector.
-    // Uses AVX2 256-bit vectorized operations when available.
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void UpdateFeatureInAccumulator(int feature, bool activate) {
-        int baseIndex = feature * EmbedDims;
-        short sign    = activate ? (short)1 : (short)-1;
+    // 'acc'    : target accumulator (either _accW or _accB)
+    // 'featureIdx' : index in range [0 ... 40960-1]
+    // 'add'    : true to add embedding, false to subtract
+    // 'isWhite': true => use EmbeddingWhite, false => use EmbeddingBlack
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void UpdateFeature(int featureIdx, bool add, short[] accumulator, short[] embedding) {
+        int   baseIndex = featureIdx * NNUEWeights.EmbedDims; // index into embedding flat array
+        short sign      = add ? (short)1 : (short)-1;
 
-        // Fast path with AVX2 (vectorized add/sub)
-        // we'll process 16 int16 elements per loop (256 bits)
-        int i = 0;
-        ref short accRef = ref MemoryMarshal.GetArrayDataReference(_accumulator);
-        ref short embRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.Embedding);
+        ref short accRef = ref MemoryMarshal.GetArrayDataReference(accumulator);
+        ref short embRef = ref MemoryMarshal.GetArrayDataReference(embedding);
+        
+        // vectorized loop (process 16 int16 elements at a time)
+        for (int i = 0; i <= NNUEWeights.EmbedDims - 16; i += 16) {
+            var va = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i)));
+            var vb = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref embRef, baseIndex + i)));
 
-        for (; i <= EmbedDims - 16; i += 16) {
-            var vAcc = Avx.LoadVector256(
-                (short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i))
-            );
-            
-            var vEmb = Avx.LoadVector256(
-                (short*)Unsafe.AsPointer(ref Unsafe.Add(ref embRef, baseIndex + i))
-            );
+            var vr = sign == 1 
+                ? Avx2.Add(va, vb) 
+                : Avx2.Subtract(va, vb);
 
-            var vRes = sign == 1
-                ? Avx2.Add(vAcc, vEmb)
-                : Avx2.Subtract(vAcc, vEmb);
-
-            Avx.Store(
-                (short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i)), 
-                vRes
-            );
-        }
-
-        // tail
-        for (; i < EmbedDims; i++) {
-            int idx = baseIndex + i;
-            int tmp = _accumulator[i] + sign * NNUEWeights.Embedding[idx];
-                
-            if (tmp > short.MaxValue)
-                tmp = short.MaxValue;
-                
-            else if (tmp < short.MinValue)
-                tmp = short.MinValue;
-                
-            _accumulator[i] = (short)tmp;
+            Avx.Store((short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i)), vr);
         }
     }
 
-    // UpdateEvaluation: perform forward pass using AVX2 PMADDWD for dot-products
+    // perform forward pass using AVX2 PMADDWD for dot-products
     private void UpdateEvaluation() {
-        // H1 pass
+        
+        // concatenate accumulators: [accW (0..255), accB (256..511)]
+        Span<short> concat = stackalloc short[H1Input];
+        _accW.AsSpan().CopyTo(concat[..EmbedDims]);
+        _accB.AsSpan().CopyTo(concat[EmbedDims..H1Input]);
+
+        // H1 pass: input width = 512 (H1Input), kernel stored neuron-major [32 * 512]
         for (int j = 0; j < H1Neurons; j++) {
             int sum   = 0;
-            int wBase = j * EmbedDims;
+            int wBase = j * H1Input;
 
             var vsum = Vector256<int>.Zero;
-            int i = 0;
-            
-            ref short accRef = ref MemoryMarshal.GetArrayDataReference(_accumulator);
+
+            ref short inRef  = ref MemoryMarshal.GetReference(concat);
             ref short kerRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H1Kernel);
 
-            for (; i <= EmbedDims - 16; i += 16) {
-                var va = Avx.LoadVector256(
-                    (short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i))
-                );
-                
-                var vb = Avx.LoadVector256(
-                    (short*)Unsafe.AsPointer(ref Unsafe.Add(ref kerRef, wBase + i))
-                );
+            // process 16 int16 elements at a time
+            for (int i = 0; i <= H1Input - 16; i += 16) {
+                var va = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref inRef, i)));
+                var vb = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref kerRef, wBase + i)));
 
                 var prod = Avx2.MultiplyAddAdjacent(va, vb);
                 vsum = Avx2.Add(vsum, prod);
             }
 
             sum += HorizontalAddVector256(vsum);
-            
+
             // RESCALE by S: dot product currently carries factor S^2, we need to divide by S
-            // to bring the sum into the same units as bias (which is scaled by S).
             int dotScaled = sum >= 0
                 ? (sum + (ScaleInt >> 1)) / ScaleInt  // round positive
                 : (sum - (ScaleInt >> 1)) / ScaleInt; // round negative
-            
+
             // add bias (already scaled by S)
             int combined = NNUEWeights.H1Bias[j] + dotScaled;
 
             int act = combined;
-            if (act < 0) 
-                act = 0;
+            if (act < 0) act = 0;
 
             _h1Activation[j] = act;
         }
 
-        // second hidden layer (16 neurons)
+        // second hidden layer
         for (int j = 0; j < H2Neurons; j++) {
-            int sum   = 0;
+            int sum = 0;
             int wBase = j * H1Neurons;
 
             var vsum = Vector256<int>.Zero;
-            int i = 0;
             
-// stack allocation inside a loop may result in stack overflow.
-// that is incorrect though, as this loop is so tiny that it
-// will never ever cause any issues
-#pragma warning disable CA2014
             // ReSharper disable once StackAllocInsideLoop
             Span<short> h1Packed = stackalloc short[H1Neurons];
-#pragma warning restore CA2014
-            
-            for (int p = 0; p < H1Neurons; p++) 
+
+            for (int p = 0; p < H1Neurons; p++)
                 h1Packed[p] = (short)_h1Activation[p];
 
             ref short h1PackRef = ref MemoryMarshal.GetReference(h1Packed);
             ref short kerRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H2Kernel);
 
-            for (; i <= H1Neurons - 16; i += 16) {
-                var va = Avx.LoadVector256(
-                    (short*)Unsafe.AsPointer(ref Unsafe.Add(ref h1PackRef, i))
-                );
-                
-                var vb = Avx.LoadVector256(
-                    (short*)Unsafe.AsPointer(ref Unsafe.Add(ref kerRef, wBase + i))
-                );
-                
+            for (int i = 0; i <= H1Neurons - 16; i += 16) {
+                var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h1PackRef, i)));
+                var vb   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref kerRef, wBase + i)));
                 var prod = Avx2.MultiplyAddAdjacent(va, vb);
+                
                 vsum = Avx2.Add(vsum, prod);
             }
 
             sum += HorizontalAddVector256(vsum);
-            
+
             // RESCALE by S
             int dotScaled = sum >= 0
                 ? (sum + (ScaleInt >> 1)) / ScaleInt
@@ -279,8 +318,7 @@ internal unsafe sealed class NNUEEvaluator {
             int combined = NNUEWeights.H2Bias[j] + dotScaled;
 
             int act = combined;
-            if (act < 0) 
-                act = 0;
+            if (act < 0) act = 0;
 
             _h2Activation[j] = act;
         }
@@ -289,25 +327,19 @@ internal unsafe sealed class NNUEEvaluator {
         int prediction = 0;
 
         var vsum3 = Vector256<int>.Zero;
-        int i3 = 0;
 
         Span<short> h2Packed = stackalloc short[H2Neurons];
-        for (int p = 0; p < H2Neurons; p++) 
+        for (int p = 0; p < H2Neurons; p++)
             h2Packed[p] = (short)_h2Activation[p];
 
         ref short h2PackRef = ref MemoryMarshal.GetReference(h2Packed);
         ref short outKerRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.OutputKernel);
 
-        for (; i3 <= H2Neurons - 16; i3 += 16) {
-            var va = Avx.LoadVector256(
-                (short*)Unsafe.AsPointer(ref Unsafe.Add(ref h2PackRef, i3))
-            );
-            
-            var vb = Avx.LoadVector256(
-                (short*)Unsafe.AsPointer(ref Unsafe.Add(ref outKerRef, i3))
-            );
-            
+        for (int i = 0; i <= H2Neurons - 16; i += 16) {
+            var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h2PackRef, i)));
+            var vb   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref outKerRef, i)));
             var prod = Avx2.MultiplyAddAdjacent(va, vb);
+            
             vsum3 = Avx2.Add(vsum3, prod);
         }
 
@@ -325,43 +357,33 @@ internal unsafe sealed class NNUEEvaluator {
         float pred = scaledPrediction / NNUEWeights.Scale;
         float prob = 1f / (1f + MathF.Exp(-pred));
 
-        // very rough but fast sigmoid approximation
-        //pred = 0.5f * (pred / (1 + Math.Abs(pred)) + 1);
-        
-        Score = InverseCPToP(prob);
+        Score = ProbToScore(prob);
     }
 
-
     // horizontal add of Vector256<int> (8 lanes)
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int HorizontalAddVector256(Vector256<int> v) {
         // sum lanes using shuffle/add
         var high   = Avx2.ExtractVector128(v, 1);
         var low    = v.GetLower(); // lower 128
         var sum128 = Sse2.Add(low.AsInt32(), high.AsInt32());
-            
+
         // now sum 4 lanes in sum128
         var shuf = Sse2.Shuffle(sum128, 0x4E); // swap pairs
-            
+
         sum128 = Sse2.Add(sum128, shuf);
         shuf   = Sse2.Shuffle(sum128, 0xB1);
         sum128 = Sse2.Add(sum128, shuf);
-            
+
         return sum128.ToScalar();
     }
 
     // the python training script turns cp into a probability,
     // this is the inverse function that returns cp instead
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short InverseCPToP(float p) {
-        const float epsilon  = 1e-6f;
-        const float addScale = 0.85f;
-        
-        float val = Math.Clamp(p, epsilon, 1 - epsilon);
-        
-        val  = 400f * MathF.Log(val / (1f - val));
-        val *= addScale;
-        
-        return (short)Math.Clamp(val, -3000, 3000);
+    private static short ProbToScore(float p) {
+        p = 400f * MathF.Log(p / (1f - p));
+        return (short)Math.Clamp(p, -3000, 3000);
     }
 }
+
+#pragma warning restore CA2014

@@ -17,27 +17,68 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 
-# maps a piece of certain color and position combo
-# to a single feature index in range 0-767. color
-# becomes 0 for black, 1 for white
-def feature_index(piece_type: int, color: bool, square: int) -> int:
-    return (int(color) * 6 + (piece_type - 1)) * 64 + square
+def feature_index_for_acc(king_square: int, piece_type: int, piece_color: bool, piece_square: int) -> int:
+    # skip kings (just to make sure)
+    if piece_type == chess.KING or piece_type == None:
+        return -1
 
-# creates a list of all active features on the board
+    # map piece_type 1..5 into 0..4
+    piece_type_idx = piece_type - 1
+    color_bit      = 1 if piece_color else 0
+
+    king_offset  = king_square * 640
+    piece_offset = (piece_type_idx * 2 + color_bit) * 64 + piece_square
+
+    f = king_offset + piece_offset
+    
+    return int(f)
+
 def board_features(board: chess.Board):
-    indices = []
+    w_indices = []
+    b_indices = []
+
+    w_king_sq = board.king(chess.WHITE)
+    b_king_sq = board.king(chess.BLACK)
+
+    # if a king is missing (shouldn't happen in legal positions), we still produce empty lists.
+    if w_king_sq is None or b_king_sq is None:
+        return [], []
+
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
 
-        # only add features if the piece exists
-        if piece:
-            indices.append(feature_index(
-                piece.piece_type,
-                piece.color == chess.BLACK,
-                sq
-            ))
+        # empty square
+        if piece is None:
+            continue
 
-    return indices
+        # kings are excluded
+        if piece.piece_type == chess.KING:
+            continue
+
+        # piece_color True if black, False if white
+        piece_color_bit = piece.color == chess.BLACK
+
+        # index into white accumulator (white king as reference)
+        idx_w = feature_index_for_acc(
+            king_square  = w_king_sq,
+            piece_type   = piece.piece_type,
+            piece_color  = piece_color_bit,
+            piece_square = sq
+        )
+        # index into black accumulator (black king as reference)
+        idx_b = feature_index_for_acc(
+            king_square  = b_king_sq,
+            piece_type   = piece.piece_type,
+            piece_color  = piece_color_bit,
+            piece_square = sq
+        )
+
+        if idx_w != -1:
+            w_indices.append(idx_w)
+        if idx_b != -1:
+            b_indices.append(idx_b)
+
+    return w_indices, b_indices
 
 # next try to load the actual model
 print(f"Loading model from {MODEL_PATH} ...")
@@ -75,9 +116,11 @@ test_positions = {
 
 # evaluate all positions
 for name, board in test_positions.items():
-    indices = board_features(board)
-    expand  = np.expand_dims(np.array(indices, dtype = np.int32), axis = 0)
-    predict = float(model.predict(expand, verbose=0)[0][0])
+    w_indices, b_indices = board_features(board)
+    
+    xw = tf.ragged.constant([w_indices], dtype = tf.int32)
+    xb = tf.ragged.constant([b_indices], dtype = tf.int32)
+    predict = float(model.predict([xw, xb], verbose = 0)[0][0])
 
     print(board)
     print(f"FEN:       {board.fen()}")

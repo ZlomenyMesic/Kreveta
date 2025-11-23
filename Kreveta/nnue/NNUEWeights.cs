@@ -16,58 +16,68 @@ namespace Kreveta.nnue;
 internal static class NNUEWeights {
 
     // integer NNUE weights
-    internal static short[] Embedding;      // [768 * 128]
-    internal static short[] H1Kernel;       // [32  * 128]
+    internal static short[] EmbeddingWhite; // [40960 * 256]
+    internal static short[] EmbeddingBlack; // [40960 * 256]
+    internal static short[] H1Kernel;       // [32 * 512]
     internal static int[]   H1Bias;         // [32]
     internal static short[] H2Kernel;       // [16  * 32]
     internal static int[]   H2Bias;         // [16]
     internal static short[] OutputKernel;   // [16]
     internal static int     OutputBias;
 
-    private  const int EmbedCount = 768;
-    internal const int EmbedDims  = 256;
-    internal const int H1Neurons  = 32;
-    internal const int H2Neurons  = 32;
+    private  const int FeatCount = 40960;
+    internal const int EmbedDims = 256;
+    internal const int H1Neurons = 32;
+    internal const int H2Neurons = 32;
 
     // global quantization constant
-    internal const float Scale    = 512f;
+    internal const float Scale = 1024f;
 
     internal static void Load(string binPath) {
-        byte[] rawBytes   = File.ReadAllBytes(binPath);
-        int    floatCount = rawBytes.Length / 4;
-        float[] all       = new float[floatCount];
-
+        
+        byte[] rawBytes = File.ReadAllBytes(binPath);
+        float[] all = new float[rawBytes.Length / 4];
         Buffer.BlockCopy(rawBytes, 0, all, 0, rawBytes.Length);
 
         int off = 0;
 
-        // ==== 1. Embedding: [768 * 128] ====
-        const int embedLen = EmbedCount * EmbedDims;
-        Embedding = new short[embedLen];
-        for (int i = 0; i < embedLen; i++)
-            Embedding[i] = Q(all[off++]);
+        // 1. EMBEDDING WHITE [40960 * 256]
+        const int embedLen = FeatCount * EmbedDims;
+        EmbeddingWhite = new short[embedLen];
 
-        // ==== 2. H1 kernel: Keras [128][32] → our [32][128] ====
-        float[] h1kerFloat = new float[EmbedDims * H1Neurons];
+        for (int i = 0; i < embedLen; i++)
+            EmbeddingWhite[i] = Q(all[off++]);
+        
+        // 2. EMBEDDING BLACK [40960 * 256]
+        EmbeddingBlack = new short[embedLen];
+
+        for (int i = 0; i < embedLen; i++)
+            EmbeddingBlack[i] = Q(all[off++]);
+
+        // 3. H1 KERNEL: Keras [512][32] => here [32][512]
+        const int H1Input = EmbedDims * 2;
+
+        float[] h1kerFloat = new float[H1Input * H1Neurons];
         Array.Copy(all, off, h1kerFloat, 0, h1kerFloat.Length);
         off += h1kerFloat.Length;
 
         H1Kernel = new short[h1kerFloat.Length];
 
-        for (int r = 0; r < EmbedDims; r++) {
+        for (int r = 0; r < H1Input; r++) {
             int kerasRow = r * H1Neurons;
             for (int c = 0; c < H1Neurons; c++) {
-                int dst = c * EmbedDims + r;
+                // transpose: store neuron-major
+                int dst = c * H1Input + r;
                 H1Kernel[dst] = Q(h1kerFloat[kerasRow + c]);
             }
         }
 
-        // ==== 3. H1 biases ====
+        // 4. H1 BIAS
         H1Bias = new int[H1Neurons];
         for (int i = 0; i < H1Neurons; i++)
             H1Bias[i] = (int)MathF.Round(all[off++] * Scale);
 
-        // ==== 4. H2 kernel: Keras [32][16] → our [16][32] ====
+        // 5. H2 KERNEL: Keras [32][32] => here [32][32]
         float[] h2kerFloat = new float[H1Neurons * H2Neurons];
         Array.Copy(all, off, h2kerFloat, 0, h2kerFloat.Length);
         off += h2kerFloat.Length;
@@ -82,19 +92,19 @@ internal static class NNUEWeights {
             }
         }
 
-        // ==== 5. H2 bias ====
+        // 6. H2 BIAS
         H2Bias = new int[H2Neurons];
         for (int i = 0; i < H2Neurons; i++)
             H2Bias[i] = (int)MathF.Round(all[off++] * Scale);
 
-        // ==== 6. Output kernel: [16] ====
+        // 7. OUTPUT KERNEL [32]
         OutputKernel = new short[H2Neurons];
         for (int i = 0; i < H2Neurons; i++)
             OutputKernel[i] = Q(all[off++]);
 
-        // ==== 7. Output bias ====
+        // 8. OUTPUT BIAS
         OutputBias = (int)MathF.Round(all[off] * Scale);
-        
+
         return;
 
         // helper function: quantize one float → short

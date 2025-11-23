@@ -15,7 +15,7 @@ internal static class Check {
         byte kingSq = BB.LS1B(board.Pieces[(byte)kingCol * 6 + 5]);
         int oppBase = kingCol == Color.WHITE ? 6 : 0;
 
-        ulong occupied = board.Occupied;
+        ulong occupied    = board.Occupied;
         ulong oppOccupied = kingCol == Color.WHITE
             ? board.BOccupied : board.WOccupied;
 

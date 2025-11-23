@@ -130,14 +130,15 @@ internal static class QSearch {
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
-
-            Board child = board.Clone();
-            child.PlayMove(moves[i], true);
+            //int see = SEE.Evaluate(in board, col, moves[i]);
+            //if (onlyCaptures && see < 0) {
+            //    continue;
+            //}
 
             // value of the piece we just captured
-            int captured = (inCheck ? 0 : EvalTables.PieceValues[(byte)moves[i].Capture])
-                * (col == Color.WHITE ? 1 : -1);
-
+            // TODO - USE SEE VALUE INSTEAD
+            int captured = EvalTables.PieceValues[(byte)moves[i].Capture];
+            
             // delta pruning
             if (PruningOptions.AllowDeltaPruning
                 && !inCheck
@@ -149,6 +150,9 @@ internal static class QSearch {
                     continue;
                 }
             }
+            
+            Board child = board.Clone();
+            child.PlayMove(moves[i], true);
 
             // full search
             short score = Search(ref child, ply + 1, window, onlyCaptures);

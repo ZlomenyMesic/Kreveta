@@ -31,7 +31,7 @@ internal static class DeltaPruning {
             * (col == Color.WHITE ? 1 : -1);
 
         // add the value of the captured piece and delta
-        standPat += (short)(captured * CapturedMultiplier / 100);
+        standPat += (short)(captured * CapturedMultiplier / 100 * (col == Color.WHITE ? 1 : -1));
         standPat += (short)delta;
 
         // check for failing low

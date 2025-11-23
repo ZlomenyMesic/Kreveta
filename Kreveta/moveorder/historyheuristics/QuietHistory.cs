@@ -33,7 +33,7 @@ internal static class QuietHistory {
     // the main disadvantage of the history heuristic is that it tends to
     // bias towards moves, which appear more frequently. there might be
     // a move that turned out to be very good, but doesn't occur that
-    // often and thus, doesn't get a very large score. for this reason,
+    // often and thus, doesn't get a very large score. for this reason, we
     // use the so-called relative history heuristic, which alongside with
     // the history scores also stores the number of times a move has been
     // visited (ButterflyScores). when retrieving the quiet score, it is
@@ -51,7 +51,7 @@ internal static class QuietHistory {
     }
 
     // before each new iterated depth, we "shrink" the stored values.
-    // they are still quite relevant, but the new values coming are
+    // they are still quite relevant, but the newcoming values are
     // more important, so we want them to have a stronger effect
     internal static void Shrink() {
         Parallel.For(0, 64, i => {
