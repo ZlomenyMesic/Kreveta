@@ -7,6 +7,7 @@ import os
 import json
 import numpy as np
 import tensorflow as tf
+import keras
 
 # the absolute path to where the script is running
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,11 +16,15 @@ MODEL_PATH  = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 WEIGHTS_BIN = os.path.join(SCRIPT_DIR, "export\\nnue_weights.bin")
 SHAPES_JSON = os.path.join(SCRIPT_DIR, "export\\nnue_shapes.json")
 
+def CReLU(x):
+    return keras.activations.relu(x, max_value = 1.0)
+
 def main():
     print("Loading model...")
     model = tf.keras.models.load_model(
         MODEL_PATH,
-        safe_mode = False
+        custom_objects = {"CReLU": CReLU},
+        safe_mode      = False
     )
 
     weights = model.get_weights()

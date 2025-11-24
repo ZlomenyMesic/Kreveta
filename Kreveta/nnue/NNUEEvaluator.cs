@@ -276,12 +276,12 @@ internal unsafe sealed class NNUEEvaluator {
                 : (sum - (ScaleInt >> 1)) / ScaleInt; // round negative
 
             // add bias (already scaled by S)
-            int combined = NNUEWeights.H1Bias[j] + dotScaled;
-
-            int act = combined;
-            if (act < 0) act = 0;
-
-            _h1Activation[j] = act;
+            int activation = NNUEWeights.H1Bias[j] + dotScaled;
+            
+            // scaled CReLU (Clipped ReLU) activation
+            activation = Math.Clamp(activation, 0, ScaleInt);
+            
+            _h1Activation[j] = activation;
         }
 
         // second hidden layer
@@ -315,12 +315,10 @@ internal unsafe sealed class NNUEEvaluator {
                 ? (sum + (ScaleInt >> 1)) / ScaleInt
                 : (sum - (ScaleInt >> 1)) / ScaleInt;
 
-            int combined = NNUEWeights.H2Bias[j] + dotScaled;
+            int activation = NNUEWeights.H2Bias[j] + dotScaled;
+            activation = Math.Clamp(activation, 0, ScaleInt);
 
-            int act = combined;
-            if (act < 0) act = 0;
-
-            _h2Activation[j] = act;
+            _h2Activation[j] = activation;
         }
 
         // output layer
