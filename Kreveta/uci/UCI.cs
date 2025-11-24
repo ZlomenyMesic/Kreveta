@@ -92,23 +92,43 @@ internal static partial class UCI {
                 // the "setoption ..." command is used to modify some options
                 // in the engine. this is important in many cases when we want
                 // to, for instance, disable the opening book
-                case "setoption": Options.Set(tokens); break;
+                case "setoption":
+                    Options.Set(tokens);
+                    break;
                 
                 // when we receive "isready", we shall respond with "readyok".
                 // this signals that we are ready to receive further commands
-                case "isready":   Log("readyok");      break;
-                case "uci":       CmdUCI();            break;
-                case "position":  CmdPosition(tokens); break;
-                case "go":        CmdGo(tokens);       break;
-                case "perft":     CmdPerft(tokens);    break;
+                case "isready":
+                    Log("readyok");
+                    break;
                 
-                // print the currently set position
-                case "d":         Game.Board.Print();  break;
+                case "uci":
+                    CmdUCI();
+                    break;
                 
-                // stop any current searches
-                case "stop":      StopSearch();        break;
+                case "position":
+                    CmdPosition(tokens);
+                    break;
                 
-                // run current benchmarks
+                case "go":
+                    CmdGo(tokens);
+                    break;
+                
+                case "perft":
+                    CmdPerft(tokens);
+                    break;
+                
+                // print the current position
+                case "d":
+                    Game.Board.Print();
+                    break;
+                
+                // stop any running searches
+                case "stop":
+                    StopSearch();
+                    break;
+                
+                // run currently set benchmarks
                 case "bench":
                     BenchmarkRunner.Run<Benchmarks>();
                     break;
@@ -126,17 +146,16 @@ internal static partial class UCI {
                     break;
 
                 case "eval": {
-                    // log the handcrafted static eval score
+                    // log the HCE score
                     Log($"se {Eval.StaticEval(in Game.Board)}");
 
-                    // and the NNUE predicted score
+                    // and the NNUE score
                     var nnue = new NNUEEvaluator(Game.Board);
                     Log($"nnue {nnue.Score}");
-                    
                     break;
                 }
                 
-                case "help":
+                case "help" or "-help" or "--help" or "h" or "-h" or "--h":
                     Log("Kreveta uses the UCI protocol to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta", LogLevel.INFO);
                     break;
 

@@ -80,12 +80,16 @@ def board_features(board: chess.Board):
 
     return w_indices, b_indices
 
+def CReLU(x):
+    return keras.activations.relu(x, max_value = 1.0)
+
 # next try to load the actual model
 print(f"Loading model from {MODEL_PATH} ...")
 
 model = tf.keras.models.load_model(
     MODEL_PATH,
-    safe_mode = False
+    custom_objects = {"CReLU": CReLU},
+    safe_mode      = False
 )
 
 print("Model loaded.")
@@ -95,7 +99,7 @@ print("Model loaded.")
 for layer in model.layers:
     if isinstance(layer, keras.layers.Lambda):
         fn_globals = layer.function.__globals__
-        fn_globals['tf']        = tf
+        fn_globals['tf'] = tf
 
 print("Injected tf into all Lambda layers.\n")
 

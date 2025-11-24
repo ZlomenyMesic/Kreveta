@@ -3,7 +3,6 @@
 # started 4-3-2025
 #
 
-import json
 import os
 import time
 from datetime import datetime
@@ -32,8 +31,8 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 NUM_WORKERS = 10
 
-BOOK_PATH = "C:\\Users\\michn\\Downloads\\rodent.bin"
-BOOK_MOVES = 8
+BOOK_PATH = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
+BOOK_MOVES = 20
 
 # total features (two accumulators combined)
 NUM_FEATURES_TOTAL = 81920  # 2 * 64 * 64 * 5 * 2
@@ -42,21 +41,25 @@ FEATURES_PER_ACC   = 40960
 EMBED_DIM         = 256
 H1_NEURONS        = 32
 H2_NEURONS        = 32
-LEARNING_RATE     = 1e-8
+LEARNING_RATE     = 1e-3
 BATCH_SIZE        = 2048
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300
-MAX_PLIES         = 250
+MAX_PLIES         = 260
 
-def feature_index_for_acc(king_square: int, piece_type: int, piece_color: bool, piece_square: int) -> int:
+# global counter for the number of
+# positions already trained/seen
+seen = 0
+
+def feature_index_for_acc(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
     # skip kings (just to make sure)
     if piece_type == chess.KING or piece_type == None:
         return -1
 
     # map piece_type 1..5 into 0..4
     piece_type_idx = piece_type - 1
-    color_bit      = 1 if piece_color else 0
+    color_bit      = 1 if is_black else 0
 
     king_offset  = king_square * 640
     piece_offset = (piece_type_idx * 2 + color_bit) * 64 + piece_square
@@ -88,20 +91,20 @@ def board_features(board: chess.Board):
             continue
 
         # piece_color True if black, False if white
-        piece_color_bit = piece.color == chess.BLACK
+        is_black = piece.color == chess.BLACK
 
         # index into white accumulator (white king as reference)
         idx_w = feature_index_for_acc(
             king_square  = w_king_sq,
             piece_type   = piece.piece_type,
-            piece_color  = piece_color_bit,
+            is_black     = is_black,
             piece_square = sq
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index_for_acc(
             king_square  = b_king_sq,
             piece_type   = piece.piece_type,
-            piece_color  = piece_color_bit,
+            is_black     = is_black,
             piece_square = sq
         )
 
@@ -138,57 +141,65 @@ def mirrored_board_features(board: chess.Board):
     # now extract features normally
     return board_features(mirrored)
 
+def CReLU(x):
+    return keras.activations.relu(x, max_value = 1.0)
+
 def build_model():
     # two ragged int inputs (variable-length lists of feature indices)
-    in_white = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name='Features_White')
-    in_black = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name='Features_Black')
+    inp_active  = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name='Inp_Active')
+    inp_passive = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name='Inp_Passive')
 
     # separate embedding tables (no shared weights)
-    emb_white_layer = layers.Embedding(
+    emb_active = layers.Embedding(
         input_dim  = FEATURES_PER_ACC,
         output_dim = EMBED_DIM,
-        name       = 'Embedding_White'
-    )
-    emb_black_layer = layers.Embedding(
+        name       = 'Embedding_Active'
+    )(inp_active)
+    emb_passive = layers.Embedding(
         input_dim  = FEATURES_PER_ACC,
         output_dim = EMBED_DIM,
-        name       = 'Embedding_Black'
-    )
-
-    emb_w = emb_white_layer(in_white)
-    emb_b = emb_black_layer(in_black)
+        name       = 'Embedding_Passive'
+    )(inp_passive)
 
     # accumulate embeddings per sample (reduce over sequence axis)
-    summed_w = layers.Lambda(
+    summed_active = layers.Lambda(
         lambda x: tf.reduce_sum(x, axis = 1),
         output_shape = (EMBED_DIM,),
-        name         = 'EmbedSum_White'
-    )(emb_w)
+        name         = 'EmbedSum_Active'
+    )(emb_active)
 
-    summed_b = layers.Lambda(
+    summed_passive = layers.Lambda(
         lambda x: tf.reduce_sum(x, axis = 1),
         output_shape = (EMBED_DIM,),
-        name         = 'EmbedSum_Black'
-    )(emb_b)
+        name         = 'EmbedSum_Passive'
+    )(emb_passive)
 
     # concatenate the two accumulators
-    concat = layers.Concatenate(name='Embed_Concat')([summed_w, summed_b])
+    concat = layers.Concatenate(name='Embed_Concat')([summed_active, summed_passive])
 
-    # two dense layers
-    h1 = layers.Dense(H1_NEURONS, activation = 'relu', name = 'Hidden_1')(concat)
-    h2 = layers.Dense(H2_NEURONS, activation = 'relu', name = 'Hidden_2')(h1)
+    # two dense layers, CReLU activation
+    h1 = layers.Dense(
+        H1_NEURONS,
+        activation = CReLU,
+        name       = 'Hidden_1'
+    )(concat)
+    h2 = layers.Dense(
+        H2_NEURONS,
+        activation = CReLU,
+        name       = 'Hidden_2'
+    )(h1)
 
     output = layers.Dense(1, activation = 'sigmoid', name = 'Output')(h2)
 
-    model = models.Model([in_white, in_black], output)
+    model = models.Model([inp_active, inp_passive], output)
     model.compile(
         optimizer = optimizers.AdamW(
             learning_rate = LEARNING_RATE,
             weight_decay  = 1e-5,
             clipnorm      = 1.0
         ),
-        loss    = losses.MeanSquaredError(),
-        metrics = [keras.metrics.MeanAbsoluteError(name='mae')]
+        loss    = losses.BinaryCrossentropy(),
+        metrics = [keras.metrics.MeanAbsoluteError(name = 'mae')]
     )
     return model
 
@@ -239,7 +250,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 board.push(move)
 
             # random polyglot book move
-            elif book is not None and plies < 8:
+            elif book is not None and plies < BOOK_MOVES:
                 try:
                     # get all entries for current position
                     entries = list(book.find_all(board))
@@ -248,13 +259,13 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                         entry = random.choice(entries)
                         board.push(entry.move)
 
-                except: 
+                except:
                     pass
 
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(8, 16)
+                    move_depth = rng.randint(4, 10)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -271,7 +282,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(depth = 12))
+                info  = engine.analyse(board, chess.engine.Limit(depth = 8))
                 score = info.get("score")
 
             except Exception as e:
@@ -284,43 +295,58 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             sc = score.white()
             cp = 0.0
             if sc.is_mate():
-                cp = 1600 if sc.mate() > 0 else -1600
+                cp = 2000 if sc.mate() > 0 else -2000
             else:
-                cp = np.clip(sc.score(), -1500, 1500)
+                cp = np.clip(sc.score(), -1800, 1800)
+
+            # score has to be color relative
+            if board.turn == chess.BLACK:
+                cp = -cp
 
             # map cp to [0,1]
             target = 1.0 / (1.0 + np.exp(-cp / 400.0))
 
-            # generate features for real board
-            w_indices, b_indices = board_features(board)
+            # generate features for the board. since we use the active first
+            # layout, black has to be always mirrored, regardless of whether
+            # we actually use mirroring augmentation
+            w_indices,  _  = board_features(board)
+            _, b_indices   = mirrored_board_features(board)
 
-            # generate mirrored features
-            mw_indices, mb_indices = mirrored_board_features(board)
+            w_np = np.array(w_indices, dtype = np.int32)
+            b_np = np.array(b_indices, dtype = np.int32)
 
+            # always put the non-mirrored position in the queue
             try:
-                # normal sample
-                samples_queue.put(((np.array(w_indices, dtype = np.int32),
-                    np.array(b_indices, dtype = np.int32)),
-                    float(target)), timeout = 1.0)
-
-                # mirrored sample (target inverted)
-                samples_queue.put(((np.array(mw_indices, dtype = np.int32),
-                    np.array(mb_indices, dtype = np.int32)),
-                    float(1.0 - target)), timeout = 1.0)
+                if board.turn == chess.WHITE:
+                    samples_queue.put(((w_np, b_np), float(target)), timeout = 1.0)
+                else:
+                    samples_queue.put(((b_np, w_np), float(target)), timeout = 1.0)
 
             except Exception:
                 time.sleep(0.05)
 
-        time.sleep(0.1)
+            # and if we use mirroring augmentation, white and black
+            # indices are simply switched, not actually mirrored
+            try:
+                if board.turn == chess.WHITE:
+                    samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
+                else:
+                    samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
+
+            except Exception:
+                time.sleep(0.05)
+
+        # a short pause after every game
+        time.sleep(0.01)
 
     engine.quit()
     print(f"[worker {worker_id}] stopping.")
 
 def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
     last_save = time.time()
-    x_batch   = []  # list of tuples: (white_indices_np, black_indices_np)
+    x_batch   = []  # list of tuples (active, passive)
     y_batch   = []
-    seen      = 0
+    global seen
 
     try:
         while not stop_event.is_set():
@@ -333,16 +359,16 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
             y_batch.append(y)
 
             if len(x_batch) >= BATCH_SIZE:
-                # Build ragged tensors separately for white and black accumulators
-                whites = [pair[0] for pair in x_batch]
-                blacks = [pair[1] for pair in x_batch]
+                # build ragged tensors separately for both accumulators
+                actives  = [pair[0] for pair in x_batch]
+                passives = [pair[1] for pair in x_batch]
 
-                x_white_ragged = tf.ragged.constant(whites, dtype = tf.int32)
-                x_black_ragged = tf.ragged.constant(blacks, dtype = tf.int32)
+                x_actives  = tf.ragged.constant(actives,  dtype = tf.int32)
+                x_passives = tf.ragged.constant(passives, dtype = tf.int32)
                 y_np = np.array(y_batch, dtype = np.float32).reshape(-1, 1)
 
                 loss, mae = model.train_on_batch(
-                    [x_white_ragged, x_black_ragged],
+                    [x_actives, x_passives],
                     y_np
                 )
 
@@ -351,11 +377,12 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
                 y_batch.clear()
 
                 timestamp = datetime.now().isoformat()
-                print(f"[{timestamp}] samples: {seen} loss: {loss:.5f} mae: {mae:.5f}")
+                print(f"[{timestamp}] samples: {seen} loss: {loss:.6f} mae: {mae:.6f}")
 
-                # CSV log
-                with open('log.csv', "a") as f:
-                    f.write(f"{seen},{loss:.6f},{mae:.6f},{timestamp}\n")
+                # CSV log (logs are limited to avoid spam)
+                if (seen % 65536 == 0):
+                    with open('log.csv', "a") as f:
+                        f.write(f"{seen},{loss:.6f},{mae:.6f},{timestamp}\n")
 
             if time.time() - last_save > SAVE_EVERY_SEC:
                 print("saving current model version...")
@@ -373,8 +400,12 @@ def main():
     # load or build
     if os.path.exists(MODEL_DIR):
         try:
-            print(f"loading model from {MODEL_DIR}")
-            model = tf.keras.models.load_model(MODEL_DIR, safe_mode = False)
+            print(f"\nloading model from {MODEL_DIR}\n")
+            model = tf.keras.models.load_model(
+                MODEL_DIR,
+                custom_objects = {"CReLU": CReLU},
+                safe_mode      = False
+            )
 
             # force Lambda layers to see tf in globals (if model has Lambda)
             for layer in model.layers:
@@ -383,33 +414,16 @@ def main():
                     fn_globals['tf'] = tf
 
         except Exception as e:
-            print(f"load failed: {e}, building new model...")
+            print(f"\nload failed: {e}, building new model...\n")
             model = build_model()
     else:
         model = build_model()
-        print("finished building new model.")
+        print("\nfinished building new model.\n")
 
-    SHAPES_JSON = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\NNUETraining\\export\\nnue_shapes.json"
-    WEIGHTS_BIN = "C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\NNUETraining\\export\\nnue_weights.bin"
-
-    # Read all weights from the binary file
-    weights_flat = np.fromfile(WEIGHTS_BIN, dtype=np.float32)
-
-    with open(SHAPES_JSON, "r") as f:
-        shapes = json.load(f)  # list of tuples
-
-    # Reconstruct the weights
-    weights = []
-    idx = 0
-    for shape in shapes:
-        size = np.prod(shape)
-        w = weights_flat[idx:idx+size].reshape(shape)
-        weights.append(w)
-        idx += size
-
-    model.set_weights(weights)
-
-    save_model_diag(model, 'architecture.png')
+    try:
+        save_model_diag(model, 'architecture.png')
+    except:
+        print("\nsaving model diagram failed.\n")
 
     # create the CSV log file if it doesn't exist
     if not os.path.exists('log.csv'):
@@ -417,7 +431,7 @@ def main():
             f.write("samples,loss,mae,timestamp\n")
 
     mp_ctx        = mp.get_context("spawn")
-    samples_queue = mp_ctx.Queue(maxsize=SAMPLES_QUEUE_MAX)
+    samples_queue = mp_ctx.Queue(maxsize = SAMPLES_QUEUE_MAX)
     stop_event    = mp_ctx.Event()
 
     workers = []
