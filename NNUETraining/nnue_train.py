@@ -33,7 +33,7 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
-NUM_WORKERS = 10
+NUM_WORKERS = 11
 BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
 BOOK_MOVES  = 16
 
@@ -50,10 +50,7 @@ SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300
 MAX_PLIES         = 260
 
-def feature_index_for_acc(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
-    # skip kings (just to make sure)
-    if piece_type == chess.KING or piece_type == None:
-        return -1
+def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
 
     # map piece_type 1..5 into 0..4
     piece_type_idx = piece_type - 1
@@ -75,7 +72,7 @@ def board_features(board: chess.Board):
 
     # if a king is missing (shouldn't happen in legal positions), we still produce empty lists.
     if w_king_sq is None or b_king_sq is None:
-        return [], []
+        return []
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
@@ -92,18 +89,18 @@ def board_features(board: chess.Board):
         is_black = piece.color == chess.BLACK
 
         # index into white accumulator (white king as reference)
-        idx_w = feature_index_for_acc(
+        idx_w = feature_index(
             king_square  = w_king_sq,
             piece_type   = piece.piece_type,
             is_black     = is_black,
             piece_square = sq
         )
         # index into black accumulator (black king as reference)
-        idx_b = feature_index_for_acc(
-            king_square  = b_king_sq ^ 56,
+        idx_b = feature_index(
+            king_square  = b_king_sq,
             piece_type   = piece.piece_type,
             is_black     = is_black,
-            piece_square = sq ^ 56
+            piece_square = sq
         )
 
         w_indices.append(idx_w)
@@ -111,10 +108,36 @@ def board_features(board: chess.Board):
 
     return w_indices, b_indices
 
+def mirrored_board_features(board: chess.Board):
+    # create a mirrored + color-flipped board  
+    mirrored = chess.Board(fen = board.fen()) # copy
+
+    # mirror piece placement
+    piece_map = {}
+
+    for sq in chess.SQUARES:
+        p = board.piece_at(sq)
+        if p is None:
+            continue
+
+        new_sq = chess.square_mirror(sq)
+
+        # flip piece color
+        flipped_color = not p.color
+
+        piece_map[new_sq] = chess.Piece(p.piece_type, flipped_color)
+
+    mirrored.clear_board()
+    for sq, piece in piece_map.items():
+        mirrored.set_piece_at(sq, piece)
+
+    # now extract features normally
+    return board_features(mirrored)
+
 def ClippedReLU(x):
     return keras.activations.relu(x, max_value = 1.0)
 
-def build_model():
+def build_model() -> keras.Model:
     # two ragged int inputs (variable-length lists of feature indices)
     inp_active  = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name = 'Input_Active')
     inp_passive = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name = 'Input_Passive')
@@ -231,7 +254,7 @@ def load_weights_binary(model, weights_path = WEIGHTS_PATH, shapes_path = SHAPES
 
     # read binary as float32
     try:
-        flat = np.fromfile(weights_path, dtype=np.float32)
+        flat = np.fromfile(weights_path, dtype = np.float32)
     except Exception as e:
         print("failed to read weights file:", e)
         return False
@@ -338,7 +361,8 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
 
             # generate feature indices for both the real
             # board and the vertically mirrored version
-            w_indices, b_indices = board_features(board)
+            w_indices, _ = board_features(board)
+            _, b_indices = mirrored_board_features(board)
 
             w_np = np.array(w_indices, dtype = np.int32)
             b_np = np.array(b_indices, dtype = np.int32)
@@ -373,7 +397,6 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
             try:
                 x, y = samples_queue.get(timeout = 1.0)
             except Exception:
-                # timeout -> check events
                 pass
             else:
                 x_batch.append(x)
@@ -422,7 +445,7 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
         # final save on exit
         try:
             _, count = save_weights_binary(model)
-            print(f"[{datetime.now().isoformat()}] final save weights ({count} floats) -> {WEIGHTS_BIN}, shapes -> {SHAPES_JSON}")
+            print(f"[{datetime.now().isoformat()}] final save weights ({count} floats) -> {WEIGHTS_PATH}, shapes -> {SHAPES_PATH}")
         except Exception as e:
             print("final save failed:", e)
         stop_event.set()
@@ -481,7 +504,7 @@ def main():
         print("waiting for workers...")
         stop_event.set()
         for p in workers:
-            p.join(timeout=2)
+            p.join(timeout = 2.0)
 
 if __name__ == "__main__":
     main()
