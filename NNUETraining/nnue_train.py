@@ -4,6 +4,7 @@
 #
 
 import os
+import json
 import time
 from datetime import datetime
 import signal
@@ -28,18 +29,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # model path
 MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 
+WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
+SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
+
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 NUM_WORKERS = 10
+BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
+BOOK_MOVES  = 16
 
-BOOK_PATH = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
-BOOK_MOVES = 20
-
-# total features (two accumulators combined)
-NUM_FEATURES_TOTAL = 81920  # 2 * 64 * 64 * 5 * 2
-FEATURES_PER_ACC   = 40960
+# total features (shared by accumulators)
+FEATURE_COUNT     = 40960
 
 EMBED_DIM         = 256
-H1_NEURONS        = 32
+H1_NEURONS        = 16
 H2_NEURONS        = 32
 LEARNING_RATE     = 1e-3
 BATCH_SIZE        = 2048
@@ -47,10 +49,6 @@ BATCH_SIZE        = 2048
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300
 MAX_PLIES         = 260
-
-# global counter for the number of
-# positions already trained/seen
-seen = 0
 
 def feature_index_for_acc(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
     # skip kings (just to make sure)
@@ -102,96 +100,88 @@ def board_features(board: chess.Board):
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index_for_acc(
-            king_square  = b_king_sq,
+            king_square  = b_king_sq ^ 56,
             piece_type   = piece.piece_type,
             is_black     = is_black,
-            piece_square = sq
+            piece_square = sq ^ 56
         )
 
-        if idx_w != -1:
-            w_indices.append(idx_w)
-        if idx_b != -1:
-            b_indices.append(idx_b)
+        w_indices.append(idx_w)
+        b_indices.append(idx_b)
 
     return w_indices, b_indices
 
-def mirrored_board_features(board: chess.Board):
-    # create a mirrored + color-flipped board  
-    mirrored = chess.Board(fen = board.fen()) # copy
-
-    # mirror piece placement
-    piece_map = {}
-
-    for sq in chess.SQUARES:
-        p = board.piece_at(sq)
-        if p is None:
-            continue
-
-        new_sq = chess.square_mirror(sq)
-
-        # flip piece color
-        flipped_color = not p.color
-
-        piece_map[new_sq] = chess.Piece(p.piece_type, flipped_color)
-
-    mirrored.clear_board()
-    for sq, piece in piece_map.items():
-        mirrored.set_piece_at(sq, piece)
-
-    # now extract features normally
-    return board_features(mirrored)
-
-def CReLU(x):
+def ClippedReLU(x):
     return keras.activations.relu(x, max_value = 1.0)
 
 def build_model():
     # two ragged int inputs (variable-length lists of feature indices)
-    inp_active  = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name='Inp_Active')
-    inp_passive = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name='Inp_Passive')
+    inp_active  = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name = 'Input_Active')
+    inp_passive = layers.Input(shape = (None,), ragged = True, dtype = 'int32', name = 'Input_Passive')
+    inp_pcnt    = layers.Input(shape = (), dtype = 'int32', name = 'Input_PieceCount')
 
     # separate embedding tables (no shared weights)
-    emb_active = layers.Embedding(
-        input_dim  = FEATURES_PER_ACC,
+    emb_shared = layers.Embedding(
+        input_dim  = FEATURE_COUNT,
         output_dim = EMBED_DIM,
-        name       = 'Embedding_Active'
-    )(inp_active)
-    emb_passive = layers.Embedding(
-        input_dim  = FEATURES_PER_ACC,
-        output_dim = EMBED_DIM,
-        name       = 'Embedding_Passive'
-    )(inp_passive)
+        name       = 'Embedding_Shared'
+    )
+
+    emb_active  = emb_shared(inp_active)
+    emb_passive = emb_shared(inp_passive)
 
     # accumulate embeddings per sample (reduce over sequence axis)
     summed_active = layers.Lambda(
         lambda x: tf.reduce_sum(x, axis = 1),
         output_shape = (EMBED_DIM,),
-        name         = 'EmbedSum_Active'
+        name         = 'Accumulator_Active'
     )(emb_active)
 
     summed_passive = layers.Lambda(
         lambda x: tf.reduce_sum(x, axis = 1),
         output_shape = (EMBED_DIM,),
-        name         = 'EmbedSum_Passive'
+        name         = 'Accumulator_Passive'
     )(emb_passive)
 
     # concatenate the two accumulators
-    concat = layers.Concatenate(name='Embed_Concat')([summed_active, summed_passive])
+    concat = layers.Concatenate(name = 'Accumulator_Concat')([summed_active, summed_passive])
 
-    # two dense layers, CReLU activation
-    h1 = layers.Dense(
-        H1_NEURONS,
-        activation = CReLU,
-        name       = 'Hidden_1'
-    )(concat)
-    h2 = layers.Dense(
-        H2_NEURONS,
-        activation = CReLU,
-        name       = 'Hidden_2'
-    )(h1)
+    subnets = []
+    for i in range(4):
+        # two dense layers, CReLU activation
+        h1 = layers.Dense(H1_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense16')(concat)
+        h2 = layers.Dense(H2_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense32')(h1)
+        subnets.append(h2)
 
-    output = layers.Dense(1, activation = 'sigmoid', name = 'Output')(h2)
+    # stack the 4 subnet outputs into shape (batch, 4, H2_NEURONS)
+    # wrap tf.stack into a Lambda so we only use Keras layers on KerasTensors
+    stacked = layers.Lambda(lambda inputs: tf.stack(inputs, axis = 1), name = 'Stack_Subnets')(subnets)
 
-    model = models.Model([inp_active, inp_passive], output)
+    # select the right subnet according to piece count bucket
+    def select_fn(args):
+        stacked_tensor, pc = args
+
+        # pc has shape (batch,) integer counts
+        bucket  = tf.clip_by_value(pc // 8, 0, 3)
+        one_hot = tf.one_hot(bucket, depth = 4, dtype = stacked_tensor.dtype)
+
+        # expand one_hot to (batch, 4, 1) to multiply with stacked (batch, 4, H)
+        one_hot = one_hot[..., None]
+        return tf.reduce_sum(stacked_tensor * one_hot, axis = 1) # (batch, H2_NEURONS)
+
+    select = layers.Lambda(
+        select_fn,
+        name         = 'SelectSubnet',
+        output_shape = (H2_NEURONS,)
+    )([stacked, inp_pcnt])
+
+    output = layers.Dense(
+        1,
+        activation = 'sigmoid',
+        name       = 'Output'
+    )(select)
+
+    model = models.Model([inp_active, inp_passive, inp_pcnt], output)
     model.compile(
         optimizer = optimizers.AdamW(
             learning_rate = LEARNING_RATE,
@@ -203,17 +193,68 @@ def build_model():
     )
     return model
 
-def save_model_diag(model, filename):
-    from keras.utils import plot_model
-    plot_model(
-        model,
-        to_file                = filename,
-        show_shapes            = True,
-        show_layer_names       = True,
-        expand_nested          = True,
-        dpi                    = 200, # image resolution
-        show_layer_activations = True
-    )
+def save_weights_binary(model, weights_path = WEIGHTS_PATH, shapes_path = SHAPES_PATH):
+    """
+    Saves model.get_weights() to a raw binary file and shapes to JSON.
+    Overwrites existing files.
+    """
+    weights = model.get_weights()
+    shapes = [list(w.shape) for w in weights]
+    # flatten all weights to a single 1D float32 array
+    flat = np.concatenate([w.ravel().astype(np.float32) for w in weights]) if len(weights) else np.array([], dtype = np.float32)
+    # write the flat array
+    flat.tofile(weights_path)
+    # write shapes
+    with open(shapes_path, "w") as f:
+        json.dump(shapes, f)
+    return shapes, flat.size
+
+def load_weights_binary(model, weights_path = WEIGHTS_PATH, shapes_path = SHAPES_PATH):
+    """
+    Loads shapes from JSON and weights from binary, reconstructs
+    the weight arrays and assigns them to the model via set_weights().
+    Returns True on success, False on failure.
+    """
+    if not os.path.exists(weights_path) or not os.path.exists(shapes_path):
+        return False
+
+    with open(shapes_path, "r") as f:
+        shapes = json.load(f)
+
+    # total number of floats expected
+    total = 0
+    sizes = []
+    for s in shapes:
+        size = int(np.prod(s))
+        sizes.append(size)
+        total += size
+
+    # read binary as float32
+    try:
+        flat = np.fromfile(weights_path, dtype=np.float32)
+    except Exception as e:
+        print("failed to read weights file:", e)
+        return False
+
+    if flat.size != total:
+        print(f"weight count mismatch: expected {total} floats, got {flat.size}.")
+        return False
+
+    # reconstruct
+    weights = []
+    idx = 0
+    for size, shape in zip(sizes, shapes):
+        w = flat[idx: idx+size].reshape(tuple(shape)).astype(np.float32)
+        weights.append(w)
+        idx += size
+
+    try:
+        model.set_weights(weights)
+    except Exception as e:
+        print("model.set_weights failed:", e)
+        return False
+
+    return True
 
 def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     print(f"[worker {worker_id}] starting self-play; cmd = {ENGINE_CMD}")
@@ -226,7 +267,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     
     try:
         book = chess.polyglot.open_reader(BOOK_PATH)
-    except:
+    except Exception:
         book = None
 
     rng = random.Random(time.time() + worker_id)
@@ -234,15 +275,9 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     while not stop_event.is_set():
         board = chess.Board()
         plies = 0
-
-        # some games will be very good while
-        # other games will be very chaotic. this
-        # should make the model learn both weird
-        # and sophisticated positions
         random_move_freq = rng.random() * 0.10
 
         while plies < MAX_PLIES and not stop_event.is_set():
-
             # random move chance
             if rng.random() < random_move_freq:
                 legal_moves = list(board.legal_moves)
@@ -250,16 +285,13 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 board.push(move)
 
             # random polyglot book move
-            elif book is not None and plies < BOOK_MOVES:
+            if book is not None and plies < BOOK_MOVES:
                 try:
-                    # get all entries for current position
                     entries = list(book.find_all(board))
                     if entries:
-                        # pick a completely random entry
                         entry = random.choice(entries)
                         board.push(entry.move)
-
-                except:
+                except Exception:
                     pass
 
             # otherwise let the engine choose the move
@@ -272,7 +304,6 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                         break
 
                     board.push(result.move)
-
                 except Exception as e:
                     print(f"[worker {worker_id}] play() error: {e}")
                     break
@@ -284,7 +315,6 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             try:
                 info  = engine.analyse(board, chess.engine.Limit(depth = 8))
                 score = info.get("score")
-
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")
                 break
@@ -299,77 +329,69 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             else:
                 cp = np.clip(sc.score(), -1800, 1800)
 
-            # score has to be color relative
+            # if black is the active side, the score must be inversed
             if board.turn == chess.BLACK:
                 cp = -cp
 
             # map cp to [0,1]
             target = 1.0 / (1.0 + np.exp(-cp / 400.0))
 
-            # generate features for the board. since we use the active first
-            # layout, black has to be always mirrored, regardless of whether
-            # we actually use mirroring augmentation
-            w_indices,  _  = board_features(board)
-            _, b_indices   = mirrored_board_features(board)
+            # generate feature indices for both the real
+            # board and the vertically mirrored version
+            w_indices, b_indices = board_features(board)
 
             w_np = np.array(w_indices, dtype = np.int32)
             b_np = np.array(b_indices, dtype = np.int32)
 
-            # always put the non-mirrored position in the queue
             try:
-                if board.turn == chess.WHITE:
-                    samples_queue.put(((w_np, b_np), float(target)), timeout = 1.0)
-                else:
-                    samples_queue.put(((b_np, w_np), float(target)), timeout = 1.0)
-
-            except Exception:
-                time.sleep(0.05)
-
-            # and if we use mirroring augmentation, white and black
-            # indices are simply switched, not actually mirrored
-            try:
-                if board.turn == chess.WHITE:
+                if (board.turn == chess.WHITE):
+                    samples_queue.put(((w_np, b_np), float(target)),       timeout = 1.0)
                     samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
                 else:
+                    samples_queue.put(((b_np, w_np), float(target)),       timeout = 1.0)
                     samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
 
             except Exception:
                 time.sleep(0.05)
 
-        # a short pause after every game
         time.sleep(0.01)
 
-    engine.quit()
+    try:
+        engine.quit()
+    except Exception:
+        pass
     print(f"[worker {worker_id}] stopping.")
 
 def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
     last_save = time.time()
     x_batch   = []  # list of tuples (active, passive)
     y_batch   = []
-    global seen
+    seen      = 0
 
     try:
         while not stop_event.is_set():
             try:
                 x, y = samples_queue.get(timeout = 1.0)
             except Exception:
-                continue
-
-            x_batch.append(x)
-            y_batch.append(y)
+                # timeout -> check events
+                pass
+            else:
+                x_batch.append(x)
+                y_batch.append(y)
 
             if len(x_batch) >= BATCH_SIZE:
                 # build ragged tensors separately for both accumulators
-                actives  = [pair[0] for pair in x_batch]
-                passives = [pair[1] for pair in x_batch]
+                active  = [pair[0] for pair in x_batch]
+                passive = [pair[1] for pair in x_batch]
 
-                x_actives  = tf.ragged.constant(actives,  dtype = tf.int32)
-                x_passives = tf.ragged.constant(passives, dtype = tf.int32)
+                x_active  = tf.ragged.constant(active,  dtype = tf.int32)
+                x_passive = tf.ragged.constant(passive, dtype = tf.int32)
+                x_pcnts   = np.array([len(a) + 2 for a in active], dtype = np.int32)
+
                 y_np = np.array(y_batch, dtype = np.float32).reshape(-1, 1)
 
                 loss, mae = model.train_on_batch(
-                    [x_actives, x_passives],
-                    y_np
+                    [x_active, x_passive, x_pcnts], y_np
                 )
 
                 seen += len(x_batch)
@@ -380,56 +402,60 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
                 print(f"[{timestamp}] samples: {seen} loss: {loss:.6f} mae: {mae:.6f}")
 
                 # CSV log (logs are limited to avoid spam)
-                if (seen % 65536 == 0):
+                if (seen % 32768 == 0):
                     with open('log.csv', "a") as f:
                         f.write(f"{seen},{loss:.6f},{mae:.6f},{timestamp}\n")
 
+            # periodic save by wall-clock
             if time.time() - last_save > SAVE_EVERY_SEC:
-                print("saving current model version...")
-                model.save(MODEL_DIR, include_optimizer = True)
+                try:
+                    shapes, count = save_weights_binary(model)
+                    print(f"[{datetime.now().isoformat()}] saved weights ({count} floats) -> {WEIGHTS_PATH}, shapes -> {SHAPES_PATH}")
+                except Exception as e:
+                    print("Failed to save weights:", e)
                 last_save = time.time()
 
     except KeyboardInterrupt:
         print("training interrupted, exiting gracefully...")
 
     finally:
-        model.save(MODEL_DIR, include_optimizer = True)
+        # final save on exit
+        try:
+            _, count = save_weights_binary(model)
+            print(f"[{datetime.now().isoformat()}] final save weights ({count} floats) -> {WEIGHTS_BIN}, shapes -> {SHAPES_JSON}")
+        except Exception as e:
+            print("final save failed:", e)
         stop_event.set()
 
 def main():
-    # load or build
-    if os.path.exists(MODEL_DIR):
+
+    # build model
+    model = build_model()
+    print("\nbuilt new model architecture.\n")
+
+    # try to load raw weights if present
+    loaded = False
+    if os.path.exists(WEIGHTS_PATH) and os.path.exists(SHAPES_PATH):
+        print("\nfound raw weights + shapes. Attempting to load...\n")
         try:
-            print(f"\nloading model from {MODEL_DIR}\n")
-            model = tf.keras.models.load_model(
-                MODEL_DIR,
-                custom_objects = {"CReLU": CReLU},
-                safe_mode      = False
-            )
-
-            # force Lambda layers to see tf in globals (if model has Lambda)
-            for layer in model.layers:
-                if isinstance(layer, keras.layers.Lambda):
-                    fn_globals = layer.function.__globals__
-                    fn_globals['tf'] = tf
-
+            ok = load_weights_binary(model)
+            if ok:
+                print("\nweights successfully loaded into model.\n")
+                loaded = True
+            else:
+                print("\nweights exist but failed to load (shape mismatch or set_weights failed).\n")
         except Exception as e:
-            print(f"\nload failed: {e}, building new model...\n")
-            model = build_model()
-    else:
-        model = build_model()
-        print("\nfinished building new model.\n")
+            print("\nerror while loading weights: ", e)
 
-    try:
-        save_model_diag(model, 'architecture.png')
-    except:
-        print("\nsaving model diagram failed.\n")
+    if not loaded:
+        print("\nstarting with fresh random-initialized weights.\n")
 
     # create the CSV log file if it doesn't exist
     if not os.path.exists('log.csv'):
         with open('log.csv', "w") as f:
             f.write("samples,loss,mae,timestamp\n")
 
+    # set up multiprocessing
     mp_ctx        = mp.get_context("spawn")
     samples_queue = mp_ctx.Queue(maxsize = SAMPLES_QUEUE_MAX)
     stop_event    = mp_ctx.Event()
