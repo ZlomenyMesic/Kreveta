@@ -52,7 +52,7 @@ internal static class Program {
         
         Eval.Init();
 
-        NNUEWeights.Load(@"C:\Users\michn\Desktop\Kreveta\Kreveta\NNUETraining\export\nnue_weights.bin");
+        NNUEWeights.Load(@"C:\Users\michn\Desktop\Kreveta\Kreveta\NNUETraining\weights\nnue_weights.bin");
         
         // just for experimental purposes
         Tuning.ShiftParams();

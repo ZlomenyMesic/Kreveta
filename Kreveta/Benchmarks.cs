@@ -14,6 +14,11 @@
 
 using BenchmarkDotNet.Attributes;
 
+using Kreveta.consts;
+using Kreveta.movegen;
+using Kreveta.nnue;
+// ReSharper disable InconsistentNaming
+
 namespace Kreveta;
 
 /*
@@ -36,77 +41,7 @@ public class Benchmarks {
     
     [GlobalSetup]
     public void Setup() {
-
     }
-
-    /*[Benchmark]
-    public void ListTest() {
-        List<(Move, int)> quiets = [];
-
-        for (int i = 0; i < _legal.Length; i++) {
-            if (_legal[i].Capture == PType.NONE)
-                quiets.Add((_legal[i], QuietHistory.GetRep(_position, _legal[i])));
-        }
-    }
-
-    [Benchmark]
-    public void IEnumTest() {
-        (Move, int)[] quiets = [.._legal
-            .Select(move => (move, QuietHistory.GetRep(_position, move)))
-            .Where(item => item.move.Capture == PType.NONE)
-        ];
-    }*/
-    
-    //private Board _position = Board.CreateStartpos();
-
-    //[Benchmark]
-    //public void GetLegalMoves() {
-    //    _ = Movegen.GetLegalMoves(ref _position, stackalloc Move[128]);
-    //}
-
-    
-    //[Benchmark]
-    //public void ZobristGetHash() {
-    //    ulong hash = ZobristHash.Hash(_position);
-    //}
-    
-    /*[Benchmark]
-    public void ZobristLookupGetHash() {
-        ulong hash = PolyglotZobristHash.Hash(_position);
-    }*/
-    /*
-
-    [Benchmark]
-    public void StaticEval() {
-        int x = Eval.StaticEval(_position);
-    }*/
-
-    // [Benchmark]
-    // public void PlayMove() {
-    //     var clone = _position.Clone();
-    //     clone.PlayMove(_move);
-    // }
-
-    /*
-    [Benchmark]
-    public void PlayMoveReversible() {
-        var clone = _position.Clone();
-        clone.PlayReversibleMove(_move, Color.WHITE);
-    }*/
-/*
-    [Benchmark]
-    public void PawnCapturesCalculated() {
-        ulong pawn = 1UL << 31;
-        ulong targets = Pawn.GetPawnCaptureTargets(pawn, 64, Color.WHITE, 1UL << 13) | 1UL << 50;
-        ulong targets2 = Pawn.GetPawnCaptureTargets(targets, 64, Color.WHITE, 1UL << 13);
-    }
-    
-    [Benchmark]
-    public void PawnCapturesLookup() {
-        ulong pawn = 1UL << 31;
-        ulong targets = Pawn.GetPawnCaptureTargetsLookup(pawn, 64, Color.WHITE, 1UL << 13) | 1UL << 50;
-        ulong targets2 = Pawn.GetPawnCaptureTargetsLookup(targets, 64, Color.WHITE, 1UL << 13);
-    }*/
 }
 
 #pragma warning restore CA1822

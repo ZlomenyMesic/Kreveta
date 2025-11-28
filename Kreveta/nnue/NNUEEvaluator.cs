@@ -7,6 +7,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
+using Kreveta.utils;
 
 using System;
 using System.Runtime.CompilerServices;
@@ -25,38 +26,32 @@ internal unsafe sealed class NNUEEvaluator {
     private readonly short[] _accW = new short[NNUEWeights.EmbedDims];
     private readonly short[] _accB = new short[NNUEWeights.EmbedDims];
 
-    // small activation buffers (int32 accumulators for hidden neurons after dot)
-    private readonly int[] _h1Activation = new int[NNUEWeights.H1Neurons];
-    private readonly int[] _h2Activation = new int[NNUEWeights.H2Neurons];
-
     private readonly int[] _wFeatures = new int[32];
     private readonly int[] _bFeatures = new int[32];
 
-    internal short Score { get; private set; }
+    internal short Score;
 
     // shortcut to constants:
-    private const int EmbedDims = NNUEWeights.EmbedDims;   // 256
-    private const int H1Neurons = NNUEWeights.H1Neurons;   // 32
-    private const int H2Neurons = NNUEWeights.H2Neurons;   // 32
+    private const int EmbedDims = NNUEWeights.EmbedDims;
+    private const int H1Neurons = NNUEWeights.H1Neurons;
+    private const int H2Neurons = NNUEWeights.H2Neurons;
 
     // H1 input width after concatenation (white + black)
-    private const int H1Input = EmbedDims * 2;             // 512
+    private const int H1Input = EmbedDims * 2;
+    private const int ScaleInt = (int)NNUEWeights.Scale;
 
-    private const int ScaleInt = (int)NNUEWeights.Scale;  // 512
+    internal NNUEEvaluator() { /* nothing */ }
 
-    internal NNUEEvaluator() {
-        // nothing
-    }
-
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal NNUEEvaluator(in NNUEEvaluator other) {
         Array.Copy(other._accW, _accW, NNUEWeights.EmbedDims);
         Array.Copy(other._accB, _accB, NNUEWeights.EmbedDims);
         Score = other.Score;
     }
 
-    internal NNUEEvaluator(in Board board) {
-        Update(in board);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal NNUEEvaluator(in Board board)
+        => Update(in board);
 
     private void Update(in Board board) {
         // zero accumulators
@@ -68,11 +63,11 @@ internal unsafe sealed class NNUEEvaluator {
 
         // White features -> _accW
         for (int i = 0; i < featureCount; i++) {
-            UpdateFeature(_wFeatures[i], true, _accW, NNUEWeights.EmbeddingWhite);
-            UpdateFeature(_bFeatures[i], true, _accB, NNUEWeights.EmbeddingBlack);
+            UpdateFeature(_wFeatures[i], true, _accW);
+            UpdateFeature(_bFeatures[i], true, _accB);
         }
 
-        UpdateEvaluation();
+        UpdateEvaluation(board.Color, featureCount + 2);
     }
 
     // incremental update on moves (pass in current king squares)
@@ -87,7 +82,8 @@ internal unsafe sealed class NNUEEvaluator {
         PType capt  = move.Capture;
         PType prom  = move.Promotion;
 
-        Color oppColor = colMoved == Color.WHITE ? Color.BLACK : Color.WHITE;
+        Color oppColor = colMoved == Color.WHITE 
+            ? Color.BLACK : Color.WHITE;
 
         if (piece != PType.KING)
             Deactivate(wKing, bKing, (int)piece, colMoved, start);
@@ -136,7 +132,7 @@ internal unsafe sealed class NNUEEvaluator {
         if (move.Piece == PType.KING)
             RebuildAccumulator(in board, colMoved);
 
-        UpdateEvaluation();
+        UpdateEvaluation(oppColor, (int)ulong.PopCount(board.Occupied));
     }
 
     private void RebuildAccumulator(in Board board, Color col) {
@@ -147,42 +143,48 @@ internal unsafe sealed class NNUEEvaluator {
             
             // rebuild white accumulator
             for (int i = 0; i < featureCount; i++)
-                UpdateFeature(_wFeatures[i], true, _accW, NNUEWeights.EmbeddingWhite);
+                UpdateFeature(_wFeatures[i], true, _accW);
         }
         else {
             Array.Clear(_accB, 0, NNUEWeights.EmbedDims);
 
             // rebuild black accumulator
             for (int i = 0; i < featureCount; i++)
-                UpdateFeature(_bFeatures[i], true, _accB, NNUEWeights.EmbeddingBlack);
+                UpdateFeature(_bFeatures[i], true, _accB);
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Activate(int wKing, int bKing, int piece, Color col, int sq) {
-        int idxW = FeatureIndex(wKing, piece, col, sq);
-        int idxB = FeatureIndex(bKing, piece, col, sq);
+        int idxW = FeatureIndex(Color.WHITE, wKing, piece, col, sq);
+        int idxB = FeatureIndex(Color.BLACK, bKing, piece, col, sq);
 
-        UpdateFeature(idxW, true, _accW, NNUEWeights.EmbeddingWhite);
-        UpdateFeature(idxB, true, _accB, NNUEWeights.EmbeddingBlack);
+        UpdateFeature(idxW, true, _accW);
+        UpdateFeature(idxB, true, _accB);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Deactivate(int wKing, int bKing, int piece, Color col, int sq) {
-        int idxW = FeatureIndex(wKing, piece, col, sq);
-        int idxB = FeatureIndex(bKing, piece, col, sq);
+        int idxW = FeatureIndex(Color.WHITE, wKing, piece, col, sq);
+        int idxB = FeatureIndex(Color.BLACK, bKing, piece, col, sq);
 
-        UpdateFeature(idxW, false, _accW, NNUEWeights.EmbeddingWhite);
-        UpdateFeature(idxB, false, _accB, NNUEWeights.EmbeddingBlack);
+        UpdateFeature(idxW, false, _accW);
+        UpdateFeature(idxB, false, _accB);
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int FeatureIndex(int kingSq, int piece, Color col, int sq)
-        => (kingSq ^ 56) * 640 
-           + (piece * 2 + (col == Color.WHITE ? 0 : 1)) * 64 
-           + (sq ^ 56);
 
-    // Extract features: returns per-accumulator feature indices (skips kings)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int FeatureIndex(Color perspective, int kingSq, int piece, Color col, int sq) {
+        int colBit = col == Color.WHITE ? 0 : 1;
+
+        if (perspective == Color.WHITE) {
+            kingSq ^= 56;
+            sq     ^= 56;
+        } else colBit = 1 - colBit;
+        
+        return kingSq * 640 + (piece * 2 + colBit) * 64 + sq;
+    }
+
+    // extract features: returns per-accumulator feature indices (skips kings)
     private int ExtractFeatures(in Board board) {
         // get king squares in python-chess indexing (we'll store kings in engine indexing)
         int wKing = BB.LS1B(board.Pieces[5]);   // engine square for white king
@@ -201,14 +203,14 @@ internal unsafe sealed class NNUEEvaluator {
             
             while (wCopy != 0UL) {
                 byte sq = BB.LS1BReset(ref wCopy);
-                _wFeatures[count]   = FeatureIndex(wKing, i, Color.WHITE, sq);
-                _bFeatures[count++] = FeatureIndex(bKing, i, Color.WHITE, sq);
+                _wFeatures[count]   = FeatureIndex(Color.WHITE, wKing, i, Color.WHITE, sq);
+                _bFeatures[count++] = FeatureIndex(Color.BLACK, bKing, i, Color.WHITE, sq);
             }
 
             while (bCopy != 0UL) {
                 byte sq = BB.LS1BReset(ref bCopy);
-                _wFeatures[count]   = FeatureIndex(wKing, i, Color.BLACK, sq);
-                _bFeatures[count++] = FeatureIndex(bKing, i, Color.BLACK, sq);
+                _wFeatures[count]   = FeatureIndex(Color.WHITE, wKing, i, Color.BLACK, sq);
+                _bFeatures[count++] = FeatureIndex(Color.BLACK, bKing, i, Color.BLACK, sq);
             }
         }
         
@@ -221,144 +223,128 @@ internal unsafe sealed class NNUEEvaluator {
     // 'add'    : true to add embedding, false to subtract
     // 'isWhite': true => use EmbeddingWhite, false => use EmbeddingBlack
     //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateFeature(int featureIdx, bool add, short[] accumulator, short[] embedding) {
+    private static void UpdateFeature(int featureIdx, bool add, short[] accumulator) {
         int   baseIndex = featureIdx * NNUEWeights.EmbedDims; // index into embedding flat array
         short sign      = add ? (short)1 : (short)-1;
 
         ref short accRef = ref MemoryMarshal.GetArrayDataReference(accumulator);
-        ref short embRef = ref MemoryMarshal.GetArrayDataReference(embedding);
+        ref short embRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.Embedding);
         
         // vectorized loop (process 16 int16 elements at a time)
         for (int i = 0; i <= NNUEWeights.EmbedDims - 16; i += 16) {
             var va = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i)));
             var vb = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref embRef, baseIndex + i)));
 
+#pragma warning disable CA1508
             var vr = sign == 1 
                 ? Avx2.Add(va, vb) 
                 : Avx2.Subtract(va, vb);
-
+#pragma warning restore CA1508
+            
             Avx.Store((short*)Unsafe.AsPointer(ref Unsafe.Add(ref accRef, i)), vr);
         }
     }
 
     // perform forward pass using AVX2 PMADDWD for dot-products
-    private void UpdateEvaluation() {
+    internal void UpdateEvaluation(Color active, int pcnt) {
         
         // concatenate accumulators: [accW (0..255), accB (256..511)]
         Span<short> concat = stackalloc short[H1Input];
-        _accW.AsSpan().CopyTo(concat[..EmbedDims]);
-        _accB.AsSpan().CopyTo(concat[EmbedDims..H1Input]);
 
-        // H1 pass: input width = 512 (H1Input), kernel stored neuron-major [32 * 512]
+        if (active == Color.WHITE) {
+            _accW.AsSpan().CopyTo(concat[..EmbedDims]);
+            _accB.AsSpan().CopyTo(concat[EmbedDims..H1Input]);
+        } else {
+            _accB.AsSpan().CopyTo(concat[..EmbedDims]);
+            _accW.AsSpan().CopyTo(concat[EmbedDims..H1Input]);
+        }
+
+        int subnet = Math.Clamp(pcnt / 8, 0, 3);
+
+        ref short concatRef = ref MemoryMarshal.GetReference(concat);
+        
+        ref short h1_kernelRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H1Kernels[subnet]);
+        ref short h2_kernelRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H2Kernels[subnet]);
+        
+        ReadOnlySpan<int> h1_bias = NNUEWeights.H1Biases[subnet];
+        ReadOnlySpan<int> h2_bias = NNUEWeights.H2Biases[subnet];
+        
+        Span<short> h1_activation = stackalloc short[H1Neurons];
+        Span<short> h2_activation = stackalloc short[H2Neurons];
+        ref short   h1_ActRef     = ref MemoryMarshal.GetReference(h1_activation);
+        ref short   h2_ActRef     = ref MemoryMarshal.GetReference(h2_activation);
+        
         for (int j = 0; j < H1Neurons; j++) {
-            int sum   = 0;
             int wBase = j * H1Input;
 
             var vsum = Vector256<int>.Zero;
-
-            ref short inRef  = ref MemoryMarshal.GetReference(concat);
-            ref short kerRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H1Kernel);
-
+            
             // process 16 int16 elements at a time
             for (int i = 0; i <= H1Input - 16; i += 16) {
-                var va = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref inRef, i)));
-                var vb = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref kerRef, wBase + i)));
-
-                var prod = Avx2.MultiplyAddAdjacent(va, vb);
-                vsum = Avx2.Add(vsum, prod);
-            }
-
-            sum += HorizontalAddVector256(vsum);
-
-            // RESCALE by S: dot product currently carries factor S^2, we need to divide by S
-            int dotScaled = sum >= 0
-                ? (sum + (ScaleInt >> 1)) / ScaleInt  // round positive
-                : (sum - (ScaleInt >> 1)) / ScaleInt; // round negative
-
-            // add bias (already scaled by S)
-            int activation = NNUEWeights.H1Bias[j] + dotScaled;
-            
-            // scaled CReLU (Clipped ReLU) activation
-            activation = Math.Clamp(activation, 0, ScaleInt);
-            
-            _h1Activation[j] = activation;
-        }
-
-        // second hidden layer
-        for (int j = 0; j < H2Neurons; j++) {
-            int sum = 0;
-            int wBase = j * H1Neurons;
-
-            var vsum = Vector256<int>.Zero;
-            
-            // ReSharper disable once StackAllocInsideLoop
-            Span<short> h1Packed = stackalloc short[H1Neurons];
-
-            for (int p = 0; p < H1Neurons; p++)
-                h1Packed[p] = (short)_h1Activation[p];
-
-            ref short h1PackRef = ref MemoryMarshal.GetReference(h1Packed);
-            ref short kerRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H2Kernel);
-
-            for (int i = 0; i <= H1Neurons - 16; i += 16) {
-                var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h1PackRef, i)));
-                var vb   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref kerRef, wBase + i)));
+                var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref concatRef, i)));
+                var vb   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h1_kernelRef, wBase + i)));
                 var prod = Avx2.MultiplyAddAdjacent(va, vb);
                 
                 vsum = Avx2.Add(vsum, prod);
             }
 
-            sum += HorizontalAddVector256(vsum);
+            int sum = HorizontalAddVector256(vsum) / ScaleInt;
 
-            // RESCALE by S
-            int dotScaled = sum >= 0
-                ? (sum + (ScaleInt >> 1)) / ScaleInt
-                : (sum - (ScaleInt >> 1)) / ScaleInt;
+            // add bias (already scaled by S)
+            sum += h1_bias[j];
+            
+            // scaled CReLU (Clipped ReLU) activation
+            h1_activation[j] = (short)Math.Clamp(sum, 0, ScaleInt);
+        }
+        
+        // second hidden layer
+        for (int j = 0; j < H2Neurons; j++) {
+            int wBase = j * H1Neurons;
 
-            int activation = NNUEWeights.H2Bias[j] + dotScaled;
-            activation = Math.Clamp(activation, 0, ScaleInt);
+            var vsum = Vector256<int>.Zero;
 
-            _h2Activation[j] = activation;
+            for (int i = 0; i <= H1Neurons - 16; i += 16) {
+                var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h1_ActRef, i)));
+                var vb   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h2_kernelRef, wBase + i)));
+                var prod = Avx2.MultiplyAddAdjacent(va, vb);
+                
+                vsum = Avx2.Add(vsum, prod);
+            }
+
+            int sum = HorizontalAddVector256(vsum) / ScaleInt;
+
+            sum += h2_bias[j];
+            h2_activation[j] = (short)Math.Clamp(sum, 0, ScaleInt);
         }
 
         // output layer
-        int prediction = 0;
-
         var vsum3 = Vector256<int>.Zero;
-
-        Span<short> h2Packed = stackalloc short[H2Neurons];
-        for (int p = 0; p < H2Neurons; p++)
-            h2Packed[p] = (short)_h2Activation[p];
-
-        ref short h2PackRef = ref MemoryMarshal.GetReference(h2Packed);
+        
         ref short outKerRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.OutputKernel);
 
         for (int i = 0; i <= H2Neurons - 16; i += 16) {
-            var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h2PackRef, i)));
+            var va   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref h2_ActRef, i)));
             var vb   = Avx.LoadVector256((short*)Unsafe.AsPointer(ref Unsafe.Add(ref outKerRef, i)));
             var prod = Avx2.MultiplyAddAdjacent(va, vb);
             
             vsum3 = Avx2.Add(vsum3, prod);
         }
 
-        prediction += HorizontalAddVector256(vsum3);
+        // rescale by scale
+        int prediction = HorizontalAddVector256(vsum3) / ScaleInt;
+        
+        // add output bias (already scaled by S)
+        int biasedPred = NNUEWeights.OutputBias + prediction;
 
-        // RESCALE by S
-        int dotScaled2 = prediction >= 0
-            ? (prediction + (ScaleInt >> 1)) / ScaleInt
-            : (prediction - (ScaleInt >> 1)) / ScaleInt;
+        // convert to float (units are now same as original float network * S)
+        float pred = biasedPred / NNUEWeights.Scale;
+        float sigm = MathLUT.FastSigmoid(pred);
 
-        // Add output bias (already scaled by S)
-        int scaledPrediction = NNUEWeights.OutputBias + dotScaled2;
-
-        // Convert to float (units are now same as original float network * S)
-        float pred = scaledPrediction / NNUEWeights.Scale;
-        float prob = 1f / (1f + MathF.Exp(-pred));
-
-        Score = ProbToScore(prob);
+        Score = (short)(ProbToScore(sigm) * (active == Color.WHITE ? 1 : -1));
     }
 
     // horizontal add of Vector256<int> (8 lanes)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int HorizontalAddVector256(Vector256<int> v) {
         // sum lanes using shuffle/add
         var high   = Avx2.ExtractVector128(v, 1);
@@ -379,8 +365,9 @@ internal unsafe sealed class NNUEEvaluator {
     // this is the inverse function that returns cp instead
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short ProbToScore(float p) {
-        p = 400f * MathF.Log(p / (1f - p));
-        return (short)Math.Clamp(p, -3000, 3000);
+        float odds = p / (1f - p);
+        float ln   = MathLUT.FastLn(odds);
+        return (short)(ln * 400f);
     }
 }
 

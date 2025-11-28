@@ -30,6 +30,8 @@ using Kreveta.evaluation;
 using Kreveta.moveorder;
 using Kreveta.nnue;
 
+using System.Diagnostics;
+
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
@@ -321,9 +323,14 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        var move = "e3d4".ToMove(in Game.Board);
-        var see = SEE.Evaluate(Game.Board, Color.WHITE, move);
-        Console.WriteLine($"SEE: {see}");
+        var nnue = new NNUEEvaluator(Game.Board);
+        var sw   = Stopwatch.StartNew();
+        
+        for (int i = 0; i < 1_000_000; i++)
+            nnue.UpdateEvaluation(Color.WHITE, 32);
+        
+        sw.Stop();
+        Console.WriteLine($"{sw.Elapsed}\n{nnue.Score}");
     }
 }
 

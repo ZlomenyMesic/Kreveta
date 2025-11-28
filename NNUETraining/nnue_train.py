@@ -43,7 +43,7 @@ FEATURE_COUNT     = 40960
 EMBED_DIM         = 256
 H1_NEURONS        = 16
 H2_NEURONS        = 32
-LEARNING_RATE     = 1e-3
+LEARNING_RATE     = 1e-4
 BATCH_SIZE        = 2048
 
 SAMPLES_QUEUE_MAX = 10000
@@ -97,42 +97,16 @@ def board_features(board: chess.Board):
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index(
-            king_square  = b_king_sq,
+            king_square  = b_king_sq ^ 56,
             piece_type   = piece.piece_type,
-            is_black     = is_black,
-            piece_square = sq
+            is_black     = not is_black,
+            piece_square = sq ^ 56
         )
 
         w_indices.append(idx_w)
         b_indices.append(idx_b)
 
     return w_indices, b_indices
-
-def mirrored_board_features(board: chess.Board):
-    # create a mirrored + color-flipped board  
-    mirrored = chess.Board(fen = board.fen()) # copy
-
-    # mirror piece placement
-    piece_map = {}
-
-    for sq in chess.SQUARES:
-        p = board.piece_at(sq)
-        if p is None:
-            continue
-
-        new_sq = chess.square_mirror(sq)
-
-        # flip piece color
-        flipped_color = not p.color
-
-        piece_map[new_sq] = chess.Piece(p.piece_type, flipped_color)
-
-    mirrored.clear_board()
-    for sq, piece in piece_map.items():
-        mirrored.set_piece_at(sq, piece)
-
-    # now extract features normally
-    return board_features(mirrored)
 
 def ClippedReLU(x):
     return keras.activations.relu(x, max_value = 1.0)
@@ -361,8 +335,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
 
             # generate feature indices for both the real
             # board and the vertically mirrored version
-            w_indices, _ = board_features(board)
-            _, b_indices = mirrored_board_features(board)
+            w_indices, b_indices = board_features(board)
 
             w_np = np.array(w_indices, dtype = np.int32)
             b_np = np.array(b_indices, dtype = np.int32)
@@ -370,10 +343,10 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             try:
                 if (board.turn == chess.WHITE):
                     samples_queue.put(((w_np, b_np), float(target)),       timeout = 1.0)
-                    samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
+                    #samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
                 else:
                     samples_queue.put(((b_np, w_np), float(target)),       timeout = 1.0)
-                    samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
+                    #samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
 
             except Exception:
                 time.sleep(0.05)
