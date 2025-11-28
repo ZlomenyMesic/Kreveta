@@ -24,14 +24,11 @@ EMBED_DIM         = 256
 H1_NEURONS        = 16
 H2_NEURONS        = 32
 
-def feature_index_for_acc(king_square: int, piece_type: int, piece_color: bool, piece_square: int) -> int:
-    # skip kings (just to make sure)
-    if piece_type == chess.KING or piece_type == None:
-        return -1
+def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
 
     # map piece_type 1..5 into 0..4
     piece_type_idx = piece_type - 1
-    color_bit      = 1 if piece_color else 0
+    color_bit      = 1 if is_black else 0
 
     king_offset  = king_square * 640
     piece_offset = (piece_type_idx * 2 + color_bit) * 64 + piece_square
@@ -49,7 +46,7 @@ def board_features(board: chess.Board):
 
     # if a king is missing (shouldn't happen in legal positions), we still produce empty lists.
     if w_king_sq is None or b_king_sq is None:
-        return [], []
+        return []
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
@@ -63,27 +60,25 @@ def board_features(board: chess.Board):
             continue
 
         # piece_color True if black, False if white
-        piece_color_bit = piece.color == chess.BLACK
+        is_black = piece.color == chess.BLACK
 
         # index into white accumulator (white king as reference)
-        idx_w = feature_index_for_acc(
+        idx_w = feature_index(
             king_square  = w_king_sq,
             piece_type   = piece.piece_type,
-            piece_color  = piece_color_bit,
+            is_black     = is_black,
             piece_square = sq
         )
         # index into black accumulator (black king as reference)
-        idx_b = feature_index_for_acc(
+        idx_b = feature_index(
             king_square  = b_king_sq ^ 56,
             piece_type   = piece.piece_type,
-            piece_color  = piece_color_bit,
+            is_black     = not is_black,
             piece_square = sq ^ 56
         )
 
-        if idx_w != -1:
-            w_indices.append(idx_w)
-        if idx_b != -1:
-            b_indices.append(idx_b)
+        w_indices.append(idx_w)
+        b_indices.append(idx_b)
 
     return w_indices, b_indices
 
@@ -219,8 +214,8 @@ test_positions = {
     "white queen x rook 2":  chess.Board("8/Q7/3k4/8/8/5r2/2K5/8 w - - 0 1"),
     "black queen x rook":    chess.Board("8/4R3/3K4/8/8/5q2/2k5/8 w - - 0 1"),
     "black queen x rook 2":  chess.Board("8/q7/3K4/8/8/5R2/2k5/8 w - - 0 1"),
-    "1. e4 (good)":          chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"),
-    "1. f4 (bad)":           chess.Board("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq e3 0 1"),
+    "1. e4 (good)":          chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 1"),
+    "1. f4 (bad)":           chess.Board("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR w KQkq e3 0 1"),
     "1. e4 e5":              chess.Board("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1"),
     "1. e4 c5":              chess.Board("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 1"),
 }
@@ -231,14 +226,17 @@ for name, board in test_positions.items():
     
     xw    = tf.ragged.constant([w_indices], dtype = tf.int32)
     xb    = tf.ragged.constant([b_indices], dtype = tf.int32)
-    xpcnt = np.array([len(w_indices) + 2], dtype=np.int32)
+    xpcnt = np.array([len(w_indices) + 2],  dtype = np.int32)
 
     predict = float(model.predict(
         [xw, xb, xpcnt] if board.turn == chess.WHITE else [xb, xw, xpcnt],
         verbose = 0
     )[0][0])
 
+    if (board.turn == chess.BLACK):
+        predict = 1.0 - predict
+
     print(board)
     print(f"FEN:       {board.fen()}")
     print(f"Position:  {name}")
-    print(f"NNUE Eval: {predict:.4f}\n")
+    print(f"NNUE Eval: {predict:.5f}\n")
