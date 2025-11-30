@@ -346,6 +346,13 @@ internal static class PVSearch {
                                || ss.Ply <= 4 && isCapture
                                || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
 
+            // SEE reductions
+            int see = SEE.GetCaptureScore(in board, col, curMove);
+            if (see < 0) {
+                curDepth += see < -300 
+                    ? -2 : -1;
+            }
+
             // static eval of the child node
             short childStaticEval = child.StaticEval;
 

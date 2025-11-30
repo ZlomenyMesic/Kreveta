@@ -47,9 +47,9 @@ internal static class NNUEWeights {
     internal static int[][]   H2Biases;
 
     private  const int FeatCount = 40960;
-    internal const int EmbedDims = 256;
+    internal const int EmbedDims = 128;
     internal const int H1Neurons = 16;
-    internal const int H2Neurons = 32;
+    internal const int H2Neurons = 16;
 
     // global quantization constant
     internal const float Scale = 1024f;

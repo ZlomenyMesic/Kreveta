@@ -323,14 +323,8 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        var nnue = new NNUEEvaluator(Game.Board);
-        var sw   = Stopwatch.StartNew();
-        
-        for (int i = 0; i < 1_000_000; i++)
-            nnue.UpdateEvaluation(Color.WHITE, 32);
-        
-        sw.Stop();
-        Console.WriteLine($"{sw.Elapsed}\n{nnue.Score}");
+        var move = "e4d5".ToMove(in Game.Board);
+        Console.WriteLine(SEE.GetCaptureScore(in Game.Board, Color.WHITE, move));
     }
 }
 

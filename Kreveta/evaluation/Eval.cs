@@ -8,6 +8,7 @@ using Kreveta.consts;
 using Kreveta.movegen.pieces;
 
 using System.Runtime.CompilerServices;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.evaluation;
 
@@ -46,6 +47,43 @@ internal static class Eval {
                 | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0UL)
                 | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0UL);
         }
+    }
+
+    internal static short StaticEvalPST(in Board board) {
+        StaticEvalCount++;
+
+        ulong wOccupied = board.WOccupied;
+        ulong bOccupied = board.BOccupied;
+
+        byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
+        
+        ReadOnlySpan<ulong> pieces = board.Pieces;
+
+        if (pieceCount <= 4 && IsInsufficientMaterialDraw(pieces, pieceCount))
+            return 0;
+        
+        short wEval = 0, bEval = 0;
+        
+        for (byte i = 0; i < 6; i++) {
+            ulong wCopy = pieces[i];
+            ulong bCopy = pieces[6 + i];
+            
+            while (wCopy != 0UL) {
+                byte sq = BB.LS1BReset(ref wCopy);
+                wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, pieceCount);
+            }
+
+            while (bCopy != 0UL) {
+                byte sq = BB.LS1BReset(ref bCopy);
+                bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, pieceCount);
+            }
+        }
+
+        short eval = (short)(wEval - bEval);
+
+        // side to move should also get a slight advantage
+        eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        return eval;
     }
 
     // returns the static evaluation of a position. static eval is used

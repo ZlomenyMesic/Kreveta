@@ -35,20 +35,20 @@ SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 NUM_WORKERS = 11
 BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
-BOOK_MOVES  = 16
+BOOK_MOVES  = 12
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
 
-EMBED_DIM         = 256
+EMBED_DIM         = 128
 H1_NEURONS        = 16
-H2_NEURONS        = 32
-LEARNING_RATE     = 1e-4
+H2_NEURONS        = 16
+LEARNING_RATE     = 1e-3
 BATCH_SIZE        = 2048
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 300
-MAX_PLIES         = 260
+MAX_PLIES         = 250
 
 def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
 
@@ -146,8 +146,8 @@ def build_model() -> keras.Model:
     subnets = []
     for i in range(4):
         # two dense layers, CReLU activation
-        h1 = layers.Dense(H1_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense16')(concat)
-        h2 = layers.Dense(H2_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense32')(h1)
+        h1 = layers.Dense(H1_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense_1')(concat)
+        h2 = layers.Dense(H2_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense_2')(h1)
         subnets.append(h2)
 
     # stack the 4 subnet outputs into shape (batch, 4, H2_NEURONS)
@@ -168,7 +168,7 @@ def build_model() -> keras.Model:
 
     select = layers.Lambda(
         select_fn,
-        name         = 'SelectSubnet',
+        name         = 'Select_Subnet',
         output_shape = (H2_NEURONS,)
     )([stacked, inp_pcnt])
 
@@ -191,27 +191,21 @@ def build_model() -> keras.Model:
     return model
 
 def save_weights_binary(model, weights_path = WEIGHTS_PATH, shapes_path = SHAPES_PATH):
-    """
-    Saves model.get_weights() to a raw binary file and shapes to JSON.
-    Overwrites existing files.
-    """
     weights = model.get_weights()
     shapes = [list(w.shape) for w in weights]
+
     # flatten all weights to a single 1D float32 array
     flat = np.concatenate([w.ravel().astype(np.float32) for w in weights]) if len(weights) else np.array([], dtype = np.float32)
+
     # write the flat array
     flat.tofile(weights_path)
+
     # write shapes
     with open(shapes_path, "w") as f:
         json.dump(shapes, f)
     return shapes, flat.size
 
 def load_weights_binary(model, weights_path = WEIGHTS_PATH, shapes_path = SHAPES_PATH):
-    """
-    Loads shapes from JSON and weights from binary, reconstructs
-    the weight arrays and assigns them to the model via set_weights().
-    Returns True on success, False on failure.
-    """
     if not os.path.exists(weights_path) or not os.path.exists(shapes_path):
         return False
 
@@ -272,7 +266,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     while not stop_event.is_set():
         board = chess.Board()
         plies = 0
-        random_move_freq = rng.random() * 0.10
+        random_move_freq = rng.random() * 0.08
 
         while plies < MAX_PLIES and not stop_event.is_set():
             # random move chance
@@ -294,7 +288,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(4, 10)
+                    move_depth = rng.randint(3, 10)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -310,7 +304,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(depth = 8))
+                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(8, 12)))
                 score = info.get("score")
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")
@@ -321,10 +315,11 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
 
             sc = score.white()
             cp = 0.0
+            
             if sc.is_mate():
-                cp = 2000 if sc.mate() > 0 else -2000
+                cp = 1800 if sc.mate() > 0 else -1800
             else:
-                cp = np.clip(sc.score(), -1800, 1800)
+                cp = np.clip(sc.score(), -1600, 1600)
 
             # if black is the active side, the score must be inversed
             if board.turn == chess.BLACK:
@@ -398,17 +393,17 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
                 print(f"[{timestamp}] samples: {seen} loss: {loss:.6f} mae: {mae:.6f}")
 
                 # CSV log (logs are limited to avoid spam)
-                if (seen % 32768 == 0):
+                if (seen % 65536 == 0):
                     with open('log.csv', "a") as f:
                         f.write(f"{seen},{loss:.6f},{mae:.6f},{timestamp}\n")
 
             # periodic save by wall-clock
             if time.time() - last_save > SAVE_EVERY_SEC:
                 try:
-                    shapes, count = save_weights_binary(model)
+                    _, count = save_weights_binary(model)
                     print(f"[{datetime.now().isoformat()}] saved weights ({count} floats) -> {WEIGHTS_PATH}, shapes -> {SHAPES_PATH}")
                 except Exception as e:
-                    print("Failed to save weights:", e)
+                    print("failed to save weights:", e)
                 last_save = time.time()
 
     except KeyboardInterrupt:
@@ -427,24 +422,15 @@ def main():
 
     # build model
     model = build_model()
-    print("\nbuilt new model architecture.\n")
+    print("\nbuilt new model.\n")
 
     # try to load raw weights if present
-    loaded = False
     if os.path.exists(WEIGHTS_PATH) and os.path.exists(SHAPES_PATH):
         print("\nfound raw weights + shapes. Attempting to load...\n")
         try:
-            ok = load_weights_binary(model)
-            if ok:
-                print("\nweights successfully loaded into model.\n")
-                loaded = True
-            else:
-                print("\nweights exist but failed to load (shape mismatch or set_weights failed).\n")
+            load_weights_binary(model)
         except Exception as e:
             print("\nerror while loading weights: ", e)
-
-    if not loaded:
-        print("\nstarting with fresh random-initialized weights.\n")
 
     # create the CSV log file if it doesn't exist
     if not os.path.exists('log.csv'):
