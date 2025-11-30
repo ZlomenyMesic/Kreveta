@@ -95,10 +95,11 @@ internal static unsafe class MoveOrder {
             }
         }
 
-        var mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
+        //var mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
+        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int seeCount);
         // ReSharper disable once ForCanBeConvertedToForeach
-        for (int i = 0; i < mvvlva.Length; i++) {
-            sorted[cur++] = mvvlva[i];
+        for (int i = 0; i < seeCount; i++) {
+            sorted[cur++] = seeMoves[i];
         }
         
         //
@@ -146,8 +147,10 @@ internal static unsafe class MoveOrder {
 
         for (int i = 0; i < legalCount; i++) {
             if (!used[i]) {
-                int score = QuietHistory.GetRep(board, legal[i]);
-                quiets[quietCount++] = (legal[i], score);
+                int qh  = QuietHistory.GetRep(board, legal[i]);
+                //int see = SEE.GetCaptureScore(in board, board.Color, legal[i]);
+                
+                quiets[quietCount++] = (legal[i], qh);
                 used[i] = true;
             }
         }

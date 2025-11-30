@@ -125,18 +125,14 @@ internal static class QSearch {
 
             // sort the captures by MVV-LVA
             // (most valuable victim - least valuable aggressor)
-            moves = MVV_LVA.OrderCaptures(moves[..count]);
+            //moves = MVV_LVA.OrderCaptures(moves[..count]);
+            moves = SEE.OrderCaptures(in board, moves[..count], out count, true);
         }
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
-            //int see = SEE.Evaluate(in board, col, moves[i]);
-            //if (onlyCaptures && see < 0) {
-            //    continue;
-            //}
-
+            
             // value of the piece we just captured
-            // TODO - USE SEE VALUE INSTEAD
             int captured = EvalTables.PieceValues[(byte)moves[i].Capture];
             
             // delta pruning

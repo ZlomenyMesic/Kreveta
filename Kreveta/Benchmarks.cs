@@ -17,6 +17,8 @@ using BenchmarkDotNet.Attributes;
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.nnue;
+
+using System;
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
