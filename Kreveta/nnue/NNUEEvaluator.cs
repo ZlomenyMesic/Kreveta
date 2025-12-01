@@ -21,7 +21,7 @@ internal unsafe sealed class NNUEEvaluator {
     private const int H1Neurons = NNUEWeights.H1Neurons;
     private const int H2Neurons = NNUEWeights.H2Neurons;
     private const int H1Input   = EmbedDims * 2;
-    private const int ScaleInt  = (int)NNUEWeights.Scale;
+    private const int QScale    = 1024;
 
     private readonly short[] _accWhite = new short[EmbedDims];
     private readonly short[] _accBlack = new short[EmbedDims];
@@ -243,8 +243,8 @@ internal unsafe sealed class NNUEEvaluator {
         ref short h2kernelRef  = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H2Kernels[subnet]);
         ref short outKernelRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.OutputKernel);
 
-        ReadOnlySpan<int> h1biases = NNUEWeights.H1Biases[subnet];
-        ReadOnlySpan<int> h2biases = NNUEWeights.H2Biases[subnet];
+        ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[subnet];
+        ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[subnet];
 
         Span<short> h1activation = stackalloc short[H1Neurons];
         Span<short> h2activation = stackalloc short[H2Neurons];
@@ -262,7 +262,7 @@ internal unsafe sealed class NNUEEvaluator {
                 vs = Avx2.Add(vs, prod);
             }
 
-            int sum = HorizontalAdd(vs) / ScaleInt + h1biases[j];
+            int sum = HorizontalAdd(vs) / QScale + h1biases[j];
             h1activation[j] = ClippedReLU(sum);
         }
 
@@ -281,7 +281,7 @@ internal unsafe sealed class NNUEEvaluator {
                 vs = Avx2.Add(vs, prod);
             }
 
-            int sum = HorizontalAdd(vs) / ScaleInt + h2biases[j];
+            int sum = HorizontalAdd(vs) / QScale + h2biases[j];
             h2activation[j] = ClippedReLU(sum);
         }
 
@@ -296,9 +296,9 @@ internal unsafe sealed class NNUEEvaluator {
             vs3 = Avx2.Add(vs3, Avx2.MultiplyAddAdjacent(va, vb));
         }
 
-        int pred = HorizontalAdd(vs3) / ScaleInt + NNUEWeights.OutputBias;
+        int pred = HorizontalAdd(vs3) / QScale + NNUEWeights.OutputBias;
         
-        float fp  = pred / NNUEWeights.Scale;
+        float fp  = pred / (float)QScale;
         float act = MathLUT.FastSigmoid(fp);
         
         Score = (short)(ProbToScore(act) * (active == Color.WHITE ? 1 : -1));
@@ -330,10 +330,10 @@ internal unsafe sealed class NNUEEvaluator {
 
         // detect overflow - if the subtraction is
         // negative, then over becomes all ones
-        int over = z - ScaleInt >> 31;
+        int over = z - QScale >> 31;
         
         // now some magic happens. i can't explain
-        return (short)(z & over | ScaleInt & ~over);
+        return (short)(z & over | QScale & ~over);
     }
 
     // the python training script turns cp score of the evaluation
