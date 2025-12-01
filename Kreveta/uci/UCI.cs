@@ -11,7 +11,9 @@
 
 #pragma warning disable CA1305
 
+using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.nnue;
 using Kreveta.openings;
 using Kreveta.perft;
 using Kreveta.search;
@@ -23,14 +25,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using BenchmarkDotNet.Running;
-
-using Kreveta.consts;
-using Kreveta.evaluation;
-using Kreveta.moveorder;
-using Kreveta.nnue;
-
-using System.Diagnostics;
+//using BenchmarkDotNet.Running;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
@@ -132,7 +127,7 @@ internal static partial class UCI {
                 
                 // run currently set benchmarks
                 case "bench":
-                    BenchmarkRunner.Run<Benchmarks>();
+                    //BenchmarkRunner.Run<Benchmarks>();
                     break;
                 
                 case "test":
@@ -158,7 +153,7 @@ internal static partial class UCI {
                 }
                 
                 case "help" or "-help" or "--help" or "h" or "-h" or "--h":
-                    Log("Kreveta uses the UCI protocol to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta", LogLevel.INFO);
+                    Log("Kreveta is a free and open-source chess engine, released under the MIT license. UCI protocol is used to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta, or here: https://zlomenymesic.github.io/Kreveta", LogLevel.INFO);
                     break;
 
                 default:
@@ -323,8 +318,7 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        var move = "e4d5".ToMove(in Game.Board);
-        Console.WriteLine(SEE.GetCaptureScore(in Game.Board, Color.WHITE, move));
+
     }
 }
 

@@ -345,14 +345,7 @@ internal static class PVSearch {
                                || ss.IsPVNode
                                || ss.Ply <= 4 && isCapture
                                || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
-
-            // SEE reductions
-            int see = SEE.GetCaptureScore(in board, col, curMove);
-            if (see < 0) {
-                curDepth += see < -300 
-                    ? -2 : -1;
-            }
-
+            
             // static eval of the child node
             short childStaticEval = child.StaticEval;
 
@@ -360,6 +353,12 @@ internal static class PVSearch {
             // but this time after the move has been already played
             improvStack.AddStaticEval(childStaticEval, ss.Ply + 1); 
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
+            
+            // SEE reductions & pruning
+            if (isCapture) {
+                int see = SEE.GetCaptureScore(in board, col, curMove);
+                if (see < -100) curDepth--;
+            }
 
             // must meet certain conditions for fp
             if (!isKnownDraw 

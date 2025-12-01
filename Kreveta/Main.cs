@@ -23,7 +23,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "1.2.4";
+    internal const string Version = "2.0.0";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
@@ -52,18 +52,19 @@ internal static class Program {
         
         Eval.Init();
 
-        NNUEWeights.Load(@"C:\Users\michn\Desktop\Kreveta\Kreveta\NNUETraining\weights\nnue_weights.bin");
+        // load the embedded nnue weights
+        NNUEWeights.Load("Kreveta.nnue-128-16-16-v1.bin");
         
         // just for experimental purposes
         Tuning.ShiftParams();
-
-        // the engine sometimes crashes unexplainably during initialization,
-        // and this tiny delay actually seems to be suppressing the issue
-        Thread.Sleep(500);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
         Game.Board = Board.CreateStartpos();
+        
+        // the engine sometimes crashes unexplainably during initialization,
+        // and this tiny delay actually seems to be suppressing the issue
+        Thread.Sleep(100);
         
         // header text when launching the engine
         UCI.Log($"{Name}-{Version} by {Author}");
