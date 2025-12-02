@@ -79,8 +79,7 @@ internal static class PVSControl {
 
             // try to increase the time budget if the score from the previous
             // turn seems to be significantly different from the current one
-            if (PVSearch.CurDepth == 10)
-                TimeMan.TryIncreaseTimeBudget();
+            TimeMan.TryIncreaseTimeBudget();
 
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we
@@ -106,16 +105,13 @@ internal static class PVSControl {
             ("forced re-searches",     PVSearch.ReSearchedNodes),
             ("forced re-searches (%)", reSearchPercentage)
         );
-        
-        //Console.WriteLine($"fp attempts: {FutilityPruning.Attempts}");
-        //Console.WriteLine($"fp prunes: {FutilityPruning.Prunes}");
 
         // the final response of the engine to the gui
         UCI.Log($"bestmove {BestMove.ToLAN()}");
         
         // store this score for the next turn when playing a full game
-        //if (Game.FullGame)
-        //    Game.PreviousScore = PVSearch.PVScore;
+        if (Game.FullGame)
+            Game.PreviousScore = PVSearch.PVScore;
 
         // reset all counters for the next search
         // (not the next iteration of the current one)

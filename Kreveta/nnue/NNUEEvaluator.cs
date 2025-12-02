@@ -225,7 +225,7 @@ internal unsafe sealed class NNUEEvaluator {
         return kingSq * 640 + (pieceType * 2 + colBit) * 64 + sq;
     }
 
-    internal void UpdateEvaluation(Color active, int pcnt) {
+    private void UpdateEvaluation(Color active, int pcnt) {
         Span<short> concat = stackalloc short[H1Input];
 
         if (active == Color.WHITE) {
@@ -236,15 +236,16 @@ internal unsafe sealed class NNUEEvaluator {
             _accWhite.AsSpan().CopyTo(concat[EmbedDims..]);
         }
 
-        int subnet = Math.Clamp(pcnt / 8, 0, 3);
+        int subnet = Math.Clamp(pcnt / 4, 0, 7);
 
         ref short concatRef    = ref MemoryMarshal.GetReference(concat);
         ref short h1kernelRef  = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H1Kernels[subnet]);
         ref short h2kernelRef  = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.H2Kernels[subnet]);
-        ref short outKernelRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.OutputKernel);
+        ref short outKernelRef = ref MemoryMarshal.GetArrayDataReference(NNUEWeights.OutputKernels[subnet]);
 
         ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[subnet];
         ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[subnet];
+        short               outBias  = NNUEWeights.OutputBiases[subnet];
 
         Span<short> h1activation = stackalloc short[H1Neurons];
         Span<short> h2activation = stackalloc short[H2Neurons];
@@ -296,7 +297,7 @@ internal unsafe sealed class NNUEEvaluator {
             vs3 = Avx2.Add(vs3, Avx2.MultiplyAddAdjacent(va, vb));
         }
 
-        int pred = HorizontalAdd(vs3) / QScale + NNUEWeights.OutputBias;
+        int pred = HorizontalAdd(vs3) / QScale + outBias;
         
         float fp  = pred / (float)QScale;
         float act = MathLUT.FastSigmoid(fp);

@@ -33,7 +33,7 @@ internal static class Game {
     internal static bool FullGame;
     
     // the score from the previous turn - applied when playing a full game
-    //internal static int  PreviousScore;
+    internal static int  PreviousScore;
 
     // used to save previous positions to avoid (or embrace) 3-fold repetition
     private static  List<ulong>    HistoryPositions = [];

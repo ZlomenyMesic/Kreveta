@@ -114,6 +114,8 @@ internal static class PVSearch {
 
         Eval.StaticEvalCount = 0UL;
 
+        TimeMan.TimeBudgetAdjusted = false;
+
         improvStack.Expand(0);
 
         Killers.Clear();

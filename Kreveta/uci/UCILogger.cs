@@ -4,17 +4,15 @@ using Kreveta.uci.options;
 
 using System;
 using System.Globalization;
-using System.IO;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 // ReSharper disable once RedundantUsingDirective
-using NK = NeoKolors.Console;
+//using NK = NeoKolors.Console;
 
 namespace Kreveta.uci;
 
 internal static partial class UCI {
-    private static bool _isNKInitialized;
+    /*private static bool _isNKInitialized;
     private static void InitNK() {
         const string NKLogDirectory = "./logs/";
         const string NKLogFilePath  = NKLogDirectory + "{0}.log";
@@ -39,12 +37,12 @@ internal static partial class UCI {
         // zero idea, which type of exception NeoKolors might throw.
         catch (Exception ex)
             when (LogException("NKLogger initialization failed", ex)) { }
-    }
+    }*/
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string? msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
-        if (logIntoFile)
-            Task.Run(() => LogIntoFile(msg ?? string.Empty, level));
+        //if (logIntoFile)
+        //    Task.Run(() => LogIntoFile(msg ?? string.Empty, level));
 
         Output.WriteLine(msg);
     }
@@ -105,7 +103,7 @@ internal static partial class UCI {
 
     // combining sync and async code is generally a bad idea, but we must avoid slowing
     // down the engine if something takes too long in NK (although it's probably unlikely)
-    private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
+    /*private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
         if (!Options.NKLogs)
             return;
         
@@ -125,5 +123,5 @@ internal static partial class UCI {
             }
         } catch (Exception ex)
               when (LogException("NKLogger failed to log into file", ex, false)) { }
-    }
+    }*/
 }

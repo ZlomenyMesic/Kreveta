@@ -61,6 +61,8 @@ internal static class Eval {
 
         if (pieceCount <= 4 && IsInsufficientMaterialDraw(pieces, pieceCount))
             return 0;
+
+        int phase = board.GamePhase();
         
         short wEval = 0, bEval = 0;
         
@@ -70,12 +72,12 @@ internal static class Eval {
             
             while (wCopy != 0UL) {
                 byte sq = BB.LS1BReset(ref wCopy);
-                wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, pieceCount);
+                wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, phase);
             }
 
             while (bCopy != 0UL) {
                 byte sq = BB.LS1BReset(ref bCopy);
-                bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, pieceCount);
+                bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, phase);
             }
         }
 
