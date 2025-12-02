@@ -24,7 +24,6 @@ using Kreveta.uci.options;
 using System;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 //using BenchmarkDotNet.Running;
 
 // ReSharper disable InvokeAsExtensionMethod
@@ -70,7 +69,7 @@ internal static partial class UCI {
             ReadOnlySpan<string> tokens = input.Split(' ');
 
             // we log the input commands as well
-            Task.Run(() => LogIntoFile($"GUI/USER COMMAND: {input}"));
+            //Task.Run(() => LogIntoFile($"GUI/USER COMMAND: {input}"));
 
             // the first token is obviously the command itself
             switch (tokens[0]) {

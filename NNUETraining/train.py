@@ -31,11 +31,11 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, "nnue_model.keras")
 
 WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
+CONFIG_PATH  = os.path.join(SCRIPT_DIR, "config.json")
 
-ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 NUM_WORKERS = 11
+ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
 BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
-BOOK_MOVES  = 12
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
@@ -43,12 +43,28 @@ FEATURE_COUNT     = 40960
 EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 16
-LEARNING_RATE     = 1e-5
+LEARNING_RATE     = 1e-3
 BATCH_SIZE        = 2048
 
 SAMPLES_QUEUE_MAX = 10000
-SAVE_EVERY_SEC    = 300
+SAVE_EVERY_SEC    = 200
 MAX_PLIES         = 250
+
+CONFIG = {
+    "random_move_freq": 0.10,
+    "book_moves": 12,
+    "mirror_enabled": True
+}
+
+def load_config():
+    global CONFIG
+    try:
+        with open(CONFIG_PATH) as f:
+            data = json.load(f)
+            CONFIG.update(data)
+
+    except Exception:
+        print("loading config failed")
 
 def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
 
@@ -144,41 +160,40 @@ def build_model() -> keras.Model:
     concat = layers.Concatenate(name = 'Accumulator_Concat')([summed_active, summed_passive])
 
     subnets = []
-    for i in range(4):
+    for i in range(8):
         # two dense layers, CReLU activation
         h1 = layers.Dense(H1_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense_1')(concat)
         h2 = layers.Dense(H2_NEURONS, activation = ClippedReLU, name = f'Subnet_{i}_Dense_2')(h1)
-        subnets.append(h2)
+        output = layers.Dense(
+            1,
+            activation = 'sigmoid',
+            name       = f'Subnet_{i}_Output'
+        )(h2)
 
-    # stack the 4 subnet outputs into shape (batch, 4, H2_NEURONS)
+        subnets.append(output)
+
     # wrap tf.stack into a Lambda so we only use Keras layers on KerasTensors
     stacked = layers.Lambda(lambda inputs: tf.stack(inputs, axis = 1), name = 'Stack_Subnets')(subnets)
 
     # select the right subnet according to piece count bucket
     def select_fn(args):
         stacked_tensor, pc = args
-
-        # pc has shape (batch,) integer counts
-        bucket  = tf.clip_by_value(pc // 8, 0, 3)
-        one_hot = tf.one_hot(bucket, depth = 4, dtype = stacked_tensor.dtype)
-
-        # expand one_hot to (batch, 4, 1) to multiply with stacked (batch, 4, H)
-        one_hot = one_hot[..., None]
-        return tf.reduce_sum(stacked_tensor * one_hot, axis = 1) # (batch, H2_NEURONS)
+        bucket = tf.clip_by_value(pc // 4, 0, 7)
+        # stacked_tensor shape: (batch, 8, 1)
+        # want to pick stacked_tensor[bucket] for each batch element
+        # reshape bucket to (batch,) and use tf.range to collect indices
+        batch_idx = tf.range(tf.shape(bucket)[0])
+        indices   = tf.stack([batch_idx, bucket], axis = 1) # (batch, 2)
+        selected  = tf.gather_nd(stacked_tensor, indices)   # (batch, 1)
+        return selected
 
     select = layers.Lambda(
         select_fn,
         name         = 'Select_Subnet',
-        output_shape = (H2_NEURONS,)
+        output_shape = (1,)
     )([stacked, inp_pcnt])
 
-    output = layers.Dense(
-        1,
-        activation = 'sigmoid',
-        name       = 'Output'
-    )(select)
-
-    model = models.Model([inp_active, inp_passive, inp_pcnt], output)
+    model = models.Model([inp_active, inp_passive, inp_pcnt], select)
     model.compile(
         optimizer = optimizers.AdamW(
             learning_rate = LEARNING_RATE,
@@ -264,9 +279,11 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     rng = random.Random(time.time() + worker_id)
 
     while not stop_event.is_set():
+        load_config()
+
         board = chess.Board()
         plies = 0
-        random_move_freq = rng.random() * 0.05
+        random_move_freq = rng.random() * CONFIG["random_move_freq"]
 
         while plies < MAX_PLIES and not stop_event.is_set():
             # random move chance
@@ -276,7 +293,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 board.push(move)
 
             # random polyglot book move
-            if book is not None and plies < BOOK_MOVES:
+            if book is not None and plies < CONFIG["book_moves"]:
                 try:
                     entries = list(book.find_all(board))
                     if entries:
@@ -288,7 +305,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(7, 10)
+                    move_depth = rng.randint(4, 10)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -304,7 +321,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(10, 12)))
+                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(8, 12)))
                 score = info.get("score")
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")
@@ -337,11 +354,13 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
 
             try:
                 if (board.turn == chess.WHITE):
-                    samples_queue.put(((w_np, b_np), float(target)),       timeout = 1.0)
-                    #samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
+                    samples_queue.put(((w_np, b_np), float(target)), timeout = 1.0)
+                    if CONFIG["mirror_enabled"]:
+                        samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
                 else:
-                    samples_queue.put(((b_np, w_np), float(target)),       timeout = 1.0)
-                    #samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
+                    samples_queue.put(((b_np, w_np), float(target)), timeout = 1.0)
+                    if CONFIG["mirror_enabled"]:
+                        samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
 
             except Exception:
                 time.sleep(0.05)
@@ -393,12 +412,14 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
                 print(f"[{timestamp}] samples: {seen} loss: {loss:.6f} mae: {mae:.6f}")
 
                 # CSV log (logs are limited to avoid spam)
-                if (seen % 65536 == 0):
+                if (seen % 32768 == 0):
                     with open('log.csv', "a") as f:
                         f.write(f"{seen},{loss:.6f},{mae:.6f},{timestamp}\n")
 
             # periodic save by wall-clock
             if time.time() - last_save > SAVE_EVERY_SEC:
+                load_config()
+                
                 try:
                     _, count = save_weights_binary(model)
                     print(f"[{datetime.now().isoformat()}] saved weights ({count} floats) -> {WEIGHTS_PATH}, shapes -> {SHAPES_PATH}")

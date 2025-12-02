@@ -18,16 +18,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NeoKolors.Common" Version="0.25.22" />
-    <PackageReference Include="NeoKolors.Console" Version="0.25.22" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="..\docs\images\KrevetaLogo.ico">
       <Link>KrevetaLogo.ico</Link>
     </None>
     
-    <EmbeddedResource Include="..\NNUETraining\archive\nnue-128-16-16-v1.bin" />
+    <EmbeddedResource Include="..\NNUETraining\archive\nnue-128-16-16-v3.bin" />
   </ItemGroup>
 
 </Project>

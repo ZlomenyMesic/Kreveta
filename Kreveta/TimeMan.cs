@@ -4,7 +4,7 @@
 //
 
 using Kreveta.consts;
-using Kreveta.uci;
+using Kreveta.movegen;
 
 using System;
 
@@ -14,7 +14,6 @@ internal static class TimeMan {
 
     // when time arguments are missing or incomplete,
     // we can go with these default values
-    private const int  DefaultMovestogo  = 40;
     private const long DefaultTimeBudget = 8000;
 
     // the total time left on each side's clocks
@@ -39,6 +38,7 @@ internal static class TimeMan {
     // sets a boundary when the search should be aborted,
     // but it can be ended prematurely
     internal static long TimeBudget;
+    internal static bool TimeBudgetAdjusted;
 
     internal static void ProcessTimeTokens(ReadOnlySpan<string> tokens) {
         _whiteTime = _blackTime = _whiteInc = _blackInc = MoveTime = _movesToGo = 0;
@@ -125,14 +125,6 @@ internal static class TimeMan {
             // we still have more arguments to process
             if (i != tokens.Length) 
                 continue;
-            
-            // in this case we probably have our time budget, but we
-            // didn't receive any information regarding the number of
-            // moves left, so we use the default
-            if (_movesToGo == 0 && MoveTime == 0) {
-                UCI.Log($"info string using default movestogo {DefaultMovestogo}", UCI.LogLevel.WARNING);
-                _movesToGo = DefaultMovestogo;
-            }
 
             // now we try to use the info we got to set a rational time budget
             CalculateTimeBudget();
@@ -147,8 +139,8 @@ internal static class TimeMan {
     }
 
     private static void CalculateTimeBudget() {
-        const float safetyMult = 1.15f;
-
+        const int moveOverhead = 30;
+        
         // we have a strictly set time for our search,
         // or are in an infinite search, so we don't
         // care abount setting a time budget
@@ -156,32 +148,72 @@ internal static class TimeMan {
             TimeBudget = MoveTime;
             return;
         }
+        
+        int movesToGo = _movesToGo == 0 
+            ? EstimateMovesToGo(Game.Board) 
+            : _movesToGo;
 
-        // otherwise the time budget is simply our total time left
-        TimeBudget = (int)(Game.EngineColor == Color.WHITE
-            ? _whiteTime
-            : _blackTime);
+        long timeLeft = Game.EngineColor == Color.WHITE ? _whiteTime : _blackTime;
+        long inc      = Game.EngineColor == Color.WHITE ? _whiteInc  : _blackInc;
         
-        // with a little added margin for time increments
-        TimeBudget += (int)(Game.EngineColor == Color.WHITE 
-            ? _whiteInc : _blackInc) * Math.Max(0, _movesToGo - 3);
-        
-        // and divided by the number of moves to go until the next clock
-        // reset (little bit more than that, some calculations may take
-        // longer than expected, and we don't want to lose on time)
-        TimeBudget = (int)(TimeBudget / (_movesToGo * safetyMult));
+        // base time per move
+        long baseTime = (long)((timeLeft + inc * 0.8) / (movesToGo + 0.5));
+
+        // never allow zero search time
+        long budget = Math.Max(15, baseTime - moveOverhead);
+
+        // cap extremely long thinks
+        long maxBudget = (long)(timeLeft * 0.40);
+        budget = Math.Min(budget, maxBudget);
+
+        TimeBudget = Math.Max(1, budget);
     }
+    
+    private static int EstimateMovesToGo(Board board) {
+        float p = board.GamePhase() / 100f;
+
+        // smooth base expected moves interpolation
+        float expected = p * 40f          // middlegame
+                         + (1f - p) * 6f; // endgame
+        
+        // total piece count excluding kings (which are always present)
+        int pieceCount = (int)ulong.PopCount(board.Occupied) - 2;
+        int moveCount  = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
+
+        // map piece count into a multiplier roughly 0.75–1.35
+        float complexityMult = moveCount / 35f + (pieceCount - 10) * 0.025f;
+        complexityMult = Math.Clamp(complexityMult, 0.75f, 1.35f);
+        
+        // check for ultra low material positions
+        if (p <= 0.12f) {
+            expected        = Math.Min(expected, 10f);
+            complexityMult *= 0.85f;
+        }
+        
+        int result = (int)(expected * complexityMult);
+
+        // clamp to reasonable range
+        return Math.Clamp(result, 8, 45);
+}
     
     // when the score suddenly changes from the previous turn (both drops
     // and rises), we can try to increase our time budget to search this
     // turn a bit deeper
     internal static void TryIncreaseTimeBudget() {
-        //if (!Game.FullGame) return;
-        
-        // TODO - make this actually so that it improves the playing strength :/
+        /*if (!Game.FullGame || TimeBudgetAdjusted) 
+            return;
 
-        //const int minScoreChange = 150;
-        //if (Math.Abs(Game.PreviousScore - PVSearch.PVScore) > minScoreChange && _movesToGo > 5) 
-        //    TimeBudget *= 2;
+        TimeBudgetAdjusted = true;
+        
+        int scoreChange = Math.Abs(Game.PreviousScore - PVSearch.PVScore);
+        switch (scoreChange) {
+            case >= 150 and < 300: TimeBudget = TimeBudget * 3 / 2; break;
+            case >= 300:           TimeBudget *= 3;                 break;
+        }
+
+        var timeCap = (Game.Board.Color == Color.WHITE
+            ? _whiteTime : _blackTime) * 2 / 5;
+        
+        TimeBudget = Math.Min(TimeBudget, timeCap);*/
     }
 }

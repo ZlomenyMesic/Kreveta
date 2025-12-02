@@ -53,7 +53,7 @@ internal static class Program {
         Eval.Init();
 
         // load the embedded nnue weights
-        NNUEWeights.Load("Kreveta.nnue-128-16-16-v1.bin");
+        NNUEWeights.Load("Kreveta.nnue-128-16-16-v3.bin");
         
         // just for experimental purposes
         Tuning.ShiftParams();

@@ -16,13 +16,13 @@ internal static class EvalTables {
     // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
     // but should move towards the center in the endgame)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static unsafe short GetTableValue(byte type, Color col, byte sq, byte pieceCount) {
+    internal static unsafe short GetTableValue(byte type, Color col, byte sq, int phase) {
 
         // we have to index the piece type and position correctly. white
         // pieces are straightforward, but black piece have to be mirrored
         short index = (short)(type * 64 + (col == Color.WHITE
-            ? 63 - sq
-            : (sq >> 3) * 8 + (7 - (sq & 7))));
+            ? sq ^ 56   // flip the square to the opposite side
+            : sq ^ 7)); // flip only the file
 
         // we grab both the midgame and endgame table values
         fixed (short* midgame = &Middlegame[0],
@@ -32,8 +32,8 @@ internal static class EvalTables {
             // just switching straight from midgame into endgame, the table
             // value of the piece is always somewhere in between, based on
             // the number of pieces left on the board.
-            return (short)(*(midgame + index) * pieceCount / 32
-                         + *(endgame + index) * (32 - pieceCount) / 32);
+            return (short)(*(midgame + index) * phase / 100
+                         + *(endgame + index) * (100 - phase) / 100);
         }
     }
 
@@ -102,8 +102,8 @@ internal static class EvalTables {
     ];
 #endregion
     
-#region ENDGAME
-private static readonly short[] Endgame =
+    #region ENDGAME
+    private static readonly short[] Endgame =
     [ // pawns
       100,  100,  100,  100,  100,  100,  100,  100,
       75,   75,   75,   70,   70,   75,   75,   75,
