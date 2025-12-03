@@ -253,7 +253,7 @@ internal static class PVSearch {
         bool inCheck = Check.IsKingChecked(board, col);
 
         // update the static eval search stack
-        improvStack.AddStaticEval(board.StaticEval, ss.Ply);
+        improvStack.UpdateStaticEval(board.StaticEval, ss.Ply);
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
 
@@ -353,14 +353,15 @@ internal static class PVSearch {
 
             // once again update the current static eval in the search stack,
             // but this time after the move has been already played
-            improvStack.AddStaticEval(childStaticEval, ss.Ply + 1); 
+            improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1); 
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
+
+            int see = !isCapture ? 0
+                : SEE.GetCaptureScore(in board, col, curMove);
             
             // SEE reductions & pruning
-            if (isCapture) {
-                int see = SEE.GetCaptureScore(in board, col, curMove);
-                if (see < -100) curDepth--;
-            }
+            if (isCapture && see < -100)
+                curDepth--;
 
             // must meet certain conditions for fp
             if (!isKnownDraw 
@@ -371,7 +372,7 @@ internal static class PVSearch {
 
                 // we check for failing low despite a margin.
                 // if we fail low, don't search this move any further
-                if (FutilityPruning.TryPrune(child, ss.Depth, col, childStaticEval, improving, ss.Window)) {
+                if (FutilityPruning.TryPrune(child, ss.Depth, col, childStaticEval, improving, see, ss.Window)) {
                     //FutilityPruning.Prunes++;
                     continue;
                 }
@@ -385,7 +386,7 @@ internal static class PVSearch {
                 && searchedMoves >= LateMoveReductions.MinExpNodes) {
 
                 // try to fail low
-                var result = LateMoveReductions.TryPrune(board, ref child, curMove, ss, col, searchedMoves, improving);
+                var result = LateMoveReductions.TryPrune(board, ref child, curMove, ss, col, searchedMoves, improving, see);
 
                 // we failed low - prune this branch completely
                 if (result.ShouldPrune) 

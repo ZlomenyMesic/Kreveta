@@ -1,5 +1,5 @@
 {
 	"random_move_freq": 0.05,
-	"book_moves": 12,
-	"mirror_enabled": true
+	"book_moves": 16,
+	"mirror_enabled": false
 }

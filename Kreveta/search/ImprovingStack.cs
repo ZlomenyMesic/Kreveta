@@ -18,11 +18,11 @@ internal sealed class ImprovingStack {
     internal void Expand(int depth) 
         => _stack = new short[depth];
 
-    internal void AddStaticEval(short staticEval, int ply) {
+    internal void UpdateStaticEval(short se, int ply) {
         if (ply >= _stack.Length)
             return;
 
-        _stack[ply] = staticEval;
+        _stack[ply] = se;
 
         for (int i = ply + 1; i < _stack.Length; i++) {
             _stack[i] = 0;

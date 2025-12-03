@@ -17,10 +17,10 @@ internal static class Program {
     private const string StockfishPath = @"C:\Users\michn\Downloads\stockfish-windows-x86-64-avx2\stockfish\stockfish-windows-x86-64-avx2.exe";
     private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net10.0\Kreveta.exe";
 
-    // time for evaluation of each single position in ms
+    // time to evaluate each position in ms
     private const int MoveTime = 200;
     
-    // how many "new engines" to create/test
+    // limit how many "new engines" to create/test
     private const int Cycles = 1_000_000;
 
     private const int ShiftsPerEval = 1;

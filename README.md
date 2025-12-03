@@ -16,7 +16,7 @@
 
 An amateur, UCI-compatible chess engine written entirely in C#.
 Although originally developed as a hobby project, it now serves
-as the basis for my SOČ paper. It is designed to be fast, strong
+as the basis for my SOČ thesis. It is designed to be fast, strong
 and reliable, while still aiming for code clarity and proper
 documentation, making it ideal for others to study, experiment
 with, or use as a foundation for future engines.
@@ -87,8 +87,9 @@ Default hash table size (64 MiB) was used.
 - Null Move Pruning (NMP)
 - Late Move Pruning (LMP) and Reductions (LMR) relative to history
 - Futility Pruning (FP) and Delta Pruning for QSearch
+- SEE pruning and reductions
 - Mate Distance Pruning (MDP)
-- Move ordering based on TT, MVV-LVA and others
+- Move ordering based on TT, SEE and others
 - Killer move table + countermove heuristics
 - Quiet history and pawn corrections
 - Improving search stack
@@ -97,11 +98,15 @@ Default hash table size (64 MiB) was used.
 
 ### Static Evaluation
 
-- Piece-Square Tables with tapering evaluation
-- Pawn structure eval (doubling, isolation, connection, blocking)
-- Bishop pairs and open/semi-open file rooks
-- Tapering evaluation for knights and rooks
-- King safety based on friendly protection
+- **Classical part**
+  - Piece-Square Tables with tapering evaluation
+  - Pawn structure eval (doubling, isolation, connection, blocking)
+  - Bishop pairs and open/semi-open file rooks
+  - Tapering evaluation for knights and rooks
+  - King safety based on friendly protection
+- **NNUE**
+  - 128->16->16->1 architecture
+  - 8 subnets/buckets based on piece count
 
 ### Others
 

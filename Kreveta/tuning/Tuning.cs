@@ -6,6 +6,8 @@
 #pragma warning disable CA1031
 #pragma warning disable CA1305
 
+using Kreveta.search.pruning;
+
 using System;
 
 namespace Kreveta.tuning;
@@ -42,6 +44,8 @@ internal static class Tuning {
         catch (Exception e) 
             when (UCI.LogException("Tuning params failed", e)) 
         { }*/
+        //LateMoveReductions.MinSEEDeeper    += int.Parse(tokens[1]);
+        //LateMoveReductions.MaxSEEShallower += int.Parse(tokens[2]);
     }
 
     internal static void ShiftParams() {

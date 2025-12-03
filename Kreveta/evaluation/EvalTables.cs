@@ -16,7 +16,7 @@ internal static class EvalTables {
     // in different positions as the game progresses (e.g. a king in the midgame should be in the corner,
     // but should move towards the center in the endgame)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static unsafe short GetTableValue(byte type, Color col, byte sq, int phase) {
+    internal static unsafe short GetTableValue(byte type, Color col, byte sq, int pieceCount) {
 
         // we have to index the piece type and position correctly. white
         // pieces are straightforward, but black piece have to be mirrored
@@ -32,8 +32,8 @@ internal static class EvalTables {
             // just switching straight from midgame into endgame, the table
             // value of the piece is always somewhere in between, based on
             // the number of pieces left on the board.
-            return (short)(*(midgame + index) * phase / 100
-                         + *(endgame + index) * (100 - phase) / 100);
+            return (short)(*(midgame + index) * pieceCount        / 32
+                         + *(endgame + index) * (32 - pieceCount) / 32);
         }
     }
 

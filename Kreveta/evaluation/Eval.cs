@@ -49,45 +49,6 @@ internal static class Eval {
         }
     }
 
-    internal static short StaticEvalPST(in Board board) {
-        StaticEvalCount++;
-
-        ulong wOccupied = board.WOccupied;
-        ulong bOccupied = board.BOccupied;
-
-        byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
-        
-        ReadOnlySpan<ulong> pieces = board.Pieces;
-
-        if (pieceCount <= 4 && IsInsufficientMaterialDraw(pieces, pieceCount))
-            return 0;
-
-        int phase = board.GamePhase();
-        
-        short wEval = 0, bEval = 0;
-        
-        for (byte i = 0; i < 6; i++) {
-            ulong wCopy = pieces[i];
-            ulong bCopy = pieces[6 + i];
-            
-            while (wCopy != 0UL) {
-                byte sq = BB.LS1BReset(ref wCopy);
-                wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, phase);
-            }
-
-            while (bCopy != 0UL) {
-                byte sq = BB.LS1BReset(ref bCopy);
-                bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, phase);
-            }
-        }
-
-        short eval = (short)(wEval - bEval);
-
-        // side to move should also get a slight advantage
-        eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
-        return eval;
-    }
-
     // returns the static evaluation of a position. static eval is used
     // in the leaf nodes of the search tree or is some pruning cases. it
     // doesn't implement any searches, so it is purely static. the point
