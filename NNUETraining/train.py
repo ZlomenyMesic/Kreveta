@@ -43,17 +43,17 @@ FEATURE_COUNT     = 40960
 EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 16
-LEARNING_RATE     = 1e-3
-BATCH_SIZE        = 2048
+LEARNING_RATE     = 1e-4
+BATCH_SIZE        = 4096
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 200
 MAX_PLIES         = 250
 
 CONFIG = {
-    "random_move_freq": 0.10,
-    "book_moves": 12,
-    "mirror_enabled": True
+    "random_move_freq": 0.05,
+    "book_moves": 16,
+    "mirror_enabled": False
 }
 
 def load_config():
@@ -305,7 +305,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(4, 10)
+                    move_depth = rng.randint(6, 12)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -321,7 +321,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(8, 12)))
+                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(10, 14)))
                 score = info.get("score")
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")

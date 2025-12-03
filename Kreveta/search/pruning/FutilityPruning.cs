@@ -6,6 +6,8 @@
 using Kreveta.consts;
 using Kreveta.moveorder.historyheuristics;
 
+using System;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.pruning;
@@ -16,31 +18,31 @@ namespace Kreveta.search.pruning;
 // alpha, we can prune this branch. we assume there probably isn't a phenomenal move
 // that could save this position
 internal static class FutilityPruning {
-    //internal static ulong Attempts = 0UL;
-    //internal static ulong Prunes   = 0UL;
-
     // minimum ply and maximum depth to allow futility pruning
     internal const int MinPly   = 4;
     internal const int MaxDepth = 5;
     
     // higher margin => fewer reductions
-    private const int MarginBase      = 60;
+    private const int MarginBase      = 95; // TODO - tuning
     private const int DepthMultiplier = 97;
 
-    // if improving, make the margin smaller (this seems a bit counter-intuitive,
-    // as we are pruning improving positions more, but it works)
-    private const int ImprovingMargin    = -35;  
-    private const int NotImprovingMargin = 23; 
+    // if not improving, make the margin smaller => more pruning
+    private const int NotImprovingMargin = -23; // TODO - tuning
+
+    private const int SEEDivisor   = 120;
+    private const int SEEClampDown = -37;
+    private const int SEEClampUp   = 16;
 
     // try futility pruning
-    internal static bool TryPrune(in Board child, int depth, Color col, short staticEval, bool improving, Window window) {
+    internal static bool TryPrune(in Board child, int depth, Color col, short staticEval, bool improving, int see, Window window) {
         // VERY COUNTER-INTUITIVE
         // white + positive pawncorrhist => prune more
         // white + negative pawncorrhist => prune less
         // black + negative pawncorrhist => prune more
         // black + positive pawncorrhist => prune less
         int pawnCorrection = PawnCorrectionHistory.GetCorrection(child) * (col == Color.WHITE ? -2 : 2);
-        int _improving     = improving ? ImprovingMargin : NotImprovingMargin;
+        int _improving     = improving ? 0 : NotImprovingMargin;
+        int _see           = Math.Clamp(see / SEEDivisor, SEEClampDown, SEEClampUp);
 
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at
@@ -48,7 +50,8 @@ internal static class FutilityPruning {
         // we don't really follow this exactly, but our approach is kind of similar
         int margin = MarginBase
                      + pawnCorrection
-                     + _improving 
+                     + _improving
+                     + _see
                      + depth * DepthMultiplier;
 
         // if we failed low (fell under alpha). this means we already know of a better

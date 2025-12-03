@@ -4,7 +4,6 @@
 //
 
 using Kreveta.consts;
-using Kreveta.movegen;
 
 using System;
 
@@ -178,10 +177,9 @@ internal static class TimeMan {
         
         // total piece count excluding kings (which are always present)
         int pieceCount = (int)ulong.PopCount(board.Occupied) - 2;
-        int moveCount  = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
 
         // map piece count into a multiplier roughly 0.75–1.35
-        float complexityMult = moveCount / 35f + (pieceCount - 10) * 0.025f;
+        float complexityMult = 1f + (pieceCount - 10) * 0.025f;
         complexityMult = Math.Clamp(complexityMult, 0.75f, 1.35f);
         
         // check for ultra low material positions

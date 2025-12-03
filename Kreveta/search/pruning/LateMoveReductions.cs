@@ -49,10 +49,13 @@ internal static class LateMoveReductions {
     private const int ImprovingMargin   = 12;
     private const int SearchedMovesMult = 93;
 
-    private const int ReductionDepth = 4;
+    // minimum see score for a deeper search (R--)
+    private const int MinSEEDeeper    = 100;
+    
+    private const int LMReductionDepth = 4;
 
     // should we prune or reduce?
-    internal static (bool ShouldPrune, bool ShouldReduce) TryPrune(in Board board, ref Board child, Move move, SearchState ss, Color col, byte searchedMoves, bool improving) {
+    internal static (bool ShouldPrune, bool ShouldReduce) TryPrune(in Board board, ref Board child, Move move, SearchState ss, Color col, byte searchedMoves, bool improving, int see) {
 
         // depth reduce is larger with bad quiet history
         // ReSharper disable once LocalVariableHidesMember
@@ -60,12 +63,13 @@ internal static class LateMoveReductions {
             ? InternalBadHistR
             : InternalR;
 
-        if (!improving) R--;
+        if ( improving || see >= MinSEEDeeper) R--;
+        if (!improving && see <  0)            R++;
 
         // null window around alpha
-        Window nullAlphaWindow = col == Color.WHITE 
-            ? new(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
-            : new((short)(ss.Window.Beta - 1), ss.Window.Beta);
+        var nullAlphaWindow = col == Color.WHITE 
+            ? new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
+            : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
 
         // once again a reduced depth search
         int score = PVSearch.ProbeTT(ref child, 
@@ -79,12 +83,12 @@ internal static class LateMoveReductions {
         // we failed low, we prune this branch. it is not good enough
         if (col == Color.WHITE
             ? score <= ss.Window.Alpha
-            : score >= ss.Window.Beta 
-            && PruningOptions.AllowNullMovePruning)
+            : score >= ss.Window.Beta
+            && PruningOptions.AllowLateMovePruning)
 
             return (true, false);
 
-        if (!PruningOptions.AllowLateMoveReductions || ss.Depth != ReductionDepth) 
+        if (!PruningOptions.AllowLateMoveReductions || ss.Depth != LMReductionDepth) 
             return (false, false);
 
         // REDUCTIONS PART:
