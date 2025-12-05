@@ -23,7 +23,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "2.0.0";
+    internal const string Version = "2.1.0";
     internal const string Author  = "ZlomenyMesic";
 
     internal static int Main(string[] args) {
@@ -53,7 +53,7 @@ internal static class Program {
         Eval.Init();
 
         // load the embedded nnue weights
-        NNUEWeights.Load("Kreveta.nnue-128-16-16-v3.bin");
+        NNUEWeights.Load("Kreveta.nnue-128-16-16-v4.bin");
         
         // just for experimental purposes
         Tuning.ShiftParams();

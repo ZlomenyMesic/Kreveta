@@ -119,7 +119,6 @@ internal static class QuietHistory {
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int PieceIndex(in Board board, Move move) {
-
         PType piece = move.Piece;
         
         // figure out the color of the piece based on whether it is present in the bitboard
