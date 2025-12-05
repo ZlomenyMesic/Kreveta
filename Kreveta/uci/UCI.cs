@@ -11,6 +11,7 @@
 
 #pragma warning disable CA1305
 
+using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
@@ -22,6 +23,7 @@ using Kreveta.tuning;
 using Kreveta.uci.options;
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 //using BenchmarkDotNet.Running;
@@ -317,7 +319,17 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-
+        const int iters = 3_000_000;
+        var nnue = new NNUEEvaluator(Game.Board);
+        var sw   = Stopwatch.StartNew();
+        
+        for (int i = 0; i < iters; i++)
+            nnue.UpdateEvaluation(Color.WHITE, 30);
+        
+        sw.Stop();
+        
+        int knps = (int)(iters / ((float)sw.ElapsedMilliseconds / 1000)) / 1000;
+        Console.WriteLine($"{knps} kN/s reached");
     }
 }
 

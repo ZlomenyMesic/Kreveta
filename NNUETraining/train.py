@@ -43,7 +43,7 @@ FEATURE_COUNT     = 40960
 EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 16
-LEARNING_RATE     = 1e-4
+LEARNING_RATE     = 1e-6
 BATCH_SIZE        = 4096
 
 SAMPLES_QUEUE_MAX = 10000
@@ -52,7 +52,7 @@ MAX_PLIES         = 250
 
 CONFIG = {
     "random_move_freq": 0.05,
-    "book_moves": 16,
+    "book_moves": 12,
     "mirror_enabled": False
 }
 
@@ -279,7 +279,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     rng = random.Random(time.time() + worker_id)
 
     while not stop_event.is_set():
-        load_config()
+        #load_config()
 
         board = chess.Board()
         plies = 0
@@ -305,7 +305,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(6, 12)
+                    move_depth = rng.randint(3, 12)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -321,7 +321,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(10, 14)))
+                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(11, 16)))
                 score = info.get("score")
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")
@@ -338,7 +338,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             else:
                 cp = np.clip(sc.score(), -1600, 1600)
 
-            # if black is the active side, the score must be inversed
+            # if black is the active side, the score must be inverted
             if board.turn == chess.BLACK:
                 cp = -cp
 
@@ -355,12 +355,12 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             try:
                 if (board.turn == chess.WHITE):
                     samples_queue.put(((w_np, b_np), float(target)), timeout = 1.0)
-                    if CONFIG["mirror_enabled"]:
-                        samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
+                    #if CONFIG["mirror_enabled"]:
+                    #    samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
                 else:
                     samples_queue.put(((b_np, w_np), float(target)), timeout = 1.0)
-                    if CONFIG["mirror_enabled"]:
-                        samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
+                    #if CONFIG["mirror_enabled"]:
+                    #    samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
 
             except Exception:
                 time.sleep(0.05)
@@ -418,7 +418,7 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
 
             # periodic save by wall-clock
             if time.time() - last_save > SAVE_EVERY_SEC:
-                load_config()
+                #load_config()
                 
                 try:
                     _, count = save_weights_binary(model)

@@ -6,10 +6,10 @@
 import os
 import struct
 
-NN_NAME = "nnue-128-16-16-v4.bin"
+NN_NAME = "nnue-128-16-16-v7.bin"
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights_128M.bin")
+WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights_IDK.bin")
 OUTPUT_PATH  = os.path.join(SCRIPT_DIR, f"archive\\{NN_NAME}")
 
 SCALE = 1024
