@@ -156,7 +156,7 @@ internal static class TimeMan {
         long inc      = Game.EngineColor == Color.WHITE ? _whiteInc  : _blackInc;
         
         // base time per move
-        long baseTime = (long)((timeLeft + inc * 0.8) / (movesToGo + 0.5));
+        long baseTime = (long)((timeLeft + inc * 0.8) / (movesToGo + 1));
 
         // never allow zero search time
         long budget = Math.Max(15, baseTime - moveOverhead);

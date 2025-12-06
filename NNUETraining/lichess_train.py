@@ -48,14 +48,14 @@ if not PARQUET_FILES:
 
 # hyperparams (tweak as needed)
 FEATURE_COUNT      = 40960
-EMBED_DIM          = 128
+EMBED_DIM          = 192
 H1_NEURONS         = 16
 H2_NEURONS         = 16
-LEARNING_RATE      = 1e-6
-BATCH_SIZE         = 32768  # training batch size (keeps memory reasonable)
-SAVE_EVERY_SEC     = 200
-PARQUET_BATCH_ROWS = 2500  # how many rows per pyarrow record batch read (tune)
-DEPTH_MIN          = 25
+LEARNING_RATE      = 1e-3
+BATCH_SIZE         = 4096  # training batch size (keeps memory reasonable)
+SAVE_EVERY_SEC     = 300
+PARQUET_BATCH_ROWS = 5000  # how many rows per pyarrow record batch read (tune)
+DEPTH_MIN          = 22
 
 # ---------- keep feature index / board_features as in original ----------
 def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
@@ -250,9 +250,8 @@ def process_parquet_file(path, model, sample_accumulator, last_save_time):
             except Exception:
                 continue
 
-            # if black to move, invert cp so cp is always from white's perspective
-            #if board.turn == chess.BLACK:
-            #    cp = -cp
+            if board.turn == chess.BLACK:
+                cp = -cp
 
             # build target label (same scaling as original)
             target = sigmoid(cp / 400.0)
@@ -262,9 +261,12 @@ def process_parquet_file(path, model, sample_accumulator, last_save_time):
                 # skip ill-formed positions
                 continue
 
+            active = w_indices if board.turn == chess.WHITE else b_indices
+            passive = b_indices if board.turn == chess.WHITE else w_indices
+
             # append to accumulator
-            sample_accumulator['active'].append(np.array(w_indices, dtype=np.int32))
-            sample_accumulator['passive'].append(np.array(b_indices, dtype=np.int32))
+            sample_accumulator['active'].append(np.array(active, dtype=np.int32))
+            sample_accumulator['passive'].append(np.array(passive, dtype=np.int32))
             sample_accumulator['pcnts'].append(np.int32(len(w_indices) + 2))  # same heuristic as original
             sample_accumulator['targets'].append(np.float32(target))
             sample_accumulator['seen'] += 1
@@ -282,7 +284,7 @@ def process_parquet_file(path, model, sample_accumulator, last_save_time):
                 print(f"[{timestamp}] samples_total: {sample_accumulator['seen']} batch_loss: {loss:.6f} mae: {mae:.6f}")
 
                 # CSV log
-                if rng.random() < 0.25:
+                if rng.random() < 0.05:
                     with open('log.csv', "a") as f:
                         f.write(f"{sample_accumulator['seen']},{loss:.6f},{mae:.6f},{timestamp}\n")
 

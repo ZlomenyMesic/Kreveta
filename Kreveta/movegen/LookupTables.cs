@@ -17,7 +17,7 @@ internal static unsafe class LookupTables {
     private static bool _memoryFreed;
 
     // all lookup tables need to be initialized right as the engine launches
-    internal static void Init() 
+    static LookupTables() 
         // what the actual fuck is this syntactic sugar? how is this legal C#?
         => ((Action)InitPawnTargets + InitKingTargets + InitKnightTargets)();
     

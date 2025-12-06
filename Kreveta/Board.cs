@@ -74,7 +74,7 @@ internal struct Board {
 
     public Board() {
         Pieces   = new ulong[12];
-        NNUEEval = new NNUEEvaluator();
+        NNUEEval = null!;
     }
     
     // returns the piece at a certain square. this method isn't
