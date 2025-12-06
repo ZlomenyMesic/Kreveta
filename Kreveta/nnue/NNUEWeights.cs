@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA1810
+
 using Kreveta.uci;
 
 using System;
@@ -15,81 +17,22 @@ using System.Reflection;
 namespace Kreveta.nnue;
 
 internal static class NNUEWeights {
-
-    // integer NNUE weights
-    internal static short[] Embedding;
-
-    private static short[] S1_H1Kernel;
-    private static short[] S1_H1Bias;
-    private static short[] S1_H2Kernel;
-    private static short[] S1_H2Bias;
-    private static short[] S1_OutputKernel;
-    private static short   S1_OutputBias;
-
-    private static short[] S2_H1Kernel;
-    private static short[] S2_H1Bias;
-    private static short[] S2_H2Kernel;
-    private static short[] S2_H2Bias;
-    private static short[] S2_OutputKernel;
-    private static short   S2_OutputBias;
-
-    private static short[] S3_H1Kernel;
-    private static short[] S3_H1Bias;
-    private static short[] S3_H2Kernel;
-    private static short[] S3_H2Bias;
-    private static short[] S3_OutputKernel;
-    private static short   S3_OutputBias;
-
-    private static short[] S4_H1Kernel;
-    private static short[] S4_H1Bias;
-    private static short[] S4_H2Kernel;
-    private static short[] S4_H2Bias;
-    private static short[] S4_OutputKernel;
-    private static short   S4_OutputBias;
-
-    private static short[] S5_H1Kernel;
-    private static short[] S5_H1Bias;
-    private static short[] S5_H2Kernel;
-    private static short[] S5_H2Bias;
-    private static short[] S5_OutputKernel;
-    private static short   S5_OutputBias;
-
-    private static short[] S6_H1Kernel;
-    private static short[] S6_H1Bias;
-    private static short[] S6_H2Kernel;
-    private static short[] S6_H2Bias;
-    private static short[] S6_OutputKernel;
-    private static short   S6_OutputBias;
-
-    private static short[] S7_H1Kernel;
-    private static short[] S7_H1Bias;
-    private static short[] S7_H2Kernel;
-    private static short[] S7_H2Bias;
-    private static short[] S7_OutputKernel;
-    private static short   S7_OutputBias;
-
-    private static short[] S8_H1Kernel;
-    private static short[] S8_H1Bias;
-    private static short[] S8_H2Kernel;
-    private static short[] S8_H2Bias;
-    private static short[] S8_OutputKernel;
-    private static short   S8_OutputBias;
-
-    internal static short[][] H1Kernels;
-    internal static short[][] H2Kernels;
-    internal static short[][] H1Biases;
-    internal static short[][] H2Biases;
-    internal static short[][] OutputKernels;
-    internal static short[]   OutputBiases;
+    internal static readonly short[]   Embedding;
+    internal static readonly short[][] H1Kernels;
+    internal static readonly short[][] H2Kernels;
+    internal static readonly short[][] H1Biases;
+    internal static readonly short[][] H2Biases;
+    internal static readonly short[][] OutputKernels;
+    internal static readonly short[]   OutputBiases;
 
     private  const int FeatCount = 40960;
     internal const int EmbedDims = 128;
     internal const int H1Neurons = 16;
     internal const int H2Neurons = 16;
 
-    internal static void Load(string binFile) {
+    static NNUEWeights() {
         var asm = Assembly.GetExecutingAssembly();
-        using Stream? stream = asm.GetManifestResourceStream(binFile);
+        using Stream? stream = asm.GetManifestResourceStream($"{Program.Name}.{Program.Network}");
 
         if (stream is null) {
             UCI.Log("Embedded NNUE weights not found", UCI.LogLevel.ERROR);
@@ -113,77 +56,77 @@ internal static class NNUEWeights {
             Embedding[i] = all[offset++];
 
         // allocate subnet buffers
-        S1_H1Kernel = new short[H1Neurons * EmbedDims * 2];
-        S1_H1Bias   = new short[H1Neurons];
-        S1_H2Kernel = new short[H2Neurons * H1Neurons];
-        S1_H2Bias   = new short[H2Neurons];
-        S1_OutputKernel = new short[H2Neurons];
+        short[] s1H1Kernel     = new short[H1Neurons * EmbedDims * 2];
+        short[] s1H1Bias       = new short[H1Neurons];
+        short[] s1H2Kernel     = new short[H2Neurons * H1Neurons];
+        short[] s1H2Bias       = new short[H2Neurons];
+        short[] s1OutputKernel = new short[H2Neurons];
 
-        S2_H1Kernel = new short[S1_H1Kernel.Length];
-        S2_H1Bias   = new short[S1_H1Bias.Length];
-        S2_H2Kernel = new short[S1_H2Kernel.Length];
-        S2_H2Bias   = new short[S1_H2Bias.Length];
-        S2_OutputKernel = new short[H2Neurons];
+        short[] s2H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s2H1Bias       = new short[s1H1Bias.Length];
+        short[] s2H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s2H2Bias       = new short[s1H2Bias.Length];
+        short[] s2OutputKernel = new short[H2Neurons];
 
-        S3_H1Kernel = new short[S1_H1Kernel.Length];
-        S3_H1Bias   = new short[S1_H1Bias.Length];
-        S3_H2Kernel = new short[S1_H2Kernel.Length];
-        S3_H2Bias   = new short[S1_H2Bias.Length];
-        S3_OutputKernel = new short[H2Neurons];
+        short[] s3H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s3H1Bias       = new short[s1H1Bias.Length];
+        short[] s3H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s3H2Bias       = new short[s1H2Bias.Length];
+        short[] s3OutputKernel = new short[H2Neurons];
 
-        S4_H1Kernel = new short[S1_H1Kernel.Length];
-        S4_H1Bias   = new short[S1_H1Bias.Length];
-        S4_H2Kernel = new short[S1_H2Kernel.Length];
-        S4_H2Bias   = new short[S1_H2Bias.Length];
-        S4_OutputKernel = new short[H2Neurons];
+        short[] s4H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s4H1Bias       = new short[s1H1Bias.Length];
+        short[] s4H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s4H2Bias       = new short[s1H2Bias.Length];
+        short[] s4OutputKernel = new short[H2Neurons];
 
-        S5_H1Kernel = new short[S1_H1Kernel.Length];
-        S5_H1Bias   = new short[S1_H1Bias.Length];
-        S5_H2Kernel = new short[S1_H2Kernel.Length];
-        S5_H2Bias   = new short[S1_H2Bias.Length];
-        S5_OutputKernel = new short[H2Neurons];
+        short[] s5H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s5H1Bias       = new short[s1H1Bias.Length];
+        short[] s5H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s5H2Bias       = new short[s1H2Bias.Length];
+        short[] s5OutputKernel = new short[H2Neurons];
 
-        S6_H1Kernel = new short[S1_H1Kernel.Length];
-        S6_H1Bias   = new short[S1_H1Bias.Length];
-        S6_H2Kernel = new short[S1_H2Kernel.Length];
-        S6_H2Bias   = new short[S1_H2Bias.Length];
-        S6_OutputKernel = new short[H2Neurons];
+        short[] s6H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s6H1Bias       = new short[s1H1Bias.Length];
+        short[] s6H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s6H2Bias       = new short[s1H2Bias.Length];
+        short[] s6OutputKernel = new short[H2Neurons];
 
-        S7_H1Kernel = new short[S1_H1Kernel.Length];
-        S7_H1Bias   = new short[S1_H1Bias.Length];
-        S7_H2Kernel = new short[S1_H2Kernel.Length];
-        S7_H2Bias   = new short[S1_H2Bias.Length];
-        S7_OutputKernel = new short[H2Neurons];
+        short[] s7H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s7H1Bias       = new short[s1H1Bias.Length];
+        short[] s7H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s7H2Bias       = new short[s1H2Bias.Length];
+        short[] s7OutputKernel = new short[H2Neurons];
 
-        S8_H1Kernel = new short[S1_H1Kernel.Length];
-        S8_H1Bias   = new short[S1_H1Bias.Length];
-        S8_H2Kernel = new short[S1_H2Kernel.Length];
-        S8_H2Bias   = new short[S1_H2Bias.Length];
-        S8_OutputKernel = new short[H2Neurons];
+        short[] s8H1Kernel     = new short[s1H1Kernel.Length];
+        short[] s8H1Bias       = new short[s1H1Bias.Length];
+        short[] s8H2Kernel     = new short[s1H2Kernel.Length];
+        short[] s8H2Bias       = new short[s1H2Bias.Length];
+        short[] s8OutputKernel = new short[H2Neurons];
 
         short[][] H1K = [
-            S1_H1Kernel, S2_H1Kernel, S3_H1Kernel, S4_H1Kernel,
-            S5_H1Kernel, S6_H1Kernel, S7_H1Kernel, S8_H1Kernel
+            s1H1Kernel, s2H1Kernel, s3H1Kernel, s4H1Kernel,
+            s5H1Kernel, s6H1Kernel, s7H1Kernel, s8H1Kernel
         ];
 
         short[][] H1B = [
-            S1_H1Bias, S2_H1Bias, S3_H1Bias, S4_H1Bias,
-            S5_H1Bias, S6_H1Bias, S7_H1Bias, S8_H1Bias
+            s1H1Bias, s2H1Bias, s3H1Bias, s4H1Bias,
+            s5H1Bias, s6H1Bias, s7H1Bias, s8H1Bias
         ];
 
         short[][] H2K = [
-            S1_H2Kernel, S2_H2Kernel, S3_H2Kernel, S4_H2Kernel,
-            S5_H2Kernel, S6_H2Kernel, S7_H2Kernel, S8_H2Kernel
+            s1H2Kernel, s2H2Kernel, s3H2Kernel, s4H2Kernel,
+            s5H2Kernel, s6H2Kernel, s7H2Kernel, s8H2Kernel
         ];
 
         short[][] H2B = [
-            S1_H2Bias, S2_H2Bias, S3_H2Bias, S4_H2Bias,
-            S5_H2Bias, S6_H2Bias, S7_H2Bias, S8_H2Bias
+            s1H2Bias, s2H2Bias, s3H2Bias, s4H2Bias,
+            s5H2Bias, s6H2Bias, s7H2Bias, s8H2Bias
         ];
 
         short[][] OK = [
-            S1_OutputKernel, S2_OutputKernel, S3_OutputKernel, S4_OutputKernel,
-            S5_OutputKernel, S6_OutputKernel, S7_OutputKernel, S8_OutputKernel
+            s1OutputKernel, s2OutputKernel, s3OutputKernel, s4OutputKernel,
+            s5OutputKernel, s6OutputKernel, s7OutputKernel, s8OutputKernel
         ];
 
         // === 2. LOAD SUBNETS IN REAL KERAS ORDER ===
@@ -197,21 +140,14 @@ internal static class NNUEWeights {
             LoadH2Bias  (all, H2B[subnet], ref offset);
         }
 
+        short[] OB = new short[8];
+
         // === 3. LOAD OUTPUTS PER SUBNET ===
         for (int subnet = 0; subnet < 8; subnet++) {
             for (int i = 0; i < H2Neurons; i++)
                 OK[subnet][i] = all[offset++];
 
-            switch (subnet) {
-                case 0: S1_OutputBias = all[offset++]; break;
-                case 1: S2_OutputBias = all[offset++]; break;
-                case 2: S3_OutputBias = all[offset++]; break;
-                case 3: S4_OutputBias = all[offset++]; break;
-                case 4: S5_OutputBias = all[offset++]; break;
-                case 5: S6_OutputBias = all[offset++]; break;
-                case 6: S7_OutputBias = all[offset++]; break;
-                case 7: S8_OutputBias = all[offset++]; break;
-            }
+            OB[subnet] = all[offset++];
         }
 
         H1Kernels = H1K;
@@ -220,10 +156,7 @@ internal static class NNUEWeights {
         H2Biases  = H2B;
 
         OutputKernels = OK;
-        OutputBiases  = [
-            S1_OutputBias, S2_OutputBias, S3_OutputBias, S4_OutputBias,
-            S5_OutputBias, S6_OutputBias, S7_OutputBias, S8_OutputBias
-        ];
+        OutputBiases  = OB;
     }
 
     private static void LoadH1Kernel(short[] all, short[] dest, ref int offset) {
@@ -262,3 +195,5 @@ internal static class NNUEWeights {
             dest[i] = all[offset++];
     }
 }
+
+#pragma warning restore CA1810

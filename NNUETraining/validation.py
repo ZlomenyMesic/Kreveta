@@ -20,7 +20,7 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 
 FEATURE_COUNT     = 40960
-EMBED_DIM         = 128
+EMBED_DIM         = 192
 H1_NEURONS        = 16
 H2_NEURONS        = 16
 
@@ -211,6 +211,8 @@ test_positions = {
     "start position":        chess.Board(),
     "white up a queen":      chess.Board("4k3/8/8/8/8/8/8/3QK3 w - - 0 1"),
     "black up a queen":      chess.Board("3qk3/8/8/8/8/8/8/4K3 w - - 0 1"),
+    "white up a queen (b)":  chess.Board("4k3/8/8/8/8/8/8/3QK3 b - - 0 1"),
+    "black up a queen (b)":  chess.Board("3qk3/8/8/8/8/8/8/4K3 b - - 0 1"),
     "white queen x rook":    chess.Board("8/4r3/3k4/8/8/5Q2/2K5/8 w - - 0 1"),
     "white queen x rook 2":  chess.Board("8/Q7/3k4/8/8/5r2/2K5/8 w - - 0 1"),
     "black queen x rook":    chess.Board("8/4R3/3K4/8/8/5q2/2k5/8 w - - 0 1"),

@@ -39,8 +39,7 @@ internal static class Eval {
     // calls of StaticEval during the entire search
     internal static ulong StaticEvalCount;
 
-    internal static void Init() {
-
+    static Eval() {
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
             AdjFiles[i] = Consts.RelevantFileMask[i]

@@ -22,14 +22,15 @@ internal unsafe sealed class NNUEEvaluator {
     private const int H1Input   = EmbedDims * 2;
     internal const int QScale   = 1024;
 
-    private readonly short[] _accWhite = new short[EmbedDims];
-    private readonly short[] _accBlack = new short[EmbedDims];
+    private readonly short[] _accWhite;
+    private readonly short[] _accBlack;
 
     internal short Score;
-
-    internal NNUEEvaluator() { }
-
+    
     internal NNUEEvaluator(in NNUEEvaluator other) {
+        _accWhite = new short[EmbedDims];
+        _accBlack = new short[EmbedDims];
+        
         fixed (short* src = other._accWhite)
         fixed (short* dst = _accWhite)
             Unsafe.CopyBlock(dst, src, NNUEWeights.EmbedDims * 2);
@@ -42,8 +43,8 @@ internal unsafe sealed class NNUEEvaluator {
     }
 
     internal NNUEEvaluator(in Board board) {
-        Array.Clear(_accWhite);
-        Array.Clear(_accBlack);
+        _accWhite = new short[EmbedDims];
+        _accBlack = new short[EmbedDims];
 
         int count = ExtractFeatures(in board, out var whiteFeat, out var blackFeat);
 
@@ -315,7 +316,7 @@ internal unsafe sealed class NNUEEvaluator {
 
             int pred  = (VectorSum(prod2) >> 10) + outBias;
             short act = MathLUT.FastSigmoid(pred);
-
+            
             Score = (short)(MathLUT.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));
         }
     }
