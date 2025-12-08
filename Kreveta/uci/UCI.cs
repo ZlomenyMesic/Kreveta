@@ -43,7 +43,7 @@ internal static partial class UCI {
     internal static volatile bool ShouldAbortSearch;
     
     private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
-        Log($"Couldn't start searching - {context}", LogLevel.ERROR);
+        Log($"Search cannot be started - {context}", LogLevel.ERROR);
     };
 
     static UCI() {
@@ -119,6 +119,7 @@ internal static partial class UCI {
                 // print the current position
                 case "d":
                     Game.Board.Print();
+                    Log("FEN: " + Game.Board.FEN());
                     break;
                 
                 // stop any running searches
@@ -242,7 +243,7 @@ internal static partial class UCI {
         // abort the currently running search first in order to
         // run a new one, since there is a single search thread.
         StopSearch();
-
+        
         // position cannot be searched (mate or stalemate)
         if (Game.IsTerminalPosition(out string error)) {
             CannotStartSearchCallback.Invoke(error);
@@ -314,7 +315,6 @@ internal static partial class UCI {
 
         ShouldAbortSearch = false;
         
-        // a forced reset is needed to avoid bugged PVs
         PVSearch.Reset();
     }
 

@@ -166,6 +166,11 @@ internal static class Game {
         // is also simply a dash.
         if (tokens[5].Length == 2 && byte.TryParse(tokens[5], out byte enPassantSq))
             Board.EnPassantSq = enPassantSq;
+        
+        else if (tokens[5].Length == 2) {
+            int sq = (8 - (tokens[5][1] - '0')) * 8 + Consts.Files.IndexOf(tokens[5][0], StringComparison.Ordinal);
+            Board.EnPassantSq = (byte)sq;
+        }
 
         else if (tokens[5].Length == 1 && tokens[5][0] == '-')
             Board.EnPassantSq = 64;
@@ -175,8 +180,8 @@ internal static class Game {
         if (tokens.Length >= 7 && byte.TryParse(tokens[6], out byte halfmoveclock))
             Board.HalfMoveClock = halfmoveclock;
 
-        else {
-            InvalidFENCallback($"invalid en passant square: \"{tokens[5]}\"");
+        else if (tokens.Length != 6) {
+            InvalidFENCallback($"invalid halfmove clock: \"{tokens[5]}\"");
             return;
         }
 
@@ -206,13 +211,14 @@ internal static class Game {
 
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
+            var move = tokens[i].ToMove(Board);
             
-            if (!Move.IsCorrectFormat(tokens[i])) {
+            if (!Move.IsCorrectFormat(tokens[i]) || Board.PieceAt(move.Start) == PType.NONE) {
                 InvalidFENCallback($"invalid move: \"{tokens[i]}\"");
                 return;
             }
 
-            Board.PlayMove(tokens[i].ToMove(Board), true);
+            Board.PlayMove(move, true);
             HistoryPositions.Add(ZobristHash.Hash(Board));
 
             // switch the engine's color
@@ -282,8 +288,12 @@ internal static class Game {
         }
         
         // if the opposite side is in check, even though it's our turn to play,
-        // the position is obviously illegal. however, allowing such positions
-        // makes it possible for Kreveta to capture the king :)
+        // the position is obviously illegal. as much as i would love to allow
+        // capturing the king, in certain positions the engine crashes :(
+        if (Check.IsKingChecked(Board, EngineColor == Color.WHITE ? Color.BLACK : Color.WHITE)) {
+            error = "the opponent is in check";
+            return true;
+        }
         
         error = string.Empty;
         return false;

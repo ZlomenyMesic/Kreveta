@@ -33,9 +33,9 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 CONFIG_PATH  = os.path.join(SCRIPT_DIR, "config.json")
 
-NUM_WORKERS = 11
+NUM_WORKERS = 10
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
-BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
+BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Titans.bin"
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
@@ -43,17 +43,29 @@ FEATURE_COUNT     = 40960
 EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 16
-LEARNING_RATE     = 1e-6
-BATCH_SIZE        = 4096
+BATCH_SIZE        = 2048
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 200
 MAX_PLIES         = 250
 
+BUCKET_TABLE = tf.constant([
+    0, 0, 0, 0, 0,
+    0, 0, 0, 1,
+    1, 1, 1, 2,
+    2, 2, 2, 3,
+    3, 3, 3, 4,
+    4, 4, 4, 5,
+    5, 5, 5, 6,
+    6, 6, 7, 7
+], dtype = tf.int32)
+
 CONFIG = {
-    "random_move_freq": 0.05,
-    "book_moves": 12,
-    "mirror_enabled": False
+    "random_move_freq": 0.14,
+    "book_moves": 16,
+    "mirror_enabled": True,
+    "min_depth": 8,
+    "max_depth": 10
 }
 
 def load_config():
@@ -82,6 +94,8 @@ def feature_index(king_square: int, piece_type: int, is_black: bool, piece_squar
 def board_features(board: chess.Board):
     w_indices = []
     b_indices = []
+    m_w_indices = []
+    m_b_indices = []
 
     w_king_sq = board.king(chess.WHITE)
     b_king_sq = board.king(chess.BLACK)
@@ -89,6 +103,9 @@ def board_features(board: chess.Board):
     # if a king is missing (shouldn't happen in legal positions), we still produce empty lists.
     if w_king_sq is None or b_king_sq is None:
         return []
+    
+    m_w_king_sq = (7 - (w_king_sq & 7)) + (8 * (w_king_sq >> 3))
+    m_b_king_sq = (7 - (b_king_sq & 7)) + (8 * (b_king_sq >> 3))
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
@@ -103,6 +120,8 @@ def board_features(board: chess.Board):
 
         # piece_color True if black, False if white
         is_black = piece.color == chess.BLACK
+
+        m_sq = (7 - (sq & 7)) + (8 * (sq >> 3))
 
         # index into white accumulator (white king as reference)
         idx_w = feature_index(
@@ -119,10 +138,25 @@ def board_features(board: chess.Board):
             piece_square = sq ^ 56
         )
 
+        m_idx_w = feature_index(
+            king_square  = m_w_king_sq,
+            piece_type   = piece.piece_type,
+            is_black     = is_black,
+            piece_square = m_sq
+        )
+        m_idx_b = feature_index(
+            king_square  = m_b_king_sq ^ 56,
+            piece_type   = piece.piece_type,
+            is_black     = not is_black,
+            piece_square = m_sq ^ 56
+        )
+
         w_indices.append(idx_w)
         b_indices.append(idx_b)
+        m_w_indices.append(m_idx_w)
+        m_b_indices.append(m_idx_b)
 
-    return w_indices, b_indices
+    return w_indices, b_indices, m_w_indices, m_b_indices
 
 def ClippedReLU(x):
     return keras.activations.relu(x, max_value = 1.0)
@@ -178,7 +212,7 @@ def build_model() -> keras.Model:
     # select the right subnet according to piece count bucket
     def select_fn(args):
         stacked_tensor, pc = args
-        bucket = tf.clip_by_value(pc // 4, 0, 7)
+        bucket = tf.gather(BUCKET_TABLE, pc)
         # stacked_tensor shape: (batch, 8, 1)
         # want to pick stacked_tensor[bucket] for each batch element
         # reshape bucket to (batch,) and use tf.range to collect indices
@@ -193,10 +227,17 @@ def build_model() -> keras.Model:
         output_shape = (1,)
     )([stacked, inp_pcnt])
 
+    lr_schedule = optimizers.schedules.ExponentialDecay(
+        initial_learning_rate = 1e-4,
+        decay_rate            = 0.999937, # 0.99991
+        decay_steps           = 1,
+        staircase             = False
+    )
+
     model = models.Model([inp_active, inp_passive, inp_pcnt], select)
     model.compile(
         optimizer = optimizers.AdamW(
-            learning_rate = LEARNING_RATE,
+            learning_rate = lr_schedule,
             weight_decay  = 1e-5,
             clipnorm      = 1.0
         ),
@@ -279,7 +320,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
     rng = random.Random(time.time() + worker_id)
 
     while not stop_event.is_set():
-        #load_config()
+        load_config()
 
         board = chess.Board()
         plies = 0
@@ -293,7 +334,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 board.push(move)
 
             # random polyglot book move
-            if book is not None and plies < CONFIG["book_moves"]:
+            elif book is not None and plies < CONFIG["book_moves"]:
                 try:
                     entries = list(book.find_all(board))
                     if entries:
@@ -305,7 +346,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(3, 12)
+                    move_depth = rng.randint(3, 11)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -321,8 +362,11 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 break
 
             try:
-                info  = engine.analyse(board, chess.engine.Limit(depth = rng.randint(11, 16)))
+                info  = engine.analyse(board, chess.engine.Limit(
+                    depth = rng.randint(CONFIG["min_depth"], CONFIG["max_depth"])
+                ))
                 score = info.get("score")
+
             except Exception as e:
                 print(f"[worker {worker_id}] analyse() error: {e}")
                 break
@@ -336,31 +380,42 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             if sc.is_mate():
                 cp = 1800 if sc.mate() > 0 else -1800
             else:
-                cp = np.clip(sc.score(), -1600, 1600)
+                cp = np.clip(sc.score(), -1800, 1800)
 
             # if black is the active side, the score must be inverted
             if board.turn == chess.BLACK:
                 cp = -cp
 
             # map cp to [0,1]
-            target = 1.0 / (1.0 + np.exp(-cp / 400.0))
+            target = 1.0 / (1.0 + np.exp(-cp / 300.0))
 
             # generate feature indices for both the real
             # board and the vertically mirrored version
-            w_indices, b_indices = board_features(board)
+            w_indices, b_indices, m_w_indices, m_b_indices = board_features(board)
 
             w_np = np.array(w_indices, dtype = np.int32)
             b_np = np.array(b_indices, dtype = np.int32)
+            m_w_np = np.array(m_w_indices, dtype = np.int32)
+            m_b_np = np.array(m_b_indices, dtype = np.int32)
 
             try:
                 if (board.turn == chess.WHITE):
                     samples_queue.put(((w_np, b_np), float(target)), timeout = 1.0)
-                    #if CONFIG["mirror_enabled"]:
-                    #    samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
+
+                    if CONFIG["mirror_enabled"]:
+                        samples_queue.put(((m_w_np, m_b_np), float(target)), timeout = 1.0)
+
+                        samples_queue.put(((b_np, w_np), float(1.0 - target)), timeout = 1.0)
+                        samples_queue.put(((m_b_np, m_w_np), float(1.0 - target)), timeout = 1.0)
+
                 else:
                     samples_queue.put(((b_np, w_np), float(target)), timeout = 1.0)
-                    #if CONFIG["mirror_enabled"]:
-                    #    samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
+
+                    if CONFIG["mirror_enabled"]:
+                        samples_queue.put(((m_b_np, m_w_np), float(target)), timeout = 1.0)
+
+                        samples_queue.put(((w_np, b_np), float(1.0 - target)), timeout = 1.0)
+                        samples_queue.put(((m_w_np, m_b_np), float(1.0 - target)), timeout = 1.0)
 
             except Exception:
                 time.sleep(0.05)
@@ -409,7 +464,7 @@ def trainer_loop(model, samples_queue: Queue, stop_event: mp.Event):
                 y_batch.clear()
 
                 timestamp = datetime.now().isoformat()
-                print(f"[{timestamp}] samples: {seen} loss: {loss:.6f} mae: {mae:.6f}")
+                print(f"[{timestamp}] samples: {seen} loss: {loss:.6f} mae: {mae:.6f} lr: {model.optimizer.learning_rate:.8f}")
 
                 # CSV log (logs are limited to avoid spam)
                 if (seen % 32768 == 0):
