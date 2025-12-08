@@ -21,7 +21,7 @@ namespace Kreveta.search;
 
 internal static class PVSControl {
 
-    internal const int DefaultMaxDepth = 50;
+    internal const int DefaultMaxDepth = 100;
 
     // maximum search depth allowed in this search
     private static int CurMaxDepth;
@@ -69,7 +69,7 @@ internal static class PVSControl {
             PVSearch.SearchDeeper();
 
             // didn't abort (yet?)
-            if (PVSearch.Abort) 
+            if (PVSearch.Abort)
                 break;
                 
             CurElapsed = sw.ElapsedMilliseconds - PrevElapsed;
@@ -117,6 +117,7 @@ internal static class PVSControl {
         // (not the next iteration of the current one)
         sw.Stop();
         PVSearch.Reset();
+        
         TotalNodes = 0UL;
     }
 

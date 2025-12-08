@@ -9,17 +9,22 @@
 // Specify CultureInfo
 #pragma warning disable CA1304
 
+#pragma warning disable CA1305
+
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
 using Kreveta.uci;
+using Kreveta.uci.options;
 
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta;
 
@@ -360,7 +365,7 @@ internal struct Board {
     
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal Board Clone() {
+    internal Board Clone(bool includeNNUE = true) {
         
         var newPieces = new ulong[12];
         Unsafe.CopyBlockUnaligned(
@@ -370,7 +375,7 @@ internal struct Board {
         
         return this with {
             Pieces   = newPieces,
-            NNUEEval = new NNUEEvaluator(NNUEEval)
+            NNUEEval = includeNNUE ? new NNUEEvaluator(NNUEEval) : null!
         };
     }
 
@@ -394,7 +399,7 @@ internal struct Board {
 
         // empty squares are simply dashes
         char[] chars = new char[64];
-        Array.Fill(chars, '-');
+        Array.Fill(chars, '.');
 
         // loop all piece types
         for (int i = 0; i < 6; i++) {
@@ -414,11 +419,77 @@ internal struct Board {
             }
         }
         for (int i = 0; i < 64; i++) {
-            UCI.Output.Write($"{chars[i]} {
+            if (Options.NKLogs)
+                Console.ForegroundColor = char.IsAsciiLetterUpper(chars[i]) 
+                    ? ConsoleColor.White 
+                    : char.IsAsciiLetterLower(chars[i])
+                        ? ConsoleColor.DarkGray
+                        : ConsoleColor.Gray;
+            
+            Console.Write($"{chars[i]} ");
 
-                // newline character at the end of each rank
-                ((i + 1 & 7) == 0 ? '\n' : string.Empty)}");
+            // newline character at the end of each rank
+            if ((i + 1 & 7) == 0)
+                UCI.Output.WriteLine();
         }
+        Console.ResetColor();
+    }
+
+    internal string FEN() {
+        var fen = new StringBuilder();
+        
+        int curEmpty = 0;
+        for (int i = 0; i < 64; i++) {
+            if (i % 8 == 0 && i != 0) {
+                if (curEmpty != 0) {
+                    fen.Append(curEmpty);
+                    curEmpty = 0;
+                }
+                fen.Append('/');
+            }
+            
+            PType piece = PieceAt(i);
+
+            if (piece != PType.NONE) {
+                char p = Consts.Pieces[(int)piece];
+                if ((WOccupied & 1UL << i) != 0UL)
+                    p = char.ToUpper(p);
+
+                if (curEmpty != 0) {
+                    fen.Append(curEmpty);
+                    curEmpty = 0;
+                }
+                
+                fen.Append(p);
+            }
+            
+            else curEmpty++;
+        }
+
+        if (curEmpty != 0)
+            fen.Append(curEmpty);
+
+        // side to move (either w or b)
+        fen.Append(Color == Color.WHITE ? " w " : " b ");
+        
+        // castling rights
+        if (CastRights == 0)
+            fen.Append('-');
+        else {
+            int cr = (int)CastRights;
+            if (cr >> 0 != 0) fen.Append('K');
+            if (cr >> 1 != 0) fen.Append('Q');
+            if (cr >> 2 != 0) fen.Append('k');
+            if (cr >> 3 != 0) fen.Append('q');
+        }
+
+        if (EnPassantSq != 64)
+            fen.Append(" " + Consts.Files[EnPassantSq & 7] + (8 - (EnPassantSq >> 3)));
+        else fen.Append(" -");
+        
+        fen.Append(' ' + HalfMoveClock.ToString());
+        
+        return fen.ToString();
     }
 
     internal static Board CreateStartpos() {
@@ -457,4 +528,5 @@ internal struct Board {
 }
 
 #pragma warning restore CA1304
+#pragma warning restore CA1305
 #pragma warning restore IDE0079

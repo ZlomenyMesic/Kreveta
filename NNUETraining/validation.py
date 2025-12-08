@@ -5,6 +5,7 @@
 
 import os
 import json
+import math
 
 import numpy as np
 import tensorflow as tf
@@ -20,9 +21,20 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 
 FEATURE_COUNT     = 40960
-EMBED_DIM         = 192
+EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 16
+
+BUCKET_TABLE = tf.constant([
+    0, 0, 0, 0, 0,
+    0, 0, 0, 1,
+    1, 1, 1, 2,
+    2, 2, 2, 3,
+    3, 3, 3, 4,
+    4, 4, 4, 5,
+    5, 5, 5, 6,
+    6, 6, 7, 7
+], dtype = tf.int32)
 
 def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:
 
@@ -136,7 +148,7 @@ def build_model():
     # select the right subnet according to piece count bucket
     def select_fn(args):
         stacked_tensor, pc = args
-        bucket = tf.clip_by_value(pc // 4, 0, 7)
+        bucket = tf.gather(BUCKET_TABLE, pc)
         # stacked_tensor shape: (batch, 8, 1)
         # want to pick stacked_tensor[bucket] for each batch element
         # reshape bucket to (batch,) and use tf.range to collect indices
@@ -154,8 +166,8 @@ def build_model():
     model = models.Model([inp_active, inp_passive, inp_pcnt], select)
     model.compile(
         optimizer = None,
-        loss    = losses.BinaryCrossentropy(),
-        metrics = [metrics.MeanAbsoluteError(name = 'mae')]
+        loss      = None,
+        metrics   = None
     )
     return model
 
@@ -211,13 +223,12 @@ test_positions = {
     "start position":        chess.Board(),
     "white up a queen":      chess.Board("4k3/8/8/8/8/8/8/3QK3 w - - 0 1"),
     "black up a queen":      chess.Board("3qk3/8/8/8/8/8/8/4K3 w - - 0 1"),
-    "white up a queen (b)":  chess.Board("4k3/8/8/8/8/8/8/3QK3 b - - 0 1"),
-    "black up a queen (b)":  chess.Board("3qk3/8/8/8/8/8/8/4K3 b - - 0 1"),
     "white queen x rook":    chess.Board("8/4r3/3k4/8/8/5Q2/2K5/8 w - - 0 1"),
     "white queen x rook 2":  chess.Board("8/Q7/3k4/8/8/5r2/2K5/8 w - - 0 1"),
     "black queen x rook":    chess.Board("8/4R3/3K4/8/8/5q2/2k5/8 w - - 0 1"),
     "black queen x rook 2":  chess.Board("8/q7/3K4/8/8/5R2/2k5/8 w - - 0 1"),
     "black queen x rook 3":  chess.Board("8/1q6/3K4/8/8/5R2/2k5/8 w - - 0 1"),
+    "italian (cp +15)":      chess.Board("r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"),
     "1. e4 (good)":          chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 1"),
     "1. f4 (bad)":           chess.Board("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR w KQkq e3 0 1"),
     "1. e4 e5":              chess.Board("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1"),
@@ -237,10 +248,12 @@ for name, board in test_positions.items():
         verbose = 0
     )[0][0])
 
-    if (board.turn == chess.BLACK):
-        predict = 1.0 - predict
+    pr = predict / (1 - predict)
+    ln = math.log(pr)
+    cp = int(round(ln * 300))
 
     print(board)
     print(f"FEN:       {board.fen()}")
     print(f"Position:  {name}")
     print(f"NNUE Eval: {predict:.5f}\n")
+    print(f"CP Score:  {cp}")

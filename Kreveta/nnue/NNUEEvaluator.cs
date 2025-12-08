@@ -20,7 +20,20 @@ internal unsafe sealed class NNUEEvaluator {
     private const int H1Neurons = NNUEWeights.H1Neurons;
     private const int H2Neurons = NNUEWeights.H2Neurons;
     private const int H1Input   = EmbedDims * 2;
-    internal const int QScale   = 1024;
+
+    private static readonly int[] BucketTable = [
+        -1, -1,           // shouldn't ever happen
+        0, 0, 0, 0, 0, 0, // very late endgames
+        1, 1, 1, 1,
+        2, 2, 2, 2,
+        3, 3, 3, 3,
+        4, 4, 4, 4,
+        5, 5, 5, 5,
+        6, 6, 6,          // late opening/early middlegame
+        7, 7              // early opening, needs extra precision
+    ];
+    
+    internal const int QScale   = 512;
 
     private readonly short[] _accWhite;
     private readonly short[] _accBlack;
@@ -265,19 +278,19 @@ internal unsafe sealed class NNUEEvaluator {
             _accWhite.AsSpan().CopyTo(concat[EmbedDims..]);
         }
 
-        int subnet = Math.Clamp(pcnt / 4, 0, 7);
+        int bucket = BucketTable[pcnt];
 
-        ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[subnet];
-        ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[subnet];
-        short               outBias  = NNUEWeights.OutputBiases[subnet];
+        ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[bucket];
+        ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[bucket];
+        short               outBias  = NNUEWeights.OutputBiases[bucket];
 
         Span<short> h1activation = stackalloc short[H1Neurons];
         Span<short> h2activation = stackalloc short[H2Neurons];
         
         fixed (short* concatPtr    = concat)
-        fixed (short* h1kernelPtr  = NNUEWeights.H1Kernels[subnet])
-        fixed (short* h2kernelPtr  = NNUEWeights.H2Kernels[subnet])
-        fixed (short* outKernelPtr = NNUEWeights.OutputKernels[subnet])
+        fixed (short* h1kernelPtr  = NNUEWeights.H1Kernels[bucket])
+        fixed (short* h2kernelPtr  = NNUEWeights.H2Kernels[bucket])
+        fixed (short* outKernelPtr = NNUEWeights.OutputKernels[bucket])
         fixed (short* h1ActPtr     = h1activation)
         fixed (short* h2ActPtr     = h2activation) {
             
@@ -293,7 +306,7 @@ internal unsafe sealed class NNUEEvaluator {
                     vs = Avx2.Add(vs, Avx2.MultiplyAddAdjacent(va, vb));
                 }
 
-                int sum = (VectorSum(vs) >> 10) + h1biases[j];
+                int sum = (VectorSum(vs) >> 9) + h1biases[j];
                 h1ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
             }
 
@@ -305,7 +318,7 @@ internal unsafe sealed class NNUEEvaluator {
                 var vb   = Avx.LoadVector256(h2kernelPtr + wBase);
                 var prod = Avx2.MultiplyAddAdjacent(va, vb);
 
-                int sum = (VectorSum(prod) >> 10) + h2biases[j];
+                int sum = (VectorSum(prod) >> 9) + h2biases[j];
                 h2ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
             }
 
@@ -314,7 +327,7 @@ internal unsafe sealed class NNUEEvaluator {
             var vb2   = Avx.LoadVector256(outKernelPtr);
             var prod2 = Avx2.MultiplyAddAdjacent(va2, vb2);
 
-            int pred  = (VectorSum(prod2) >> 10) + outBias;
+            int pred  = (VectorSum(prod2) >> 9) + outBias;
             short act = MathLUT.FastSigmoid(pred);
             
             Score = (short)(MathLUT.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));

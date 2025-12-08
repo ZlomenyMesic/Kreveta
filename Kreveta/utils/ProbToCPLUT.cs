@@ -21,7 +21,7 @@ internal static partial class MathLUT {
         for (short i = PtCPMin; i <= PtCPMax; i++) {
             float p  = (float)i / 1000;
             float o  = p / (1f - p);
-            float cp = MathF.Log(o) * 400;
+            float cp = MathF.Log(o) * 300;
             
             PtCPTable[i - PtCPMin] = (short)cp;
         }

@@ -36,7 +36,7 @@ internal static class Perft {
             ulong curNodes = 1UL;
             
             if (depth > 1) {
-                Board child = Game.Board.Clone();
+                Board child = Game.Board.Clone(false);
                 child.PlayMove(moves[i], false);
             
                 // the recursive search starts here
@@ -66,7 +66,7 @@ internal static class Perft {
         // even if stats are disabled)
         UCI.LogStats(forcePrint: true,
             ("nodes found", nodes),
-            ("time spent", sw.Elapsed),
+            ("time spent",  sw.Elapsed),
             ("average NPS", nps));
         
         PerftTT.Clear();
@@ -104,7 +104,7 @@ internal static class Perft {
         for (byte i = 0; i < count; i++) {
 
             // create a copy of the board and play the move
-            Board child = board.Clone();
+            Board child = board.Clone(false);
             child.PlayMove(moves[i], false);
 
             // the move is illegal (we moved to or stayed in check)
