@@ -250,7 +250,7 @@ for name, board in test_positions.items():
 
     pr = predict / (1 - predict)
     ln = math.log(pr)
-    cp = int(round(ln * 300))
+    cp = int(round(ln * 400))
 
     print(board)
     print(f"FEN:       {board.fen()}")

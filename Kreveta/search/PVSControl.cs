@@ -65,6 +65,8 @@ internal static class PVSControl {
         while (PVSearch.CurDepth < CurMaxDepth 
                && sw.ElapsedMilliseconds < TimeMan.TimeBudget) {
 
+            PVSearch.NextBestMove = default;
+
             // search at a larger depth
             PVSearch.SearchDeeper();
 
@@ -91,8 +93,6 @@ internal static class PVSControl {
         }
        
         long time = sw.ElapsedMilliseconds == 0 ? 1 : sw.ElapsedMilliseconds;
-
-        double reSearchPercentage = Math.Round((double)PVSearch.ReSearchedNodes / PVSearch.NullSearchAttempts * 100, 2);
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
@@ -100,11 +100,11 @@ internal static class PVSControl {
             ("time spent",             sw.Elapsed),
             ("average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
             ("static evaluations",     Eval.StaticEvalCount),
-            ("tt hits",                TT.TTHits),
-            ("null-search attempts",   PVSearch.NullSearchAttempts),
-            ("forced re-searches",     PVSearch.ReSearchedNodes),
-            ("forced re-searches (%)", reSearchPercentage)
+            ("tt hits",                TT.TTHits)
         );
+        
+        if (PVSearch.NextBestMove != default)
+            BestMove = PVSearch.NextBestMove;
 
         // the final response of the engine to the gui
         UCI.Log($"bestmove {BestMove.ToLAN()}");

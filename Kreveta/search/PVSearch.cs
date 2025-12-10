@@ -1,4 +1,4 @@
-﻿//
+﻿﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -33,16 +33,14 @@ internal static class PVSearch {
 
     // evaluated final score of the principal variation
     internal static short PVScore;
-
-    internal static ulong NullSearchAttempts;
-    internal static ulong ReSearchedNodes;
-
+    
     // PRINCIPAL VARIATION
     // in pvsearch, the pv represents a variation (sequence of moves),
     // which the engine considers the best. the moves in the pv represent
     // the (supposedly) best-scoring moves for both sides, so the first
     // pv node is also the move the engine is going to play
     internal static Move[] PV = [];
+    internal static Move   NextBestMove;
 
     // we store static eval scores from previous plies here, so we can
     // then check whether we are improving our position or not
@@ -108,10 +106,8 @@ internal static class PVSearch {
         CurNodes      = 0UL;
         PVScore       = 0;
         PV            = [];
+        NextBestMove  = default;
         
-        NullSearchAttempts = 0UL;
-        ReSearchedNodes    = 0UL;
-
         Eval.StaticEvalCount = 0UL;
 
         TimeMan.TimeBudgetAdjusted = false;
@@ -272,6 +268,7 @@ internal static class PVSearch {
         if (PruningOptions.AllowNullMovePruning
             //&& canNMP
             && ss.Ply >= NullMovePruning.CurMinPly
+            && board.GamePhase() >= 2
             && !inCheck
 
             // in the early stages of the search, alpha and beta are set to
@@ -288,26 +285,23 @@ internal static class PVSearch {
                 return (score, []);
             }
         }
-        
-        // // probcut is similar to nmp, but reduces nodes that fail low.
-        // // more info once again directly in the probcut source file
-        // if (PruningOptions.AllowProbCut
-        //     && Game.EngineColor == Color.WHITE
-        //     && CurDepth         >= ProbCut.MinIterDepth
-        //     && depth            == ProbCut.ReductionDepth
-        //     && !inCheck 
-        //     && !improving) {
-        //
-        //     // we failed low => don't prune completely, but reduce the depth
-        //     if (ProbCut.TryReduce(board, ply, depth, window)) {
-        //         depth -= ProbCut.R;
-        //     }
-        // }
 
         // all legal moves sorted from best to worst (only a guess)
         // first the tt bestmove, then captures sorted by MVV-LVA,
         // then killer moves and last quiet moves sorted by history
         var moves = MoveOrder.GetOrderedMoves(board, ss.Depth,/* ss.Penultimate,*/ ss.Previous);
+        
+        // probcut is similar to nmp, but reduces nodes that fail low.
+        // more info once again directly in the probcut source file
+        /*if (PruningOptions.AllowProbCut
+            && CurDepth >= ProbCut.MinIterDepth
+            && ss.Depth == ProbCut.ReductionDepth
+            && !inCheck) {
+            
+            // we failed low => don't prune completely, but reduce the depth
+            if (!improvStack.IsImproving(ss.Ply, col) && ProbCut.TryReduce(ref board, ss.Ply, ss.Depth, ss.Window))
+                ss.Depth -= ProbCut.R;
+        }*/
 
         // counter for expanded nodes
         byte searchedMoves = 0;
@@ -320,11 +314,17 @@ internal static class PVSearch {
             searchedMoves++;
             
             Move curMove = moves[i];
-            int curDepth = ss.Depth - 1;
 
             // create a child board with the move played
             Board child = board.Clone();
             child.PlayMove(curMove, true);
+            
+            int curDepth = ss.Depth - 1;
+            // the PV move gets an "extension" (not really,
+            // just all other moves are reduced by 1)
+            if (ss.Ply == 0 && searchedMoves >= 5) {
+                curDepth--;
+            }
 
             ulong pieceCount = ulong.PopCount(child.Occupied);
             
@@ -345,6 +345,7 @@ internal static class PVSearch {
             bool interesting = searchedMoves == 1
                                || inCheck
                                || ss.IsPVNode
+                               || ss.Ply == 0 // TEST
                                || ss.Ply <= 4 && isCapture
                                || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
             
@@ -401,17 +402,15 @@ internal static class PVSearch {
             // if we got through all the pruning all the way to this point,
             // we expect this move to raise alpha, so we search it at full depth
             (short Score, Move[] PV) fullSearch = (0, []);
-
+            
             if (!isKnownDraw) {
                 // on these moves perform a full search
                 bool pvs = interesting
                            || ss.Depth      >  4
                            || searchedMoves <= 7;
-
-                if (!pvs) NullSearchAttempts++;
                 
                 // pv search uses a full window, others do not
-                Window window = pvs ? ss.Window 
+                Window window = pvs ? ss.Window
                     : col == Color.BLACK
                         ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta)
                         : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
@@ -425,14 +424,12 @@ internal static class PVSearch {
                         Previous    = curMove
                     }
                 );
-
+                
                 // if the move failed high despite the null window search,
                 // we shall do a full re-search with a full window
                 if (!pvs && (col == Color.WHITE
                         ? fullSearch.Score > window.Alpha
                         : fullSearch.Score < window.Beta)) {
-
-                    ReSearchedNodes++;
                     
                     fullSearch = ProbeTT(ref child, ss 
                         with { 
@@ -444,7 +441,6 @@ internal static class PVSearch {
                     );
                 }
             }
-
 
             // we somehow still failed low
             if (col == Color.WHITE
@@ -460,6 +456,10 @@ internal static class PVSearch {
             // we went through all the pruning and didn't fail low
             // (this is the current best move for this position)
             else {
+                if (ss.Ply == 0) {
+                    if (!Abort)
+                        NextBestMove = curMove; 
+                }
 
                 // store the new move in tt
                 TT.Store(board, ss.Depth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);

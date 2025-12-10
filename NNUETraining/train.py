@@ -35,7 +35,7 @@ CONFIG_PATH  = os.path.join(SCRIPT_DIR, "config.json")
 
 NUM_WORKERS = 10
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
-BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Titans.bin"
+BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
@@ -43,7 +43,7 @@ FEATURE_COUNT     = 40960
 EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 16
-BATCH_SIZE        = 2048
+BATCH_SIZE        = 8384
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 200
@@ -51,7 +51,7 @@ MAX_PLIES         = 250
 
 BUCKET_TABLE = tf.constant([
     0, 0, 0, 0, 0,
-    0, 0, 0, 1,
+    0, 0, 1, 1,
     1, 1, 1, 2,
     2, 2, 2, 3,
     3, 3, 3, 4,
@@ -62,10 +62,10 @@ BUCKET_TABLE = tf.constant([
 
 CONFIG = {
     "random_move_freq": 0.14,
-    "book_moves": 16,
-    "mirror_enabled": True,
-    "min_depth": 8,
-    "max_depth": 10
+    "book_moves":       16,
+    "mirror_enabled":   False,
+    "min_depth":        8,
+    "max_depth":        10
 }
 
 def load_config():
@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-4,
-        decay_rate            = 0.999937, # 0.99991
+        initial_learning_rate = 5e-5,
+        decay_rate            = 0.99989, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )
@@ -291,7 +291,7 @@ def load_weights_binary(model, weights_path = WEIGHTS_PATH, shapes_path = SHAPES
     weights = []
     idx = 0
     for size, shape in zip(sizes, shapes):
-        w = flat[idx: idx+size].reshape(tuple(shape)).astype(np.float32)
+        w = flat[idx: idx + size].reshape(tuple(shape)).astype(np.float32)
         weights.append(w)
         idx += size
 
@@ -346,7 +346,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(3, 11)
+                    move_depth = rng.randint(3, 12)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -387,7 +387,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 cp = -cp
 
             # map cp to [0,1]
-            target = 1.0 / (1.0 + np.exp(-cp / 300.0))
+            target = 1.0 / (1.0 + np.exp(-cp / 400.0))
 
             # generate feature indices for both the real
             # board and the vertically mirrored version
