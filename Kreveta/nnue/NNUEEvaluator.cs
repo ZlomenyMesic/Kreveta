@@ -33,7 +33,7 @@ internal unsafe sealed class NNUEEvaluator {
         7, 7              // early opening, needs extra precision
     ];
     
-    internal const int QScale   = 512;
+    internal const int QScale = 1024;
 
     private readonly short[] _accWhite;
     private readonly short[] _accBlack;
@@ -278,7 +278,7 @@ internal unsafe sealed class NNUEEvaluator {
             _accWhite.AsSpan().CopyTo(concat[EmbedDims..]);
         }
 
-        int bucket = BucketTable[pcnt];
+        int bucket = Math.Clamp(pcnt / 4, 0, 7);//BucketTable[pcnt];
 
         ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[bucket];
         ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[bucket];
@@ -306,7 +306,7 @@ internal unsafe sealed class NNUEEvaluator {
                     vs = Avx2.Add(vs, Avx2.MultiplyAddAdjacent(va, vb));
                 }
 
-                int sum = (VectorSum(vs) >> 9) + h1biases[j];
+                int sum = (VectorSum(vs) >> 10) + h1biases[j];
                 h1ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
             }
 
@@ -318,7 +318,7 @@ internal unsafe sealed class NNUEEvaluator {
                 var vb   = Avx.LoadVector256(h2kernelPtr + wBase);
                 var prod = Avx2.MultiplyAddAdjacent(va, vb);
 
-                int sum = (VectorSum(prod) >> 9) + h2biases[j];
+                int sum = (VectorSum(prod) >> 10) + h2biases[j];
                 h2ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
             }
 
@@ -327,7 +327,7 @@ internal unsafe sealed class NNUEEvaluator {
             var vb2   = Avx.LoadVector256(outKernelPtr);
             var prod2 = Avx2.MultiplyAddAdjacent(va2, vb2);
 
-            int pred  = (VectorSum(prod2) >> 9) + outBias;
+            int pred  = (VectorSum(prod2) >> 10) + outBias;
             short act = MathLUT.FastSigmoid(pred);
             
             Score = (short)(MathLUT.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));

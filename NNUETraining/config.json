@@ -2,6 +2,6 @@
 	"random_move_freq": 0.08,
 	"book_moves": 14,
 	"mirror_enabled": false,
-	"min_depth": 8,
-	"max_depth": 10
+	"min_depth": 14,
+	"max_depth": 18
 }

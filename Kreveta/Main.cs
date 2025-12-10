@@ -23,7 +23,7 @@ internal static class Program {
     internal const string Name    = "Kreveta";
     internal const string Version = "2.1.0";
     internal const string Author  = "ZlomenyMesic";
-    internal const string Network = "nnue-128-16-16-v9.bin";
+    internal const string Network = "nnue-128-16-16-v4.bin";
 
     internal static int Main(string[] args) {
         using var cur = Process.GetCurrentProcess();
