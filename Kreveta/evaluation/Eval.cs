@@ -21,7 +21,7 @@ internal static class Eval {
     private const sbyte DoubledPawnPenalty       = -6;
     private const sbyte IsolatedPawnPenalty      = -21;
     private const sbyte IsolaniAddPenalty        = -4;
-    private const sbyte ConnectedPassedPawnBonus = 9;
+    private const sbyte ConnectedPawnBonus = 9;
     private const sbyte BlockedPawnPenalty       = -4;
     //private const int OpenPawnBonus            = 5;
 
@@ -181,7 +181,7 @@ internal static class Eval {
                 // this should (and hopefully does) increase the playing strength in
                 // endgames and also allow better progressing into endgames
                 ulong targets = Pawn.GetPawnCaptureTargets(sq, 64, col, p);
-                eval += (short)((sbyte)ulong.PopCount(targets) * ConnectedPassedPawnBonus);
+                eval += (short)((sbyte)ulong.PopCount(targets) * ConnectedPawnBonus);
             }
 
             // penalize blocked pawns - pawns that have a friendly piece directly in
@@ -250,7 +250,7 @@ internal static class Eval {
         eval -= (short)(bRooksCount * (32 - pieceCount) / 2);
 
         // all pawns
-        ulong wPawns = pieces[0];
+        /*ulong wPawns = pieces[0];
         ulong bPawns = pieces[6];
 
         // here we try to add bonuses for rooks on open files. a file
@@ -308,7 +308,7 @@ internal static class Eval {
         //    eval += (short)Math.Min(pieceCount >> 3, SeventhRankRookBonus);
 
         //if ((board.Pieces[(byte)Color.BLACK, (byte)PType.ROOK] & 0x00FF000000000000) != 0)
-        //    eval -= (short)Math.Min(pieceCount >> 3, SeventhRankRookBonus);
+        //    eval -= (short)Math.Min(pieceCount >> 3, SeventhRankRookBonus);*/
 
         return eval;
     }

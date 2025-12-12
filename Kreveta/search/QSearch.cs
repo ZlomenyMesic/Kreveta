@@ -19,11 +19,11 @@ namespace Kreveta.search;
 internal static class QSearch {
 
     // maximum depth allowed in the quiescence search itself
-    internal const int QSDepth = 12;
+    //internal const int QSDepth = 12;
 
     // maximum depth total - qsearch and regular search combined
     // changes each iteration depending on pvsearch depth
-    internal static int CurQSDepth;
+    //internal static int CurQSDepth;
 
     // same idea as ProbeTT, but used in qsearch
     // internal static short QProbeTT(Board board, int ply, Window window) {
@@ -45,7 +45,7 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where we can for instance lose a queen in the next move
-    internal static short Search(ref Board board, int ply, Window window, bool onlyCaptures = false) {
+    internal static short Search(ref Board board, int ply, Window window, int curQSDepth, bool onlyCaptures = false) {
 
         // exit the search if we should abort
         if (PVSearch.Abort)
@@ -61,24 +61,19 @@ internal static class QSearch {
             PVSearch.AchievedDepth = ply;
 
         // we reached the maximum allowed depth, return the static eval
-        if (ply >= CurQSDepth)
+        if (ply >= curQSDepth)
             return board.StaticEval;
 
         Color col = board.Color;
 
         // is the side to move in check?
-        //
-        // TODO - if we are only generating captures from a certain point,
-        //        do we still need to be checking whether we are checked?
-        //
-        bool inCheck = Check.IsKingChecked(board, col);
+        bool inCheck = onlyCaptures ? false : Check.IsKingChecked(board, col);
 
         // stand pat is just a fancy word for static eval
         short standPat = board.StaticEval;
 
         // don't try to cutoff when in check
         if (!inCheck) {
-            
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
             if (window.TryCutoff(standPat, col))
@@ -142,7 +137,7 @@ internal static class QSearch {
 
                 // very similar to futility pruning but makes use
                 // of the value of the currently captured piece
-                if (DeltaPruning.TryPrune(ply, CurQSDepth, col, window, standPat, captured)) {
+                if (DeltaPruning.TryPrune(ply, curQSDepth, col, window, standPat, captured)) {
                     continue;
                 }
             }
@@ -151,7 +146,7 @@ internal static class QSearch {
             child.PlayMove(moves[i], true);
 
             // full search
-            short score = Search(ref child, ply + 1, window, onlyCaptures);
+            short score = Search(ref child, ply + 1, window, curQSDepth, onlyCaptures);
 
             // try to get a beta cutoff
             if (window.TryCutoff(score, col)) {

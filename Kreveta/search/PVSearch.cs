@@ -58,7 +58,7 @@ internal static class PVSearch {
         CurDepth++;
 
         // as already mentioned, this represents the absolute depth limit
-        QSearch.CurQSDepth = CurDepth + QSearch.QSDepth;
+        //QSearch.CurQSDepth = CurDepth + QSearch.QSDepth;
 
         // reset total nodes
         CurNodes = 0UL;
@@ -99,7 +99,7 @@ internal static class PVSearch {
     }
     // completely reset everything
     internal static void Reset() {
-        QSearch.CurQSDepth = 0;
+        //QSearch.CurQSDepth = 0;
 
         CurDepth      = 0;
         AchievedDepth = 0;
@@ -242,7 +242,17 @@ internal static class PVSearch {
             CurNodes--;
             PVSControl.TotalNodes--;
             
-            return (QSearch.Search(ref board, ss.Ply, ss.Window), []);
+            /*Span<Move> captures = stackalloc Move[Consts.MoveBufferSize];
+            int count = Movegen.GetLegalMoves(ref board, captures, true);
+
+            int qsDepth = 12 + count;
+            
+            if (Check.IsKingChecked(in board, col))
+                qsDepth += 2;
+
+            qsDepth = Math.Clamp(qsDepth, 12, 18);*/
+            
+            return (QSearch.Search(ref board, ss.Ply, ss.Window, CurDepth + 12), []);
         }
 
         // is the color to play currently in check?

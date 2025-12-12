@@ -15,23 +15,23 @@ WEIGHTS_PATH  = "weights\\nnue_weights.bin"
 SHAPES_PATH   = "weights\\nnue_shapes.json"
 
 FEATURE_COUNT = 40960
-EMBED_DIM     = 128
+EMBED_DIM     = 256
 H1_NEURONS    = 16
-H2_NEURONS    = 16
+H2_NEURONS    = 32
 
-LEARNING_RATE = 1e-5
-BATCH_SIZE    = 16384
-EPOCHS        = 1   # increase later
+LEARNING_RATE = 1e-2
+BATCH_SIZE    = 4096
+EPOCHS        = 2   # increase later
 
 BUCKET_TABLE = tf.constant([
     0, 0, 0, 0, 0,
-    0, 0, 0, 1,
+    0, 0, 1, 1,
     1, 1, 1, 2,
     2, 2, 2, 3,
     3, 3, 3, 4,
     4, 4, 4, 5,
-    5, 5, 5, 6,
-    6, 6, 7, 7
+    5, 5, 6, 6,
+    6, 7, 7, 7
 ], dtype = tf.int32)
 
 # -------------------------
@@ -52,8 +52,6 @@ def feature_index(king_square: int, piece_type: int, is_black: bool, piece_squar
 def board_features(board: chess.Board):
     w_indices = []
     b_indices = []
-    m_w_indices = []
-    m_b_indices = []
 
     w_king_sq = board.king(chess.WHITE)
     b_king_sq = board.king(chess.BLACK)
@@ -61,9 +59,6 @@ def board_features(board: chess.Board):
     # if a king is missing (shouldn't happen in legal positions), we still produce empty lists.
     if w_king_sq is None or b_king_sq is None:
         return []
-    
-    m_w_king_sq = (7 - (w_king_sq & 7)) + (8 * (w_king_sq >> 3))
-    m_b_king_sq = (7 - (b_king_sq & 7)) + (8 * (b_king_sq >> 3))
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
@@ -96,25 +91,10 @@ def board_features(board: chess.Board):
             piece_square = sq ^ 56
         )
 
-        m_idx_w = feature_index(
-            king_square  = m_w_king_sq,
-            piece_type   = piece.piece_type,
-            is_black     = is_black,
-            piece_square = m_sq
-        )
-        m_idx_b = feature_index(
-            king_square  = m_b_king_sq ^ 56,
-            piece_type   = piece.piece_type,
-            is_black     = not is_black,
-            piece_square = m_sq ^ 56
-        )
-
         w_indices.append(idx_w)
         b_indices.append(idx_b)
-        m_w_indices.append(m_idx_w)
-        m_b_indices.append(m_idx_b)
 
-    return w_indices, b_indices, m_w_indices, m_b_indices
+    return w_indices, b_indices
 
 
 # -------------------------
@@ -229,14 +209,12 @@ def data_generator():
                     cp = float(cp)
                     board = chess.Board(fen)
 
-                    w, b, mw, mb = board_features(board)
+                    w, b = board_features(board)
 
                     if board.turn == chess.WHITE:
                         active, passive = w, b
-                        mactive, mpassive = mw, mb
                     else:
                         active, passive = b, w
-                        mactive, mpassive = mb, mw
 
                     pcnt = len(active) + 2
                     target = score_to_target(cp)
@@ -245,7 +223,6 @@ def data_generator():
                         continue
 
                     yield np.array(active, np.int32), np.array(passive, np.int32), np.int32(pcnt), np.float32(target)
-                    yield np.array(mactive, np.int32), np.array(mpassive, np.int32), np.int32(pcnt), np.float32(target)
 
                 except:
                     continue
