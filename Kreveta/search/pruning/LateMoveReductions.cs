@@ -88,38 +88,39 @@ internal static class LateMoveReductions {
 
             return (true, false);
 
-        if (!PruningOptions.AllowLateMoveReductions || ss.Depth != LMReductionDepth) 
+        if (!PruningOptions.AllowLateMoveReductions || ss.Depth != LMReductionDepth)
             return (false, false);
 
         // REDUCTIONS PART:
         // size of the window
-        int windowSize = Math.Abs(ss.Window.Beta - ss.Window.Alpha);
+        /*int windowSize = Math.Abs(ss.Window.Beta - ss.Window.Alpha);
 
         // a fraction of the window is the margin
         int margin = MarginBase
             + Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor
-            
+
             // be more aggressive with later moves
             + searchedMoves * SearchedMovesMult / 100
-                          
+
             // be less aggressive when improving
             + (improving ? -ImprovingMargin : 0);
-        
-        // make the margin relative to color
-        margin *= col == Color.WHITE ? 1 : -1;
 
-        if (margin == 0) 
+        // make the margin relative to color
+        margin *= col == Color.WHITE ? 1 : -1;*/
+        return (false, R == InternalBadHistR || !improving);
+
+        /*if (margin == 0)
             return (false, false);
 
         // we didn't fail low, but if the history rep is bad, we try to fail low
         // again with a small margin and if we succeed, we only reduce the search depth
         // (we don't prune this time, we only reduce)
         score -= margin;
-        bool shouldReduce = R == InternalBadHistR 
+        bool shouldReduce = R == InternalBadHistR
             && col == Color.WHITE
                 ? score <= ss.Window.Alpha
                 : score >= ss.Window.Beta;
 
-        return (false, shouldReduce);
+        return (false, shouldReduce);*/
     }
 }

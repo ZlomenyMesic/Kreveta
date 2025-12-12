@@ -95,8 +95,8 @@ internal static unsafe class MoveOrder {
             }
         }
 
-        //var mvvlva = MVV_LVA.OrderCaptures(new Span<Move>(CaptureBuffer, curCapt));
-        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int seeCount);
+        // TODO - MAYBE PUT NEGATIVE SEE CAPTURES BEHIND KILLERS AND/OR COUNTERMOVES
+        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int seeCount, out _);
         // ReSharper disable once ForCanBeConvertedToForeach
         for (int i = 0; i < seeCount; i++) {
             sorted[cur++] = seeMoves[i];
