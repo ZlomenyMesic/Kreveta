@@ -6,7 +6,7 @@
 import os
 import struct
 
-NN_NAME = "nnue-128-16-16-v12.bin"
+NN_NAME = "nnue-128-16-16-v13.bin"
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")

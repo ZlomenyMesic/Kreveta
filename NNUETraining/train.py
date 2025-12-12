@@ -40,10 +40,10 @@ BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
 
-EMBED_DIM         = 128
+EMBED_DIM         = 256
 H1_NEURONS        = 16
-H2_NEURONS        = 16
-BATCH_SIZE        = 8384
+H2_NEURONS        = 32
+BATCH_SIZE        = 4096
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 200
@@ -56,8 +56,8 @@ BUCKET_TABLE = tf.constant([
     2, 2, 2, 3,
     3, 3, 3, 4,
     4, 4, 4, 5,
-    5, 5, 5, 6,
-    6, 6, 7, 7
+    5, 5, 6, 6,
+    6, 7, 7, 7
 ], dtype = tf.int32)
 
 CONFIG = {
@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 5e-5,
-        decay_rate            = 0.99989, # 0.99991
+        initial_learning_rate = 1e-2,
+        decay_rate            = 0.99993, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )

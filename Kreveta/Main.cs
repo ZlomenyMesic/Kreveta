@@ -15,13 +15,14 @@ using Kreveta.utils;
 
 using System;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Kreveta;
 
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "2.1.0";
+    internal const string Version = "2.1.1";
     internal const string Author  = "ZlomenyMesic";
     internal const string Network = "nnue-128-16-16-v4.bin";
 
@@ -58,7 +59,7 @@ internal static class Program {
         
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue
-        //Thread.Sleep(100);
+        Thread.Sleep(100);
         
         // just for experimental purposes
         //Tuning.ShiftParams();

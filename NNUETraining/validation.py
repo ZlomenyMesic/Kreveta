@@ -21,9 +21,9 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 
 FEATURE_COUNT     = 40960
-EMBED_DIM         = 128
+EMBED_DIM         = 256
 H1_NEURONS        = 16
-H2_NEURONS        = 16
+H2_NEURONS        = 32
 
 BUCKET_TABLE = tf.constant([
     0, 0, 0, 0, 0,

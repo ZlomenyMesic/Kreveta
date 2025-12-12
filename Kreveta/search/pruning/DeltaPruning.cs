@@ -27,8 +27,8 @@ internal static class DeltaPruning {
 
         // the delta base is multiplied by depth, but the depth must be calculated
         // in a bit more difficult way (maximum qsearch depth - current ply)
-        int delta = ((curQSDepth - ply) * DeltaDepthMultiplier)
-            * (col == Color.WHITE ? 1 : -1);
+        int delta = (curQSDepth - ply) * DeltaDepthMultiplier
+                                       * (col == Color.WHITE ? 1 : -1);
 
         // add the value of the captured piece and delta
         standPat += (short)(captured * CapturedMultiplier / 100 * (col == Color.WHITE ? 1 : -1));
