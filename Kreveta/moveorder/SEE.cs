@@ -11,13 +11,18 @@ namespace Kreveta.moveorder;
 internal static class SEE {
     private const int MaxCaptures = 32;
     
-    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, bool prune = false) {
+    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, out int[] seeScores, bool prune = false) {
         count = capts.Length;
         
         // if there's only a single available capture,
         // don't bother wasting time on this thing
-        if (capts.Length <= 1) {
-            return new Span<Move>([.. capts]);
+        if (capts.Length == 0) {
+            seeScores = [];
+            return [];
+        }
+        if (capts.Length == 1) {
+            seeScores = [GetCaptureScore(in board, board.Color, capts[0])];
+            return new Span<Move>([capts[0]]);
         }
 
         // add each capture and its score into a list
@@ -55,8 +60,11 @@ internal static class SEE {
 
         //add the sorted captures to the final list
         var sorted = new Move[cur];
+        seeScores  = new int[cur];
+        
         for (int i = 0; i < cur; i++) {
-            sorted[i] = scores[i].Item1;
+            sorted[i]    = scores[i].Item1;
+            seeScores[i] = scores[i].Item2;
         }
 
         return new Span<Move>(sorted);
