@@ -99,8 +99,12 @@ internal static class PVSControl {
             ("nodes searched",         TotalNodes),
             ("time spent",             sw.Elapsed),
             ("average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
-            ("static evaluations",     Eval.StaticEvalCount),
-            ("tt hits",                TT.TTHits)
+            ("tt hits",                TT.TTHits),
+            ("null move prunes",       PVSearch.NullMovePrunes),
+            ("razoring prunes",        PVSearch.RazoringPrunes),
+            ("futility prunes",        PVSearch.FutilityPrunes),
+            ("late move prunes",       PVSearch.LateMovePrunes),
+            ("delta prunes",           PVSearch.DeltaPrunes)
         );
         
         if (PVSearch.NextBestMove != default)

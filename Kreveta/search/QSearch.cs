@@ -135,6 +135,7 @@ internal static class QSearch {
                 // very similar to futility pruning but makes use
                 // of the value of the currently captured piece
                 if (DeltaPruning.TryPrune(ply, curQSDepth, col, window, standPat, captured)) {
+                    PVSearch.DeltaPrunes++;
                     continue;
                 }
             }

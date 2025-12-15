@@ -229,10 +229,13 @@ test_positions = {
     "black queen x rook 2":  chess.Board("8/q7/3K4/8/8/5R2/2k5/8 w - - 0 1"),
     "black queen x rook 3":  chess.Board("8/1q6/3K4/8/8/5R2/2k5/8 w - - 0 1"),
     "italian (cp +15)":      chess.Board("r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"),
-    "1. e4 (good)":          chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e3 0 1"),
-    "1. f4 (bad)":           chess.Board("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR w KQkq e3 0 1"),
+    "ruy lopez (cp +?)":     chess.Board("r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"),
+    "1. e4 (good)":          chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"),
+    "1. f4 (bad)":           chess.Board("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq e3 0 1"),
     "1. e4 e5":              chess.Board("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1"),
     "1. e4 c5":              chess.Board("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 1"),
+    "magnus carlsen":        chess.Board("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPPKPPP/RNBQ1BNR b KQkq e6 0 1"),
+    "mate in 1":             chess.Board("rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq e3 0 1"),
 }
 
 # evaluate all positions
@@ -248,6 +251,9 @@ for name, board in test_positions.items():
         verbose = 0
     )[0][0])
 
+    if board.turn == chess.BLACK:
+        predict = 1.0 - predict
+
     pr = predict / (1 - predict)
     ln = math.log(pr)
     cp = int(round(ln * 400))
@@ -255,5 +261,5 @@ for name, board in test_positions.items():
     print(board)
     print(f"FEN:       {board.fen()}")
     print(f"Position:  {name}")
-    print(f"NNUE Eval: {predict:.5f}\n")
-    print(f"CP Score:  {cp}")
+    print(f"NNUE Eval: {predict:.5f}")
+    print(f"CP Score:  {cp}\n")

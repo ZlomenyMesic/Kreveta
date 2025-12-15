@@ -22,7 +22,6 @@ internal static class DeltaPruning {
     private const int DeltaDepthMultiplier = 77;
     private const int CapturedMultiplier   = 105;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool TryPrune(int ply, int curQSDepth, Color col, Window window, short standPat, int captured) {
 
         // the delta base is multiplied by depth, but the depth must be calculated

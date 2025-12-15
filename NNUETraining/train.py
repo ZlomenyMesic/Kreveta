@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-2,
-        decay_rate            = 0.99993, # 0.99991
+        initial_learning_rate = 1e-3,
+        decay_rate            = 0.99989, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )
@@ -346,7 +346,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(3, 12)
+                    move_depth = rng.randint(4, 10)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:

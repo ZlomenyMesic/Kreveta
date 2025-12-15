@@ -22,15 +22,15 @@ internal unsafe sealed class NNUEEvaluator {
     private const int H1Input   = EmbedDims * 2;
 
     private static readonly int[] BucketTable = [
-        -1, -1,           // shouldn't ever happen
+        -1, -1,        // shouldn't ever happen
         0, 0, 0, 0, 0, // very late endgames
         1, 1, 1, 1, 1,
         2, 2, 2, 2,
         3, 3, 3, 3,
         4, 4, 4, 4,
         5, 5, 5,
-        6, 6, 6,   // late opening/early middlegame
-        7, 7, 7 // early opening, needs extra precision
+        6, 6, 6,       // late opening/early middlegame
+        7, 7, 7        // early opening, needs extra precision
     ];
     
     internal const int QScale = 1024;
@@ -278,7 +278,7 @@ internal unsafe sealed class NNUEEvaluator {
             _accWhite.AsSpan().CopyTo(concat[EmbedDims..]);
         }
 
-        int bucket = Math.Min(pcnt / 4, 7);//BucketTable[pcnt]);
+        int bucket = Math.Min(pcnt / 4, 7);//BucketTable[pcnt];
 
         ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[bucket];
         ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[bucket];
@@ -323,11 +323,16 @@ internal unsafe sealed class NNUEEvaluator {
             }
 
             // output layer
-            var va2   = Avx.LoadVector256(h2ActPtr);
-            var vb2   = Avx.LoadVector256(outKernelPtr);
-            var prod2 = Avx2.MultiplyAddAdjacent(va2, vb2);
+            var vs_o = Vector256<int>.Zero;
 
-            int pred  = (VectorSum(prod2) >> 10) + outBias;
+            for (int i = 0; i <= H2Neurons - 16; i += 16) {
+                var va = Avx.LoadVector256(h2ActPtr + i);
+                var vb = Avx.LoadVector256(outKernelPtr + i);
+
+                vs_o = Avx2.Add(vs_o, Avx2.MultiplyAddAdjacent(va, vb));
+            }
+
+            int pred  = (VectorSum(vs_o) >> 10) + outBias;
             short act = MathLUT.FastSigmoid(pred);
             
             Score = (short)(MathLUT.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));

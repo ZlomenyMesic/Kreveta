@@ -6,6 +6,7 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
+using Kreveta.moveorder.historyheuristics;
 
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
@@ -35,10 +36,6 @@ internal static class Eval {
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
-    // used for stats after a search - the number of
-    // calls of StaticEval during the entire search
-    internal static ulong StaticEvalCount;
-
     static Eval() {
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
@@ -57,9 +54,6 @@ internal static class Eval {
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
     internal static short StaticEval(in Board board) {
-
-        // increment the counter for stats
-        StaticEvalCount++;
 
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
@@ -132,8 +126,6 @@ internal static class Eval {
         // side to move should also get a slight advantage
         eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
         
-        //eval += (short)Math.Clamp((int)PawnCorrectionHistory.GetCorrection(in board), -5, 5);
-
         return eval;
     }
 

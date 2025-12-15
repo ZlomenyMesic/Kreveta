@@ -71,7 +71,7 @@ internal static unsafe class PawnCorrectionHistory {
 
         // get the static eval of the current position and the
         // absolute difference between it and the search score
-        short diff = (short)(score - board.StaticEval);//(short)Math.Abs(score - staticEval);
+        short diff = (short)(score - board.StaticEval);
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference
@@ -86,8 +86,8 @@ internal static unsafe class PawnCorrectionHistory {
         ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
         
-        wHash &= wHash >> 32;
-        bHash &= bHash >> 32;
+        //wHash ^= wHash >> 32;
+        //bHash ^= bHash >> 32;
 
         // get the indices for both sides
         int wIndex = (int)(wHash & CorrTableSize - 1);
@@ -119,8 +119,8 @@ internal static unsafe class PawnCorrectionHistory {
         ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
         
-        wHash &= wHash >> 32;
-        bHash &= bHash >> 32;
+        //wHash &= wHash >> 32;
+        //bHash &= bHash >> 32;
 
         int wIndex = (int)(wHash & CorrTableSize - 1);
         int bIndex = (int)(bHash & CorrTableSize - 1);

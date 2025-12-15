@@ -1,7 +1,7 @@
 {
 	"random_move_freq": 0.15,
 	"book_moves": 14,
-	"mirror_enabled": true,
-	"min_depth": 8,
-	"max_depth": 10
+	"mirror_enabled": false,
+	"min_depth": 10,
+	"max_depth": 13
 }

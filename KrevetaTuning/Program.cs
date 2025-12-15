@@ -18,7 +18,7 @@ internal static class Program {
     private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net10.0\Kreveta.exe";
 
     // time to evaluate each position in ms
-    private const int MoveTime = 200;
+    private const int Depth = 8;
     
     // limit how many "new engines" to create/test
     private const int Cycles = 1_000_000;
@@ -32,7 +32,7 @@ internal static class Program {
     private static readonly (float, int)[] Tweaks 
         = new (float, int)[ParamGenerator.ParamCount];
 
-    private const           int                     MaxThreads    = 8;
+    private const           int                     MaxThreads    = 20;
     private static readonly CancellationTokenSource Cts           = new();
     private static readonly Lock                    EnginesLock   = new();
     private static readonly List<UCIEngine>         ActiveEngines = [];
@@ -109,7 +109,7 @@ internal static class Program {
             
             // Stockfish gets more time to evaluate the positions,
             // so that the tweaks based on its outputs are precise
-            (int eval, string move) = stockfish.EvaluateFEN(fen, MoveTime * 4, EvalMode.FullSearch);
+            (int eval, string move) = stockfish.EvaluateFEN(fen, 20, EvalMode.FullSearch);
             if (_mode == EvalMode.FullSearch)
                 eval = Math.Clamp(eval, -1000, 1000);
             
@@ -151,7 +151,7 @@ internal static class Program {
             (float MSE, float MoveAccuracy) result = EvaluateKreveta(newKreveta, token);
 
             Console.WriteLine($"Done evaluating Kreveta {num + 1}/{Cycles}:\nMSE = {result.MSE}, MoveAccuracy = {result.MoveAccuracy}%\n"
-                            + $"Is it better: {result.MSE <= _krevetaBaseMSE && result.MoveAccuracy >= _krevetaBaseMoveAccuracy}\n");
+                            + $"Is it better: unsure\n");
 
             UpdateTweaks(paramCMD, result.MSE, result.MoveAccuracy);
             StoreResult();
@@ -178,7 +178,7 @@ internal static class Program {
             int    stockfishEval = int.Parse(parts[1]);
             string stockfishMove = parts[2];
 
-            (int eval, string move) = kreveta.EvaluateFEN(fen, MoveTime, _mode);
+            (int eval, string move) = kreveta.EvaluateFEN(fen, Depth, _mode);
             
             double diff   = eval - stockfishEval;
             totalSqError += diff * diff;
@@ -201,11 +201,14 @@ internal static class Program {
             .Select(int.Parse).ToArray();
         
         // if in static eval mode, don't measure move accuracy
-        bool areMovesAccurate = _mode == EvalMode.StaticEval 
-                                || moveAccuracy >= _krevetaBaseMoveAccuracy;
+        bool areMovesMoreAccurate = _mode == EvalMode.StaticEval 
+                                    || moveAccuracy > _krevetaBaseMoveAccuracy;
+        
+        bool areMovesSame = _mode == EvalMode.StaticEval 
+                                    || moveAccuracy >= _krevetaBaseMoveAccuracy;
 
-        // this version seems to be worse
-        if (MSE <= _krevetaBaseMSE && areMovesAccurate) {
+        // this version seems to be better
+        if ((areMovesSame && MSE < _krevetaBaseMSE) || areMovesMoreAccurate) {
             // update only when this version is better
             for (int i = 0; i < shifts.Length; i++) {
                 if (shifts[i] == 0)
@@ -213,18 +216,6 @@ internal static class Program {
             
                 Tweaks[i].Item1 += shifts[i];
                 Tweaks[i].Item2++;
-            }
-        } else {
-            for (int i = 0; i < shifts.Length; i++) {
-                if (shifts[i] != 0
-                    && Math.Sign(shifts[i]) == Math.Sign(Tweaks[i].Item1)
-                    && Tweaks[i].Item2 != 0) 
-                {
-                    // by increasing the visit count, the
-                    // result is essentially pulled closer
-                    // toward zero, which is the base value
-                    Tweaks[i].Item2++;
-                }
             }
         }
     }
