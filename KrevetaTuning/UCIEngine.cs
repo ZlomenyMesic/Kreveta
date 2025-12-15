@@ -43,11 +43,11 @@ internal sealed class UCIEngine {
         }
     }
 
-    internal (int eval, string bestMove) EvaluateFEN(string fen, int moveTime, Program.EvalMode mode) {
+    internal (int eval, string bestMove) EvaluateFEN(string fen, int depth, Program.EvalMode mode) {
         Send("position fen " + fen);
 
         if (mode == Program.EvalMode.FullSearch) {
-            Send($"go movetime {moveTime}");
+            Send($"go depth {depth}");
         
             string bestMove = string.Empty;
             int    eval     = 0;
@@ -65,15 +65,15 @@ internal sealed class UCIEngine {
                 }
             }
             return (eval, bestMove);
-        } else {
-            Send("eval");
+        }
+        
+        Send("eval");
             
-            while (_output.ReadLine() is { } line) {
-                if (line.StartsWith("se")) {
-                    var tokens = line.Split(' ');
-                    if (short.TryParse(tokens[1], out short eval))
-                        return (eval, string.Empty);
-                }
+        while (_output.ReadLine() is { } line) {
+            if (line.StartsWith("se")) {
+                var tokens = line.Split(' ');
+                if (short.TryParse(tokens[1], out short eval))
+                    return (eval, string.Empty);
             }
         }
         return (0, string.Empty);

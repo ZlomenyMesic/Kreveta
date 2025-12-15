@@ -33,6 +33,12 @@ internal static class PVSearch {
 
     // evaluated final score of the principal variation
     internal static short PVScore;
+
+    internal static ulong NullMovePrunes;
+    internal static ulong RazoringPrunes;
+    internal static ulong FutilityPrunes;
+    internal static ulong LateMovePrunes;
+    internal static ulong DeltaPrunes;
     
     // PRINCIPAL VARIATION
     // in pvsearch, the pv represents a variation (sequence of moves),
@@ -108,8 +114,12 @@ internal static class PVSearch {
         PV            = [];
         NextBestMove  = default;
         
-        Eval.StaticEvalCount = 0UL;
-
+        NullMovePrunes = 0UL;
+        RazoringPrunes = 0UL;
+        FutilityPrunes = 0UL;
+        LateMovePrunes = 0UL;
+        DeltaPrunes    = 0UL;
+        
         TimeMan.TimeBudgetAdjusted = false;
 
         improvStack.Expand(0);
@@ -257,9 +267,10 @@ internal static class PVSearch {
 
         // is the color to play currently in check?
         bool inCheck = Check.IsKingChecked(board, col);
+        short sEval  = board.StaticEval;
 
         // update the static eval search stack
-        improvStack.UpdateStaticEval(board.StaticEval, ss.Ply);
+        improvStack.UpdateStaticEval(sEval, ss.Ply);
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
 
@@ -269,7 +280,7 @@ internal static class PVSearch {
                                       || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.Previous);
         
         // has the static eval improved from two plies ago?
-        //bool improving = improvStack.IsImproving(ply, col);
+        bool rootImproving = improvStack.IsImproving(ss.Ply, col);
 
         // first we try null-move pruning, since it is the most
         // effective way to prune the tree. details about this
@@ -292,14 +303,23 @@ internal static class PVSearch {
             if (NullMovePruning.TryPrune(board, ss, col, out short score)) {
 
                 // we failed high - prune this branch
+                NullMovePrunes++;
                 return (score, []);
             }
         }
 
-        // all legal moves sorted from best to worst (only a guess)
-        // first the tt bestmove, then captures sorted by MVV-LVA,
-        // then killer moves and last quiet moves sorted by history
-        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth,/* ss.Penultimate,*/ ss.Previous);
+        // 2. RAZORING:
+        if (!ss.IsPVNode && !inCheck && !rootImproving) {
+            int margin = 554 + 373 * ss.Depth * ss.Depth;
+
+            if (col == Color.WHITE
+                    ? sEval + margin < ss.Window.Alpha
+                    : sEval - margin > ss.Window.Beta) {
+
+                RazoringPrunes++;
+                return (QSearch.Search(ref board, ss.Ply, ss.Window, CurDepth + 12), []);
+            }
+        }
         
         // probcut is similar to nmp, but reduces nodes that fail low.
         // more info once again directly in the probcut source file
@@ -312,6 +332,11 @@ internal static class PVSearch {
             if (!improvStack.IsImproving(ss.Ply, col) && ProbCut.TryReduce(ref board, ss.Ply, ss.Depth, ss.Window))
                 ss.Depth -= ProbCut.R;
         }*/
+        
+        // all legal moves sorted from best to worst (only a guess)
+        // first the tt bestmove, then captures sorted by MVV-LVA,
+        // then killer moves and last quiet moves sorted by history
+        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth,/* ss.Penultimate,*/ ss.Previous);
 
         // counter for expanded nodes
         byte searchedMoves = 0;
@@ -355,7 +380,6 @@ internal static class PVSearch {
             bool interesting = searchedMoves == 1
                                || inCheck
                                || ss.IsPVNode
-                               || ss.Ply == 0 // TEST
                                || ss.Ply <= 4 && isCapture
                                || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
             
@@ -384,7 +408,10 @@ internal static class PVSearch {
                 // we check for failing low despite a margin.
                 // if we fail low, don't search this move any further
                 if (FutilityPruning.TryPrune(child, ss.Depth, col, childStaticEval, improving, see, ss.Window)) {
-                    //FutilityPruning.Prunes++;
+                    CurNodes++;
+                    PVSControl.TotalNodes++;
+                    
+                    FutilityPrunes++;
                     continue;
                 }
             }
@@ -400,8 +427,13 @@ internal static class PVSearch {
                 var result = LateMoveReductions.TryPrune(board, ref child, curMove, ss, col, searchedMoves, improving, see);
 
                 // we failed low - prune this branch completely
-                if (result.ShouldPrune) 
+                if (result.ShouldPrune) {
+                    CurNodes++;
+                    PVSControl.TotalNodes++;
+
+                    LateMovePrunes++;
                     continue;
+                }
 
                 // we failed low with a margin - only reduce, don't prune
                 if (result.ShouldReduce) {

@@ -42,15 +42,8 @@ internal static class LateMoveReductions {
     private const int InternalR        = 3;
     private const int InternalBadHistR = 4;
 
-    private const int MarginBase        = 0;
-    private const int MaxReduceMargin   = 66;
-    private const int WindowSizeDivisor = 9;
-    private const int MarginDivisor     = 6;
-    private const int ImprovingMargin   = 12;
-    private const int SearchedMovesMult = 93;
-
     // minimum see score for a deeper search (R--)
-    private const int MinSEEDeeper    = 100;
+    private const int MinSEEDeeper    = 94;
     
     private const int LMReductionDepth = 4;
 
@@ -92,35 +85,6 @@ internal static class LateMoveReductions {
             return (false, false);
 
         // REDUCTIONS PART:
-        // size of the window
-        /*int windowSize = Math.Abs(ss.Window.Beta - ss.Window.Alpha);
-
-        // a fraction of the window is the margin
-        int margin = MarginBase
-            + Math.Min(MaxReduceMargin, windowSize / WindowSizeDivisor) / MarginDivisor
-
-            // be more aggressive with later moves
-            + searchedMoves * SearchedMovesMult / 100
-
-            // be less aggressive when improving
-            + (improving ? -ImprovingMargin : 0);
-
-        // make the margin relative to color
-        margin *= col == Color.WHITE ? 1 : -1;*/
-        return (false, R == InternalBadHistR || !improving);
-
-        /*if (margin == 0)
-            return (false, false);
-
-        // we didn't fail low, but if the history rep is bad, we try to fail low
-        // again with a small margin and if we succeed, we only reduce the search depth
-        // (we don't prune this time, we only reduce)
-        score -= margin;
-        bool shouldReduce = R == InternalBadHistR
-            && col == Color.WHITE
-                ? score <= ss.Window.Alpha
-                : score >= ss.Window.Beta;
-
-        return (false, shouldReduce);*/
+        return (false, R == InternalBadHistR && !improving);
     }
 }

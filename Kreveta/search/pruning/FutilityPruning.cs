@@ -23,26 +23,22 @@ internal static class FutilityPruning {
     internal const int MaxDepth = 5;
     
     // higher margin => fewer reductions
-    private const int MarginBase      = 95; // TODO - tuning
+    private const int MarginBase      = 95;
     private const int DepthMultiplier = 97;
 
     // if not improving, make the margin smaller => more pruning
-    private const int NotImprovingMargin = -23; // TODO - tuning
+    private const int NotImprovingMargin = -23;
 
-    private const int SEEDivisor   = 120;
-    private const int SEEClampDown = -37;
-    private const int SEEClampUp   = 16;
+    private const int SEEDivisor   = 122;
+    private const int SEEClampDown = -39;
+    private const int SEEClampUp   = 17;
 
     // try futility pruning
     internal static bool TryPrune(in Board child, int depth, Color col, short staticEval, bool improving, int see, Window window) {
-        // VERY COUNTER-INTUITIVE
-        // white + positive pawncorrhist => prune more
-        // white + negative pawncorrhist => prune less
-        // black + negative pawncorrhist => prune more
-        // black + positive pawncorrhist => prune less
-        int pawnCorrection = PawnCorrectionHistory.GetCorrection(child) * (col == Color.WHITE ? -2 : 2);
+        int pawnCorrection = Math.Abs(PawnCorrectionHistory.GetCorrection(child)) * 2;
         int _improving     = improving ? 0 : NotImprovingMargin;
         int _see           = Math.Clamp(see / SEEDivisor, SEEClampDown, SEEClampUp);
+        int _window        = Math.Min(Math.Abs(window.Alpha - window.Beta) / 128, 12);
 
         // as taken from chessprogrammingwiki:
         // "If at depth 1 the margin does not exceed the value of a minor piece, at
@@ -52,6 +48,7 @@ internal static class FutilityPruning {
                      + pawnCorrection
                      + _improving
                      + _see
+                     + _window
                      + depth * DepthMultiplier;
 
         // if we failed low (fell under alpha). this means we already know of a better
