@@ -7,7 +7,6 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
-using Kreveta.search.pruning;
 using Kreveta.search.transpositions;
 
 using System;
@@ -67,7 +66,7 @@ internal static class QSearch {
         Color col = board.Color;
 
         // is the side to move in check?
-        bool inCheck = onlyCaptures ? false : Check.IsKingChecked(board, col);
+        bool inCheck = !onlyCaptures && Check.IsKingChecked(board, col);
 
         // stand pat is just a fancy word for static eval
         short standPat = board.StaticEval;
@@ -105,9 +104,8 @@ internal static class QSearch {
             //
             // we might be in stalemate, though.
             // (there's nothing we can do... TUTUTUTU TUTUTU)
-            if (onlyCaptures) {
+            if (onlyCaptures)
                 return standPat;
-            }
 
             // otherwise return the mate score
             return inCheck
@@ -115,26 +113,37 @@ internal static class QSearch {
                 : (short)0;
         }
 
-        int[] seeScores = [];
         // we aren't checked => sort the generated captures
-        if (onlyCaptures) {
-            moves = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, true);
-        }
+        int[] seeScores = [];
+        if (onlyCaptures) moves = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, true);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
             
-            // value of the piece we just captured
-            int captured = onlyCaptures ? seeScores[i] : 0;
-            
-            // delta pruning
-            if (PruningOptions.AllowDeltaPruning
-                && !inCheck
-                && ply >= PVSearch.CurDepth + DeltaPruning.MinPly) {
+            // DELTA PRUNING:
+            // very similar to futility pruning but makes use of the value of
+            // the currently captured piece (or SEE score to be exact), which
+            // is added to the stand pat with a margin, and if the eval still
+            // doesn't raise alpha, we prune this branch
+            if (!inCheck && ply >= PVSearch.CurDepth + 4) {
+                int colMult = col == Color.WHITE ? 1 : -1;
+                
+                // value of the piece we just captured
+                int captured = onlyCaptures ? seeScores[i] : 0;
 
-                // very similar to futility pruning but makes use
-                // of the value of the currently captured piece
-                if (DeltaPruning.TryPrune(ply, curQSDepth, col, window, standPat, captured)) {
+                // the delta base is multiplied by depth, but the depth must be calculated
+                // in a bit more difficult way (maximum qsearch depth - current ply)
+                int delta = (curQSDepth - ply) * 77 * colMult;
+
+                // add the see score, and the margin (called delta)
+                standPat += (short)(captured * 21 / 20 * colMult);
+                standPat += (short)delta;
+
+                // did we fail low?
+                if (col == Color.WHITE
+                        ? standPat <= window.Alpha
+                        : standPat >= window.Beta) {
+                    
                     PVSearch.DeltaPrunes++;
                     continue;
                 }

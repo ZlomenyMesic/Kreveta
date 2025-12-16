@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-3,
-        decay_rate            = 0.99989, # 0.99991
+        initial_learning_rate = 3e-4,
+        decay_rate            = 0.99987, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )

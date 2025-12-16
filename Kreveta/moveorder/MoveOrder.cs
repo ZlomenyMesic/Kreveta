@@ -36,7 +36,7 @@ internal static unsafe class MoveOrder {
     }
 
     // don't use "in" keyword!!! it gets much slower
-    internal static Span<Move> GetOrderedMoves(Board board, int depth,/* Move penultimate,*/ Move previous) {
+    internal static Span<Move> GetOrderedMoves(Board board, int depth, /*Move penultimate,*/ Move previous) {
 
         // all legal moves
         Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
@@ -46,11 +46,8 @@ internal static unsafe class MoveOrder {
         Span<Move> sorted = stackalloc Move[legalCount];
         Span<bool> used   = stackalloc bool[legalCount];
         int cur = 0, curCapt = 0;
-
-        //
-        // 1. TT BEST MOVE
-        //
         
+        // 1. TT STORED BEST MOVE
         if (TT.TryGetBestMove(board, out Move ttMove) && ttMove != default) {
             for (int i = 0; i < legalCount; i++) {
                 if (legal[i] == ttMove) {
@@ -61,9 +58,7 @@ internal static unsafe class MoveOrder {
             }
         }
         
-        //
         // 2. TWO-PLY CONTINUATION
-        //
         /*if (depth < ContinuationHistory.MaxRetrieveDepth) {
             Move continuation = ContinuationHistory.Get(penultimate, previous);
             if (continuation != default) {
@@ -77,37 +72,35 @@ internal static unsafe class MoveOrder {
             }
         }*/
         
-        for (int i = 0; i < legalCount; i++) {
-            if (!used[i] && legal[i].Promotion is PType.QUEEN) {
+        /*for (int i = 0; i < legalCount; i++) {
+            if (!used[i] && legal[i].Promotion is PType.QUEEN or PType.ROOK) {
                 sorted[cur++] = legal[i];
                 used[i]       = true;
             }
-        }
+        }*/
         
-        //
-        // 2. CAPTURES ORDERED BY MVV-LVA
-        //
-        
+        // 2. SEE ORDERED CAPTURES
         for (int i = 0; i < legalCount; i++) {
             if (!used[i] && legal[i].Capture != PType.NONE) {
                 CaptureBuffer[curCapt++] = legal[i];
                 used[i] = true;
             }
         }
-
-        // TODO - MAYBE PUT NEGATIVE SEE CAPTURES BEHIND KILLERS AND/OR COUNTERMOVES
-        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int seeCount, out _);
-        // ReSharper disable once ForCanBeConvertedToForeach
-        for (int i = 0; i < seeCount; i++) {
+        
+        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int captCount, out _);
+        //Move worstCapture = default;
+        
+        for (int i = 0; i < captCount; i++) {
             sorted[cur++] = seeMoves[i];
         }
+
+        /*if (captCount != 0) {
+            if (seeScores[^1] <= -100) worstCapture  = seeMoves[^1];
+            else                       sorted[cur++] = seeMoves[^1];
+        }*/
         
-        //
         // 3. KILLER MOVES
-        //
-        
         var killers = Killers.GetCluster(depth);
-        // ReSharper disable once ForCanBeConvertedToForeach
         for (int k = 0; k < killers.Length; k++) {
             Move killer = killers[k];
             if (killer == default) continue;
@@ -121,10 +114,7 @@ internal static unsafe class MoveOrder {
             }
         }
         
-        //
         // 4. COUNTER MOVE
-        //
-        
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.Color, previous);
             if (counter != default) {
@@ -138,10 +128,11 @@ internal static unsafe class MoveOrder {
             }
         }
         
-        //
-        // 5. QUIETS ORDERED BY HISTORY
-        //
+        // 5. WORST CAPTURE (PREVIOUSLY EXCLUDED)
+        //if (worstCapture != default)
+        //    sorted[cur++] = worstCapture;
         
+        // 5. QUIETS ORDERED BY HISTORY
         Span<(Move move, int score)> quiets = stackalloc (Move, int)[legalCount];
         int quietCount = 0;
 
