@@ -1,4 +1,4 @@
-﻿﻿//
+﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -8,7 +8,6 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
 using Kreveta.moveorder.historyheuristics;
-using Kreveta.search.pruning;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -33,6 +32,8 @@ internal static class PVSearch {
 
     // evaluated final score of the principal variation
     internal static short PVScore;
+
+    internal static int MinNMPPly;
 
     internal static ulong NullMovePrunes;
     internal static ulong RazoringPrunes;
@@ -60,11 +61,8 @@ internal static class PVSearch {
            || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
 
     // increase the depth and do a re-search
-    internal static void SearchDeeper() {
+    internal static void SearchDeeper(Window aspiration) {
         CurDepth++;
-
-        // as already mentioned, this represents the absolute depth limit
-        //QSearch.CurQSDepth = CurDepth + QSearch.QSDepth;
 
         // reset total nodes
         CurNodes = 0UL;
@@ -94,7 +92,7 @@ internal static class PVSearch {
         SearchState defaultSS = new(
             ply:         0, 
             depth:       (sbyte)CurDepth,
-            window:      Window.Infinite,
+            window:      aspiration,
             //penultimate: default,
             previous:    default,
             isPVNode:    true
@@ -183,8 +181,6 @@ internal static class PVSearch {
         return result;
     }
     
-#region PVS
-
     // finally the actual PVS recursive function
     //
     // (i could use the ///, but i hate the looks)
@@ -209,6 +205,7 @@ internal static class PVSearch {
         // just to simplify who's turn it is
         Color col = board.Color;
 
+        // 1. MATE DISTANCE PRUNING
         // if we found a mate score in the previous iteration, we return if
         // the ply we are currently at is larger than the already found mate
         // (if we found let's say mate in 7, it doesn't make any sense to
@@ -236,19 +233,17 @@ internal static class PVSearch {
             if (ss.Ply >= matePly)
                 return (Score.CreateMateScore(col, ss.Ply + 1), []);
         }
-
-
-        // if the position is saved as a 3-fold repetition draw, return 0.
+        
+        // if the position is stored as a 3-fold repetition draw, return 0.
         // we have to check at ply 2 as well to prevent a forced draw by the opponent
-        if (ss.Ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.Hash(board))) {
+        if (ss.Ply is not 0 and < 4 && Game.Draws.Contains(ZobristHash.Hash(board)))
             return (0, []);
-        }
 
         // we reached depth zero or lower => evaluate the leaf node though qsearch
         if (ss.Depth <= 0) {
             
             // we incremented this value above, but if we go into qsearch, we must
-            // decrement it, so the node doesn't count twice (qsearch does it too)
+            // decrement it, so the node doesn't count twice (qsearch counts it too)
             CurNodes--;
             PVSControl.TotalNodes--;
             
@@ -281,16 +276,16 @@ internal static class PVSearch {
         
         // has the static eval improved from two plies ago?
         bool rootImproving = improvStack.IsImproving(ss.Ply, col);
-
-        // first we try null-move pruning, since it is the most
-        // effective way to prune the tree. details about this
-        // can be found directly in the nmp file.
-        // are the conditions for nmp satisfied?
-        if (PruningOptions.AllowNullMovePruning
-            //&& canNMP
-            && ss.Ply >= NullMovePruning.CurMinPly
-            && board.GamePhase() >= 2
-            && !inCheck
+        
+        // 2. NULL-MOVE PRUNING
+        // we assume that in every position there is at least one move that
+        // improves it. first, we play a null move (only switching sides),
+        // and then perform a reduced search with a null window around beta.
+        // if the returned score fails high, we expect that not skipping our
+        // move would "fail even higher", and thus can prune this node
+        if (ss.Ply >= MinNMPPly       // minimum ply for nmp
+            && !inCheck               // don't prune when in check
+            && board.GamePhase() > 20 // don't prune in endgames
 
             // in the early stages of the search, alpha and beta are set to
             // their limit values, so doing the reduced search would only
@@ -298,18 +293,52 @@ internal static class PVSearch {
             && (col == Color.WHITE
                 ? ss.Window.Beta  < short.MaxValue
                 : ss.Window.Alpha > short.MinValue)) {
+            
+            // null window around beta
+            Window nullWindowBeta = col == Color.WHITE 
+                ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta) 
+                : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
 
-            // we try the reduced search and check for failing high
-            if (NullMovePruning.TryPrune(board, ss, col, out short score)) {
+            // child with no move played
+            Board nullChild = board.GetNullChild();
 
-                // we failed high - prune this branch
+            // the reduction is based on ply, depth, etc.
+            int R = Math.Min(ss.Ply - 2, CurDepth / 4 + 2);
+        
+            // once we reach a certain depth iteration, we start pruning
+            // a bit more aggressively - it isn't as important to be careful
+            // later than it is at the beginning.
+            if (CurDepth > 8) R += ss.Depth / 5;
+
+            // perform the reduced search
+            short nmpScore = ProbeTT(
+                ref nullChild,
+                new SearchState(
+                    ply:      (sbyte)(ss.Ply + 1),
+                    depth:    (sbyte)(ss.Depth - R - 1),
+                    window:   nullWindowBeta,
+                    previous: default,
+                    isPVNode: false
+                )
+            ).Score;
+
+            // if we failed high, prune this node/branch.
+            // otherwise continue regular move expansion
+            if (col == Color.WHITE
+                    ? nmpScore >= ss.Window.Beta
+                    : nmpScore <= ss.Window.Alpha) {
+                
                 NullMovePrunes++;
-                return (score, []);
+                return (nmpScore, []);
             }
         }
 
-        // 2. RAZORING:
+        // 3. RAZORING
+        // (kind of inspired by Stockfish) if a position is very,
+        // very bad, we skip the move expansion and return qsearch
+        // score instead. this cannot be done when in check
         if (!ss.IsPVNode && !inCheck && !rootImproving) {
+            // this margin is really just magic, but it feels right
             int margin = 554 + 373 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE
@@ -333,116 +362,149 @@ internal static class PVSearch {
                 ss.Depth -= ProbCut.R;
         }*/
         
-        // all legal moves sorted from best to worst (only a guess)
-        // first the tt bestmove, then captures sorted by MVV-LVA,
-        // then killer moves and last quiet moves sorted by history
-        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth,/* ss.Penultimate,*/ ss.Previous);
+        // all legal moves sorted from best to worst (only a guess).
+        // first goes the tt move, then SEE-ordered captures, killers,
+        // counters, a potential worst capture of the position and
+        // eventually history-ordered quiets
+        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Previous);
 
         // counter for expanded nodes
-        byte searchedMoves = 0;
+        int searchedMoves = 0;
 
         // pv continuation to be appended?
         Move[] pv = [];
 
         // loop the possible moves
-        for (byte i = 0; i < moves.Length; i++) {
-            searchedMoves++;
-            
+        for (int i = 0; i < moves.Length; i++, searchedMoves++) {
             Move curMove = moves[i];
-
-            // create a child board with the move played
-            Board child = board.Clone();
+            Board child  = board.Clone();
+            
             child.PlayMove(curMove, true);
             
-            int curDepth = ss.Depth - 1;
-            // the PV move gets an "extension" (not really,
-            // just all other moves are reduced by 1)
-            if (ss.Ply == 0 && searchedMoves >= 5) {
-                curDepth--;
-            }
-
-            ulong pieceCount = ulong.PopCount(child.Occupied);
-            
-            // did this move capture a piece?
-            bool isCapture = curMove.Capture != PType.NONE;
-            
-            // skip any pruning, AND the full search if there is a known draw
-            bool isKnownDraw = child.HalfMoveClock >= 100
-                                  || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount);
-
-            // if a position is "interesting", we avoid pruning and reductions
-            // a child node is marked as interesting if we:
-            //
-            // 1 - only expanded a single node so far
-            // 2 - captured a piece
-            // 3 - just escaped a check
-            // 4 - are checking the opposite king
-            bool interesting = searchedMoves == 1
-                               || inCheck
-                               || ss.IsPVNode
-                               || ss.Ply <= 4 && isCapture
-                               || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
-            
-            // static eval of the child node
+            // this depth counter is used for this specific
+            // expanded move; reductions may be applied to it
+            int   curDepth        = ss.Depth - 1;
+            bool  isCapture       = curMove.Capture != PType.NONE;
+            int   see             = !isCapture ? 0 : SEE.GetCaptureScore(in board, col, curMove);
+            ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
-
-            // once again update the current static eval in the search stack,
+            
+            // once again update the static eval in the improving stack,
             // but this time after the move has been already played
             improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1); 
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
-
-            int see = !isCapture ? 0
-                : SEE.GetCaptureScore(in board, col, curMove);
             
-            // SEE reductions & pruning
+            // if there is a known draw according to chess rules
+            // (either 50 move rule or insufficient mating material),
+            // all pruning and reductions are skipped
+            // TODO - SKIP WITH GOTO, AVOIDS UNNECESSARY STUFF
+            bool isKnownDraw = child.HalfMoveClock >= 100
+                                  || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount);
+
+            // if a move is deemed as interesting, the branch is
+            // excluded from any pruning. a move is interesting if:
+            // 1) we are evaluating the first move of a position,
+            //    or any move in a PV node
+            // 2) the ply is low, and the move is a capture
+            // 3) we are escaping check or giving a check
+            bool interesting = searchedMoves == 1 || ss.IsPVNode
+                               || ss.Ply <= 4 && isCapture
+                               || inCheck || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
+
+            // 4. PV EXTENSIONS
+            // extend the search of the first few root moves
+            // (this is done by reducing all other moves)
+            if (ss.Ply == 0 && searchedMoves >= 5)
+                curDepth--;
+            
+            // 5. SEE REDUCTIONS
+            // if a capture seems to be really bad, reduce the depth. oddly enough,
+            // restricting these reductions with various conditions doesn't work
             if (isCapture && see < -100)
                 curDepth--;
 
-            // must meet certain conditions for fp
-            if (!isKnownDraw 
-                && PruningOptions.AllowFutilityPruning
-                && ss.Ply   >= FutilityPruning.MinPly
-                && ss.Depth <= FutilityPruning.MaxDepth
-                && !interesting) {
+            // 6. FUTILITY PRUNING
+            // we try to discard moves near the leaves, which have no potential of raising alpha.
+            // futility margin represents the largest possible score gain through a single move.
+            // if we add this margin to the static eval of the position and still don't raise
+            // alpha, we can prune this branch
+            if (!isKnownDraw && !interesting
+                && ss.Ply >= 4 && ss.Depth <= 5) {
+                
+                int pawnCorrection = 2 * Math.Abs(PawnCorrectionHistory.GetCorrection(in child));
+                int windowSize     = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 12);
 
-                // we check for failing low despite a margin.
-                // if we fail low, don't search this move any further
-                if (FutilityPruning.TryPrune(child, ss.Depth, col, childStaticEval, improving, see, ss.Window)) {
-                    CurNodes++;
-                    PVSControl.TotalNodes++;
+                // as taken from chessprogrammingwiki:
+                // "If at depth 1 the margin does not exceed the value of a minor piece, at
+                // depth 2 it should be more like the value of a rook."
+                // we don't really follow this exactly, but our approach is kind of similar
+                int margin = 95 + ss.Depth * 97
+                                + pawnCorrection                 // this acts like a measure of uncertainty
+                                + (improving ? 0 : -23)          // not improving nodes prune more
+                                + Math.Clamp(see / 122, -39, 17) // tweak the margin based on SEE
+                                + windowSize;                    // another measure of uncertainty
+        
+                // if we didn't manage to raise alpha, prune this branch
+                if (col == Color.WHITE
+                        ? childStaticEval + margin <= ss.Window.Alpha
+                        : childStaticEval - margin >= ss.Window.Beta) {
                     
-                    FutilityPrunes++;
-                    continue;
-                }
-            }
-
-            // more conditions (late move pruning and reductions are kind of combined)
-            if (!isKnownDraw 
-                && (PruningOptions.AllowLateMovePruning || PruningOptions.AllowLateMoveReductions)
-                && !interesting
-                && ss.Ply        >= LateMoveReductions.MinPly
-                && searchedMoves >= LateMoveReductions.MinExpNodes) {
-
-                // try to fail low
-                var result = LateMoveReductions.TryPrune(board, ref child, curMove, ss, col, searchedMoves, improving, see);
-
-                // we failed low - prune this branch completely
-                if (result.ShouldPrune) {
-                    CurNodes++;
+                    CurNodes++; 
                     PVSControl.TotalNodes++;
-
-                    LateMovePrunes++;
+                    FutilityPrunes++;
+                    
                     continue;
                 }
+            }
+            
+            // 7. LATE MOVE PRUNING
+            // after we have searched a couple of moves, we expect the rest
+            // to be worse and not raise alpha. to verify this, we perform
+            // a greatly reduced search with a null window around alpha.
+            // if in fact the score fails low, we prune the branch
+            if (!isKnownDraw && !interesting && see <= 300
+                             && ss.Ply        >= 4
+                             && searchedMoves >= 3) {
+                int R = 4;
 
-                // we failed low with a margin - only reduce, don't prune
-                if (result.ShouldReduce) {
-                    curDepth -= LateMoveReductions.R;
+                // depth reduce is larger with bad quiet history
+                if (!isCapture && QuietHistory.GetRep(board, curMove) < -715) R++;
+
+                // some SEE tweaking - worse captures get higher reductions
+                if ( improving || see >= 94) R--;
+                if (!improving && see <  0)  R++;
+
+                // null window around alpha
+                var nullWindowAlpha = col == Color.WHITE
+                    ? new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
+                    : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
+
+                // once again a reduced depth search
+                int score = ProbeTT(ref child, 
+                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), nullWindowAlpha, default, false)
+                ).Score;
+
+                // continuing without this causes weird behaviour. the engine somehow
+                // evaluates regular positions as mate in X. keep this. it's important.
+                if (!Score.IsMateScore(score)) {
+                    if (col == Color.WHITE
+                            ? score <= ss.Window.Alpha
+                            : score >= ss.Window.Beta) {
+                        
+                        CurNodes++;
+                        PVSControl.TotalNodes++;
+                        LateMovePrunes++;
+
+                        continue;
+                    }
+
+                    if (ss.Depth == 4 && R >= 5 && !improving) {
+                        curDepth -= 2 - Math.Sign(see);
+                    }
                 }
             }
-
-            // if we got through all the pruning all the way to this point,
-            // we expect this move to raise alpha, so we search it at full depth
+            
+            // this is the end of all pruning, now comes pvs
             (short Score, Move[] PV) fullSearch = (0, []);
             
             if (!isKnownDraw) {
@@ -451,12 +513,17 @@ internal static class PVSearch {
                            || ss.Depth      >  4
                            || searchedMoves <= 7;
                 
-                // pv search uses a full window, others do not
+                // this is a part of the PVS algorithm. only the first move is
+                // supposed to automatically get a full search, while others get
+                // a null window around alpha. the thing is, this expects perfect
+                // move ordering, so in our case, a couple more than 1 move are
+                // searched fully, including interesting moves
                 Window window = pvs ? ss.Window
-                    : col == Color.BLACK
-                        ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta)
-                        : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
+                    : col == Color.WHITE
+                        ? new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
+                        : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
                 
+                // perform the search - full window for PV moves
                 fullSearch = ProbeTT(ref child, ss
                     with { 
                         Ply         = (sbyte)(ss.Ply + 1),
@@ -467,12 +534,19 @@ internal static class PVSearch {
                     }
                 );
                 
-                // if the move failed high despite the null window search,
-                // we shall do a full re-search with a full window
+                // and if the move failed high despite not being expected
+                // to, we shall do a full re-search with a full window to
+                // get a more accurate score
                 if (!pvs && (col == Color.WHITE
                         ? fullSearch.Score > window.Alpha
                         : fullSearch.Score < window.Beta)) {
                     
+                    // if the depth was reduced, and we need a re-search,
+                    // revert the reductions and use the real depth instead
+                    if (curDepth < ss.Depth - 1)
+                        curDepth++;
+                    
+                    // this is always a full search
                     fullSearch = ProbeTT(ref child, ss 
                         with { 
                             Ply         = (sbyte)(ss.Ply + 1),
@@ -498,12 +572,13 @@ internal static class PVSearch {
             // we went through all the pruning and didn't fail low
             // (this is the current best move for this position)
             else {
-                if (ss.Ply == 0) {
-                    if (!Abort)
-                        NextBestMove = curMove; 
-                }
+                // when using iterative deepening, the PV move from the previous
+                // iteration is searched first. that means, even if our time runs
+                // out, we may have still found a move better than the current one
+                if (ss.Ply == 0 && !Abort)
+                    NextBestMove = curMove; 
 
-                // store the new move in tt
+                // store the new best move in tt
                 TT.Store(board, ss.Depth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
 
                 // place the current move in front of the received pv to build a new pv
@@ -511,9 +586,9 @@ internal static class PVSearch {
                 Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 pv[0] = curMove;
 
-                // if we get a beta cutoff, that means the move
-                // is too good, so we don't have to search the
-                // remaining moves
+                // beta cutoff (see alpha-beta pruning); alpha is larger
+                // than beta, so we can stop searching this branch, because
+                // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
 
                     // is it quiet?
@@ -550,6 +625,4 @@ internal static class PVSearch {
                 ? ss.Window.Alpha 
                 : ss.Window.Beta, pv);
     }
-        
-    #endregion   
 }

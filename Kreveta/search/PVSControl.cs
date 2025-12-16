@@ -6,7 +6,6 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.pruning;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -35,6 +34,14 @@ internal static class PVSControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
+    private static int PVChanges;
+    private static int PrevScore;
+    private static int ScoreDiffs;
+
+    // -1 = aspiration window search failed low
+    //  1 = failed high
+    private static int AspirationFail;
+
     internal static Stopwatch sw = null!;
 
     internal static void StartSearch(int depth = DefaultMaxDepth) {
@@ -59,7 +66,7 @@ internal static class PVSControl {
         TT.Init();
 
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
-        NullMovePruning.UpdateMinPly(pieceCount);
+        PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 7);
 
         // we still have time and are allowed to search deeper
         while (PVSearch.CurDepth < CurMaxDepth 
@@ -67,17 +74,62 @@ internal static class PVSControl {
 
             PVSearch.NextBestMove = default;
 
+            Window aspiration   = Window.Infinite;
+            bool   isAspiration = false;
+            
+            if (false && PVSearch.CurDepth >= 2 && TimeMan.TimeBudget < 250) {
+                float scoreInstability = PVSearch.CurDepth != 0 
+                    ? (float)ScoreDiffs / PVSearch.CurDepth : 0f;
+
+                float pvInstability = PVChanges * 1.5f;
+                float totalInstability = 1 + scoreInstability * scoreInstability + pvInstability;
+
+                int shift = (int)(8 + totalInstability * 2f - Math.Min(8, PVSearch.CurDepth));
+                shift = Math.Clamp(shift, -1000, 1000);
+
+                aspiration = new Window(
+                    alpha: (short)(PVSearch.PVScore - shift),
+                    beta:  (short)(PVSearch.PVScore + shift));
+
+                switch (AspirationFail) {
+                    case -1: aspiration.Alpha = short.MinValue; break;
+                    case  1: aspiration.Beta  = short.MaxValue; break;
+                }
+
+                isAspiration = true;
+            }
+            
             // search at a larger depth
-            PVSearch.SearchDeeper();
+            PVSearch.SearchDeeper(aspiration);
 
             // didn't abort (yet?)
             if (PVSearch.Abort)
                 break;
                 
-            CurElapsed = sw.ElapsedMilliseconds - PrevElapsed;
+            CurElapsed  = sw.ElapsedMilliseconds - PrevElapsed;
+
+            AspirationFail = 0;
+
+            // aspiration window search failed low
+            if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
+                AspirationFail = -1;
+            
+            // failed high
+            if (isAspiration && PVSearch.PVScore >= aspiration.Beta)
+                AspirationFail = 1;
+
+            if (AspirationFail != 0) {
+                PrevScore = PVSearch.PVScore;
+                PrevElapsed = sw.ElapsedMilliseconds;
+
+                continue;
+            }
 
             // print the results to the console and save the first pv node
             GetResult();
+            
+            ScoreDiffs += Math.Min(1000, Math.Abs(PVSearch.PVScore - PrevScore));
+            PrevScore   = PVSearch.PVScore;
 
             // try to increase the time budget if the score from the previous
             // turn seems to be significantly different from the current one
@@ -88,7 +140,7 @@ internal static class PVSControl {
             // can stop the search to avoid wasting time
             if (Game.FullGame && Score.IsMateScore(PVSearch.PVScore))
                 break;
-
+            
             PrevElapsed = sw.ElapsedMilliseconds;
         }
        
@@ -107,7 +159,7 @@ internal static class PVSControl {
             ("delta prunes",           PVSearch.DeltaPrunes)
         );
         
-        if (PVSearch.NextBestMove != default)
+        if (PVSearch.NextBestMove != default && AspirationFail == 0)
             BestMove = PVSearch.NextBestMove;
 
         // the final response of the engine to the gui
@@ -122,12 +174,17 @@ internal static class PVSControl {
         sw.Stop();
         PVSearch.Reset();
         
-        TotalNodes = 0UL;
+        TotalNodes     = 0UL;
+        PVChanges = 0;
+        PrevScore      = 0;
+        ScoreDiffs     = 0;
     }
 
     private static void GetResult() {
 
         // save the first pv node as the current best move
+        if (BestMove != default && BestMove != PVSearch.PV[0])
+            PVChanges++;
         BestMove = PVSearch.PV[0];
 
         // now there's a bit of magic with mate scores. our "mate in X" function
