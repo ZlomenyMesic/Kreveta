@@ -133,8 +133,9 @@ internal static class TimeMan {
         // if anything went wrong during token parsing,
         // we don't care at all and just use the default
         // time budget
-        arg_fail: 
+        arg_fail:
         TimeBudget = DefaultTimeBudget;
+        MoveTime   = DefaultTimeBudget;
     }
 
     private static void CalculateTimeBudget() {
@@ -165,7 +166,7 @@ internal static class TimeMan {
         long maxBudget = (long)(timeLeft * 0.40);
         budget = Math.Min(budget, maxBudget);
 
-        TimeBudget = Math.Max(1, budget);
+        TimeBudget = Math.Max(10, budget);
     }
     
     private static int EstimateMovesToGo(Board board) {
@@ -192,7 +193,27 @@ internal static class TimeMan {
 
         // clamp to reasonable range
         return Math.Clamp(result, 8, 45);
-}
+    }
+
+    // depending on whether the position seems to be stable or unstable,
+    // the time budget may be altered. instability is based on score
+    // differences and best move changes between iterations
+    internal static void AccountForInstability(float instability) {
+        // if we have a precise time the search has to
+        // take, the time budget obviously won't be touched
+        if (MoveTime != 0) return;
+        
+        long timeLeft = Game.EngineColor == Color.WHITE 
+            ? _whiteTime : _blackTime;
+
+        long bonus = (long)(instability < 0
+            ? instability * 16
+            : instability * 8);
+
+        bonus = Math.Clamp(bonus, -timeLeft / 200, timeLeft / 200);
+        TimeBudget += bonus;
+        TimeBudget = Math.Clamp(TimeBudget, 10, 10 + timeLeft / 10 * 4);
+    }
     
     // when the score suddenly changes from the previous turn (both drops
     // and rises), we can try to increase our time budget to search this

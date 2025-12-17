@@ -13,10 +13,10 @@ internal static partial class TT {
     // window when saving to TT, we store the score type
     [Flags]
     internal enum SpecialFlags : byte {
-        SCORE_UPPER_BOUND = 1, // the score was above beta
-        SCORE_LOWER_BOUND = 2, // the score was below alpha
+        SCORE_UPPER_BOUND = 1, // the score was above or beta
+        SCORE_LOWER_BOUND = 2, // the score was below or alpha
         SCORE_EXACT       = 4, // the score fell right into the window
 
-        //SHOULD_OVERWRITE  = 8  // the node is old and should be overwritten
+        SHOULD_OVERWRITE  = 8  // the node is old and should be overwritten
     }
 }
