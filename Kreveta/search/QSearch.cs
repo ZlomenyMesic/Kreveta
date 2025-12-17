@@ -162,7 +162,7 @@ internal static class QSearch {
                 
                 // we want to store this in the tt not to retrieve the score,
                 // but to retrieve the best move for better move ordering
-                if (!isNMP && ply <= PVSearch.CurIterDepth + 2)
+                if (ply <= PVSearch.CurIterDepth + 2)
                     TT.Store(board, -1, ply, window, score, moves[i]);
 
                 // exit the loop

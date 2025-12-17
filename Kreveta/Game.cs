@@ -10,6 +10,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
+using Kreveta.search;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -34,10 +35,6 @@ internal static class Game {
     
     // the score from the previous turn - applied when playing a full game
     internal static int  PreviousScore;
-
-    // used to save previous positions to avoid (or embrace) 3-fold repetition
-    private static  List<ulong>    HistoryPositions = [];
-    internal static HashSet<ulong> Draws            = [];
 
     private static void InvalidFENCallback(string context) {
         // reset the board
@@ -66,12 +63,7 @@ internal static class Game {
         }
 
         // clear the board from previous game/search
-        
         Board = new Board();
-
-        // erase the draw counters
-        HistoryPositions = [];
-        Draws            = [];
         
         // the first token is the actual position. all ranks are separated by a "/". between the
         // slashes, pieces may be denoted with the simple "pnbrqk" or the uppercase variants for
@@ -207,7 +199,7 @@ internal static class Game {
         if (moveSeqStart == -1) return;
 
         // we save all known previous positions as 3-fold repetition exists
-        HistoryPositions.Add(ZobristHash.Hash(Board));
+        ThreeFold.AddAndCheck(ZobristHash.Hash(in Board));
 
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
@@ -219,38 +211,12 @@ internal static class Game {
             }
 
             Board.PlayMove(move, true);
-            HistoryPositions.Add(ZobristHash.Hash(Board));
+            ThreeFold.AddAndCheck(ZobristHash.Hash(in Board));
 
             // switch the engine's color
             EngineColor = EngineColor == Color.WHITE
                 ? Color.BLACK
                 : Color.WHITE;
-        }
-
-        // save drawing positions in "draws"
-        List3FoldDraws();
-    }
-
-    // save all positions that would cause a 3-fold repetition draw in
-    // the next move. all previous positions are saved in HistoryPositions
-    // and those, which occur twice (or more) are considered as drawing.
-    private static void List3FoldDraws() {
-        Dictionary<ulong, int> occurences = [];
-
-        foreach (var hash in HistoryPositions) {
-
-            // the position has already occured
-            if (occurences.TryGetValue(hash, out _)) {
-
-                // increase the counter and if we reached 2,
-                // save the position as a 3-fold repetition draw
-                if (++occurences[hash] == 2) {
-                    Draws.Add(hash);
-                }
-            }
-
-            // otherwise add the first occurence
-            else occurences.Add(hash, 1);
         }
     }
     

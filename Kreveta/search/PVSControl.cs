@@ -76,7 +76,7 @@ internal static class PVSControl {
             Window aspiration   = Window.Infinite;
             bool   isAspiration = false;
             
-            /*PVChanges  *= 0.7f;
+            PVChanges  *= 0.7f;
             ScoreDiffs *= 0.9f;
             
             float scoreInstability = PVSearch.CurIterDepth != 0 
@@ -87,10 +87,10 @@ internal static class PVSControl {
             float totalInstability = -6f + scoreInstability + pvInstability;
             
             // try to reduce or increase the time budget based on instability
-            //if (PVSearch.CurIterDepth > 3)
-            //    TimeMan.AccountForInstability(totalInstability);
+            if (PVSearch.CurIterDepth > 3)
+                TimeMan.AccountForInstability(totalInstability);
             
-            if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) { 
+            /*if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) { 
                 int delta = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
                 delta     = Math.Clamp(delta, -1000, 1000);
 
@@ -154,10 +154,10 @@ internal static class PVSControl {
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
-            ("Nodes searched",         TotalNodes),
-            ("Time spent",             sw.Elapsed),
+            ("Nodes Searched",         TotalNodes),
+            ("Time Spent",             sw.Elapsed),
             ("Average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
-            ("TT hits",                TT.TTHits)
+            ("TT Hits",                TT.TTHits)
         );
         
         if (PVSearch.NextBestMove != default && AspirationFail == 0)
@@ -169,11 +169,13 @@ internal static class PVSControl {
         // store this score for the next turn when playing a full game
         if (Game.FullGame)
             Game.PreviousScore = PVSearch.PVScore;
-
+        
+        sw.Stop();
+        
         // reset all counters for the next search
         // (not the next iteration of the current one)
-        sw.Stop();
         PVSearch.Reset();
+        ThreeFold.Clear();
         
         TotalNodes = 0UL;
         PVChanges  = 0;
