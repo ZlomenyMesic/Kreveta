@@ -155,20 +155,20 @@ internal static class PVSearch {
         // as the position is likely illegal and would pollute the ecosystem
         if (!isNMP) {
             TT.Store(board, ss.Depth, ss.Ply, ss.Window, result.Score, result.PV.Length != 0 ? result.PV[0] : default);
-
-            // store the current two-move sequence in countermove history - the previously
-            // played move, and the best response (counter) to this move found by the search
-            if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth)
-                CounterMoveHistory.Add(board.Color, ss.Previous, result.PV[0]);
-        
-            /*if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
-                ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
-            }*/
-        
-            // update this position's score in pawncorrhist. we have to do this
-            // here, otherwise repeating positions would take over the whole thing
-            PawnCorrectionHistory.Update(board, result.Score, ss.Depth);
         }
+        
+        // store the current two-move sequence in countermove history - the previously
+        // played move, and the best response (counter) to this move found by the search
+        if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth)
+            CounterMoveHistory.Add(board.Color, ss.Previous, result.PV[0]);
+        
+        /*if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
+            ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
+        }*/
+        
+        // update this position's score in pawncorrhist. we have to do this
+        // here, otherwise repeating positions would take over the whole thing
+        PawnCorrectionHistory.Update(board, result.Score, ss.Depth);
 
         return result;
     }
@@ -309,7 +309,7 @@ internal static class PVSearch {
                     previous: default,
                     isPVNode: false
                 ),
-                isNMP: true
+                isNMP: false
             ).Score;
 
             // if we failed high, prune this node/branch.
@@ -317,9 +317,9 @@ internal static class PVSearch {
             //
             // TODO - CHECK IF TRULY ALL HISTORY HEURISTICS MUST BE AVOIDED IN NMP SEARCH
             //
-            if (!Score.IsMateScore(nmpScore) && (col == Color.WHITE
+            if (col == Color.WHITE
                     ? nmpScore >= ss.Window.Beta
-                    : nmpScore <= ss.Window.Alpha)) {
+                    : nmpScore <= ss.Window.Alpha) {
                 
                 return (nmpScore, []);
             }
@@ -492,8 +492,7 @@ internal static class PVSearch {
             // after we have searched a couple of moves, we expect the rest to be worse
             // and not raise alpha. to verify this, we perform a greatly reduced search
             // with a null window around alpha. if it fails low, we prune the branch
-            if (!interesting && see < 300 
-                             && ss.Ply        >= 4
+            if (!interesting && ss.Ply        >= 4
                              && searchedMoves >= 3) {
                 int R = 4;
 
@@ -590,7 +589,7 @@ internal static class PVSearch {
             skipPVS:
 
             // we somehow still failed low
-            if (!isNMP && (col == Color.WHITE
+            if (/*!isNMP && */(col == Color.WHITE
                     ? fullSearch.Score <= ss.Window.Alpha
                     : fullSearch.Score >= ss.Window.Beta)) {
 
@@ -624,7 +623,7 @@ internal static class PVSearch {
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
 
                     // is it quiet?
-                    if (!isCapture && !isNMP) {
+                    if (!isCapture/* && !isNMP*/) {
 
                         // if a quiet move caused a beta cutoff, we increase its history
                         // score and store it as a killer move on the current depth
@@ -644,7 +643,7 @@ internal static class PVSearch {
 
             // we didn't expand any nodes - terminal node
             // (no legal moves exist)
-            ? (inCheck 
+            ? (inCheck
 
                 // if we are checked this means we got mated
                 ? Score.CreateMateScore(col, ss.Ply)

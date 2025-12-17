@@ -34,9 +34,9 @@ internal static class PVSControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    private static int PVChanges;
-    private static int PrevScore;
-    private static int ScoreDiffs;
+    private static float PVChanges;
+    private static float ScoreDiffs;
+    private static int   PrevScore;
 
     // -1 = aspiration window search failed low
     //  1 = failed high
@@ -57,14 +57,13 @@ internal static class PVSControl {
     // makes new iterations not take too much time.
     private static void IterativeDeepeningLoop() {
         PrevElapsed = 0L;
-
         sw = Stopwatch.StartNew();
             
         // we have to call tt clear here, because the user
         // might have changed the hash size settings, so we
         // need to update the table before the search
         TT.Init();
-
+        
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 7);
 
@@ -77,19 +76,27 @@ internal static class PVSControl {
             Window aspiration   = Window.Infinite;
             bool   isAspiration = false;
             
-            if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) {
-                float scoreInstability = PVSearch.CurIterDepth != 0 
-                    ? (float)ScoreDiffs / PVSearch.CurIterDepth : 0f;
+            /*PVChanges  *= 0.7f;
+            ScoreDiffs *= 0.9f;
+            
+            float scoreInstability = PVSearch.CurIterDepth != 0 
+                ? ScoreDiffs / PVSearch.CurIterDepth
+                : 0f;
 
-                float pvInstability = PVChanges * 1.5f;
-                float totalInstability = 1 + scoreInstability * scoreInstability + pvInstability;
-
-                int shift = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
-                shift = Math.Clamp(shift, -1000, 1000);
+            float pvInstability    = PVChanges * PVChanges * PVChanges * 1.5f;
+            float totalInstability = -6f + scoreInstability + pvInstability;
+            
+            // try to reduce or increase the time budget based on instability
+            //if (PVSearch.CurIterDepth > 3)
+            //    TimeMan.AccountForInstability(totalInstability);
+            
+            if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) { 
+                int delta = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
+                delta     = Math.Clamp(delta, -1000, 1000);
 
                 aspiration = new Window(
-                    alpha: (short)(PVSearch.PVScore - shift),
-                    beta:  (short)(PVSearch.PVScore + shift));
+                    alpha: (short)(PVSearch.PVScore - delta),
+                    beta:  (short)(PVSearch.PVScore + delta));
 
                 switch (AspirationFail) {
                     case -1: aspiration.Alpha = short.MinValue; break;
@@ -97,21 +104,20 @@ internal static class PVSControl {
                 }
 
                 isAspiration = true;
-            }
+            }*/
             
             // search at a larger depth
             PVSearch.SearchDeeper(aspiration);
 
-            // didn't abort (yet?)
+            // search aborted - don't print current iteration result
             if (PVSearch.Abort)
                 break;
                 
-            CurElapsed  = sw.ElapsedMilliseconds - PrevElapsed;
-
+            CurElapsed     = sw.ElapsedMilliseconds - PrevElapsed;
             AspirationFail = 0;
 
             // aspiration window search failed low
-            if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
+            /*if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
                 AspirationFail = -1;
             
             // failed high
@@ -123,7 +129,7 @@ internal static class PVSControl {
                 PrevElapsed = sw.ElapsedMilliseconds;
 
                 continue;
-            }
+            }*/
 
             // print the results to the console and save the first pv node
             GetResult();

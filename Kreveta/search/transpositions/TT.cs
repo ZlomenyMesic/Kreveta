@@ -73,9 +73,9 @@ internal static unsafe partial class TT {
             Table = null;
         }
 
-        Stored = 0;
+        Stored    = 0;
         TableSize = GetTableSize();
-        TTHits = 0UL;
+        TTHits    = 0UL;
     }
 
     internal static void Init() {
@@ -87,11 +87,20 @@ internal static unsafe partial class TT {
     }
 
     /*internal static void IncreaseAge() {
-        // for (int i = 0; i < TableSize; i++) {
-        //     
-        //     if (Table[i].Hash != 0UL)
-        //         Table[i].Flags |= SpecialFlags.SHOULD_OVERWRITE;
-        // }
+        if (Table is null) {
+            Init();
+            return;
+        }
+        
+        for (int i = 0; i < TableSize; i++) {
+            if (Table[i].Hash != 0UL) {
+                Table[i].Depth = (sbyte)(Table[i].Depth - 3);
+                Table[i].Flags |= SpecialFlags.SHOULD_OVERWRITE;
+
+                if (Table[i].Depth <= 0)
+                    Table[i] = default;
+            }
+        }
     }*/
 
     // store a position in the table. the best move doesn't have to be specified
@@ -99,23 +108,14 @@ internal static unsafe partial class TT {
         ulong hash = ZobristHash.Hash(board);
         int i = HashIndex(hash);
 
-        // maybe an entry is already saved
+        // maybe an entry is already stored
         Entry existing = Table[i];
+        //bool  isOld    = (existing.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
 
-        //bool isOld = (existing.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
-
-        // is the slot already occupied with a result
-        // of a higher depth search?
-        if (existing.Hash != 0UL && existing.Depth > depth) {
+        // is the slot already occupied with a result of a higher
+        // depth search? we want to overwrite old positions, though
+        if (existing.Hash != 0UL && existing.Depth > depth)
             return;
-        }
-
-        // if (existing.Hash != 0UL 
-        //     && ((!isOld && existing.Depth > depth) 
-        //         || (isOld && existing.Depth > depth + 1))) {
-        //     
-        //     return;
-        // }
 
         var entry = new Entry {
             Hash     = hash,
@@ -132,10 +132,11 @@ internal static unsafe partial class TT {
             // since a mate score is a number of plies subtracted from a base,
             // we don't actually subtract the current ply, we add it. the idea
             // is, however, the same
-            score += (short)(Math.Sign(score) * ply);
+            entry.Score = (short)(score + Math.Sign(score) * ply);
+            entry.Flags |= SpecialFlags.SCORE_EXACT;
         }
 
-        if (score >= window.Beta) {
+        else if (score >= window.Beta) {
             entry.Flags |= SpecialFlags.SCORE_UPPER_BOUND;
             entry.Score = window.Beta;
 
@@ -181,15 +182,13 @@ internal static unsafe partial class TT {
         ulong hash = ZobristHash.Hash(board);
         score = 0;
 
-        int i = HashIndex(hash);
+        int   i     = HashIndex(hash);
         Entry entry = Table[i];
+        //bool  isOld = (entry.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
 
-        // once again the position is not yet saved
-        if (entry.Hash != hash)
-            return false;
-
-        // the position is stored, but its depth is shallower than ours
-        if (entry.Depth <= depth)
+        // don't return a score if the position is old, doesn't
+        // exist, or the score is a result of a shallower search
+        if (entry.Hash != hash || entry.Depth <= depth)
             return false;
 
         score = entry.Score;
@@ -206,14 +205,6 @@ internal static unsafe partial class TT {
         
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        /*if (entry.Flags.GetHasSCORE_EXACT()
-            || entry.Flags.GetHasSCORE_LOWER_BOUND() && score <= window.Alpha
-            || entry.Flags.GetHasSCORE_UPPER_BOUND() && score >= window.Beta) {
-
-            TTHits++;
-            return true;
-        }*/
-        
         if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
             || entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha
             || entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta) {
