@@ -44,7 +44,7 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where we can for instance lose a queen in the next move
-    internal static short Search(ref Board board, int ply, Window window, int curQSDepth, bool onlyCaptures = false) {
+    internal static short Search(ref Board board, int ply, Window window, int curQSDepth, bool isNMP, bool onlyCaptures) {
 
         // exit the search if we should abort
         if (PVSearch.Abort)
@@ -66,7 +66,7 @@ internal static class QSearch {
         Color col = board.Color;
 
         // is the side to move in check?
-        bool inCheck = !onlyCaptures && Check.IsKingChecked(board, col);
+        bool inCheck = onlyCaptures ? false : Check.IsKingChecked(board, col);
 
         // stand pat is just a fancy word for static eval
         short standPat = board.StaticEval;
@@ -75,6 +75,9 @@ internal static class QSearch {
         if (!inCheck) {
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
+            //
+            // TODO - ADD DYNAMIC MARGIN INSTEAD
+            //
             if (window.TryCutoff(standPat, col))
                 return col == Color.WHITE
                     ? window.Alpha
@@ -125,7 +128,7 @@ internal static class QSearch {
             // the currently captured piece (or SEE score to be exact), which
             // is added to the stand pat with a margin, and if the eval still
             // doesn't raise alpha, we prune this branch
-            if (!inCheck && ply >= PVSearch.CurDepth + 4) {
+            if (!inCheck && ply >= PVSearch.CurIterDepth + 4) {
                 int colMult = col == Color.WHITE ? 1 : -1;
                 
                 // value of the piece we just captured
@@ -144,7 +147,6 @@ internal static class QSearch {
                         ? standPat <= window.Alpha
                         : standPat >= window.Beta) {
                     
-                    PVSearch.DeltaPrunes++;
                     continue;
                 }
             }
@@ -153,14 +155,14 @@ internal static class QSearch {
             child.PlayMove(moves[i], true);
 
             // full search
-            short score = Search(ref child, ply + 1, window, curQSDepth, onlyCaptures);
+            short score = Search(ref child, ply + 1, window, curQSDepth, isNMP, onlyCaptures);
 
             // try to get a beta cutoff
             if (window.TryCutoff(score, col)) {
                 
                 // we want to store this in the tt not to retrieve the score,
                 // but to retrieve the best move for better move ordering
-                if (ply <= PVSearch.CurDepth + 2)
+                if (!isNMP && ply <= PVSearch.CurIterDepth + 2)
                     TT.Store(board, -1, ply, window, score, moves[i]);
 
                 // exit the loop
