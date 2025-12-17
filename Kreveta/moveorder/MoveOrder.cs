@@ -10,6 +10,7 @@ using Kreveta.search.transpositions;
 
 using System;
 using System.Runtime.InteropServices;
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.moveorder;
 
@@ -36,8 +37,9 @@ internal static unsafe class MoveOrder {
     }
 
     // don't use "in" keyword!!! it gets much slower
-    internal static Span<Move> GetOrderedMoves(Board board, int depth, /*Move penultimate,*/ Move previous) {
-
+    internal static Span<Move> GetOrderedMoves(Board board, int depth, /*Move penultimate,*/ Move previous, out bool isTTMove) {
+        isTTMove = false;
+        
         // all legal moves
         Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
         int legalCount   = Movegen.GetLegalMoves(ref board, legal);
@@ -52,7 +54,8 @@ internal static unsafe class MoveOrder {
             for (int i = 0; i < legalCount; i++) {
                 if (legal[i] == ttMove) {
                     sorted[cur++] = ttMove;
-                    used[i] = true;
+                    used[i]       = true;
+                    isTTMove      = true;
                     break;
                 }
             }
@@ -73,7 +76,7 @@ internal static unsafe class MoveOrder {
         }*/
         
         /*for (int i = 0; i < legalCount; i++) {
-            if (!used[i] && legal[i].Promotion is PType.QUEEN or PType.ROOK) {
+            if (!used[i] && legal[i].Promotion is PType.QUEEN) {
                 sorted[cur++] = legal[i];
                 used[i]       = true;
             }
@@ -87,17 +90,17 @@ internal static unsafe class MoveOrder {
             }
         }
         
-        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int captCount, out _);
-        //Move worstCapture = default;
+        var seeMoves = SEE.OrderCaptures(in board, new ReadOnlySpan<Move>(CaptureBuffer, curCapt), out int captCount, out int[] seeScores);
+        Move worstCapture = default;
         
-        for (int i = 0; i < captCount; i++) {
+        for (int i = 0; i < captCount - 1; i++) {
             sorted[cur++] = seeMoves[i];
         }
 
-        /*if (captCount != 0) {
+        if (captCount != 0) {
             if (seeScores[^1] <= -100) worstCapture  = seeMoves[^1];
             else                       sorted[cur++] = seeMoves[^1];
-        }*/
+        }
         
         // 3. KILLER MOVES
         var killers = Killers.GetCluster(depth);
@@ -129,8 +132,8 @@ internal static unsafe class MoveOrder {
         }
         
         // 5. WORST CAPTURE (PREVIOUSLY EXCLUDED)
-        //if (worstCapture != default)
-        //    sorted[cur++] = worstCapture;
+        if (worstCapture != default)
+            sorted[cur++] = worstCapture;
         
         // 5. QUIETS ORDERED BY HISTORY
         Span<(Move move, int score)> quiets = stackalloc (Move, int)[legalCount];

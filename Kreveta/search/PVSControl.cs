@@ -69,7 +69,7 @@ internal static class PVSControl {
         PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 7);
 
         // we still have time and are allowed to search deeper
-        while (PVSearch.CurDepth < CurMaxDepth 
+        while (PVSearch.CurIterDepth < CurMaxDepth 
                && sw.ElapsedMilliseconds < TimeMan.TimeBudget) {
 
             PVSearch.NextBestMove = default;
@@ -77,14 +77,14 @@ internal static class PVSControl {
             Window aspiration   = Window.Infinite;
             bool   isAspiration = false;
             
-            if (false && PVSearch.CurDepth >= 2 && TimeMan.TimeBudget < 250) {
-                float scoreInstability = PVSearch.CurDepth != 0 
-                    ? (float)ScoreDiffs / PVSearch.CurDepth : 0f;
+            if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) {
+                float scoreInstability = PVSearch.CurIterDepth != 0 
+                    ? (float)ScoreDiffs / PVSearch.CurIterDepth : 0f;
 
                 float pvInstability = PVChanges * 1.5f;
                 float totalInstability = 1 + scoreInstability * scoreInstability + pvInstability;
 
-                int shift = (int)(8 + totalInstability * 2f - Math.Min(8, PVSearch.CurDepth));
+                int shift = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
                 shift = Math.Clamp(shift, -1000, 1000);
 
                 aspiration = new Window(
@@ -148,15 +148,10 @@ internal static class PVSControl {
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
-            ("nodes searched",         TotalNodes),
-            ("time spent",             sw.Elapsed),
-            ("average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
-            ("tt hits",                TT.TTHits),
-            ("null move prunes",       PVSearch.NullMovePrunes),
-            ("razoring prunes",        PVSearch.RazoringPrunes),
-            ("futility prunes",        PVSearch.FutilityPrunes),
-            ("late move prunes",       PVSearch.LateMovePrunes),
-            ("delta prunes",           PVSearch.DeltaPrunes)
+            ("Nodes searched",         TotalNodes),
+            ("Time spent",             sw.Elapsed),
+            ("Average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
+            ("TT hits",                TT.TTHits)
         );
         
         if (PVSearch.NextBestMove != default && AspirationFail == 0)
@@ -174,10 +169,10 @@ internal static class PVSControl {
         sw.Stop();
         PVSearch.Reset();
         
-        TotalNodes     = 0UL;
-        PVChanges = 0;
-        PrevScore      = 0;
-        ScoreDiffs     = 0;
+        TotalNodes = 0UL;
+        PVChanges  = 0;
+        PrevScore  = 0;
+        ScoreDiffs = 0;
     }
 
     private static void GetResult() {
@@ -224,7 +219,7 @@ internal static class PVSControl {
         string info = "info " +
 
                       // full search depth
-                      $"depth {PVSearch.CurDepth} " +
+                      $"depth {PVSearch.CurIterDepth} " +
 
                       // selective search depth - full search + qsearch
                       $"seldepth {PVSearch.AchievedDepth} " +
@@ -276,7 +271,7 @@ internal static class PVSControl {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable
-            if (depth++ > PVSearch.CurDepth)
+            if (depth++ > PVSearch.CurIterDepth)
                 yield break;
                 
             yield return ttMove;

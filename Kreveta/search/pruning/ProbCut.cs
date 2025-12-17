@@ -34,7 +34,8 @@ internal static class ProbCut {
                 //penultimate: default,
                 previous:    default,
                 isPVNode:    false
-            )
+            ),
+            false
         ).Score;
 
         return board.Color == Color.WHITE
