@@ -82,11 +82,27 @@ internal static unsafe class MoveOrder {
             }
         }*/
         
-        // 2. SEE ORDERED CAPTURES
+        // 2. KILLER CAPTURES
+        if (depth < 5) {
+            var captKillers = Killers.GetCluster(depth, captures: true);
+            for (int k = 0; k < captKillers.Length; k++) {
+                if (captKillers[k] == default) continue;
+
+                for (int i = 0; i < legalCount; i++) {
+                    if (!used[i] && legal[i] == captKillers[k]) {
+                    
+                        sorted[cur++] = captKillers[k];
+                        used[i]       = true; break;
+                    }
+                }
+            }
+        }
+        
+        // 3. SEE ORDERED CAPTURES
         for (int i = 0; i < legalCount; i++) {
             if (!used[i] && legal[i].Capture != PType.NONE) {
                 CaptureBuffer[curCapt++] = legal[i];
-                used[i] = true;
+                used[i]                  = true;
             }
         }
         
@@ -102,40 +118,39 @@ internal static unsafe class MoveOrder {
             else                       sorted[cur++] = seeMoves[^1];
         }
         
-        // 3. KILLER MOVES
-        var killers = Killers.GetCluster(depth);
+        // 4. REGULAR KILLERS (QUIET)
+        var killers = Killers.GetCluster(depth, captures: false);
         for (int k = 0; k < killers.Length; k++) {
-            Move killer = killers[k];
-            if (killer == default) continue;
+            if (killers[k] == default) continue;
 
             for (int i = 0; i < legalCount; i++) {
-                if (!used[i] && legal[i] == killer) {
-                    sorted[cur++] = killer;
-                    used[i] = true;
-                    break;
+                if (!used[i] && legal[i] == killers[k]) {
+                    
+                    sorted[cur++] = killers[k];
+                    used[i]       = true; break;
                 }
             }
         }
         
-        // 4. COUNTER MOVE
+        // 5. COUNTER MOVE
         if (depth < CounterMoveHistory.MaxRetrieveDepth) {
             Move counter = CounterMoveHistory.Get(board.Color, previous);
             if (counter != default) {
                 for (int i = 0; i < legalCount; i++) {
                     if (!used[i] && legal[i] == counter) {
+                        
                         sorted[cur++] = counter;
-                        used[i] = true;
-                        break;
+                        used[i]       = true; break;
                     }
                 }
             }
         }
         
-        // 5. WORST CAPTURE (PREVIOUSLY EXCLUDED)
+        // 6. WORST CAPTURE (PREVIOUSLY EXCLUDED)
         if (worstCapture != default)
             sorted[cur++] = worstCapture;
         
-        // 5. QUIETS ORDERED BY HISTORY
+        // 7. QUIETS ORDERED BY HISTORY
         Span<(Move move, int score)> quiets = stackalloc (Move, int)[legalCount];
         int quietCount = 0;
 

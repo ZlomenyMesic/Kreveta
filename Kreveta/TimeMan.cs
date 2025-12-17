@@ -170,11 +170,11 @@ internal static class TimeMan {
     }
     
     private static int EstimateMovesToGo(Board board) {
-        float p = board.GamePhase() / 100f;
+        float p = board.GamePhase() / 150f;
 
         // smooth base expected moves interpolation
-        float expected = p * 40f          // middlegame
-                         + (1f - p) * 6f; // endgame
+        float expected = p * 36f           // middlegame
+                         + (1f - p) * 12f; // endgame
         
         // total piece count excluding kings (which are always present)
         int pieceCount = (int)ulong.PopCount(board.Occupied) - 2;
