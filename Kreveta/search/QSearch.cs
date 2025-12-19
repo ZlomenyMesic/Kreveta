@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
+using Kreveta.moveorder.historyheuristics;
 using Kreveta.search.transpositions;
 
 using System;
@@ -66,19 +67,18 @@ internal static class QSearch {
         Color col = board.Color;
 
         // is the side to move in check?
-        bool inCheck = onlyCaptures ? false : Check.IsKingChecked(board, col);
+        bool inCheck = !onlyCaptures && Check.IsKingChecked(board, col);
 
         // stand pat is just a fancy word for static eval
         short standPat = board.StaticEval;
 
         // don't try to cutoff when in check
         if (!inCheck) {
+            short corr = PawnCorrectionHistory.GetCorrection(in board);
+            
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
-            //
-            // TODO - ADD DYNAMIC MARGIN INSTEAD
-            //
-            if (window.TryCutoff(standPat, col))
+            if (window.TryCutoff((short)(standPat + corr), col))
                 return col == Color.WHITE
                     ? window.Alpha
                     : window.Beta;
@@ -97,18 +97,12 @@ internal static class QSearch {
         // no moves have been generated
         if (count == 0) {
 
-            // if we aren't checked, it means there just aren't
-            // any more captures, and we can return the stand pat.
-            //
-            // as already mentioned, from a certain point we only
-            // generate captures, so we don't bother checking for
-            // checks right now, because we could encounter false
-            // mate scores
-            //
-            // we might be in stalemate, though.
-            // (there's nothing we can do... TUTUTUTU TUTUTU)
-            if (onlyCaptures)
-                return standPat;
+            // if we aren't checked, it means there just aren't any more captures,
+            // and we can return the stand pat. as already mentioned, from a certain
+            // point we only generate captures, so we don't bother checking for checks
+            // right now, because we could encounter false mate scores we might be in
+            // stalemate, though (there's nothing we can do... TUTUTUTU TUTUTU)
+            if (onlyCaptures) return standPat;
 
             // otherwise return the mate score
             return inCheck
@@ -139,13 +133,14 @@ internal static class QSearch {
                 int delta = (curQSDepth - ply) * 77 * colMult;
 
                 // add the see score, and the margin (called delta)
-                standPat += (short)(captured * 21 / 20 * colMult);
-                standPat += (short)delta;
+                var standPatCopy = standPat;
+                standPatCopy += (short)(captured * 21 / 20 * colMult);
+                standPatCopy += (short)delta;
 
                 // did we fail low?
                 if (col == Color.WHITE
-                        ? standPat <= window.Alpha
-                        : standPat >= window.Beta) {
+                        ? standPatCopy <= window.Alpha
+                        : standPatCopy >= window.Beta) {
                     
                     continue;
                 }

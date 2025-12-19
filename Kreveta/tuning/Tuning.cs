@@ -6,10 +6,6 @@
 #pragma warning disable CA1031
 #pragma warning disable CA1305
 
-using Kreveta.search;
-using Kreveta.search.pruning;
-using Kreveta.uci;
-
 using System;
 
 namespace Kreveta.tuning;

@@ -31,15 +31,15 @@ internal ref struct SearchState {
     internal Move Previous;
     
     // is this a PV node from the previous search iteration?
-    internal bool IsPVNode;
+    internal bool IsPV;
 
-    internal SearchState(sbyte ply, sbyte depth, byte extensions, Window window, /*Move penultimate,*/ Move previous, bool isPVNode) {
+    internal SearchState(sbyte ply, sbyte depth, byte extensions, Window window, /*Move penultimate,*/ Move previous, bool isPv) {
         Ply         = ply;
         Depth       = depth;
         Extensions  = extensions;
         Window      = window;
         //Penultimate = penultimate;
         Previous    = previous;
-        IsPVNode    = isPVNode;
+        IsPV    = isPv;
     }
 }

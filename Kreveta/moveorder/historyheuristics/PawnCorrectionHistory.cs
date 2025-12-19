@@ -24,7 +24,7 @@ internal static unsafe class PawnCorrectionHistory {
 
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
-    private const int CorrTableSize = 65_536;
+    private const int CorrTableSize   = 524_288;
 
     // maximum correction that can be stored. this needs
     // to stay in range of "short", as the whole table
@@ -32,13 +32,12 @@ internal static unsafe class PawnCorrectionHistory {
     private const short MaxCorrection = 2048;
 
     // a scale, which lowers the corrections when retrieving
-    private const short CorrScale     = 64;
+    private const short CorrScale     = 128;
 
     // the table itself
     private static short* _whiteCorrections;
     private static short* _blackCorrections;
-
-
+    
     // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear() {
@@ -62,24 +61,20 @@ internal static unsafe class PawnCorrectionHistory {
         _blackCorrections = (short*)NativeMemory.AlignedAlloc(
             byteCount: CorrTableSize * sizeof(short),
             alignment: 64);
-
-        for (int i = 0; i < CorrTableSize; i++) {
-            _whiteCorrections[i] = 0;
-            _blackCorrections[i] = 0;
-        }
     }
-    
+
     // update the pawn correction - takes a board with its score evaluated
     // by an actual search, and the depth at which the search was performed.
     internal static void Update(in Board board, int score, int depth) {
+        if (depth <= 2) return;
+
         // get the static eval of the current position and the
         // absolute difference between it and the search score
         short diff = (short)(score - board.StaticEval);
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference
-        short shift = (short)(Math.Min(12, Math.Abs(diff) * depth / 128)
-                              * Math.Sign(diff));
+        short shift = (short)Math.Clamp(diff * (depth - 2) / 256, -12, 12);
 
         // don't bother wasting time with a zero shift
         if (shift == 0) return;
@@ -93,11 +88,14 @@ internal static unsafe class PawnCorrectionHistory {
         int wIndex = (int)(wHash & CorrTableSize - 1);
         int bIndex = (int)(bHash & CorrTableSize - 1);
 
-        // add the shift based on whichever side the real score was better
+        // first we add or subtract the shift depending
+        // on the color and whether the search score
+        // was higher or lower than the static eval
         _whiteCorrections[wIndex] += shift;
         _blackCorrections[bIndex] += shift;
-        
-        // make sure the total shift doesn't exceed the max correction value
+
+        // only after we added the shift we check whether
+        // the new stored value is outside the bounds.
         _whiteCorrections[wIndex] = (short)Math.Clamp((int)_whiteCorrections[wIndex], -MaxCorrection, MaxCorrection);
         _blackCorrections[bIndex] = (short)Math.Clamp((int)_blackCorrections[bIndex], -MaxCorrection, MaxCorrection);
     }
@@ -105,14 +103,16 @@ internal static unsafe class PawnCorrectionHistory {
     // try to retrieve a correction of the static eval of a position
     internal static short GetCorrection(in Board board) {
 
-        // once again the same stuff, hash the pawns and get the indices for both sides
+        // once again the same stuff, hash the pawns
+        // and get the indices for both sides
         ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
         ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
-        
+
         int wIndex = (int)(wHash & CorrTableSize - 1);
         int bIndex = (int)(bHash & CorrTableSize - 1);
 
-        // the resulting correction is based on both sides' pawns
-        return (short)((_whiteCorrections[wIndex] + _blackCorrections[bIndex]) / CorrScale);
+        // the resulting correction being the difference instead of sum is
+        // just plain wrong. nothing about this makes sense. but it works
+        return (short)((_whiteCorrections[wIndex] - _blackCorrections[bIndex]) / CorrScale);
     }
 }

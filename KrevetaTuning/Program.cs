@@ -18,12 +18,12 @@ internal static class Program {
     private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net10.0\Kreveta.exe";
 
     // time to evaluate each position in ms
-    private const int Depth = 8;
+    private const int Depth = 7;
     
     // limit how many "new engines" to create/test
     private const int Cycles = 1_000_000;
 
-    private const int ShiftsPerEval = 1;
+    private const int ShiftsPerEval = 2;
 
     private static float _krevetaBaseMSE;
     private static float _krevetaBaseMoveAccuracy;
@@ -32,7 +32,7 @@ internal static class Program {
     private static readonly (float, int)[] Tweaks 
         = new (float, int)[ParamGenerator.ParamCount];
 
-    private const           int                     MaxThreads    = 20;
+    private const           int                     MaxThreads    = 18;
     private static readonly CancellationTokenSource Cts           = new();
     private static readonly Lock                    EnginesLock   = new();
     private static readonly List<UCIEngine>         ActiveEngines = [];

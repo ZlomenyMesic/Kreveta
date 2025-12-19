@@ -21,8 +21,8 @@ internal static class EvalTables {
         // we have to index the piece type and position correctly. white
         // pieces are straightforward, but black piece have to be mirrored
         short index = (short)(type * 64 + (col == Color.WHITE
-            ? sq ^ 56   // flip the square to the opposite side
-            : sq ^ 7)); // flip only the file
+            ? sq ^ 7 ^ 56 // flip the square to the opposite side
+            : sq ^ 7));   // flip only the file
 
         // we grab both the midgame and endgame table values
         fixed (short* midgame = &Middlegame[0],
