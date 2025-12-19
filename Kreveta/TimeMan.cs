@@ -198,7 +198,7 @@ internal static class TimeMan {
     // depending on whether the position seems to be stable or unstable,
     // the time budget may be altered. instability is based on score
     // differences and best move changes between iterations
-    internal static void AccountForInstability(float instability) {
+    internal static void AccountForInstability(float instability, int depth) {
         // if we have a precise time the search has to
         // take, the time budget obviously won't be touched
         if (MoveTime != 0) return;
@@ -207,12 +207,10 @@ internal static class TimeMan {
             ? _whiteTime : _blackTime;
 
         long bonus = (long)(instability < 0
-            ? instability * 16
-            : instability * 8);
-
-        bonus = Math.Clamp(bonus, -timeLeft / 200, timeLeft / 200);
-        TimeBudget += bonus;
-        TimeBudget = Math.Clamp(TimeBudget, 10, 10 + timeLeft / 10 * 4);
+            ? instability * depth / 4
+            : instability * depth / 8);
+        
+        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 400, 1 + timeLeft / 400);
     }
     
     // when the score suddenly changes from the previous turn (both drops

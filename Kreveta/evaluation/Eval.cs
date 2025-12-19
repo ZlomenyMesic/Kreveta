@@ -125,7 +125,6 @@ internal static class Eval {
 
         // side to move should also get a slight advantage
         eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
-        
         return eval;
     }
 

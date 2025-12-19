@@ -24,7 +24,7 @@ internal static class ThreeFold {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Remove(ulong hash) {
         _positions[hash]--;
-        if (_positions[hash] == 0)
+        if (_positions[hash] <= 0)
             _positions.Remove(hash);
     }
 

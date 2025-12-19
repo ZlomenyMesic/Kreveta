@@ -74,7 +74,7 @@ internal static class PVSearch {
         QuietHistory.Shrink();
 
         // these need to be erased, though
-        PawnCorrectionHistory.Realloc();
+        //PawnCorrectionHistory.Realloc();
 
         // store the pv from the previous iteration in tt
         // this should hopefully allow some faster lookups
@@ -86,6 +86,7 @@ internal static class PVSearch {
         SearchState defaultSS = new(
             ply:         0, 
             depth:       (sbyte)CurIterDepth,
+            extensions:  0,
             window:      aspiration,
             //penultimate: default,
             previous:    default,
@@ -136,7 +137,7 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    internal static (short Score, Move[] PV) ProbeTT(ref Board board, SearchState ss, bool isNMP) {
+    private static (short Score, Move[] PV) ProbeTT(ref Board board, SearchState ss, bool isNMP) {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -165,8 +166,11 @@ internal static class PVSearch {
         }*/
         
         // update this position's score in pawncorrhist. we have to do this
-        // here, otherwise repeating positions would take over the whole thing
-        PawnCorrectionHistory.Update(board, result.Score, ss.Depth);
+        // here, otherwise repeating positions would take over the whole thing.
+        // furthermore, the pawn corrections are only updated when the score
+        // is exact. if a bound is returned, the score is usually invalid
+        if (result.Score > ss.Window.Alpha && result.Score < ss.Window.Beta)
+            PawnCorrectionHistory.Update(board, result.Score, ss.Depth);
 
         return result;
     }
@@ -244,11 +248,12 @@ internal static class PVSearch {
         }
 
         // is the color to play currently in check?
-        bool inCheck = Check.IsKingChecked(board, col);
-        short sEval  = board.StaticEval;
+        bool  inCheck    = Check.IsKingChecked(board, col);
+        short staticEval = board.StaticEval;
 
+        //if (rootPawnCorr != 0) Console.WriteLine(rootPawnCorr);
         // update the static eval search stack
-        improvStack.UpdateStaticEval(sEval, ss.Ply);
+        improvStack.UpdateStaticEval(staticEval, ss.Ply);
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
 
@@ -294,11 +299,12 @@ internal static class PVSearch {
             short nmpScore = ProbeTT(
                 ref nullChild,
                 new SearchState(
-                    ply:      (sbyte)(ss.Ply + 1),
-                    depth:    (sbyte)(ss.Depth - R - 1),
-                    window:   nullWindowBeta,
-                    previous: default,
-                    isPVNode: false
+                    ply:        (sbyte)(ss.Ply + 1),
+                    depth:      (sbyte)(ss.Depth - R - 1),
+                    extensions: ss.Extensions,
+                    window:     nullWindowBeta,
+                    previous:   default,
+                    isPVNode:   false
                 ),
                 isNMP: true
             ).Score;
@@ -328,8 +334,8 @@ internal static class PVSearch {
             int margin = 554 + 373 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE
-                    ? sEval + margin < ss.Window.Alpha
-                    : sEval - margin > ss.Window.Beta) {
+                    ? staticEval + margin < ss.Window.Alpha
+                    : staticEval - margin > ss.Window.Beta) {
 
                 return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, isNMP, false), []);
             }
@@ -371,12 +377,12 @@ internal static class PVSearch {
 
         // loop through possible moves
         for (int i = 0; i < moves.Length; i++) {
-            searchedMoves++;
-            
             Move  curMove = moves[i];
             Board child   = board.Clone();
             
             child.PlayMove(curMove, true);
+            
+            searchedMoves++;
             
             ulong hash            = ZobristHash.Hash(in child);
             ulong pieceCount      = ulong.PopCount(child.Occupied);
@@ -399,11 +405,9 @@ internal static class PVSearch {
                 || child.HalfMoveClock >= 100
                 || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount))
                 goto skipPVS;
-
-            // this depth counter is used for this specific
-            // expanded move; reductions may be applied to it
-            int curDepth = ss.Depth - 1;
-            int see      = !isCapture ? 0 : SEE.GetCaptureScore(in board, col, curMove);
+            
+            int  see        = isCapture ? SEE.GetCaptureScore(in board, col, curMove) : 0;
+            bool givesCheck = Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
             
             // once again update the static eval in the improving stack,
             // but this time after the move has been already played
@@ -416,21 +420,36 @@ internal static class PVSearch {
             //    or any move in a PV node
             // 2) the ply is low, and the move is a capture
             // 3) we are escaping check or giving a check
-            bool interesting = searchedMoves == 1 || ss.IsPVNode
-                               || ss.Ply <= 4 && isCapture
-                               || inCheck || Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
+            bool interesting = searchedMoves == 1 || ss.IsPVNode && searchedMoves < 6
+                                                  || ss.Ply <= 4 && isCapture
+                                                  || inCheck || givesCheck;
+
+            // this depth counter is used for this specific
+            // expanded move; reductions may be applied to it
+            int curDepth  = ss.Depth;
+            int extension = 0;
 
             // 5. PV EXTENSIONS
             // extend the search of the first few root moves
-            // (this is done by reducing all other moves)
-            if (ss.Ply == 0 && searchedMoves >= 5)
-                curDepth--;
+            if (ss.Ply == 0 && searchedMoves < 5)
+                extension++;
             
             // 6. SEE REDUCTIONS
             // if a capture seems to be really bad, reduce the depth. oddly enough,
             // restricting these reductions with various conditions doesn't work
-            if (isCapture && see < -100/* && (!ss.IsPVNode || searchedMoves > 3)*/)
-                curDepth--;
+            if (isCapture && see < -100)
+                extension--;
+
+            /*if (extension > 0) {
+                ss.Extensions += (byte)extension;
+
+                if (ss.Extensions > 4) {
+                    extension     = 0;
+                    ss.Extensions = 4;
+                }
+            }*/
+            
+            curDepth += extension - 1;
 
             // 7. FUTILITY PRUNING (FP)
             // we try to discard moves near the leaves, which have no potential of raising alpha.
@@ -497,12 +516,12 @@ internal static class PVSearch {
                              && ss.Ply        >= 4 
                              && searchedMoves >= 3) {
                 int R = 4;
-
+                
                 // depth reduce is larger with bad quiet history
                 if (!isCapture && QuietHistory.GetRep(board, curMove) < -715) R++;
 
                 // some SEE tweaking - worse captures get higher reductions
-                if ( improving || see >= 94) R--;
+                if ( improving || see >= 95) R--;
                 if (!improving && see <  0)  R++;
 
                 // null window around alpha
@@ -512,7 +531,13 @@ internal static class PVSearch {
 
                 // once again a reduced depth search
                 int score = ProbeTT(ref child, 
-                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), nullWindowAlpha, default, false),
+                    new SearchState(
+                        ply:        (sbyte)(ss.Ply + 1),
+                        depth:      (sbyte)(ss.Depth - R),
+                        extensions: ss.Extensions,
+                        window:     nullWindowAlpha,
+                        previous:   default,
+                        isPVNode:   false),
                     isNMP
                 ).Score;
 
@@ -524,13 +549,22 @@ internal static class PVSearch {
                             : score >= ss.Window.Beta) {
                         
                         if (!isNMP) ThreeFold.Remove(hash);
+                        
+                        // in close-to-leaf nodes, once we have searched many moves, and the current
+                        // move seems to be really bad, we cut off this branch and return alpha, as
+                        // we suspect the few following moves are going to be even worse
+                        /*if (ss.Depth <= 2 && !improving && !rootImproving && searchedMoves >= 50) {
+                            somecounter++;
+                            return (col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta, []);
+                        }*/
+                        
+                        // otherwise only prune this move and continue the move loop
                         continue;
                     }
 
                     // 10. LATE MOVE REDUCTIONS (LMR)
-                    // if a late move (from the prior condition) doesn't fail
-                    // low with the reduced search, but is still bad (secured
-                    // by the R condition), it's at least reduced
+                    // if a late move (from the prior condition) doesn't fail low with the reduced
+                    // search, but is still bad (secured by the R condition), it's at least reduced
                     if (ss.Depth == 4 && R >= 5 && !improving)
                         curDepth -= 2 - Math.Sign(see);
                 }

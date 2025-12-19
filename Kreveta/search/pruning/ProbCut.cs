@@ -8,7 +8,7 @@ using Kreveta.consts;
 
 namespace Kreveta.search.pruning;
 
-internal static class ProbCut {
+/*internal static class ProbCut {
 
     private const int InternalR       = 4;
     private const int Margin          = 50;
@@ -42,4 +42,4 @@ internal static class ProbCut {
             ? probCutScore + Margin <= window.Alpha
             : probCutScore - Margin >= window.Beta;
     }
-}
+}*/

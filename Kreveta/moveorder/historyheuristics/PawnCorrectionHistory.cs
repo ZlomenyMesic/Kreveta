@@ -32,7 +32,7 @@ internal static unsafe class PawnCorrectionHistory {
     private const short MaxCorrection = 2048;
 
     // a scale, which lowers the corrections when retrieving
-    private const short CorrScale     = 128;
+    private const short CorrScale     = 32;
 
     // the table itself
     private static short** _correctionTable;
@@ -129,7 +129,7 @@ internal static unsafe class PawnCorrectionHistory {
         // why. this just seems wrong, and i think there should be +
         // instead, but then the engine plays much worse
         return (short)((_correctionTable[(byte)Color.WHITE][wIndex] 
-                        - _correctionTable[(byte)Color.BLACK][bIndex]) / CorrScale);
+                        + _correctionTable[(byte)Color.BLACK][bIndex]) / CorrScale);
     }
 
     // values used when calculating shifts
@@ -141,5 +141,5 @@ internal static unsafe class PawnCorrectionHistory {
     // higher depths and higher diffs obviously have stronger impact
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short Shift(int diff, int depth)
-        => (short)Math.Min(MaxShift, diff * (depth - DepthOffset) / ShiftDivisor);
+        => (short)Math.Min(MaxShift, diff * depth / ShiftDivisor);
 }
