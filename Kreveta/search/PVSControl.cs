@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.moveorder.historyheuristics;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -63,6 +64,7 @@ internal static class PVSControl {
         // might have changed the hash size settings, so we
         // need to update the table before the search
         TT.Init();
+        PawnCorrectionHistory.Realloc();
         
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 7);
@@ -87,8 +89,8 @@ internal static class PVSControl {
             float totalInstability = -6f + scoreInstability + pvInstability;
             
             // try to reduce or increase the time budget based on instability
-            if (PVSearch.CurIterDepth > 3)
-                TimeMan.AccountForInstability(totalInstability);
+            if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
+                TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
             /*if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) { 
                 int delta = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
@@ -139,7 +141,7 @@ internal static class PVSControl {
 
             // try to increase the time budget if the score from the previous
             // turn seems to be significantly different from the current one
-            TimeMan.TryIncreaseTimeBudget();
+            //TimeMan.TryIncreaseTimeBudget();
 
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we

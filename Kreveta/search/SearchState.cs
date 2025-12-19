@@ -20,6 +20,9 @@ internal ref struct SearchState {
     // this number can be reduced.
     internal sbyte Depth;
     
+    // the total number of plies extended, used to limit extensions
+    internal byte Extensions;
+    
     // the current alpha-beta score bounds
     internal Window Window;
     
@@ -30,9 +33,10 @@ internal ref struct SearchState {
     // is this a PV node from the previous search iteration?
     internal bool IsPVNode;
 
-    internal SearchState(sbyte ply, sbyte depth, Window window, /*Move penultimate,*/ Move previous, bool isPVNode) {
+    internal SearchState(sbyte ply, sbyte depth, byte extensions, Window window, /*Move penultimate,*/ Move previous, bool isPVNode) {
         Ply         = ply;
         Depth       = depth;
+        Extensions  = extensions;
         Window      = window;
         //Penultimate = penultimate;
         Previous    = previous;
