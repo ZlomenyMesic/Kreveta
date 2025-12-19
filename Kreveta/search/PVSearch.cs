@@ -465,7 +465,7 @@ internal static class PVSearch {
                 // depth 2 it should be more like the value of a rook."
                 // we don't really follow this exactly, but our approach is kind of similar
                 int margin = 95 + 97 * ss.Depth
-                                + 2 * childPawnCorr              // this acts like a measure of uncertainty
+                                + childPawnCorr              // this acts like a measure of uncertainty
                                 + (improving ? 0 : -23)          // not improving nodes prune more
                                 + Math.Clamp(see / 122, -39, 17) // tweak the margin based on SEE
                                 + windowSize;                    // another measure of uncertainty
