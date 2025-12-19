@@ -22,14 +22,14 @@ internal static class Score {
     // creates a new mate score relative to the number of plies
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short CreateMateScore(Color col, int ply)
-        => (short)((col == Color.WHITE ? -1 : 1) * (MateScoreDefault - ply));
+        => (short)((MateScoreDefault - ply) * (col == Color.WHITE ? -1 : 1));
 
     // checks whether the score falls above the mate score threshold
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsMateScore(int score)
         => Math.Abs(score) > MateScoreThreshold;
 
-    // when printing a mate score, we prefer the "mate in X" format,
+    // when printing a mate score, we prefer the "mate in x" format,
     // so we convert the score to the number of plies until mate
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetMateInX(int score) {

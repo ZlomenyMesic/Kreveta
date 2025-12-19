@@ -99,9 +99,8 @@ internal static class SEE {
             : Color.WHITE;
 
         // simulate recaptures
-        while (true)
-        {
-            var attacker = FindLeastValuableAttacker(pieces, occ, target, side, board);
+        while (true) {
+            var attacker = FindLVA(pieces, occ, target, side, board);
             if (attacker.square == -1) break;
 
             depth++;
@@ -129,9 +128,7 @@ internal static class SEE {
 
         // Backwards minimax reduction (indexes > 0 only)
         for (int i = depth - 1; i > 0; --i)
-        {
             captures[i] = Math.Max(0, captures[i] - captures[i + 1]);
-        }
 
         // No recapture existed => we simply won material
         if (depth == 0)
@@ -140,12 +137,9 @@ internal static class SEE {
         // Initial capture is real and must be counted
         return captures[0] - captures[1];
     }
-
-    // Matches your engine helpers' expected occupancy parameters.
-    // pieces[] is mutable copy of piece bitboards; occ is current occupancy.
-    private static (int square, PType type) FindLeastValuableAttacker(
-        Span<ulong> pieces, ulong occ, byte targetSq, Color stm, in Board board)
-    {
+    
+    private static (int square, PType type) FindLVA(
+        Span<ulong> pieces, ulong occ, byte targetSq, Color stm, in Board board) {
         Color opp = stm == Color.BLACK ? Color.WHITE : Color.BLACK;
         int colBase = stm == Color.WHITE ? 0 : 6;
 
