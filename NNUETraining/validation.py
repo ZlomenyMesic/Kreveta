@@ -21,7 +21,7 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 
 FEATURE_COUNT     = 40960
-EMBED_DIM         = 256
+EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 32
 
@@ -83,10 +83,10 @@ def board_features(board: chess.Board):
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index(
-            king_square  = b_king_sq ^ 56,
+            king_square  = b_king_sq ^ 56 ^ 7,
             piece_type   = piece.piece_type,
             is_black     = not is_black,
-            piece_square = sq ^ 56
+            piece_square = sq ^ 56 ^ 7
         )
 
         w_indices.append(idx_w)

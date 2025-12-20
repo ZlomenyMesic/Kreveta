@@ -137,7 +137,7 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    internal static (short Score, Move[] PV) ProbeTT(ref Board board, SearchState ss, bool isNMP) {
+    private static (short Score, Move[] PV) ProbeTT(ref Board board, SearchState ss, bool isNMP) {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -245,11 +245,8 @@ internal static class PVSearch {
         }
 
         // is the color to play currently in check?
-        bool inCheck = Check.IsKingChecked(board, col);
-        short staticEval  = board.StaticEval;
-
-        // update the static eval search stack
-        improvStack.UpdateStaticEval(staticEval, ss.Ply);
+        bool inCheck     = Check.IsKingChecked(board, col);
+        short staticEval = board.StaticEval;
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
 
@@ -314,7 +311,8 @@ internal static class PVSearch {
             }
         }
         
-        // has the static eval improved from two plies ago?
+        // update the static eval search stack
+        improvStack.UpdateStaticEval(staticEval, ss.Ply);
         bool rootImproving = improvStack.IsImproving(ss.Ply, col);
 
         // 3. RAZORING
@@ -344,18 +342,6 @@ internal static class PVSearch {
             if (col == Color.BLACK && staticEval + margin < ss.Window.Alpha)
                 return (ss.Window.Alpha, []);
         }
-        
-        // probcut is similar to nmp, but reduces nodes that fail low.
-        // more info once again directly in the probcut source file
-        /*if (PruningOptions.AllowProbCut
-            && CurDepth >= ProbCut.MinIterDepth
-            && ss.Depth == ProbCut.ReductionDepth
-            && !inCheck) {
-            
-            // we failed low => don't prune completely, but reduce the depth
-            if (!improvStack.IsImproving(ss.Ply, col) && ProbCut.TryReduce(ref board, ss.Ply, ss.Depth, ss.Window))
-                ss.Depth -= ProbCut.R;
-        }*/
         
         // all legal moves sorted from best to worst (only a guess).
         // take a look at MoveOrder to understand better
@@ -415,7 +401,7 @@ internal static class PVSearch {
             
             // once again update the static eval in the improving stack,
             // but this time after the move has been already played
-            improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1); 
+            improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1);
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
 
             // if a move is deemed as interesting, the branch is
@@ -431,19 +417,39 @@ internal static class PVSearch {
 
             // this depth counter is used for this specific expanded move;
             // reductions and extensions may be applied
-            int curDepth = ss.Depth - 1;
+            int curDepth  = ss.Depth;
+            int reduction = 1442;
             
-            // 5. PV EXTENSIONS
             // extend the search of the first few root moves
             // (this is done by reducing all other moves)
             if (ss.Ply == 0 && searchedMoves >= 5)
-                curDepth--;
+                reduction += 996;
             
-            // 6. SEE REDUCTIONS
             // if a capture seems to be really bad, reduce the depth. oddly enough,
             // restricting these reductions with various conditions doesn't work
-            if (isCapture && see < -100/* && (!ss.IsPVNode || searchedMoves > 3)*/)
-                curDepth--;
+            if (isCapture && see < -100)
+                reduction += 1071;
+
+            // further extension/reduction based on SEE
+            reduction -= see * 63 / 100;
+            
+            // if improving, reduce less
+            reduction += improving     ? -31 : 48;
+            reduction += rootImproving ? -40 : 30;
+            
+            // check and capture extensions
+            if (inCheck)    reduction -= 221;
+            if (givesCheck) reduction -= 217;
+            if (isCapture)  reduction -= 106;
+
+            // queen promotion idea
+            if (curMove.Promotion == PType.QUEEN)
+                reduction -= 181;
+
+            if (ss.Ply != 0)
+                reduction = Math.Max(1024, reduction);
+            
+            curDepth -= reduction / 1024;
 
             // 7. FUTILITY PRUNING (FP)
             // we try to discard moves near the leaves, which have no potential of raising alpha.

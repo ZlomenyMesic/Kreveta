@@ -40,7 +40,7 @@ BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
 
-EMBED_DIM         = 256
+EMBED_DIM         = 128
 H1_NEURONS        = 16
 H2_NEURONS        = 32
 BATCH_SIZE        = 4096
@@ -132,10 +132,10 @@ def board_features(board: chess.Board):
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index(
-            king_square  = b_king_sq ^ 56,
+            king_square  = b_king_sq ^ 56 ^ 7,
             piece_type   = piece.piece_type,
             is_black     = not is_black,
-            piece_square = sq ^ 56
+            piece_square = sq ^ 56 ^ 7
         )
 
         m_idx_w = feature_index(
@@ -145,10 +145,10 @@ def board_features(board: chess.Board):
             piece_square = m_sq
         )
         m_idx_b = feature_index(
-            king_square  = m_b_king_sq ^ 56,
+            king_square  = m_b_king_sq ^ 56 ^ 7,
             piece_type   = piece.piece_type,
             is_black     = not is_black,
-            piece_square = m_sq ^ 56
+            piece_square = m_sq ^ 56 ^ 7
         )
 
         w_indices.append(idx_w)
@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 3e-4,
-        decay_rate            = 0.99987, # 0.99991
+        initial_learning_rate = 7e-4,
+        decay_rate            = 0.99981, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )
@@ -346,7 +346,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(4, 10)
+                    move_depth = rng.randint(3, 10)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
