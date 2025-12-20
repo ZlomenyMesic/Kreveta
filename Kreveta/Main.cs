@@ -59,10 +59,7 @@ internal static class Program {
         
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue
-        Thread.Sleep(100);
-        
-        // just for experimental purposes
-        //Tuning.ShiftParams();
+        Thread.Sleep(300);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position

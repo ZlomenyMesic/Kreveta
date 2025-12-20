@@ -15,13 +15,13 @@ WEIGHTS_PATH  = "weights\\nnue_weights.bin"
 SHAPES_PATH   = "weights\\nnue_shapes.json"
 
 FEATURE_COUNT = 40960
-EMBED_DIM     = 256
+EMBED_DIM     = 128
 H1_NEURONS    = 16
 H2_NEURONS    = 32
 
 LEARNING_RATE = 1e-2
-BATCH_SIZE    = 4096
-EPOCHS        = 2   # increase later
+BATCH_SIZE    = 8192
+EPOCHS        = 1   # increase later
 
 BUCKET_TABLE = tf.constant([
     0, 0, 0, 0, 0,
@@ -74,8 +74,6 @@ def board_features(board: chess.Board):
         # piece_color True if black, False if white
         is_black = piece.color == chess.BLACK
 
-        m_sq = (7 - (sq & 7)) + (8 * (sq >> 3))
-
         # index into white accumulator (white king as reference)
         idx_w = feature_index(
             king_square  = w_king_sq,
@@ -85,10 +83,10 @@ def board_features(board: chess.Board):
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index(
-            king_square  = b_king_sq ^ 56,
+            king_square  = b_king_sq ^ 56 ^ 7,
             piece_type   = piece.piece_type,
             is_black     = not is_black,
-            piece_square = sq ^ 56
+            piece_square = sq ^ 56 ^ 7
         )
 
         w_indices.append(idx_w)
