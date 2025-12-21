@@ -194,13 +194,10 @@ internal static class PVSearch {
         // just to simplify who's turn it is
         Color col = board.Color;
 
-        // 1. MATE DISTANCE PRUNING
-        // if we found a mate score in the previous iteration, we return if
-        // the ply we are currently at is larger than the already found mate
-        // (if we found let's say mate in 7, it doesn't make any sense to
-        // search past ply 7, since whatever we find won't matter anyway).
-        // we do, however, still want to search at lower plies in case we
-        // find a shorter path to mate
+        // 1. MATE DISTANCE PRUNING (0 Elo)
+        // this is a weird variant of MDP, not sure whether it actually helps, but
+        // if a mate score has been found in the previous iteration, and isn't yet
+        // projected into the current one, we still don't search past the said ply
         if (Score.IsMateScore(PVScore)) {
             int matePly = Math.Abs(Score.GetMateInX(PVScore));
             if (ss.Ply > matePly)
@@ -216,7 +213,6 @@ internal static class PVSearch {
                 return (Score.CreateMateScore(col, ss.Ply + 1), []);
         }
             
-        // and the same for black
         else if (col == Color.BLACK && Score.IsMateScore(ss.Window.Beta) && ss.Window.Beta < 0) {
             int matePly = -Score.GetMateInX(ss.Window.Beta);
             if (ss.Ply >= matePly)
@@ -255,49 +251,50 @@ internal static class PVSearch {
         ss.IsPV = ss.IsPV && (ss.Ply == 0 
                                       || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.Previous);
         
-        // 2. NULL-MOVE PRUNING (NMP)
-        // we assume that in every position there is at least one move that
-        // improves it. first, we play a null move (only switching sides),
-        // and then perform a reduced search with a null window around beta.
-        // if the returned score fails high, we expect that not skipping our
-        // move would "fail even higher", and thus can prune this node
+        // 2. NULL MOVE PRUNING (~107 Elo)
+        // we assume that in every position there is at least one move that improves it. first,
+        // we play a null move (only switching sides), and then perform a reduced search with
+        // a null window around beta. if the returned score fails high, we expect that not
+        // skipping our move would "fail even higher", and thus can prune this node
         if (ss.Ply >= MinNMPPly      // minimum ply for nmp
             && !inCheck              // don't prune when in check
-            && board.GamePhase() > 2 // don't prune in endgames
+            && board.GamePhase() > 0 // don't prune in absolute endgames
 
             // in the early stages of the search, alpha and beta are set to
             // their limit values, so doing the reduced search would only
             // waste time, since we are unable to fail high
             && (col == Color.WHITE
                 ? ss.Window.Beta  < short.MaxValue
-                : ss.Window.Alpha > short.MinValue)) {
+                : ss.Window.Alpha > short.MinValue)
+            
+            && (col == Color.WHITE
+                ? staticEval >= ss.Window.Beta  - 3 * ss.Depth
+                : staticEval <= ss.Window.Alpha + 3 * ss.Depth)) {
             
             // null window around beta
             Window nullWindowBeta = col == Color.WHITE 
                 ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta) 
                 : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
 
-            // child with no move played
-            Board nullChild = board.GetNullChild();
-
-            // the reduction is based on ply, depth, etc.
-            int R = Math.Min(ss.Ply - 2, 2 + CurIterDepth / 4);
-        
-            // once we reach a certain depth iteration, we start pruning
-            // a bit more aggressively - it isn't as important to be careful
-            // later than it is at the beginning.
-            if (CurIterDepth > 8) R += ss.Depth / 5;
+            // child with a move skipped
+            var nullChild = board.Clone() with {
+                EnPassantSq = 64,
+                Color = (Color)((int)col ^ 1)
+            };
+            
+            // the depth reduction
+            int R = 7 + ss.Depth / 3;
 
             // perform the reduced search
             short nmpScore = ProbeTT(
                 ref nullChild,
                 new SearchState(
                     ply:        (sbyte)(ss.Ply + 1),
-                    depth:      (sbyte)(ss.Depth - R - 1),
+                    depth:      (sbyte)(ss.Depth - R),
                     extensions: ss.Extensions,
                     window:     nullWindowBeta,
                     previous:   default,
-                    isPv:   false
+                    isPv:       false
                 ),
                 isNMP: true
             ).Score;
@@ -315,7 +312,7 @@ internal static class PVSearch {
         improvStack.UpdateStaticEval(staticEval, ss.Ply);
         bool rootImproving = improvStack.IsImproving(ss.Ply, col);
 
-        // 3. RAZORING
+        // 3. RAZORING (~18 Elo)
         // (kind of inspired by Stockfish) if a position is very, very bad, we skip the
         // move expansion and return qsearch score instead. this cannot be done when in check
         if (!ss.IsPV && !inCheck && !rootImproving) {
@@ -326,11 +323,14 @@ internal static class PVSearch {
                     ? staticEval + margin < ss.Window.Alpha
                     : staticEval - margin > ss.Window.Beta) {
 
-                return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, isNMP, false), []);
+                // perform the quiescence search and ensure it actually fails low
+                short qEval = QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, isNMP, false);
+                if (col == Color.WHITE ? qEval <= ss.Window.Alpha : qEval >= ss.Window.Beta)
+                    return (qEval, []);
             }
         }
         
-        // 4. STATIC NULL MOVE PRUNING
+        // 4. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
         if (!ss.IsPV && !inCheck && rootImproving) {
@@ -347,7 +347,7 @@ internal static class PVSearch {
         // take a look at MoveOrder to understand better
         var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Previous, out bool isTTMove);
 
-        // 4. INTERNAL ITERATIVE REDUCTIONS (IIR)
+        // 4. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
@@ -415,8 +415,11 @@ internal static class PVSearch {
                                || ss.Ply <= 4 && isCapture
                                || inCheck     || givesCheck;
 
-            // this depth counter is used for this specific expanded move;
-            // reductions and extensions may be applied
+            // 5. REDUCTIONS (~50 Elo)
+            // this depth counter is used for this specific expanded move,
+            // and various reductions are applied to it, if the move seems
+            // to not be promising. other factors may revert the reductions,
+            // if the move is interesting, but extensions are never applied
             int curDepth  = ss.Depth;
             int reduction = 1442;
             
@@ -446,12 +449,13 @@ internal static class PVSearch {
             if (curMove.Promotion == PType.QUEEN)
                 reduction -= 181;
 
+            // now make sure that a true extension isn't applied
             if (ss.Ply != 0)
                 reduction = Math.Max(1024, reduction);
             
             curDepth -= reduction / 1024;
 
-            // 7. FUTILITY PRUNING (FP)
+            // 7. FUTILITY PRUNING (~56 Elo)
             // we try to discard moves near the leaves, which have no potential of raising alpha.
             // futility margin represents the largest possible score gain through a single move.
             // if we add this margin to the static eval of the position and still don't raise
@@ -481,6 +485,7 @@ internal static class PVSearch {
                     continue;
                 }
 
+                // FUTILITY CUTOFFS (~25 Elo)
                 // a small idea i had - if the leaf or close to leaf nodes seem
                 // to be really bad, we try to fail low by adding the futility
                 // margin to the static eval of the current position, not the child
@@ -508,7 +513,7 @@ internal static class PVSearch {
                 }
             }
             
-            // 9. LATE MOVE PRUNING (LMP)
+            // 9. LATE MOVE PRUNING
             // after we have searched a couple of moves, we expect the rest to be worse
             // and not raise alpha. to verify this, we perform a greatly reduced search
             // with a null window around alpha. if it fails low, we prune the branch
@@ -546,7 +551,7 @@ internal static class PVSearch {
                         continue;
                     }
 
-                    // 10. LATE MOVE REDUCTIONS (LMR)
+                    // 10. LATE MOVE REDUCTIONS
                     // if a late move (from the prior condition) doesn't fail
                     // low with the reduced search, but is still bad (secured
                     // by the R condition), it's at least reduced

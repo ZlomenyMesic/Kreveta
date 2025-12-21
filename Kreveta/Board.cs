@@ -333,20 +333,6 @@ internal struct Board {
 
     #endregion
 
-    // creates a child board with a null move played.
-    // a null move is exactly what it sounds like; no
-    // piece is moved. this is used for NMP
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal Board GetNullChild() {
-        Board @null = Clone() with {
-            EnPassantSq = 64, 
-            Color = (Color)((int)Color ^ 1)
-        };
-        
-        return @null;
-    }
-
     // checks whether a move is legal from this position.
     // this is done by using the reversible XOR-only play
     // move function, which turns out to be faster than

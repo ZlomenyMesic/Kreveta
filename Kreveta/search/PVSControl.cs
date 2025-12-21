@@ -67,7 +67,7 @@ internal static class PVSControl {
         PawnCorrectionHistory.Realloc();
         
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
-        PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 7);
+        PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 6);
 
         // we still have time and are allowed to search deeper
         while (PVSearch.CurIterDepth < CurMaxDepth 
