@@ -1,4 +1,4 @@
-﻿//
+﻿﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -86,13 +86,12 @@ internal static class PVSearch {
         improvStack.Expand(CurIterDepth);
 
         SearchState defaultSS = new(
-            ply:         0, 
-            depth:       (sbyte)CurIterDepth,
-            extensions:  0,
-            window:      aspiration,
-            //penultimate: default,
-            previous:    default,
-            isPv:    true
+            ply:        0, 
+            depth:      (sbyte)CurIterDepth,
+            extensions: 0,
+            window:     aspiration,
+            previous:   default,
+            isPv:       true
         );
 
         // actual start of the search tree
@@ -131,7 +130,7 @@ internal static class PVSearch {
         // loop all pv-nodes
         for (int i = 0; i < pv.Length; i++) {
             // store the pv-node
-            TT.Store(board, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
+            TT.Store(board.Hash, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
             board.PlayMove(pv[i], false);
@@ -145,7 +144,7 @@ internal static class PVSearch {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
-        if (ss.Ply >= TT.MinProbingPly && TT.TryGetScore(board, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
+        if (ss.Ply >= TT.MinProbingPly && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
             CurNodes++;
             PVSControl.TotalNodes++;
 
@@ -158,7 +157,7 @@ internal static class PVSearch {
 
         // no heuristics should ever be updated when in NMP null-move search,
         // as the position is likely illegal and would pollute the ecosystem
-        TT.Store(board, ss.Depth, ss.Ply, ss.Window, result.Score, result.PV.Length != 0 ? result.PV[0] : default);
+        TT.Store(board.Hash, ss.Depth, ss.Ply, ss.Window, result.Score, result.PV.Length != 0 ? result.PV[0] : default);
         
         // store the current two-move sequence in countermove history - the previously
         // played move, and the best response (counter) to this move found by the search
@@ -262,12 +261,14 @@ internal static class PVSearch {
             Window nullWindowBeta = col == Color.WHITE 
                 ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta) 
                 : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
-
+            
             // child with a move skipped
             var nullChild = board.Clone() with {
                 EnPassantSq = 64,
-                Color = (Color)((int)col ^ 1)
+                Color       = (Color)((int)col ^ 1)
             };
+            
+            nullChild.Hash = ZobristHash.Hash(in nullChild);
             
             // the depth reduction
             int R = 7 + ss.Depth / 3;
@@ -677,8 +678,7 @@ internal static class PVSearch {
                     NextBestMove = curMove; 
 
                 // store the new best move in tt
-                // TODO - CHANGE #1 - CURDEPTH
-                TT.Store(board, (sbyte)curDepth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
+                TT.Store(board.Hash, (sbyte)curDepth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
 
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];

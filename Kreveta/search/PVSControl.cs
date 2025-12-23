@@ -178,7 +178,6 @@ internal static class PVSControl {
         // reset all counters for the next search
         // (not the next iteration of the current one)
         PVSearch.Reset();
-        ThreeFold.Clear();
         
         TotalNodes = 0UL;
         PVChanges  = 0;
@@ -278,7 +277,7 @@ internal static class PVSControl {
         int depth = PVSearch.PV.Length;
 
         // try going deeper through the transposition table
-        while (TT.TryGetBestMove(board, out Move ttMove)) {
+        while (TT.TryGetBestMove(board.Hash, out Move ttMove)) {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable

@@ -50,7 +50,7 @@ internal static unsafe class MoveOrder {
         int cur = 0, curCapt = 0;
         
         // 1. TT STORED BEST MOVE
-        if (TT.TryGetBestMove(board, out Move ttMove) && ttMove != default) {
+        if (TT.TryGetBestMove(board.Hash, out Move ttMove) && ttMove != default) {
             for (int i = 0; i < legalCount; i++) {
                 if (legal[i] == ttMove) {
                     sorted[cur++] = ttMove;

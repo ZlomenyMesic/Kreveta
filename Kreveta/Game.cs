@@ -1,4 +1,4 @@
-﻿//
+﻿﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -15,7 +15,6 @@ using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
-using System.Collections.Generic;
 
 // ReSharper disable InconsistentNaming
 
@@ -47,6 +46,7 @@ internal static class Game {
     internal static void SetStartpos(ReadOnlySpan<string> tokens) {
         Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
+        ThreeFold.Clear();
         
         PlayMoves(tokens);
     }
@@ -64,6 +64,7 @@ internal static class Game {
 
         // clear the board from previous game/search
         Board = new Board();
+        ThreeFold.Clear();
         
         // the first token is the actual position. all ranks are separated by a "/". between the
         // slashes, pieces may be denoted with the simple "pnbrqk" or the uppercase variants for

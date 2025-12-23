@@ -15,6 +15,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 using Kreveta.uci.options;
 
@@ -76,6 +77,7 @@ internal struct Board {
 
     internal NNUEEvaluator NNUEEval;
     internal short         StaticEval = 0;
+    internal ulong         Hash       = 0UL;
 
     public Board() {
         Pieces   = new ulong[12];
@@ -102,9 +104,7 @@ internal struct Board {
         // we shouldn't ever get here
         return PType.NONE;
     }
-
-    #region MOVEPLAY    
-
+    
     // performs a move on the board
     internal void PlayMove(Move move, bool updateStaticEval) {
         EnPassantSq = 64;
@@ -256,6 +256,8 @@ internal struct Board {
             NNUEEval.Update(in this, move, col);
             StaticEval = (short)((NNUEEval.Score + Eval.StaticEval(in this)) / 2);
         }
+
+        Hash = ZobristHash.Hash(in this);
     }
 
     private void PlayReversibleMove(Move move) {
@@ -330,9 +332,7 @@ internal struct Board {
         if (col == Color.WHITE) WOccupied ^= start | end;
         else                    BOccupied ^= start | end;
     }
-
-    #endregion
-
+    
     // checks whether a move is legal from this position.
     // this is done by using the reversible XOR-only play
     // move function, which turns out to be faster than
@@ -505,6 +505,7 @@ internal struct Board {
 
         board.NNUEEval   = new NNUEEvaluator(in board);
         board.StaticEval = 17;
+        board.Hash       = ZobristHash.Hash(in board);
         
         return board;
     }

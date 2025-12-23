@@ -60,10 +60,6 @@ internal static class Eval {
         byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
         
         ReadOnlySpan<ulong> pieces = board.Pieces;
-
-        // don't check for insufficient material draw if there are more than 4 pieces
-        if (pieceCount <= 4 && IsInsufficientMaterialDraw(pieces, pieceCount))
-            return 0;
         
         short wEval = 0, bEval = 0;
         

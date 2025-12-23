@@ -104,8 +104,7 @@ internal static unsafe partial class TT {
     }*/
 
     // store a position in the table. the best move doesn't have to be specified
-    internal static void Store(in Board board, sbyte depth, int ply, Window window, short score, Move bestMove) {
-        ulong hash = ZobristHash.Hash(board);
+    internal static void Store(ulong hash, sbyte depth, int ply, Window window, short score, Move bestMove) {
         int i = HashIndex(hash);
 
         // maybe an entry is already stored
@@ -157,8 +156,7 @@ internal static unsafe partial class TT {
         Table[i] = entry;
     }
 
-    internal static bool TryGetBestMove(in Board board, out Move bestMove) {
-        ulong hash = ZobristHash.Hash(board);
+    internal static bool TryGetBestMove(ulong hash, out Move bestMove) {
         bestMove = default;
 
         int i = HashIndex(hash);
@@ -178,8 +176,7 @@ internal static unsafe partial class TT {
         return false;
     }
 
-    internal static bool TryGetScore(in Board board, int depth, int ply, Window window, out short score) {
-        ulong hash = ZobristHash.Hash(board);
+    internal static bool TryGetScore(ulong hash, int depth, int ply, Window window, out short score) {
         score = 0;
 
         int   i     = HashIndex(hash);
