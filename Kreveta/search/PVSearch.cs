@@ -96,7 +96,7 @@ internal static class PVSearch {
         );
 
         // actual start of the search tree
-        (PVScore, PV) = Search(ref Game.Board, defaultSS, false);
+        (PVScore, PV) = Search<RootNode>(ref Game.Board, defaultSS, false);
     }
     // completely reset everything
     internal static void Reset() {
@@ -140,7 +140,8 @@ internal static class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    private static (short Score, Move[] PV) ProbeTT(ref Board board, SearchState ss, bool isNMP) {
+    private static (short Score, Move[] PV) ProbeTT<NodeType>(ref Board board, SearchState ss, bool isNMP) 
+        where NodeType : ISearchNodeType {
 
         // did we find the position and score?
         // we also need to check the ply, since too early tt lookups cause some serious blunders
@@ -153,7 +154,7 @@ internal static class PVSearch {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        var result = Search(ref board, ss, isNMP);
+        var result = Search<NodeType>(ref board, ss, isNMP);
 
         // no heuristics should ever be updated when in NMP null-move search,
         // as the position is likely illegal and would pollute the ecosystem
@@ -176,23 +177,19 @@ internal static class PVSearch {
     }
     
     // finally the actual PVS recursive function:
-    // ply starts at zero and increases each ply (no shit sherlock).
-    // depth, on the other hand, starts at the highest value and decreases over time.
-    // once we get to depth = 0, we drop into the qsearch.
-    private static (short Score, Move[] PV) Search(
-        ref Board board, // the position to be searched
-        SearchState ss,  // stores window, color, ply, depth, previous move
-        bool isNMP       // is the search running from NMP?
-        ) {
+    // ply starts at zero and increases each ply (no shit sherlock). depth,
+    // on the other hand, starts at the highest value and decreases over
+    // time. once we get to depth = 0, we drop into the qsearch.
+    private static (short Score, Move[] PV) Search<NodeType>(ref Board board, SearchState ss, bool isNMP)
+        where NodeType : ISearchNodeType {
+        
+        bool isRoot = typeof(NodeType) == typeof(RootNode);
+        bool isPV   = typeof(NodeType) == typeof(PVNode) || isRoot;
 
         // either crossed the time budget or maximum nodes.
         // we also cannot abort the first iteration - no bestmove
         if (Abort && CurIterDepth > 1)
             return (0, []);
-        
-        // increase the nodes searched counter
-        CurNodes++;
-        PVSControl.TotalNodes++;
 
         // just to simplify who's turn it is
         Color col = board.Color;
@@ -223,25 +220,12 @@ internal static class PVSearch {
         }
 
         // we reached depth zero or lower => evaluate the leaf node though qsearch
-        if (ss.Depth <= 0) {
-            
-            // we incremented this value above, but if we go into qsearch, we must
-            // decrement it, so the node doesn't count twice (qsearch counts it too)
-            CurNodes--;
-            PVSControl.TotalNodes--;
-            
-            /*Span<Move> captures = stackalloc Move[Consts.MoveBufferSize];
-            int count = Movegen.GetLegalMoves(ref board, captures, true);
-
-            int qsDepth = 12 + count;
-            
-            if (Check.IsKingChecked(in board, col))
-                qsDepth += 2;
-
-            qsDepth = Math.Clamp(qsDepth, 12, 18);*/
-            
+        if (ss.Depth <= 0)
             return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, isNMP, false), []);
-        }
+        
+        // increase the nodes searched counter
+        CurNodes++;
+        PVSControl.TotalNodes++;
 
         // is the color to play currently in check?
         bool inCheck     = Check.IsKingChecked(board, col);
@@ -289,7 +273,7 @@ internal static class PVSearch {
             int R = 7 + ss.Depth / 3;
 
             // perform the reduced search
-            short nmpScore = ProbeTT(
+            short nmpScore = ProbeTT<NonPVNode>(
                 ref nullChild,
                 new SearchState(
                     ply:        (sbyte)(ss.Ply + 1),
@@ -363,14 +347,14 @@ internal static class PVSearch {
         }
 
         // counter for expanded nodes
-        int searchedMoves = 0;
+        int expandedNodes = 0;
 
         // pv continuation to be appended?
         Move[] pv = [];
 
         // loop through possible moves
         for (int i = 0; i < moves.Length; i++) {
-            searchedMoves++;
+            expandedNodes++;
             
             Move  curMove = moves[i];
             Board child   = board.Clone();
@@ -414,7 +398,7 @@ internal static class PVSearch {
             //    or any move in a PV node
             // 2) the ply is low, and the move is a capture
             // 3) we are escaping check or giving a check
-            bool interesting = searchedMoves == 1 
+            bool interesting = expandedNodes == 1 
                                || ss.IsPV
                                || ss.Ply <= 4 && isCapture
                                || inCheck     || givesCheck;
@@ -424,7 +408,7 @@ internal static class PVSearch {
             
             // extend the search of the first few root moves
             // (this is done by reducing all other moves)
-            if (ss.Ply == 0 && searchedMoves >= 5)
+            if (ss.Ply == 0 && expandedNodes >= 5)
                 reduction += 996;
             
             // if a capture seems to be really bad, reduce the depth. oddly enough,
@@ -511,12 +495,61 @@ internal static class PVSearch {
                     }
                 }
             }
+
+            int  maxExpNodes = (isTTMove ? 1 : 4) + (isPV ? 3 : 0);
+            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 300;
+
+            if (!skipLMP) {
+                int R = 4;
+
+                // depth reduce is larger with bad quiet history
+                if (!isCapture && QuietHistory.GetRep(board, curMove) < -715) R++;
+
+                // some SEE tweaking - worse captures get higher reductions
+                if ( improving || see >= 94) R--;
+                if (!improving && see <  0)  R++;
+
+                // null window around alpha
+                var nullWindowAlpha = col == Color.WHITE
+                    ? new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
+                    : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
+
+                // once again a reduced depth search
+                int score = ProbeTT<NonPVNode>(ref child, 
+                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.Extensions, nullWindowAlpha, default, false),
+                    isNMP
+                ).Score;
+                
+                if (col == Color.WHITE
+                        ? score <= ss.Window.Alpha
+                        : score >= ss.Window.Beta) {
+                        
+                    if (!isCapture)
+                        QuietHistory.ChangeRep(board, curMove, ss.Depth - R, isMoveGood: false);
+                        
+                    if (!isNMP) ThreeFold.Remove(hash);
+                    continue;
+                }
+            }
+
+            if (!skipLMP && curDepth < ss.Depth - 1)
+                curDepth++;
+            
+            fullSearch = ProbeTT<PVNode>(
+                ref child, 
+                ss with { 
+                    Ply      = (sbyte)(ss.Ply + 1),
+                    Depth    = (sbyte)curDepth, 
+                    Previous = curMove
+                },
+                isNMP
+            );
             
             // 9. LATE MOVE PRUNING
             // after we have searched a couple of moves, we expect the rest to be worse
             // and not raise alpha. to verify this, we perform a greatly reduced search
             // with a null window around alpha. if it fails low, we prune the branch
-            if (!interesting && see < 300 
+            /*if (!interesting && see < 300 
                              && ss.Ply        >= 4 
                              && searchedMoves >= 3) {
                 int R = 4;
@@ -616,7 +649,7 @@ internal static class PVSearch {
                     },
                     isNMP
                 );
-            }
+            }*/
             
             skipPVS:
             if (!isNMP) ThreeFold.Remove(hash);
@@ -677,7 +710,7 @@ internal static class PVSearch {
             
         // if we got here, it means we have searched through
         // the moves, but haven't got a beta cutoff
-        return searchedMoves == 0 
+        return expandedNodes == 0 
 
             // we didn't expand any nodes - terminal node
             // (no legal moves exist)
