@@ -6,7 +6,8 @@
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
-using Kreveta.moveorder.historyheuristics;
+using Kreveta.moveorder.history;
+using Kreveta.moveorder.history.corrections;
 using Kreveta.nnue;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
@@ -74,7 +75,7 @@ internal static class Program {
         // manually allocated memory is spread throughout the whole
         // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
-            ((Action)TT.Clear + PerftTT.Clear + PawnCorrectionHistory.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear + ZobristHash.Clear)();
+            ((Action)TT.Clear + PerftTT.Clear + PawnCorrections.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear + ZobristHash.Clear)();
         }
     }
 }

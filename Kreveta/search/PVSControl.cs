@@ -6,7 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.moveorder.historyheuristics;
+using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -64,7 +64,8 @@ internal static class PVSControl {
         // might have changed the hash size settings, so we
         // need to update the table before the search
         TT.Init();
-        PawnCorrectionHistory.Realloc();
+        PawnCorrections.Realloc();
+        KingCorrections.Clear();
         
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 6);

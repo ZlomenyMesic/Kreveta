@@ -7,7 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
-using Kreveta.moveorder.historyheuristics;
+using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
 
 using System;
@@ -74,7 +74,7 @@ internal static class QSearch {
 
         // don't try to cutoff when in check
         if (!inCheck) {
-            short corr = PawnCorrectionHistory.GetCorrection(in board);
+            short corr = Corrections.Get(in board);
             
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
