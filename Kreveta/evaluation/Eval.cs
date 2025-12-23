@@ -6,7 +6,6 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
-using Kreveta.moveorder.historyheuristics;
 
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming

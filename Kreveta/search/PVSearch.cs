@@ -7,7 +7,8 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
-using Kreveta.moveorder.historyheuristics;
+using Kreveta.moveorder.history;
+using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -74,7 +75,8 @@ internal static class PVSearch {
         QuietHistory.Shrink();
 
         // these need to be erased, though
-        PawnCorrectionHistory.Realloc();
+        PawnCorrections.Realloc();
+        KingCorrections.Clear();
 
         // store the pv from the previous iteration in tt
         // this should hopefully allow some faster lookups
@@ -113,9 +115,10 @@ internal static class PVSearch {
 
         Killers.Clear();
         QuietHistory.Clear();
-        PawnCorrectionHistory.Clear();
         CounterMoveHistory.Clear();
-        //ContinuationHistory.Clear();
+        
+        PawnCorrections.Clear();
+        KingCorrections.Clear();
         
         TT.Clear();
     }
@@ -167,7 +170,7 @@ internal static class PVSearch {
         
         // update this position's score in pawncorrhist. we have to do this
         // here, otherwise repeating positions would take over the whole thing
-        PawnCorrectionHistory.Update(board, result.Score, ss.Depth);
+        Corrections.Update(board, result.Score, ss.Depth);
 
         return result;
     }
@@ -352,8 +355,8 @@ internal static class PVSearch {
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
-        if (!ss.IsPV && !isTTMove && !inCheck 
-            && ss.Depth >= 5 && ss.Ply >= 3 
+        if (!ss.IsPV && !isTTMove && !inCheck
+            && ss.Depth >= 5 && ss.Ply >= 3
             && ss.Window.Alpha + 1 < ss.Window.Beta) {
 
             ss.Depth--;
@@ -382,6 +385,7 @@ internal static class PVSearch {
             // since draw positions skip PVS, the full search
             // result must be initialized in advance (as draw)
             (short Score, Move[] PV) fullSearch = (0, []);
+            int curDepth = ss.Depth;
             
             // check the position for a 3-fold repetition draw. it is very
             // important that we also remove this move from the stack, which
@@ -416,11 +420,6 @@ internal static class PVSearch {
                                || inCheck     || givesCheck;
 
             // 5. REDUCTIONS (~50 Elo)
-            // this depth counter is used for this specific expanded move,
-            // and various reductions are applied to it, if the move seems
-            // to not be promising. other factors may revert the reductions,
-            // if the move is interesting, but extensions are never applied
-            int curDepth  = ss.Depth;
             int reduction = 1442;
             
             // extend the search of the first few root moves
@@ -461,15 +460,15 @@ internal static class PVSearch {
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can prune this branch
             if (!interesting && ss.Ply >= 4 && ss.Depth <= 5) {
-                int windowSize    = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 12);
-                int childPawnCorr = PawnCorrectionHistory.GetCorrection(in child);
+                int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 12);
+                int childCorr  = Corrections.Get(in child);
 
                 // as taken from CPW:
                 // "If at depth 1 the margin does not exceed the value of a minor piece, at
                 // depth 2 it should be more like the value of a rook."
                 // we don't really follow this exactly, but our approach is kind of similar
                 int margin = 95 + 97 * ss.Depth
-                                + 2 * childPawnCorr              // this acts like a measure of uncertainty
+                                + 2 * childCorr                  // this acts like a measure of uncertainty
                                 + (improving ? 0 : -23)          // not improving nodes prune more
                                 + Math.Clamp(see / 122, -39, 17) // tweak the margin based on SEE
                                 + windowSize;                    // another measure of uncertainty
@@ -494,13 +493,13 @@ internal static class PVSearch {
                         ? board.StaticEval + margin <= ss.Window.Alpha
                         : board.StaticEval - margin >= ss.Window.Beta)) {
                     
-                    int rootPawnCorr = PawnCorrectionHistory.GetCorrection(in board);
+                    int rootCorr = Corrections.Get(in board);
                     
                     // this turns out to work quite well - only reduce when the root
                     // pawn correction is bad, and the child correction is even worse
                     if (col == Color.WHITE 
-                            ? childPawnCorr < rootPawnCorr && rootPawnCorr < 0
-                            : childPawnCorr > rootPawnCorr && rootPawnCorr > 0) {
+                            ? childCorr < rootCorr && rootCorr < 0
+                            : childCorr > rootCorr && rootCorr > 0) {
                         
                         CurNodes++; PVSControl.TotalNodes++;
                         if (!isNMP) ThreeFold.Remove(hash);
@@ -542,10 +541,15 @@ internal static class PVSearch {
 
                 // continuing without this causes weird behaviour. the engine somehow
                 // evaluates regular positions as mate in X. keep this. it's important.
-                if (!Score.IsMateScore(score)) {
+                // TODO - CHANGE #5 - REMOVED MATE CHECK
+                if (true) {
                     if (col == Color.WHITE
                             ? score <= ss.Window.Alpha
                             : score >= ss.Window.Beta) {
+                        
+                        // TODO - CHANGE #3 - ADDED THIS
+                        if (!isCapture)
+                            QuietHistory.ChangeRep(board, curMove, ss.Depth - R, isMoveGood: false);
                         
                         if (!isNMP) ThreeFold.Remove(hash);
                         continue;
@@ -555,8 +559,9 @@ internal static class PVSearch {
                     // if a late move (from the prior condition) doesn't fail
                     // low with the reduced search, but is still bad (secured
                     // by the R condition), it's at least reduced
-                    if (ss.Depth == 4 && R >= 5 && !improving)
-                        curDepth -= 2 - Math.Sign(see);
+                    // TODO - CHANGE # 4 - COMMENTED
+                    //if (ss.Depth == 4 && R >= 5 && !improving)
+                    //    curDepth -= 2 - Math.Sign(see);
                 }
             }
             
@@ -624,7 +629,9 @@ internal static class PVSearch {
                 // decrease the move's reputation
                 // (although we are modifying quiet history, not checking
                 // whether this move is a capture yields better results)
-                QuietHistory.ChangeRep(board, curMove, ss.Depth, isMoveGood: false);
+                // TODO - CHANGE #2 - CAPTURE, CURDEPTH
+                if (!isCapture)
+                    QuietHistory.ChangeRep(board, curMove, curDepth, isMoveGood: false);
             }
 
             // we went through all the pruning and didn't fail low
@@ -637,7 +644,8 @@ internal static class PVSearch {
                     NextBestMove = curMove; 
 
                 // store the new best move in tt
-                TT.Store(board, ss.Depth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
+                // TODO - CHANGE #1 - CURDEPTH
+                TT.Store(board, (sbyte)curDepth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
 
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];

@@ -10,7 +10,7 @@ using Kreveta.movegen;
 using System;
 using System.Runtime.CompilerServices;
 
-namespace Kreveta.moveorder.historyheuristics;
+namespace Kreveta.moveorder.history;
 
 internal static class ContinuationHistory {
     internal static int MaxRetrieveDepth = 4;

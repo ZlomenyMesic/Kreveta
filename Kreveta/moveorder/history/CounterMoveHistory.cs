@@ -9,7 +9,7 @@ using Kreveta.movegen;
 using System;
 using System.Runtime.CompilerServices;
 
-namespace Kreveta.moveorder.historyheuristics;
+namespace Kreveta.moveorder.history;
 
 // COUNTER MOVE HISTORY - a dynamic move-ordering heuristic, which makes use of the fact
 // that many moves have a natural response irrespective to the position (e.g. certain

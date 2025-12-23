@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.moveorder.historyheuristics;
+namespace Kreveta.moveorder.history;
 
 // to help move ordering, we use a few different history heuristics.
 // the idea of these is that we save moves that proved to be good

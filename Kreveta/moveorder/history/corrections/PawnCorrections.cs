@@ -10,7 +10,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Kreveta.moveorder.historyheuristics;
+namespace Kreveta.moveorder.history.corrections;
 
 // this class is based on the idea of pawn correction history, but the uses are
 // slightly different. static eval correction history records the differences
@@ -20,7 +20,7 @@ namespace Kreveta.moveorder.historyheuristics;
 // adjust the static eval of future positions with the same feature. however,
 // i figured that modifying the static eval directly doesn't really work well,
 // so we use the stored values for stuff such as modifying the futility margin.
-internal static unsafe class PawnCorrectionHistory {
+internal static unsafe class PawnCorrections {
 
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
@@ -38,7 +38,7 @@ internal static unsafe class PawnCorrectionHistory {
     private static short* _whiteCorrections;
     private static short* _blackCorrections;
     
-    // clear the table
+        // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear() {
         if (_whiteCorrections is not null) {
@@ -61,6 +61,11 @@ internal static unsafe class PawnCorrectionHistory {
         _blackCorrections = (short*)NativeMemory.AlignedAlloc(
             byteCount: CorrTableSize * sizeof(short),
             alignment: 64);
+
+        for (int i = 0; i < CorrTableSize; ++i) {
+            _whiteCorrections[i] = 0;
+            _blackCorrections[i] = 0;
+        }
     }
 
     // update the pawn correction - takes a board with its score evaluated
@@ -101,7 +106,7 @@ internal static unsafe class PawnCorrectionHistory {
     }
 
     // try to retrieve a correction of the static eval of a position
-    internal static short GetCorrection(in Board board) {
+    internal static short Get(in Board board) {
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides
@@ -113,6 +118,6 @@ internal static unsafe class PawnCorrectionHistory {
 
         // the resulting correction being the difference instead of sum is
         // just plain wrong. nothing about this makes sense. but it works
-        return (short)((_whiteCorrections[wIndex] - _blackCorrections[bIndex]) / CorrScale);
+        return (short)((_whiteCorrections[wIndex] + _blackCorrections[bIndex]) / CorrScale);
     }
 }
