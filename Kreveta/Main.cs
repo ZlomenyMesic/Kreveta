@@ -23,7 +23,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "2.1.2";
+    internal const string Version = "2.2.1";
     internal const string Author  = "ZlomenyMesic";
     internal const string Network = "nnue-128-16-16-v4.bin";
 
@@ -60,7 +60,7 @@ internal static class Program {
         
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue
-        Thread.Sleep(300);
+        Thread.Sleep(350);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
