@@ -150,11 +150,18 @@ internal static class TimeMan {
         }
         
         int movesToGo = _movesToGo == 0 
-            ? EstimateMovesToGo(Game.Board) 
+            ? EstimateMovesToGo(Game.Board)
             : _movesToGo;
 
-        long timeLeft = Game.EngineColor == Color.WHITE ? _whiteTime : _blackTime;
-        long inc      = Game.EngineColor == Color.WHITE ? _whiteInc  : _blackInc;
+        long timeLeft    = Game.EngineColor == Color.WHITE ? _whiteTime : _blackTime;
+        long oppTimeLeft = Game.EngineColor == Color.WHITE ? _blackTime : _whiteTime;
+        long inc         = Game.EngineColor == Color.WHITE ? _whiteInc  : _blackInc;
+        
+        // calculate how many times more time do we have left than the opponent, and
+        // based on that potentially reduce movestogo, which makes us think longer
+        float timeAdvantage = Math.Clamp((float)timeLeft / oppTimeLeft, 1f, 5f);
+        movesToGo -= (int)((timeAdvantage - 1) * (movesToGo / 6.5f));
+        movesToGo  = Math.Max(6, movesToGo);
         
         // base time per move
         long baseTime = (long)((timeLeft + inc * 0.8) / (movesToGo + 1));
@@ -210,7 +217,7 @@ internal static class TimeMan {
             ? instability * depth / 4
             : instability * depth / 8);
         
-        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 400, 1 + timeLeft / 400);
+        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 350, 1 + timeLeft / 350);
     }
     
     // when the score suddenly changes from the previous turn (both drops
