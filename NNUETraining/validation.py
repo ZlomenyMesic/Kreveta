@@ -23,17 +23,17 @@ SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 FEATURE_COUNT     = 40960
 EMBED_DIM         = 128
 H1_NEURONS        = 16
-H2_NEURONS        = 32
+H2_NEURONS        = 16
 
 BUCKET_TABLE = tf.constant([
     0, 0, 0, 0, 0,
-    0, 0, 0, 1,
+    0, 0, 1, 1,
     1, 1, 1, 2,
     2, 2, 2, 3,
     3, 3, 3, 4,
     4, 4, 4, 5,
-    5, 5, 5, 6,
-    6, 6, 7, 7
+    5, 5, 6, 6,
+    6, 7, 7, 7
 ], dtype = tf.int32)
 
 def feature_index(king_square: int, piece_type: int, is_black: bool, piece_square: int) -> int:

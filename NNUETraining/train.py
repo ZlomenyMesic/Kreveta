@@ -35,19 +35,19 @@ CONFIG_PATH  = os.path.join(SCRIPT_DIR, "config.json")
 
 NUM_WORKERS = 10
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
-BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
+BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
 
 EMBED_DIM         = 128
 H1_NEURONS        = 16
-H2_NEURONS        = 32
+H2_NEURONS        = 16
 BATCH_SIZE        = 4096
 
 SAMPLES_QUEUE_MAX = 10000
 SAVE_EVERY_SEC    = 200
-MAX_PLIES         = 250
+MAX_PLIES         = 200
 
 BUCKET_TABLE = tf.constant([
     0, 0, 0, 0, 0,
@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 7e-4,
-        decay_rate            = 0.99981, # 0.99991
+        initial_learning_rate = 8e-5,
+        decay_rate            = 0.99977, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )
