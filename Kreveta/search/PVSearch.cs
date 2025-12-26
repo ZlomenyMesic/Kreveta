@@ -10,6 +10,7 @@ using Kreveta.moveorder;
 using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
+using Kreveta.tuning;
 using Kreveta.uci;
 
 using System;
@@ -73,6 +74,7 @@ internal static class PVSearch {
         // decrease quiet history values, as they shouldn't be as relevant now.
         // erasing them completely would, however, slow down the search
         QuietHistory.Shrink();
+        ContinuationHistory.Age();
 
         // these need to be erased, though
         PawnCorrections.Realloc();
@@ -99,8 +101,6 @@ internal static class PVSearch {
     }
     // completely reset everything
     internal static void Reset() {
-        //QSearch.CurQSDepth = 0;
-
         CurIterDepth  = 0;
         AchievedDepth = 0;
         CurNodes      = 0UL;
@@ -115,6 +115,8 @@ internal static class PVSearch {
         Killers.Clear();
         QuietHistory.Clear();
         CounterMoveHistory.Clear();
+
+        ContinuationHistory.Clear();
         
         PawnCorrections.Clear();
         KingCorrections.Clear();
@@ -330,10 +332,9 @@ internal static class PVSearch {
             if (col == Color.BLACK && staticEval + margin < ss.Window.Alpha)
                 return (ss.Window.Alpha, []);
         }
-        
-        // all legal moves sorted from best to worst (only a guess).
-        // take a look at MoveOrder to understand better
-        var moves = MoveOrder.GetOrderedMoves(board, ss.Depth, ss.Previous, out bool isTTMove);
+
+        // try to retrieve a known best move from the transposition table
+        bool isTTMove = TT.TryGetBestMove(board.Hash, out Move ttMove);
 
         // 4. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
@@ -346,20 +347,44 @@ internal static class PVSearch {
 
             ss.Depth--;
         }
+        
+        // was moveorder score assigning already performed?
+        bool       scoresAssigned = false;
+        Span<Move> legalMoves     = stackalloc Move[Consts.MoveBufferSize];
+        Span<int>  moveScores     = stackalloc int[Consts.MoveBufferSize];
+        int        moveCount      = 0;
+        int        expandedNodes  = 0;
 
-        // counter for expanded nodes
-        int expandedNodes = 0;
-
-        // pv continuation to be appended?
+        // pv continuation to be appended
         Move[] pv = [];
 
         // loop through possible moves
-        for (int i = 0; i < moves.Length; i++) {
+        while (true) {
+            Move curMove;
+
+            // when in the first iteration, check if there's a known
+            // tt move and potentially place it as the first move
+            if (expandedNodes == 0 && ttMove != default)
+                curMove = ttMove;
+            
+            // otherwise use regular moveorder
+            else {
+                if (!scoresAssigned) {
+                    moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
+                    
+                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.Previous, legalMoves, moveScores, moveCount);
+                    scoresAssigned = true;
+                }
+                
+                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount, out int score);
+
+                // when moveorder returns default, there aren't any moves left
+                if (curMove == default) break;
+            }
+            
             expandedNodes++;
             
-            Move  curMove = moves[i];
             Board child   = board.Clone();
-            
             child.PlayMove(curMove, true);
             
             ulong hash            = ZobristHash.Hash(in child);
@@ -497,14 +522,14 @@ internal static class PVSearch {
                 }
             }
 
-            int  maxExpNodes = (isTTMove ? 1 : 4) + (isPV ? 3 : 0);
-            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 300;
+            int  maxExpNodes = (isTTMove ? 1 : 3) + (isPV ? 4 : 0) + ss.Depth / 4;
+            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 100;
 
             if (!skipLMP) {
                 int R = 4;
 
                 // depth reduce is larger with bad quiet history
-                if (!isCapture && QuietHistory.GetRep(board, curMove) < -715) R++;
+                if (!isCapture && QuietHistory.GetRep(col, curMove) < -715) R++;
 
                 // some SEE tweaking - worse captures get higher reductions
                 if ( improving || see >= 94) R--;
@@ -526,7 +551,10 @@ internal static class PVSearch {
                         : score >= ss.Window.Beta) {
                         
                     if (!isCapture)
-                        QuietHistory.ChangeRep(board, curMove, ss.Depth - R, isMoveGood: false);
+                        QuietHistory.ChangeRep(col, curMove, ss.Depth - R, isGood: false);
+                    
+                    if (ss.Previous != default)
+                        ContinuationHistory.Add(ss.Previous, curMove, ss.Depth - R, isGood: false);
                         
                     if (!isNMP) ThreeFold.Remove(hash);
                     continue;
@@ -557,9 +585,11 @@ internal static class PVSearch {
                 // decrease the move's reputation
                 // (although we are modifying quiet history, not checking
                 // whether this move is a capture yields better results)
-                // TODO - CHANGE #2 - CAPTURE, CURDEPTH
                 if (!isCapture)
-                    QuietHistory.ChangeRep(board, curMove, curDepth, isMoveGood: false);
+                    QuietHistory.ChangeRep(col, curMove, curDepth, isGood: false);
+                
+                if (ss.Previous != default)
+                    ContinuationHistory.Add(ss.Previous, curMove, curDepth, isGood: false);
             }
 
             // we went through all the pruning and didn't fail low
@@ -572,29 +602,39 @@ internal static class PVSearch {
                     NextBestMove = curMove; 
 
                 // store the new best move in tt
-                TT.Store(board.Hash, (sbyte)curDepth, ss.Ply, ss.Window, fullSearch.Score, moves[i]);
+                TT.Store(board.Hash, (sbyte)curDepth, ss.Ply, ss.Window, fullSearch.Score, curMove);
 
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];
                 Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 pv[0] = curMove;
+                
+                if (ss.Previous != default)
+                    ContinuationHistory.Add(ss.Previous, curMove, curDepth - 1, isGood: true);
 
                 // beta cutoff (see alpha-beta pruning); alpha is larger
                 // than beta, so we can stop searching this branch, because
                 // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
+                    if (ss.Previous != default)
+                        ContinuationHistory.Add(ss.Previous, curMove, curDepth, isGood: true);
 
                     // is it quiet?
                     if (!isCapture) {
 
                         // if a quiet move caused a beta cutoff, we increase its history
                         // score and store it as a killer move on the current depth
-                        QuietHistory.ChangeRep(board, curMove, ss.Depth, isMoveGood: true);
+                        QuietHistory.ChangeRep(col, curMove, ss.Depth, isGood: true);
                     }
                     
                     // there are both quiet and capture killer tables,
                     // which sort the move automatically, so don't worry
                     Killers.Add(curMove, ss.Depth);
+
+                    if (!(expandedNodes == 0 && isTTMove)) {
+                        Tuning.TotalCutoffs++;
+                        Tuning.TotalCutoffScore += (ulong)Math.Max(0, 11 - expandedNodes + (isTTMove ? 1 : 0));
+                    }
 
                     // quit searching other moves and return this score
                     return (fullSearch.Score, pv);

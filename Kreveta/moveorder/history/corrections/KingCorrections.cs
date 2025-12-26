@@ -37,6 +37,7 @@ internal static class KingCorrections {
         Black[bKingSq] = (short)Math.Clamp(Black[bKingSq] + shift, -1024, 1024);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short Get(in Board board) {
         int wKingSq = (int)ulong.PopCount(board.Pieces[5]);
         int bKingSq = (int)ulong.PopCount(board.Pieces[11]);

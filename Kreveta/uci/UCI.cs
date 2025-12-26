@@ -14,6 +14,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.moveorder;
 using Kreveta.nnue;
 using Kreveta.openings;
 using Kreveta.perft;
@@ -114,6 +115,13 @@ internal static partial class UCI {
                 
                 case "perft":
                     CmdPerft(tokens);
+                    break;
+                
+                case "gettuning":
+                    Console.WriteLine($"info string TUNE score {Tuning.TotalCutoffScore}");
+                    Console.WriteLine($"info string TUNE cutoffs {Tuning.TotalCutoffs}");
+                    Tuning.TotalCutoffs     = 0UL;
+                    Tuning.TotalCutoffScore = 0UL;
                     break;
                 
                 // print the current position
@@ -319,17 +327,8 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        const int iters = 3_000_000;
-        var nnue = new NNUEEvaluator(Game.Board);
-        var sw   = Stopwatch.StartNew();
-        
-        for (int i = 0; i < iters; i++)
-            nnue.UpdateEvaluation(Color.WHITE, 30);
-        
-        sw.Stop();
-        
-        int knps = (int)(iters / ((float)sw.ElapsedMilliseconds / 1000)) / 1000;
-        Console.WriteLine($"{knps} kN/s reached");
+        int see = SEE.GetCaptureScore(in Game.Board, Color.WHITE, "e2e4".ToMove(in Game.Board));
+        Console.WriteLine($"\nSEE: {see}\n");
     }
 }
 
