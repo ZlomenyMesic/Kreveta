@@ -16,8 +16,7 @@ internal static class Program {
     private const string OutputPath    = "output.txt";
     private const string StockfishPath = @"C:\Users\michn\Downloads\stockfish-windows-x86-64-avx2\stockfish\stockfish-windows-x86-64-avx2.exe";
     private const string KrevetaPath   = @"C:\Users\michn\Desktop\Kreveta\Kreveta\Kreveta\bin\Release\net10.0\Kreveta.exe";
-
-    // time to evaluate each position in ms
+    
     private const int Depth = 8;
     
     // limit how many "new engines" to create/test

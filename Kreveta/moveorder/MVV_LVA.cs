@@ -82,11 +82,11 @@ internal static class MVV_LVA {
     // this method calculates the score for a single move
     // positive score = likely a better move
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetCaptureScore(Move capt) {
+    internal static int GetCaptureScore(Move capt) {
 
         // piece moved and piece captured (aggressor and victim)
         int aggressor = EvalTables.PieceValues[(byte)capt.Piece];
-        int victim = EvalTables.PieceValues[(byte)capt.Capture];
+        int victim    = EvalTables.PieceValues[(byte)capt.Capture];
 
         // weird case for en passant - the move doesn't end
         // on the actual victim, so the capture is marked as
