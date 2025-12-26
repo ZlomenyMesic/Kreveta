@@ -12,65 +12,76 @@ using System;
 namespace Kreveta.moveorder;
 
 internal static class LazyMoveOrder {
-    internal static int const1 = 3563;
-    internal static int const2 = -2033;
-    internal static int const3 = 2012;
-    internal static int const4 = 19;
-    internal static int const5 = 58;
-    internal static int const6 = 289;
-
-    internal static int const7  = 2949;
-    internal static int const8  = 112;
-    internal static int const9  = 20;
-    internal static int const10 = 274;
-    internal static int const11 = 1402;
-
-    internal static int const12 = 150;
-    internal static int const13 = 100;
-    internal static int const14 = 150;
-    internal static int const15 = -1000;
+    internal static int const1  = 119;
+    internal static int const2  = 896;
+    internal static int const3  = 103;
+    internal static int const4  = 55;
+    internal static int const5  = -96;
+    internal static int const6  = -209;
+    internal static int const7  = 277;
+    internal static int const8  = 155;
+    internal static int const9  = 82;
+    internal static int const10 = 3011;
+    internal static int const11 = 1542;
+    internal static int const12 = 54;
+    internal static int const13 = 15;
+    internal static int const14 = 18;
+    internal static int const15 = 284;
+    internal static int const16 = 201;
+    internal static int const17 = 84;
     
     internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
-        Color col = board.Color;
+        Color col         = board.Color;
+        bool  isEarlyGame = board.GamePhase() > const1;
         
         var captKillers = Killers.GetCluster(depth, captures: true);
         var killers     = Killers.GetCluster(depth, captures: false);
-
+        var counterMove = CounterMoveHistory.Get(col, previous);
+        
         for (int i = 0; i < count; i++) {
             Move move = moves[i];
-            
+
+            bool isCapture = move.Capture != PType.NONE;
+            bool isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
+            bool isCounter = counterMove == move;
+
             // quiet moves
-            if (move.Capture == PType.NONE) {
-                int killer = killers.Contains(move) ? const1 : 0;
-                int qhist  = Math.Clamp(QuietHistory.GetRep(col, move), const2, const3) * const4 / 100;
-                int cont   = previous != default ? ContinuationHistory.GetScore(previous, move) * const5 / 100 : 0;
-                
-                int prom = move.Promotion switch {
-                    PType.QUEEN => const6,
-                    PType.ROOK  => const12,
-                    PType.KING  => const13,
+            if (!isCapture) {
+                PType movedPiece = move.Piece;
+                PType promPiece  = move.Promotion;
+
+                int killer  = isKiller ? const2 : 0;
+                int counter = isCounter ? const3 : 0;
+                int qhist   = QuietHistory.GetRep(col, move) * const17 / 100;
+                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * const4 / 100 : 0;
+                int queen   = movedPiece == PType.QUEEN && isEarlyGame                           ? const5 : 0;
+                int king    = movedPiece == PType.KING && promPiece != PType.KING && isEarlyGame ? const6 : 0;
+
+                int prom = promPiece switch {
+                    PType.QUEEN => const7,
+                    PType.ROOK  => const8,
+                    PType.KING  => const9,
                     _           => 0
                 };
 
-                scores[i] += killer + qhist + cont + prom;
+                scores[i] += killer + counter + qhist + queen + king + prom + cont;
             }
-            
+
             // captures
             else {
-                int killer = captKillers.Contains(move) ? const7 : 0;
-                int see    = SEE.GetCaptureScore(in board, col, move) * const8 / 100;
-                int cont   = previous != default ? ContinuationHistory.GetScore(previous, move) * const9 / 100 : 0;
-                
+                int killer  = captKillers.Contains(move) ? const10 : const11;
+                int counter = isCounter ? const12 : 0;
+                int see     = SEE.GetCaptureScore(in board, col, move);
+                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * const13 / 100 : 0;
+                //int recapt  = move.End == previous.End ? const14 : 0;
+
                 int prom = move.Promotion switch {
-                    PType.QUEEN => const10,
-                    PType.ROOK  => const14,
+                    PType.QUEEN => const15,
+                    PType.ROOK  => const16,
                     _           => 0
                 };
 
-                // additional malus for negative SEE to push these captures lower
-                if (see < 0) see += const15;
-
-                scores[i] += const11 + killer + see + cont + prom;
+                scores[i] += killer + counter + cont + prom + see;
             }
         }
     }
@@ -95,7 +106,7 @@ internal static class LazyMoveOrder {
             return default;
         }
         
-        score            = scores[bestIndex];
+        score            = bestScore;
         Move bestMove    = moves[bestIndex];
         moves[bestIndex] = default;
         

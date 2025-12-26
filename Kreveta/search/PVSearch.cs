@@ -374,6 +374,17 @@ internal static class PVSearch {
                     
                     LazyMoveOrder.AssignScores(in board, ss.Depth, ss.Previous, legalMoves, moveScores, moveCount);
                     scoresAssigned = true;
+
+                    // very important - if we've already checked a tt move, it
+                    // has to be removed from the move list to not test it again
+                    if (ttMove != default) {
+                        for (int i = 0; i < moveCount; i++) {
+                            if (legalMoves[i] == ttMove) {
+                                legalMoves[i] = default;
+                                break;
+                            }
+                        }
+                    }
                 }
                 
                 curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount, out int score);
@@ -631,7 +642,7 @@ internal static class PVSearch {
                     // which sort the move automatically, so don't worry
                     Killers.Add(curMove, ss.Depth);
 
-                    if (!(expandedNodes == 0 && isTTMove)) {
+                    if (!(expandedNodes == 1 && isTTMove)) {
                         Tuning.TotalCutoffs++;
                         Tuning.TotalCutoffScore += (ulong)Math.Max(0, 11 - expandedNodes + (isTTMove ? 1 : 0));
                     }

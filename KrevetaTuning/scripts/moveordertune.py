@@ -81,7 +81,7 @@ def evaluate_worker_queue(cmd, params, games_per_worker, queue):
     queue.put((score, cutoffs))
 
 
-def evaluate_parallel(cmd, params, workers = 11, games_per_worker = 1):
+def evaluate_parallel(cmd, params, workers = 10, games_per_worker = 2):
     queue = Queue()
     processes = []
 
@@ -106,14 +106,14 @@ def mutate(params, iteration, max_iter):
 
     # Relative mutation range (annealed)
     start = 0.05    # 5 %
-    end   = 0.001   # 0.1 %
+    end   = 0.005   # 0.5 %
 
     # Exponential decay
     frac = iteration / max_iter
     max_rel = start * ((end / start) ** frac)
 
     # Mostly single-parameter changes
-    num_changes = 1 if random.random() < 0.8 else 2
+    num_changes = 1 if random.random() < 0.75 else 2
     indices = random.sample(range(len(params)), num_changes)
 
     for i in indices:
@@ -121,6 +121,9 @@ def mutate(params, iteration, max_iter):
         scale = abs(base) if base != 0 else 1
 
         delta = int(scale * random.uniform(-max_rel, max_rel))
+        while delta == 0:
+            delta += random.randint(-1, 1)
+
         new[i] += delta
 
     return new
@@ -129,16 +132,20 @@ def accept(new_score, old_score):
     return new_score >= old_score
 
 def tune():
-    cmd = ["C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\Kreveta\\bin\\Release\\net10.0\\Kreveta.exe"]   # adjust path
+    cmd = ["C:\\Users\\michn\\Desktop\\Kreveta\\Kreveta\\Kreveta\\bin\\Release\\net10.0\\Kreveta.exe"]
 
-    params = [3563, -2033, 2012, 19, 58, 289, 2965, 112, 20, 274, 1402, 169, 92, 128, -1000]
+    params = [119, 896, 103, 55, -96, -209, 277, 155, 82, 3011, 1542, 54, 15, 18, 284, 201, 84]
 
     best_score = evaluate_parallel(cmd, params)
     print("Initial score:", best_score)
 
-    max_iter = 1500
+    max_iter = 800
 
     for it in range(max_iter):
+        if (it % 8 == 0 and it != 0):
+            best_score = evaluate_parallel(cmd, params)
+            print(f"REEVALUATED score: {best_score}")
+
         candidate = mutate(params, it, max_iter)
         score = evaluate_parallel(cmd, candidate)
 
