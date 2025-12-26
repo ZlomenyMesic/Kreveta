@@ -209,35 +209,16 @@ internal static class TimeMan {
         // if we have a precise time the search has to
         // take, the time budget obviously won't be touched
         if (MoveTime != 0) return;
-        
-        long timeLeft = Game.EngineColor == Color.WHITE 
+
+        long timeLeft = Game.EngineColor == Color.WHITE
             ? _whiteTime : _blackTime;
+
+        if (timeLeft < 500) return;
 
         long bonus = (long)(instability < 0
             ? instability * depth / 4
             : instability * depth / 8);
-        
-        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 350, 1 + timeLeft / 350);
-    }
-    
-    // when the score suddenly changes from the previous turn (both drops
-    // and rises), we can try to increase our time budget to search this
-    // turn a bit deeper
-    internal static void TryIncreaseTimeBudget() {
-        /*if (!Game.FullGame || TimeBudgetAdjusted) 
-            return;
 
-        TimeBudgetAdjusted = true;
-        
-        int scoreChange = Math.Abs(Game.PreviousScore - PVSearch.PVScore);
-        switch (scoreChange) {
-            case >= 150 and < 300: TimeBudget = TimeBudget * 3 / 2; break;
-            case >= 300:           TimeBudget *= 3;                 break;
-        }
-
-        var timeCap = (Game.Board.Color == Color.WHITE
-            ? _whiteTime : _blackTime) * 2 / 5;
-        
-        TimeBudget = Math.Min(TimeBudget, timeCap);*/
+        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 400, 1 + timeLeft / 400);
     }
 }

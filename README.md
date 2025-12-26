@@ -26,17 +26,13 @@ Development started on **March 3, 2025**.
 
 ### Elo Ratings
 
-No official ratings yet.
-
-Rough estimates from playtesting using [Cutechess-cli](https://github.com/cutechess/cutechess):
-
-| Opponent        | Time Control | Games | Elo estimate |
-|-----------------|--------------|-------|--------------|
-| Stockfish 17    | 40/120       | ~1000 | 2450         |
-| ...             | ...          | ...   | ...          |
-
-> [!NOTE]
-> Time Control is in format moves/time in seconds
+| Site    | Time Control | Games | Elo rating |
+|---------|--------------|-------|------------|
+| Lichess | Bullet       | 500   | 2193       |
+| Lichess | Blitz        | 356   | 2159       |
+| Lichess | Rapid        | 57    | 2228       |
+| CCRL    | ...          | ...   | TBD        |
+| ...     | ...          | ...   | ...        |
 
 ---
 
@@ -46,15 +42,14 @@ All measurements were performed on a 12th Gen Intel(R) Core(TM) i7-12700H (2.30 
 
 ### Regular search (initial position)
 
-Default hash table size (64 MiB) was used.
+Kreveta 2.2.1 with default hash table size (128 MiB) was used.
 
-| Full Depth | Sel. Depth | Time      | Nodes Searched | NPS       | Best Move |
-|------------|------------|-----------|----------------|-----------|-----------|
-| 5          | 15         | 00:00.013 | 10,742         | 895,167   | d4        |
-| 10         | 22         | 00:00.286 | 593,955        | 2,076,766 | e4        |
-| 15         | 27         | 00:06.329 | 14,827,467     | 2,343,152 | e4        |
-| 20         | 32         | 01:06.297 | 161,188,842    | 2,431,314 | Nf3       |
-| 25         | 37         | 35:42.661 | 5,077,397,129  | 2,369,669 | e4        |
+| Full Depth | Sel. Depth | Time (s) | Nodes Searched | NPS       | Best Move |
+|------------|------------|----------|----------------|-----------|-----------|
+| 5          | 9          | 00.010   | 2,495          | 249,500   | e4        |
+| 10         | 16         | 00.064   | 46,067         | 719,797   | e4        |
+| 15         | 24         | 00.374   | 410,639        | 1,097,965 | e4        |
+| 20         | 31         | 07.562   | 9,574,359      | 1,266,282 | e4        |
 
 > [!NOTE]
 > Selective depth is the actual depth achieved via quiescence search.

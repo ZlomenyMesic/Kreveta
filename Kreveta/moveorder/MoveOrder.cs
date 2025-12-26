@@ -156,7 +156,7 @@ internal static unsafe class MoveOrder {
 
         for (int i = 0; i < legalCount; i++) {
             if (!used[i]) {
-                int qh  = QuietHistory.GetRep(board, legal[i]);
+                int qh  = QuietHistory.GetRep(board.Color, legal[i]);
                 //int see = SEE.GetCaptureScore(in board, board.Color, legal[i]);
                 
                 quiets[quietCount++] = (legal[i], qh);

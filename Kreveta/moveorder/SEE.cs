@@ -70,7 +70,8 @@ internal static class SEE {
         return new Span<Move>(sorted);
     }
 
-    // Returns material gain for side to move (positive = good for 'col')
+    // returns material gain/loss on a single square after evaluating captures
+    // from both sides. positive score is a good capture for the specified color
     internal static int GetCaptureScore(in Board board, Color col, Move move) {
         if (move.Capture == PType.NONE) return 0;
 

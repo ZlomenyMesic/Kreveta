@@ -23,7 +23,7 @@ internal static class Program {
     // limit how many "new engines" to create/test
     private const int Cycles = 1_000_000;
 
-    private const int ShiftsPerEval = 6;
+    private const int ShiftsPerEval = 5;
 
     private static float _krevetaBaseMSE;
     private static float _krevetaBaseMoveAccuracy;
@@ -32,13 +32,13 @@ internal static class Program {
     private static readonly (float, int)[] Tweaks 
         = new (float, int)[ParamGenerator.ParamCount];
 
-    private const           int                     MaxThreads    = 10;
+    private const           int                     MaxThreads    = 18;
     private static readonly CancellationTokenSource Cts           = new();
     private static readonly Lock                    EnginesLock   = new();
     private static readonly List<UCIEngine>         ActiveEngines = [];
     
     internal enum EvalMode { FullSearch, StaticEval }
-    private const EvalMode _mode = EvalMode.StaticEval;
+    private const EvalMode _mode = EvalMode.FullSearch;
     
     internal static void Main() {
         Console.CancelKeyPress += (_, e) => {

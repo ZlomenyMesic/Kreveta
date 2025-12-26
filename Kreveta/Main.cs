@@ -57,6 +57,8 @@ internal static class Program {
         // load the embedded nnue weights
         _ = typeof(NNUEWeights);
         _ = typeof(MathLUT);
+
+        ContinuationHistory.Init();
         
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue

@@ -81,8 +81,8 @@ internal static class QuietHistory {
     private const int ShiftLimit    = 84;
     
     // modify the history reputation of a move. isMoveGood tells us how
-    internal static void ChangeRep(in Board board, Move move, int depth, bool isMoveGood) {
-        int i   = PieceIndex(board, move);
+    internal static void ChangeRep(Color col, Move move, int depth, bool isGood) {
+        int i   = PieceIndex(col, move);
         int end = move.End;
         
         // how much should the move affect the reputation (moves at higher depths
@@ -91,15 +91,15 @@ internal static class QuietHistory {
                                
                                // we either add or subtract the shift, depending on
                                // whether the move was good or not
-                               * (isMoveGood ? 1 : -1);
+                               * (isGood ? 1 : -1);
 
         // add the move as visited, too
         ButterflyBoard[end][i]++;
     }
 
     // retrieve the reputation of a move
-    internal static int GetRep(in Board board, Move move) {
-        int i   = PieceIndex(board, move);
+    internal static int GetRep(Color col, Move move) {
+        int i   = PieceIndex(col, move);
         int end = move.End;
 
         // quiet score and butterfly score
@@ -118,14 +118,6 @@ internal static class QuietHistory {
     // calculate the index of a piece in the boards
     // (we just add 6 for white pieces)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PieceIndex(in Board board, Move move) {
-        PType piece = move.Piece;
-        
-        // figure out the color of the piece based on whether it is present in the bitboard
-        Color col = (board.Pieces[(byte)Color.WHITE * 6 + (byte)piece] ^ 1UL << move.Start) == 0UL
-            ? Color.BLACK
-            : Color.WHITE;
-
-        return (byte)piece + (col == Color.WHITE ? 6 : 0);
-    }
+    private static int PieceIndex(Color col, Move move)
+        => (byte)move.Piece + (col == Color.WHITE ? 6 : 0);
 }

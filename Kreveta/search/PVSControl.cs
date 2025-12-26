@@ -64,8 +64,6 @@ internal static class PVSControl {
         // might have changed the hash size settings, so we
         // need to update the table before the search
         TT.Init();
-        PawnCorrections.Realloc();
-        KingCorrections.Clear();
         
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 6);
@@ -79,8 +77,8 @@ internal static class PVSControl {
             Window aspiration   = Window.Infinite;
             bool   isAspiration = false;
             
-            PVChanges  *= 0.7f;
-            ScoreDiffs *= 0.9f;
+            PVChanges  *= 0.8f;
+            ScoreDiffs *= 0.85f;
             
             float scoreInstability = PVSearch.CurIterDepth != 0 
                 ? ScoreDiffs / PVSearch.CurIterDepth
