@@ -1,4 +1,4 @@
-﻿﻿//
+﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -10,7 +10,6 @@ using Kreveta.moveorder;
 using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
-using Kreveta.tuning;
 using Kreveta.uci;
 
 using System;
@@ -376,18 +375,19 @@ internal static class PVSearch {
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it
-                    // has to be removed from the move list to not test it again
+                    // has to be removed from the move list to not be played again
                     if (ttMove != default) {
                         for (int i = 0; i < moveCount; i++) {
-                            if (legalMoves[i] == ttMove) {
-                                legalMoves[i] = default;
-                                break;
-                            }
+                            if (legalMoves[i] != ttMove)
+                                continue;
+                            
+                            legalMoves[i] = default;
+                            break;
                         }
                     }
                 }
                 
-                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount, out int score);
+                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount);
 
                 // when moveorder returns default, there aren't any moves left
                 if (curMove == default) break;
@@ -641,11 +641,6 @@ internal static class PVSearch {
                     // there are both quiet and capture killer tables,
                     // which sort the move automatically, so don't worry
                     Killers.Add(curMove, ss.Depth);
-
-                    if (!(expandedNodes == 1 && isTTMove)) {
-                        Tuning.TotalCutoffs++;
-                        Tuning.TotalCutoffScore += (ulong)Math.Max(0, 11 - expandedNodes + (isTTMove ? 1 : 0));
-                    }
 
                     // quit searching other moves and return this score
                     return (fullSearch.Score, pv);

@@ -105,7 +105,7 @@ def mutate(params, iteration, max_iter):
     new = params.copy()
 
     # Relative mutation range (annealed)
-    start = 0.05    # 5 %
+    start = 0.01    # 1 %
     end   = 0.005   # 0.5 %
 
     # Exponential decay

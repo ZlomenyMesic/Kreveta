@@ -29,21 +29,22 @@ internal static partial class Polyglot {
     private static float Risk => (float)Options.PolyglotRisk / 100;
     
     // tries to find a book move for the specified position
-    internal static Move GetBookMove(Board board) {
-        ulong hash = PolyglotZobristHash.Hash(board);
-        var book = LoadBook();
-
-        var possible = GetMovesForPosition(hash, [..book]);
+    internal static Move GetBookMove(in Board board) {
+        ulong hash     = PolyglotZobristHash.Hash(in board);
+        var   book     = LoadBook();
+        var   possible = GetMovesForPosition(hash, [..book]);
 
         // no possible moves have been found
-        if (possible.Length == 0) return default;
+        if (possible.Length == 0) 
+            return default;
+        
         PolyglotEntry selection = SelectMove(possible);
         
-        // this prolly shouldn't happen but better safe than sorry
+        // this probably shouldn't happen but better safe than sorry
         if (selection == default)
             return default;
         
-        UCI.Log($"info string selected move's Polyglot weight: {selection.Weight}", UCI.LogLevel.INFO);
+        UCI.Log($"info string selected move's weight: {selection.Weight}");
         return DecodeMove(board, selection);
     }
 
@@ -153,7 +154,7 @@ internal static partial class Polyglot {
     // load all entries from the specified polyglot book
     private static ReadOnlySpan<PolyglotEntry> LoadBook() {
         if (!File.Exists(Options.PolyglotBook)) {
-            UCI.Log($"Polyglot file not found: {Options.PolyglotBook}", UCI.LogLevel.ERROR);
+            UCI.Log($"Polyglot file not found: {Options.PolyglotBook}");
             return [];
         }
         

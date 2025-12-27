@@ -35,7 +35,7 @@ internal static class NNUEWeights {
         using Stream? stream = asm.GetManifestResourceStream($"{Program.Name}.{Program.Network}");
 
         if (stream is null) {
-            UCI.Log("Embedded NNUE weights not found", UCI.LogLevel.ERROR);
+            UCI.Log("Embedded NNUE weights not found");
             return;
         }
 

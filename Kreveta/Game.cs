@@ -40,7 +40,7 @@ internal static class Game {
         Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
         
-        UCI.Log($"Invalid position - {context}", UCI.LogLevel.ERROR);
+        UCI.Log($"Invalid position - {context}");
     }
 
     internal static void SetStartpos(ReadOnlySpan<string> tokens) {

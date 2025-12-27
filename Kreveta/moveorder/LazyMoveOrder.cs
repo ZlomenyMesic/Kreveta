@@ -12,28 +12,16 @@ using System;
 namespace Kreveta.moveorder;
 
 internal static class LazyMoveOrder {
-    internal static int const1  = 119;
-    internal static int const2  = 896;
-    internal static int const3  = 103;
-    internal static int const4  = 55;
-    internal static int const5  = -96;
-    internal static int const6  = -209;
-    internal static int const7  = 277;
-    internal static int const8  = 155;
-    internal static int const9  = 82;
-    internal static int const10 = 3011;
-    internal static int const11 = 1542;
-    internal static int const12 = 54;
-    internal static int const13 = 15;
-    internal static int const14 = 18;
-    internal static int const15 = 284;
-    internal static int const16 = 201;
-    internal static int const17 = 84;
-    
+    // pre-ordering moves has major performance drawbacks when beta cutoffs happen
+    // at early moves, as ordering the rest was useless. to combat this issue, lazy
+    // move ordering is used, where first all moves are assigned different scores,
+    // and only during the move expansion is each next move selected. this fails when
+    // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
     internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
         Color col         = board.Color;
-        bool  isEarlyGame = board.GamePhase() > const1;
+        bool  isEarlyGame = board.GamePhase() > 119;
         
+        // find killers and a potential countermove
         var captKillers = Killers.GetCluster(depth, captures: true);
         var killers     = Killers.GetCluster(depth, captures: false);
         var counterMove = CounterMoveHistory.Get(col, previous);
@@ -45,39 +33,52 @@ internal static class LazyMoveOrder {
             bool isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
             bool isCounter = counterMove == move;
 
-            // quiet moves
             if (!isCapture) {
                 PType movedPiece = move.Piece;
                 PType promPiece  = move.Promotion;
 
-                int killer  = isKiller ? const2 : 0;
-                int counter = isCounter ? const3 : 0;
-                int qhist   = QuietHistory.GetRep(col, move) * const17 / 100;
-                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * const4 / 100 : 0;
-                int queen   = movedPiece == PType.QUEEN && isEarlyGame                           ? const5 : 0;
-                int king    = movedPiece == PType.KING && promPiece != PType.KING && isEarlyGame ? const6 : 0;
+                // killers and counters obviously get a higher score,
+                // as they have previously proved to be effective
+                int killer  = isKiller  ? 896 : 0;
+                int counter = isCounter ? 105 : 0;
+                
+                // then quiet and continuation history is applied
+                int qhist   = QuietHistory.GetRep(col, move) * 54 / 100;
+                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * 54 / 100 : 0;
+                
+                // punish queen and king moves in the opening or early
+                // middlegame, of course except for castling
+                int queen   = movedPiece == PType.QUEEN && isEarlyGame                           ? -97  : 0;
+                int king    = movedPiece == PType.KING && promPiece != PType.KING && isEarlyGame ? -209 : 0;
 
+                // promotions and castling get placed higher
                 int prom = promPiece switch {
-                    PType.QUEEN => const7,
-                    PType.ROOK  => const8,
-                    PType.KING  => const9,
+                    PType.QUEEN => 277,
+                    PType.ROOK  => 156,
+                    PType.KING  => 82,
                     _           => 0
                 };
 
                 scores[i] += killer + counter + qhist + queen + king + prom + cont;
             }
 
-            // captures
             else {
-                int killer  = captKillers.Contains(move) ? const10 : const11;
-                int counter = isCounter ? const12 : 0;
+                // killers and counters are the same as in quiets, but
+                // higher scores are applied to push captures above quiets
+                int killer  = isKiller ? 2978 : 1532;
+                int counter = isCounter ? 56 : 0;
+                
+                // static exchange evaluation and continuation history. it is
+                // often said that conthist doesn't work well with captures,
+                // but here it seems like it does. i've also tried combining
+                // SEE with additional MVV-LVA, but that didn't work at all
                 int see     = SEE.GetCaptureScore(in board, col, move);
-                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * const13 / 100 : 0;
-                //int recapt  = move.End == previous.End ? const14 : 0;
+                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
 
+                // once again promotions get placed higher
                 int prom = move.Promotion switch {
-                    PType.QUEEN => const15,
-                    PType.ROOK  => const16,
+                    PType.QUEEN => 284,
+                    PType.ROOK  => 200,
                     _           => 0
                 };
 
@@ -86,7 +87,9 @@ internal static class LazyMoveOrder {
         }
     }
 
-    internal static Move NextMove(Span<Move> moves, Span<int> scores, int moveCount, out int score) {
+    // this selects the next best move from the scored list; moves that have been
+    // already played are defaulted, and default is returned once no moves remain
+    internal static Move NextMove(Span<Move> moves, Span<int> scores, int moveCount) {
         int bestScore = int.MinValue;
         int bestIndex = -1;
 
@@ -101,12 +104,9 @@ internal static class LazyMoveOrder {
         }
 
         // there aren't any moves left
-        if (bestIndex == -1) {
-            score = 0;
+        if (bestIndex == -1) 
             return default;
-        }
         
-        score            = bestScore;
         Move bestMove    = moves[bestIndex];
         moves[bestIndex] = default;
         

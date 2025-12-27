@@ -1,54 +1,25 @@
-// ReSharper disable InconsistentNaming
+//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
 
 using Kreveta.uci.options;
 
 using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-
-// ReSharper disable once RedundantUsingDirective
-//using NK = NeoKolors.Console;
+// ReSharper disable UnusedMember.Global
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.uci;
 
 internal static partial class UCI {
-    /*private static bool _isNKInitialized;
-    private static void InitNK() {
-        const string NKLogDirectory = "./logs/";
-        const string NKLogFilePath  = NKLogDirectory + "{0}.log";
-        
-        if (_isNKInitialized) 
-            return;
-        
-        _isNKInitialized = true;
-        
-        if (!Directory.Exists(NKLogDirectory))
-            Directory.CreateDirectory(NKLogDirectory);
-        
-        try {
-            var nkOutput = new StreamWriter(NKLogFilePath);
-
-            NK::NKDebug.Logger.Output         = nkOutput;
-            NK::NKDebug.Logger.SimpleMessages = true;
-            NK::NKDebug.Logger.FileConfig     = NK.LogFileConfig.NewCount(NKLogFilePath);
-        }
-
-        // we are catching a "general exception type", because we have
-        // zero idea, which type of exception NeoKolors might throw.
-        catch (Exception ex)
-            when (LogException("NKLogger initialization failed", ex)) { }
-    }*/
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Log(string? msg, LogLevel level = LogLevel.RAW, bool logIntoFile = true) {
-        //if (logIntoFile)
-        //    Task.Run(() => LogIntoFile(msg ?? string.Empty, level));
-
-        Output.WriteLine(msg);
-    }
+    internal static void Log(string? msg)
+        => Output.WriteLine(msg);
 
     // had to use this crazy syntax just because it exists
-    // ReSharper disable once UnusedMember.Global
     internal static void LogMultiple(__arglist) {
         var iter = new ArgIterator(__arglist);
 
@@ -81,7 +52,7 @@ internal static partial class UCI {
                 continue;
 
             // number stats are formatted in a nice way to separate number groups with ','
-            if (stat.Data is long or ulong or int) {
+            if (stat.Data is long or ulong or int or short) {
                 var format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();
                 format.NumberGroupSeparator = ",";
 
@@ -93,35 +64,4 @@ internal static partial class UCI {
 
         Log(STATS_AFTER);
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    // ReSharper disable once MemberCanBePrivate.Global
-    internal static bool LogException(string context, Exception ex, bool logIntoFile = true) {
-        Log($"{context}: {ex.Message}", LogLevel.ERROR, logIntoFile);
-        return true;
-    }
-
-    // combining sync and async code is generally a bad idea, but we must avoid slowing
-    // down the engine if something takes too long in NK (although it's probably unlikely)
-    /*private static async Task LogIntoFile(string msg, LogLevel level = LogLevel.RAW) {
-        if (!Options.NKLogs)
-            return;
-        
-        InitNK();
-
-        // using KryKomDev's NeoKolors library for fancy logs
-        // this option can be toggled via the NKLogs option
-        try {
-
-            // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
-            switch (level) {
-                case LogLevel.INFO:    await Task.Run(() => NK::NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
-                case LogLevel.WARNING: await Task.Run(() => NK::NKDebug.Logger.Warn(msg)).ConfigureAwait(false);  break;
-                case LogLevel.ERROR:   await Task.Run(() => NK::NKDebug.Logger.Error(msg)).ConfigureAwait(false); break;
-
-                default:               await Task.Run(() => NK::NKDebug.Logger.Info(msg)).ConfigureAwait(false);  break;
-            }
-        } catch (Exception ex)
-              when (LogException("NKLogger failed to log into file", ex, false)) { }
-    }*/
 }

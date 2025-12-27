@@ -5,7 +5,6 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.moveorder;
 using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.nnue;
@@ -16,6 +15,7 @@ using Kreveta.utils;
 
 using System;
 using System.Diagnostics;
+using System.Runtime.Intrinsics.X86;
 using System.Threading;
 
 namespace Kreveta;
@@ -28,18 +28,29 @@ internal static class Program {
     internal const string Network = "nnue-128-16-16-v4.bin";
 
     internal static int Main(string[] args) {
-        using var cur = Process.GetCurrentProcess();
         
-        // this does actually make stuff a bit faster
+        // although this can make the engine a bit unstable,
+        // it seems to bring quite nice performance benefits
+        using var cur     = Process.GetCurrentProcess();
         cur.PriorityClass = ProcessPriorityClass.RealTime;
 
         // free manually allocated memory before exiting
         AppDomain.CurrentDomain.ProcessExit += FreeMemory;
 
-        // although this could be useful, i am lazy
+        // not sure why and how anyone would attempt this, but fine
         if (args.Length != 0)
-            UCI.Log("Command line arguments are not supported", UCI.LogLevel.WARNING);
-        
+            UCI.Log("Command line arguments are not supported");
+
+        // okay, i know this is really evil, but i am just far too lazy
+        // to implement fallbacks, but i might get to it in the future
+        if (!Avx2.IsSupported || !Bmi2.IsSupported) {
+            UCI.Log("AVX2 and BMI2 hardware support is required. Your current CPU features:");
+            UCI.Log($"  AVX2: {Avx2.IsSupported}");
+            UCI.Log($"  BMI2: {Bmi2.IsSupported}");
+            UCI.Log("This means you sadly won't be able to run this engine :(");
+            Console.ReadKey();
+        }
+
         // this forces running static constructors to ensure everything
         // is initialized right at the beginning; otherwise crash :(
         _ = typeof(ZobristHash);
@@ -77,7 +88,7 @@ internal static class Program {
         // manually allocated memory is spread throughout the whole
         // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
-            ((Action)TT.Clear + PerftTT.Clear + PawnCorrections.Clear + Killers.Clear + MoveOrder.Clear + LookupTables.Clear + ZobristHash.Clear)();
+            ((Action)TT.Clear + PerftTT.Clear + PawnCorrections.Clear + Killers.Clear + LookupTables.Clear + ZobristHash.Clear)();
         }
     }
 }

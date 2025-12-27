@@ -18,12 +18,11 @@
 // The switch expression does not handle some values
 #pragma warning disable CS8524
 
-
 using System;
 using System.Linq;
 using System.Text;
-// ReSharper disable SwitchStatementHandlesSomeKnownEnumValuesWithDefault
 
+// ReSharper disable SwitchStatementHandlesSomeKnownEnumValuesWithDefault
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.uci.options;
@@ -56,26 +55,17 @@ internal static partial class Options {
             Value        = Default.DPolyglotRisk
         },
 
-        // size of the hash table in megabytes. this only
+        // size of the hash table in mebibytes. this only
         // sets the size of the transposition table. other
         // tables, such as pawn corrections, or the perfttt,
         // are not restricted by this option
         new() {
             Name         = nameof(Hash),
             Type         = OpType.SPIN,
-            MinValue     = 1L,    // always keep at least some memory
+            MinValue     = 1L, // always keep at least some memory
             MaxValue     = 1024L, 
             DefaultValue = Default.DHash,
             Value        = Default.DHash
-        },
-
-        // log into a file using NKLogger by KryKomDev. the engine
-        // may log its commands and responses into a custom log file
-        new() {
-            Name         = nameof(NKLogs),
-            Type         = OpType.CHECK,
-            DefaultValue = Default.DNKLogs,
-            Value        = Default.DNKLogs
         },
         
         // print fancy statistics after each finished search
@@ -95,8 +85,7 @@ internal static partial class Options {
     internal static string PolyglotBook    => (string)options[1].Value;
     internal static long   PolyglotRisk    => (long)  options[2].Value;
     internal static long   Hash            => (long)  options[3].Value;
-    internal static bool   NKLogs          => (bool)  options[4].Value;
-    internal static bool   PrintStats      => (bool)  options[5].Value;
+    internal static bool   PrintStats      => (bool)  options[4].Value;
 
     // used to print the option types when 'uci' is entered
     private static string GetName(this OpType type)
@@ -115,7 +104,7 @@ internal static partial class Options {
         // option type, default value and possibly the range
         // of values the option can hold
         foreach (Option opt in options) {
-            StringBuilder sb = new();
+            var sb = new StringBuilder();
 
             // append the option name and type
             sb.Append($"option name {opt.Name}");
@@ -221,15 +210,15 @@ internal static partial class Options {
 
         // didn't match the name with any option
         unsupported_opt:
-        UCI.Log($"Option not supported: \"{tokens[2]}\". Type \"uci\" to list all supported options", UCI.LogLevel.ERROR);
+        UCI.Log($"Option not supported: \"{tokens[2]}\". Type \"uci\" to list all supported options");
         return;
 
         invalid_syntax:
-        UCI.Log("Invalid setoption syntax", UCI.LogLevel.ERROR);
+        UCI.Log("Invalid setoption syntax");
         return;
 
         val_out_of_range:
-        UCI.Log("Option value out of range. Type \"uci\" to view restrictions", UCI.LogLevel.ERROR);
+        UCI.Log("Option value out of range. Type \"uci\" to view restrictions");
     }
 }
 

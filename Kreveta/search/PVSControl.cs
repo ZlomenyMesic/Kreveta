@@ -6,7 +6,6 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -258,7 +257,7 @@ internal static class PVSControl {
 
         // as per the convention, the engine's response
         // must be terminated by a newline character
-        UCI.Log(info, UCI.LogLevel.INFO);
+        UCI.Log(info);
     }
 
     // try to find the pv outside the stored array
