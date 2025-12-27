@@ -10,9 +10,6 @@ namespace KrevetaTuning;
 
 internal static class ParamGenerator {
     internal const int ParamCount = 17;
-    //     20, 200, 30, 20, 30,
-    // 50, 80, 35, 25, 350,
-    // 250, 15, 8, 8, 60, 80, 40
     
     internal static string CreateCMD(int paramCount) {
         int[] shifts = new int[ParamCount];

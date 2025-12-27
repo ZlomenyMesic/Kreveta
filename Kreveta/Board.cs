@@ -402,13 +402,16 @@ internal struct Board {
                 chars[sq] = Consts.Pieces[i];
             }
         }
+        
+        // next actually print the characters to console
         for (int i = 0; i < 64; i++) {
-            if (Options.NKLogs)
-                Console.ForegroundColor = char.IsAsciiLetterUpper(chars[i]) 
-                    ? ConsoleColor.White 
-                    : char.IsAsciiLetterLower(chars[i])
-                        ? ConsoleColor.DarkGray
-                        : ConsoleColor.Gray;
+            // to make things more pretty, white and black pieces get different
+            // shades of gray to differentiate from the default gray forecolor
+            Console.ForegroundColor = char.IsAsciiLetterUpper(chars[i]) 
+                ? ConsoleColor.White 
+                : char.IsAsciiLetterLower(chars[i]) 
+                    ? ConsoleColor.DarkGray 
+                    : ConsoleColor.Gray;
             
             Console.Write($"{chars[i]} ");
 
@@ -416,6 +419,7 @@ internal struct Board {
             if ((i + 1 & 7) == 0)
                 UCI.Output.WriteLine();
         }
+        
         Console.ResetColor();
     }
 

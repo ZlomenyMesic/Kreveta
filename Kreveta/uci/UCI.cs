@@ -10,11 +10,10 @@
 #pragma warning disable CA1810
 
 #pragma warning disable CA1305
+#pragma warning disable CA1031
 
-using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.moveorder;
 using Kreveta.nnue;
 using Kreveta.openings;
 using Kreveta.perft;
@@ -24,10 +23,8 @@ using Kreveta.tuning;
 using Kreveta.uci.options;
 
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
-//using BenchmarkDotNet.Running;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
@@ -37,14 +34,15 @@ namespace Kreveta.uci;
 internal static partial class UCI {
     private const int InputBufferSize = 4096;
     
-    private static readonly  TextReader Input;
+    private  static readonly TextReader Input;
     internal static readonly TextWriter Output;
 
-    private static Thread? SearchThread;
+    // the search thread is shared between both regular search and perft
+    private static Thread?        SearchThread;
     internal static volatile bool ShouldAbortSearch;
     
     private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
-        Log($"Search cannot be started - {context}", LogLevel.ERROR);
+        Log($"Search cannot be started - {context}");
     };
 
     static UCI() {
@@ -71,9 +69,6 @@ internal static partial class UCI {
 
             ReadOnlySpan<string> tokens = input.Split(' ');
 
-            // we log the input commands as well
-            //Task.Run(() => LogIntoFile($"GUI/USER COMMAND: {input}"));
-
             // the first token is obviously the command itself
             switch (tokens[0]) {
                 
@@ -83,14 +78,12 @@ internal static partial class UCI {
                 // yet, it's nice to have the option to do so implemented
                 case "ucinewgame":
                     Game.FullGame      = true;
-                    //Game.PreviousScore = 0;
+                    Game.PreviousScore = 0;
                     
                     TT.Clear();
                     break;
                 
-                // the "setoption ..." command is used to modify some options
-                // in the engine. this is important in many cases when we want
-                // to, for instance, disable the opening book
+                // the "setoption ..." command is used to acces internal parameters
                 case "setoption":
                     Options.Set(tokens);
                     break;
@@ -101,6 +94,7 @@ internal static partial class UCI {
                     Log("readyok");
                     break;
                 
+                // "uci" tells the GUI that UCI is supported, and also lists available options
                 case "uci":
                     CmdUCI();
                     break;
@@ -117,27 +111,20 @@ internal static partial class UCI {
                     CmdPerft(tokens);
                     break;
                 
-                case "gettuning":
-                    Console.WriteLine($"info string TUNE score {Tuning.TotalCutoffScore}");
-                    Console.WriteLine($"info string TUNE cutoffs {Tuning.TotalCutoffs}");
-                    Tuning.TotalCutoffs     = 0UL;
-                    Tuning.TotalCutoffScore = 0UL;
-                    break;
-                
                 // print the current position
                 case "d":
+                    Console.WriteLine();
                     Game.Board.Print();
-                    Log("FEN: " + Game.Board.FEN());
+                    Console.WriteLine();
+                    
+                    Log($"FEN:           {Game.Board.FEN()}");
+                    Log($"Zobrist hash:  {Game.Board.Hash}");
+                    Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}\n");
                     break;
                 
                 // stop any running searches
                 case "stop":
                     StopSearch();
-                    break;
-                
-                // run currently set benchmarks
-                case "bench":
-                    //BenchmarkRunner.Run<Benchmarks>();
                     break;
                 
                 case "test":
@@ -153,21 +140,21 @@ internal static partial class UCI {
                     break;
 
                 case "eval": {
-                    // log the HCE score
-                    Log($"se {Eval.StaticEval(in Game.Board)}");
-
-                    // and the NNUE score
                     var nnue = new NNUEEvaluator(Game.Board);
-                    Log($"nnue {nnue.Score}");
+
+                    // log the classical eval score and NNUE score
+                    Log($"\nClassical: {Eval.StaticEval(in Game.Board)}");
+                    Log($"NNUE:      {nnue.Score}");
+                    Log($"Combined:  {Game.Board.StaticEval}\n");
                     break;
                 }
                 
                 case "help" or "-help" or "--help" or "h" or "-h" or "--h":
-                    Log("Kreveta is a free and open-source chess engine, released under the MIT license. UCI protocol is used to communicate with GUIs. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta, or here: https://zlomenymesic.github.io/Kreveta", LogLevel.INFO);
+                    Log("Kreveta is a free and open-source chess engine, released under the MIT license. UCI protocol is used to communicate with GUIs. Please read the full documentation on GitHub: https://github.com/ZlomenyMesic/Kreveta");
                     break;
 
                 default:
-                    Log($"Unknown command: \"{tokens[0]}\". Type 'help' for more information", LogLevel.ERROR);
+                    Log($"Unknown command: \"{tokens[0]}\". Type 'help' for more information");
                     break;
             }
         }
@@ -193,7 +180,7 @@ internal static partial class UCI {
     // start the search itself, though
     private static void CmdPosition(ReadOnlySpan<string> tokens) {
         if (tokens.Length <= 1) {
-            Log("Missing arguments - startpos/fen must be specified", LogLevel.ERROR);
+            Log("Missing arguments - startpos/fen must be specified");
             return;
         }
         
@@ -201,10 +188,10 @@ internal static partial class UCI {
 
             // we CAN'T use Board.CreateStartpos here, since we
             // may have a bunch of moves played from startpos
-            case "startpos": Game.SetStartpos(tokens);                      break;
-            case "fen":      Game.SetPosFEN(tokens);                        break;
+            case "startpos": Game.SetStartpos(tokens);          break;
+            case "fen":      Game.SetPosFEN(tokens);            break;
 
-            default: Log($"Invalid argument: \"{tokens[1]}\"", LogLevel.ERROR); return;
+            default: Log($"Invalid argument: \"{tokens[1]}\""); return;
         }
     }
 
@@ -217,8 +204,8 @@ internal static partial class UCI {
         StopSearch();
 
         // position cannot be searched (mate or stalemate)
-        if (Game.IsTerminalPosition(out string error)) {
-            CannotStartSearchCallback.Invoke(error);
+        if (Game.IsTerminalPosition(out string reason)) {
+            CannotStartSearchCallback.Invoke(reason);
             return;
         }
 
@@ -227,7 +214,7 @@ internal static partial class UCI {
                 goto invalid_syntax;
 
             if (depth < 1) {
-                Log("Depth must be greater than or equal to 1", LogLevel.ERROR);
+                Log("Depth must be greater than or equal to 1");
                 return;
             }
 
@@ -244,7 +231,7 @@ internal static partial class UCI {
         }
 
         invalid_syntax:
-        Log("Invalid perft command syntax", LogLevel.ERROR);
+        Log("Invalid perft command syntax");
     }
 
     private static void CmdGo(ReadOnlySpan<string> tokens) {
@@ -274,22 +261,26 @@ internal static partial class UCI {
                     throw new InvalidCastException();
 
                 TimeMan.TimeBudget = long.MaxValue;
-            } catch (Exception ex)
-                  when (LogException("Invalid depth argument", ex)) { }
+            } catch {
+                Log("Invalid or missing depth argument");
+            }
         }
 
         if (depth < 1) {
-            Log("Depth must be greater than or equal to 1", LogLevel.ERROR);
+            Log("Depth must be greater than or equal to 1");
             return;
         }
 
         if (tokens.Contains("nodes"))
-            Log("Node count restrictions are not supported", LogLevel.WARNING);
+            Log("Node count restrictions are not supported");
+        
+        if (tokens.Contains("searchmoves"))
+            Log("Search moves restrictions are not supported");
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
         if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.PolyglotUseBook) {
-            Move bookMove = Polyglot.GetBookMove(Game.Board);
+            Move bookMove = Polyglot.GetBookMove(in Game.Board);
             
             if (bookMove != default) {
                 Log($"bestmove {bookMove.ToLAN()}");
@@ -327,11 +318,11 @@ internal static partial class UCI {
     }
 
     private static void Test() {
-        int see = SEE.GetCaptureScore(in Game.Board, Color.WHITE, "e2e4".ToMove(in Game.Board));
-        Console.WriteLine($"\nSEE: {see}\n");
+
     }
 }
-
+    
+#pragma warning restore CA1031
 #pragma warning restore CA1810
 #pragma warning restore CA1305
 

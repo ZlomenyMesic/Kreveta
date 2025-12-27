@@ -17,7 +17,7 @@ internal static class PolyglotZobristHash {
     
     // the whole process of the hashing is very similar to
     // the one used in ZobristHash
-    internal static ulong Hash(Board board) {
+    internal static ulong Hash(in Board board) {
         ulong hash = 0UL;
 
         // XOR all pieces - this approach is fairly inefficient and

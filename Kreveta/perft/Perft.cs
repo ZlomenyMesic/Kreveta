@@ -57,7 +57,7 @@ internal static class Perft {
         // even if the search ended prematurely, we still
         // display the results found before that
         if (UCI.ShouldAbortSearch)
-            UCI.Log("perft search aborted", UCI.LogLevel.WARNING);
+            UCI.Log("Perft search aborted :(");
 
         int nps = (int)Math.Round((decimal)nodes / time * 1000, 0);
 
@@ -65,9 +65,9 @@ internal static class Perft {
         // via the option, so we must force printing them
         // even if stats are disabled)
         UCI.LogStats(forcePrint: true,
-            ("nodes found", nodes),
-            ("time spent",  sw.Elapsed),
-            ("average NPS", nps));
+            ("Nodes found", nodes),
+            ("Time spent",  sw.Elapsed),
+            ("Average NPS", nps));
         
         PerftTT.Clear();
     }
@@ -99,8 +99,6 @@ internal static class Perft {
         Span<Move> moves = stackalloc Move[Consts.MoveBufferSize];
         int count = Movegen.GetPseudoLegalMoves(ref board, moves);
         
-        //ReadOnlySpan<Move> moves = buffer.Slice(0, count);
-
         for (byte i = 0; i < count; i++) {
 
             // create a copy of the board and play the move
