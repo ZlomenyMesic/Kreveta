@@ -22,7 +22,7 @@
       <Link>KrevetaLogo.ico</Link>
     </None>
     
-    <EmbeddedResource Include="..\NNUETraining\archive\nnue-128-16-16-v4.bin" />
+    <EmbeddedResource Include="..\docs\networks\nnue-128-16-16-v4.bin" />
   </ItemGroup>
 
 </Project>
