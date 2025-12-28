@@ -401,7 +401,7 @@ internal static class PVSearch {
             ulong hash            = ZobristHash.Hash(in child);
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
-            bool  isCapture       = curMove.Capture != PType.NONE;
+            bool  isCapture       = curMove.Capture != PType.NONE || curMove.Promotion == PType.PAWN;
             
             // since draw positions skip PVS, the full search
             // result must be initialized in advance (as draw)
@@ -540,7 +540,7 @@ internal static class PVSearch {
                 int R = 4;
 
                 // depth reduce is larger with bad quiet history
-                if (!isCapture && QuietHistory.GetRep(col, curMove) < -715) R++;
+                if (!isCapture && QuietHistory.GetRep(curMove) < -450) R++;
 
                 // some SEE tweaking - worse captures get higher reductions
                 if ( improving || see >= 94) R--;
@@ -562,7 +562,7 @@ internal static class PVSearch {
                         : score >= ss.Window.Beta) {
                         
                     if (!isCapture)
-                        QuietHistory.ChangeRep(col, curMove, ss.Depth - R, isGood: false);
+                        QuietHistory.ChangeRep(curMove, ss.Depth - R, isGood: false);
                     
                     if (ss.Previous != default)
                         ContinuationHistory.Add(ss.Previous, curMove, ss.Depth - R, isGood: false);
@@ -597,7 +597,7 @@ internal static class PVSearch {
                 // (although we are modifying quiet history, not checking
                 // whether this move is a capture yields better results)
                 if (!isCapture)
-                    QuietHistory.ChangeRep(col, curMove, curDepth, isGood: false);
+                    QuietHistory.ChangeRep(curMove, curDepth, isGood: false);
                 
                 if (ss.Previous != default)
                     ContinuationHistory.Add(ss.Previous, curMove, curDepth, isGood: false);
@@ -635,7 +635,7 @@ internal static class PVSearch {
 
                         // if a quiet move caused a beta cutoff, we increase its history
                         // score and store it as a killer move on the current depth
-                        QuietHistory.ChangeRep(col, curMove, ss.Depth, isGood: true);
+                        QuietHistory.ChangeRep(curMove, ss.Depth, isGood: true);
                     }
                     
                     // there are both quiet and capture killer tables,

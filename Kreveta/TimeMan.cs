@@ -213,11 +213,11 @@ internal static class TimeMan {
         long timeLeft = Game.EngineColor == Color.WHITE
             ? _whiteTime : _blackTime;
 
-        if (timeLeft < 500) return;
+        if (timeLeft < 250) return;
 
         long bonus = (long)(instability < 0
-            ? instability * depth / 4
-            : instability * depth / 8);
+            ? instability * depth / 3
+            : instability * depth / 9);
 
         TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 400, 1 + timeLeft / 400);
     }

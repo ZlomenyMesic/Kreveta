@@ -22,7 +22,7 @@ internal static class Program {
     // limit how many "new engines" to create/test
     private const int Cycles = 1_000_000;
 
-    private const int ShiftsPerEval = 5;
+    private const int ShiftsPerEval = 3;
 
     private static float _krevetaBaseMSE;
     private static float _krevetaBaseMoveAccuracy;

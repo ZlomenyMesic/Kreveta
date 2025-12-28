@@ -113,12 +113,10 @@ internal static partial class UCI {
                 
                 // print the current position
                 case "d":
-                    Console.WriteLine();
                     Game.Board.Print();
-                    Console.WriteLine();
                     
                     Log($"FEN:           {Game.Board.FEN()}");
-                    Log($"Zobrist hash:  {Game.Board.Hash}");
+                    Log($"TT hash:       {Game.Board.Hash}");
                     Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}\n");
                     break;
                 

@@ -5,7 +5,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
-using Kreveta.utils;
+using Kreveta.approx;
 
 using System;
 using System.Runtime.CompilerServices;
@@ -267,7 +267,7 @@ internal unsafe sealed class NNUEEvaluator {
         return kingSq * 640 + (pieceType * 2 + colBit << 6) + sq;
     }
     
-    internal void UpdateEvaluation(Color active, int pcnt) {
+    private void UpdateEvaluation(Color active, int pcnt) {
         Span<short> concat = stackalloc short[H1Input];
 
         if (active == Color.WHITE) {
@@ -278,7 +278,7 @@ internal unsafe sealed class NNUEEvaluator {
             _accWhite.AsSpan().CopyTo(concat[EmbedDims..]);
         }
 
-        int bucket = Math.Min(pcnt / 4, 7);//BucketTable[pcnt];
+        int bucket = Math.Min(7, pcnt / 4);//BucketTable[pcnt]));
 
         ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[bucket];
         ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[bucket];
@@ -328,9 +328,9 @@ internal unsafe sealed class NNUEEvaluator {
             var prod_o = Avx2.MultiplyAddAdjacent(va_o, vb_o);
             
             int pred  = (VectorSum(prod_o) >> 10) + outBias;
-            short act = MathLUT.FastSigmoid(pred);
+            short act = MathApprox.FastSigmoid(pred);
             
-            Score = (short)(MathLUT.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));
+            Score = (short)(MathApprox.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));
         }
     }
 

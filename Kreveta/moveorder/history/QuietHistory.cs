@@ -45,8 +45,8 @@ internal static class QuietHistory {
 
     static QuietHistory() {
         for (int i = 0; i < 64; i++) {
-            QuietScores[i]    = new int[12];
-            ButterflyBoard[i] = new int[12];
+            QuietScores[i]    = new int[64];
+            ButterflyBoard[i] = new int[64];
         }
     }
 
@@ -55,7 +55,7 @@ internal static class QuietHistory {
     // more important, so we want them to have a stronger effect
     internal static void Shrink() {
         Parallel.For(0, 64, i => {
-            Parallel.For(0, 12, j => {
+            Parallel.For(0, 64, j => {
                 
                 // history reputation is straightforward
                 QuietScores[i][j] /= 2;
@@ -81,30 +81,30 @@ internal static class QuietHistory {
     private const int ShiftLimit    = 84;
     
     // modify the history reputation of a move. isMoveGood tells us how
-    internal static void ChangeRep(Color col, Move move, int depth, bool isGood) {
-        int i   = PieceIndex(col, move);
-        int end = move.End;
+    internal static void ChangeRep(Move move, int depth, bool isGood) {
+        int start = move.Start;
+        int end   = move.End;
         
         // how much should the move affect the reputation (moves at higher depths
         // are probably more reliable, so their impact should be stronger)
-        QuietScores[end][i] += Math.Min(depth * depth - ShiftSubtract, ShiftLimit)
+        QuietScores[start][end] += Math.Min(depth * depth - ShiftSubtract, ShiftLimit)
                                
                                // we either add or subtract the shift, depending on
                                // whether the move was good or not
                                * (isGood ? 1 : -1);
 
         // add the move as visited, too
-        ButterflyBoard[end][i]++;
+        ButterflyBoard[start][end]++;
     }
 
     // retrieve the reputation of a move
-    internal static int GetRep(Color col, Move move) {
-        int i   = PieceIndex(col, move);
-        int end = move.End;
+    internal static int GetRep(Move move) {
+        int start = move.Start;
+        int end   = move.End;
 
         // quiet score and butterfly score
-        int q  = QuietScores[end][i];
-        int bf = ButterflyBoard[end][i];
+        int q  = QuietScores[start][end];
+        int bf = ButterflyBoard[start][end];
 
         // precaution to not divide by zero
         if (bf == 0) return 0;
@@ -114,10 +114,4 @@ internal static class QuietHistory {
         // a more average score
         return RelHHScale * q / bf;
     }
-
-    // calculate the index of a piece in the boards
-    // (we just add 6 for white pieces)
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PieceIndex(Color col, Move move)
-        => (byte)move.Piece + (col == Color.WHITE ? 6 : 0);
 }

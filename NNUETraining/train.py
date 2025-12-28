@@ -35,14 +35,14 @@ CONFIG_PATH  = os.path.join(SCRIPT_DIR, "config.json")
 
 NUM_WORKERS = 10
 ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
-BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
+BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
 
-EMBED_DIM         = 128
+EMBED_DIM         = 1024
 H1_NEURONS        = 16
-H2_NEURONS        = 16
+H2_NEURONS        = 32
 BATCH_SIZE        = 4096
 
 SAMPLES_QUEUE_MAX = 10000
@@ -104,8 +104,8 @@ def board_features(board: chess.Board):
     if w_king_sq is None or b_king_sq is None:
         return []
     
-    m_w_king_sq = (7 - (w_king_sq & 7)) + (8 * (w_king_sq >> 3))
-    m_b_king_sq = (7 - (b_king_sq & 7)) + (8 * (b_king_sq >> 3))
+    m_w_king_sq = w_king_sq ^ 7
+    m_b_king_sq = b_king_sq ^ 7
 
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
@@ -121,7 +121,7 @@ def board_features(board: chess.Board):
         # piece_color True if black, False if white
         is_black = piece.color == chess.BLACK
 
-        m_sq = (7 - (sq & 7)) + (8 * (sq >> 3))
+        m_sq = sq ^ 7
 
         # index into white accumulator (white king as reference)
         idx_w = feature_index(
@@ -132,10 +132,10 @@ def board_features(board: chess.Board):
         )
         # index into black accumulator (black king as reference)
         idx_b = feature_index(
-            king_square  = b_king_sq ^ 56 ^ 7,
+            king_square  = b_king_sq ^ 56,
             piece_type   = piece.piece_type,
             is_black     = not is_black,
-            piece_square = sq ^ 56 ^ 7
+            piece_square = sq ^ 56
         )
 
         m_idx_w = feature_index(
@@ -145,10 +145,10 @@ def board_features(board: chess.Board):
             piece_square = m_sq
         )
         m_idx_b = feature_index(
-            king_square  = m_b_king_sq ^ 56 ^ 7,
+            king_square  = m_b_king_sq ^ 56,
             piece_type   = piece.piece_type,
             is_black     = not is_black,
-            piece_square = m_sq ^ 56 ^ 7
+            piece_square = m_sq ^ 56
         )
 
         w_indices.append(idx_w)
@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 8e-5,
-        decay_rate            = 0.99977, # 0.99991
+        initial_learning_rate = 4e-3,
+        decay_rate            = 0.99987, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )

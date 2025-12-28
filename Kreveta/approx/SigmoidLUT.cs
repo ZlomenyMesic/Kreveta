@@ -9,9 +9,9 @@ using System;
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.utils;
+namespace Kreveta.approx;
 
-internal static partial class MathLUT {
+internal static partial class MathApprox {
     private const int SigmHalfTable = 5 * NNUEEvaluator.QScale;
     private static short[] SigmTable = null!;
 

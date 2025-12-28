@@ -11,7 +11,7 @@ using Kreveta.nnue;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
-using Kreveta.utils;
+using Kreveta.approx;
 
 using System;
 using System.Diagnostics;
@@ -67,7 +67,7 @@ internal static class Program {
 
         // load the embedded nnue weights
         _ = typeof(NNUEWeights);
-        _ = typeof(MathLUT);
+        _ = typeof(MathApprox);
 
         ContinuationHistory.Init();
         

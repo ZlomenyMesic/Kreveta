@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.moveorder.history;
+using Kreveta.tuning;
 
 using System;
 
@@ -29,13 +30,13 @@ internal static class LazyMoveOrder {
         for (int i = 0; i < count; i++) {
             Move move = moves[i];
 
-            bool isCapture = move.Capture != PType.NONE;
-            bool isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
-            bool isCounter = counterMove == move;
+            PType promPiece = move.Promotion;
+            bool  isCapture = move.Capture != PType.NONE || promPiece == PType.PAWN;
+            bool  isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
+            bool  isCounter = counterMove == move;
 
             if (!isCapture) {
                 PType movedPiece = move.Piece;
-                PType promPiece  = move.Promotion;
 
                 // killers and counters obviously get a higher score,
                 // as they have previously proved to be effective
@@ -43,13 +44,13 @@ internal static class LazyMoveOrder {
                 int counter = isCounter ? 105 : 0;
                 
                 // then quiet and continuation history is applied
-                int qhist   = QuietHistory.GetRep(col, move) * 54 / 100;
-                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * 54 / 100 : 0;
+                int qhist = QuietHistory.GetRep(move) * 35 / 100;
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 38 / 100 : 0;
                 
                 // punish queen and king moves in the opening or early
                 // middlegame, of course except for castling
-                int queen   = movedPiece == PType.QUEEN && isEarlyGame                           ? -97  : 0;
-                int king    = movedPiece == PType.KING && promPiece != PType.KING && isEarlyGame ? -209 : 0;
+                int queen = movedPiece == PType.QUEEN && isEarlyGame                           ? -97  : 0;
+                int king  = movedPiece == PType.KING && promPiece != PType.KING && isEarlyGame ? -209 : 0;
 
                 // promotions and castling get placed higher
                 int prom = promPiece switch {
@@ -66,23 +67,22 @@ internal static class LazyMoveOrder {
                 // killers and counters are the same as in quiets, but
                 // higher scores are applied to push captures above quiets
                 int killer  = isKiller ? 2978 : 1532;
-                int counter = isCounter ? 56 : 0;
                 
                 // static exchange evaluation and continuation history. it is
                 // often said that conthist doesn't work well with captures,
                 // but here it seems like it does. i've also tried combining
                 // SEE with additional MVV-LVA, but that didn't work at all
-                int see     = SEE.GetCaptureScore(in board, col, move);
-                int cont    = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
+                int see  = SEE.GetCaptureScore(in board, col, move);
+                int cont = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
 
                 // once again promotions get placed higher
-                int prom = move.Promotion switch {
+                int prom = promPiece switch {
                     PType.QUEEN => 284,
                     PType.ROOK  => 200,
                     _           => 0
                 };
 
-                scores[i] += killer + counter + cont + prom + see;
+                scores[i] += killer + cont + prom + see;
             }
         }
     }

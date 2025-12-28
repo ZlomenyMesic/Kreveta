@@ -405,6 +405,10 @@ internal struct Board {
         
         // next actually print the characters to console
         for (int i = 0; i < 64; i++) {
+            // newline character at the end of each rank
+            if ((i & 7) == 0)
+                UCI.Output.Write("\n  ");
+            
             // to make things more pretty, white and black pieces get different
             // shades of gray to differentiate from the default gray forecolor
             Console.ForegroundColor = char.IsAsciiLetterUpper(chars[i]) 
@@ -414,12 +418,9 @@ internal struct Board {
                     : ConsoleColor.Gray;
             
             Console.Write($"{chars[i]} ");
-
-            // newline character at the end of each rank
-            if ((i + 1 & 7) == 0)
-                UCI.Output.WriteLine();
         }
         
+        Console.WriteLine('\n');
         Console.ResetColor();
     }
 

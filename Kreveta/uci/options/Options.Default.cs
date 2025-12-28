@@ -16,7 +16,6 @@ internal static partial class Options {
         
         internal const long   DHash            = 128L;
         
-        internal const bool   DNKLogs          = false;
         internal const bool   DPrintStats      = false;
     }
 }

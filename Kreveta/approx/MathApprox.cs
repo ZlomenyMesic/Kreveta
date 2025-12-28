@@ -4,10 +4,10 @@
 //
 
 // ReSharper disable InconsistentNaming
-namespace Kreveta.utils;
+namespace Kreveta.approx;
 
-internal static partial class MathLUT {
-    static MathLUT() {
+internal static partial class MathApprox {
+    static MathApprox() {
         InitSigmTable();
         InitPtCPTable();
     }

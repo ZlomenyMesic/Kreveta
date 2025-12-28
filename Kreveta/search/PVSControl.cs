@@ -64,6 +64,7 @@ internal static class PVSControl {
         // need to update the table before the search
         TT.Init();
         
+        // null move pruning starts at later plies when closer to endgame
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 6);
 
@@ -76,21 +77,26 @@ internal static class PVSControl {
             Window aspiration   = Window.Infinite;
             bool   isAspiration = false;
             
+            // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.8f;
             ScoreDiffs *= 0.85f;
             
+            // calculate the instability of the best move, and the score
+            float pvInstability    = PVChanges * PVChanges * PVChanges * 1.5f;
             float scoreInstability = PVSearch.CurIterDepth != 0 
                 ? ScoreDiffs / PVSearch.CurIterDepth
                 : 0f;
 
-            float pvInstability    = PVChanges * PVChanges * PVChanges * 1.5f;
+            // somehow combine the two into a total search instability metric.
+            // it starts negative, as when the search is stable, the time budget
+            // and aspiration window deltas have to be reduced
             float totalInstability = -6f + scoreInstability + pvInstability;
             
             // try to reduce or increase the time budget based on instability
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
                 TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            /*if (PVSearch.CurIterDepth >= 2 && TimeMan.TimeBudget < 250) { 
+            /*if (PVSearch.CurIterDepth > 1 && TimeMan.TimeBudget < 250) { 
                 int delta = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
                 delta     = Math.Clamp(delta, -1000, 1000);
 
@@ -154,16 +160,18 @@ internal static class PVSControl {
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
-            ("Nodes Searched",         TotalNodes),
-            ("Time Spent",             sw.Elapsed),
-            ("Average NPS",            (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
-            ("TT Hits",                TT.TTHits)
+            ("Nodes Searched", TotalNodes),
+            ("Time Spent",     sw.Elapsed),
+            ("Average NPS",    (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
+            ("TT Hits",        TT.TTHits)
         );
         
+        // even if the search was aborted during the latest iteration,
+        // as long as we have found a good move, it can be trusted
         if (PVSearch.NextBestMove != default && AspirationFail == 0)
             BestMove = PVSearch.NextBestMove;
 
-        // the final response of the engine to the gui
+        // the final response of the engine to the GUI
         UCI.Log($"bestmove {BestMove.ToLAN()}");
         
         // store this score for the next turn when playing a full game
@@ -219,8 +227,8 @@ internal static class PVSControl {
         // an engine's strength or efficiency. we need to maximize these. in
         // early iterations the time may actually be less than a millisecond,
         // so we handle that by setting in to 1
-        long nodesDivisor = CurElapsed != 0L ? CurElapsed : 1L;
-        int  nps = (int)((float)PVSearch.CurNodes / nodesDivisor * 1000);
+        long time = CurElapsed != 0L ? CurElapsed : 1L;
+        int  nps  = (int)((float)PVSearch.CurNodes / time * 1000);
 
         // we print the search info to the console
         string info = "info " +
@@ -250,8 +258,7 @@ internal static class PVSControl {
                       // principal variation
                       "pv";
 
-        // print the actual moves in the pv. Move.ToString()
-        // is overriden so there's no need to explicitly type it
+        // print the actual moves in the pv
         info = ElongatePV().Aggregate(info, 
             (current, move) => current + $" {move.ToLAN()}");
 
@@ -260,6 +267,7 @@ internal static class PVSControl {
         UCI.Log(info);
     }
 
+    // TODO - REMOVE 3FOLD REPETTITION FROM TT
     // try to find the pv outside the stored array
     private static IEnumerable<Move> ElongatePV() {
         Board board = Game.Board.Clone();
