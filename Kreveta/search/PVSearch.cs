@@ -73,11 +73,11 @@ internal static class PVSearch {
         // decrease quiet history values, as they shouldn't be as relevant now.
         // erasing them completely would, however, slow down the search
         QuietHistory.Shrink();
+        CaptureHistory.Shrink();
         ContinuationHistory.Age();
 
         // these need to be erased, though
-        PawnCorrections.Realloc();
-        KingCorrections.Clear();
+        Corrections.Clear();
 
         // store the pv from the previous iteration in tt
         // this should hopefully allow some faster lookups
@@ -91,7 +91,7 @@ internal static class PVSearch {
             depth:      (sbyte)CurIterDepth,
             extensions: 0,
             window:     aspiration,
-            previous:   default,
+            lastMove:   default,
             isPv:       true
         );
 
@@ -113,12 +113,12 @@ internal static class PVSearch {
 
         Killers.Clear();
         QuietHistory.Clear();
+        CaptureHistory.Clear();
         CounterMoveHistory.Clear();
 
         ContinuationHistory.Clear();
         
-        PawnCorrections.Clear();
-        KingCorrections.Clear();
+        Corrections.Clear();
         
         TT.Clear();
     }
@@ -163,7 +163,7 @@ internal static class PVSearch {
         // store the current two-move sequence in countermove history - the previously
         // played move, and the best response (counter) to this move found by the search
         if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth)
-            CounterMoveHistory.Add(board.Color, ss.Previous, result.PV[0]);
+            CounterMoveHistory.Add(board.Color, ss.LastMove, result.PV[0]);
         
         /*if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
             ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
@@ -171,7 +171,8 @@ internal static class PVSearch {
         
         // update this position's score in pawncorrhist. we have to do this
         // here, otherwise repeating positions would take over the whole thing
-        Corrections.Update(board, result.Score, ss.Depth);
+        if (result.Score > ss.Window.Alpha && result.Score < ss.Window.Beta)
+            Corrections.Update(board, result.Score, ss.Depth);
 
         return result;
     }
@@ -236,7 +237,7 @@ internal static class PVSearch {
         // if we got here from a PV node, and the move that was played to get
         // here was the move from the previous PV, we are in a PV node as well
         ss.IsPV = ss.IsPV && (ss.Ply == 0 
-                                      || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.Previous);
+                                      || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
         
         // 2. NULL MOVE PRUNING (~107 Elo)
         // we assume that in every position there is at least one move that improves it. first,
@@ -282,7 +283,7 @@ internal static class PVSearch {
                     depth:      (sbyte)(ss.Depth - R),
                     extensions: ss.Extensions,
                     window:     nullWindowBeta,
-                    previous:   default,
+                    lastMove:   default,
                     isPv:       false
                 ),
                 isNMP: true
@@ -360,6 +361,7 @@ internal static class PVSearch {
         // loop through possible moves
         while (true) {
             Move curMove;
+            int  curScore = 0;
 
             // when in the first iteration, check if there's a known
             // tt move and potentially place it as the first move
@@ -371,7 +373,7 @@ internal static class PVSearch {
                 if (!scoresAssigned) {
                     moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
                     
-                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.Previous, legalMoves, moveScores, moveCount);
+                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it
@@ -387,7 +389,7 @@ internal static class PVSearch {
                     }
                 }
                 
-                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount);
+                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount, out curScore);
 
                 // when moveorder returns default, there aren't any moves left
                 if (curMove == default) break;
@@ -398,7 +400,6 @@ internal static class PVSearch {
             Board child   = board.Clone();
             child.PlayMove(curMove, true);
             
-            ulong hash            = ZobristHash.Hash(in child);
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
             bool  isCapture       = curMove.Capture != PType.NONE || curMove.Promotion == PType.PAWN;
@@ -411,7 +412,7 @@ internal static class PVSearch {
             // check the position for a 3-fold repetition draw. it is very
             // important that we also remove this move from the stack, which
             // must be done anywhere where this loop is exited
-            bool isThreeFold = !isNMP && ThreeFold.AddAndCheck(hash);
+            bool isThreeFold = !isNMP && ThreeFold.AddAndCheck(child.Hash);
             
             // if there is a known draw according to chess rules
             // (either 50 move rule or insufficient mating material),
@@ -429,51 +430,15 @@ internal static class PVSearch {
             improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1);
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
 
-            // if a move is deemed as interesting, the branch is
-            // excluded from any pruning. a move is interesting if:
+            // conditions for an interesting move:
             // 1) we are evaluating the first move of a position,
-            //    or any move in a PV node
+            //    or any move in the principal variation
             // 2) the ply is low, and the move is a capture
             // 3) we are escaping check or giving a check
             bool interesting = expandedNodes == 1 
                                || ss.IsPV
                                || ss.Ply <= 4 && isCapture
                                || inCheck     || givesCheck;
-
-            // 5. REDUCTIONS (~50 Elo)
-            int reduction = 1442;
-            
-            // extend the search of the first few root moves
-            // (this is done by reducing all other moves)
-            if (ss.Ply == 0 && expandedNodes >= 5)
-                reduction += 996;
-            
-            // if a capture seems to be really bad, reduce the depth. oddly enough,
-            // restricting these reductions with various conditions doesn't work
-            if (isCapture && see < -100)
-                reduction += 1071;
-
-            // further extension/reduction based on SEE
-            reduction -= see * 63 / 100;
-            
-            // if improving, reduce less
-            reduction += improving     ? -31 : 48;
-            reduction += rootImproving ? -40 : 30;
-            
-            // check and capture extensions
-            if (inCheck)    reduction -= 221;
-            if (givesCheck) reduction -= 217;
-            if (isCapture)  reduction -= 106;
-
-            // queen promotion idea
-            if (curMove.Promotion == PType.QUEEN)
-                reduction -= 181;
-
-            // now make sure that a true extension isn't applied
-            if (ss.Ply != 0)
-                reduction = Math.Max(1024, reduction);
-            
-            curDepth -= reduction / 1024;
 
             // 7. FUTILITY PRUNING (~56 Elo)
             // we try to discard moves near the leaves, which have no potential of raising alpha.
@@ -489,10 +454,11 @@ internal static class PVSearch {
                 // depth 2 it should be more like the value of a rook."
                 // we don't really follow this exactly, but our approach is kind of similar
                 int margin = 95 + 97 * ss.Depth
-                                + 2 * childCorr                  // this acts like a measure of uncertainty
-                                + (improving ? 0 : -23)          // not improving nodes prune more
-                                + Math.Clamp(see / 122, -39, 17) // tweak the margin based on SEE
-                                + windowSize;                    // another measure of uncertainty
+                                + 2 * childCorr                     // this acts like a measure of uncertainty
+                                + (improving ? 0 : -23)             // not improving nodes prune more
+                                + Math.Clamp(see / 122, -39, 17)    // tweak the margin based on SEE
+                                + Math.Clamp(curScore / 80, -6, 14) // if history is good, prune less
+                                + windowSize;                       // another measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
                 if (col == Color.WHITE
@@ -500,7 +466,7 @@ internal static class PVSearch {
                         : childStaticEval - margin >= ss.Window.Beta) {
                     
                     CurNodes++; PVSControl.TotalNodes++;
-                    if (!isNMP) ThreeFold.Remove(hash);
+                    if (!isNMP) ThreeFold.Remove(child.Hash);
                     
                     continue;
                 }
@@ -523,7 +489,7 @@ internal static class PVSearch {
                             : childCorr > rootCorr && rootCorr > 0) {
                         
                         CurNodes++; PVSControl.TotalNodes++;
-                        if (!isNMP) ThreeFold.Remove(hash);
+                        if (!isNMP) ThreeFold.Remove(child.Hash);
 
                         // instead of just pruning this branch, we assume
                         // all following moves are even worse, so we cut
@@ -532,6 +498,44 @@ internal static class PVSearch {
                     }
                 }
             }
+            
+            // 5. REDUCTIONS (~50 Elo)
+            int reduction = 1442;
+            
+            // extend the search of the first few root moves
+            // (this is done by reducing all other moves)
+            if (ss.Ply == 0 && expandedNodes >= 5)
+                reduction += 996;
+            
+            // if a capture seems to be really bad, reduce the depth. oddly enough,
+            // restricting these reductions with various conditions doesn't work
+            if (isCapture && see < -100)
+                reduction += 1079;
+
+            // further extension/reduction based on SEE
+            reduction -= see * 58 / 100;
+
+            //if      (curScore > 3000) reduction += -238 - curScore / 94;
+            //if (curScore < -1195) reduction +=  130 + curScore / 110;
+            
+            // if improving, reduce less
+            reduction += improving     ? -31 : 49;
+            reduction += rootImproving ? -43 : 33;
+            
+            // check and capture extensions
+            if (inCheck)    reduction -= 222;
+            if (givesCheck) reduction -= 216;
+            if (isCapture)  reduction -= 108;
+
+            // queen promotion idea
+            if (curMove.Promotion == PType.QUEEN)
+                reduction -= 180;
+
+            // now make sure that a true extension isn't applied
+            if (ss.Ply != 0)
+                reduction = Math.Max(1024, reduction);
+            
+            curDepth -= reduction / 1024;
 
             int  maxExpNodes = (isTTMove ? 1 : 3) + (isPV ? 4 : 0) + ss.Depth / 4;
             bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 100;
@@ -540,7 +544,7 @@ internal static class PVSearch {
                 int R = 4;
 
                 // depth reduce is larger with bad quiet history
-                if (!isCapture && QuietHistory.GetRep(curMove) < -450) R++;
+                if (curScore < -453) R++;
 
                 // some SEE tweaking - worse captures get higher reductions
                 if ( improving || see >= 94) R--;
@@ -561,13 +565,13 @@ internal static class PVSearch {
                         ? score <= ss.Window.Alpha
                         : score >= ss.Window.Beta) {
                         
-                    if (!isCapture)
-                        QuietHistory.ChangeRep(curMove, ss.Depth - R, isGood: false);
+                    if (!isCapture) QuietHistory.ChangeRep(curMove, ss.Depth - R, isGood: false);
+                    else            CaptureHistory.ChangeRep(curMove, ss.Depth - R, isGood: false);
                     
-                    if (ss.Previous != default)
-                        ContinuationHistory.Add(ss.Previous, curMove, ss.Depth - R, isGood: false);
+                    if (ss.LastMove != default)
+                        ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth - R, isGood: false);
                         
-                    if (!isNMP) ThreeFold.Remove(hash);
+                    if (!isNMP) ThreeFold.Remove(child.Hash);
                     continue;
                 }
             }
@@ -580,13 +584,13 @@ internal static class PVSearch {
                 ss with { 
                     Ply      = (sbyte)(ss.Ply + 1),
                     Depth    = (sbyte)curDepth, 
-                    Previous = curMove
+                    LastMove = curMove
                 },
                 isNMP
             );
             
             skipPVS:
-            if (!isNMP) ThreeFold.Remove(hash);
+            if (!isNMP) ThreeFold.Remove(child.Hash);
 
             // we somehow still failed low
             if (col == Color.WHITE
@@ -596,11 +600,11 @@ internal static class PVSearch {
                 // decrease the move's reputation
                 // (although we are modifying quiet history, not checking
                 // whether this move is a capture yields better results)
-                if (!isCapture)
-                    QuietHistory.ChangeRep(curMove, curDepth, isGood: false);
+                if (!isCapture) QuietHistory.ChangeRep(curMove, curDepth, isGood: false);
+                else            CaptureHistory.ChangeRep(curMove, curDepth, isGood: false);
                 
-                if (ss.Previous != default)
-                    ContinuationHistory.Add(ss.Previous, curMove, curDepth, isGood: false);
+                if (ss.LastMove != default)
+                    ContinuationHistory.Add(ss.LastMove, curMove, curDepth, isGood: false);
             }
 
             // we went through all the pruning and didn't fail low
@@ -620,23 +624,19 @@ internal static class PVSearch {
                 Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 pv[0] = curMove;
                 
-                if (ss.Previous != default)
-                    ContinuationHistory.Add(ss.Previous, curMove, curDepth - 1, isGood: true);
+                if (ss.LastMove != default)
+                    ContinuationHistory.Add(ss.LastMove, curMove, curDepth - 1, isGood: true);
 
                 // beta cutoff (see alpha-beta pruning); alpha is larger
                 // than beta, so we can stop searching this branch, because
                 // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
-                    if (ss.Previous != default)
-                        ContinuationHistory.Add(ss.Previous, curMove, curDepth, isGood: true);
+                    if (ss.LastMove != default)
+                        ContinuationHistory.Add(ss.LastMove, curMove, curDepth, isGood: true);
 
-                    // is it quiet?
-                    if (!isCapture) {
-
-                        // if a quiet move caused a beta cutoff, we increase its history
-                        // score and store it as a killer move on the current depth
-                        QuietHistory.ChangeRep(curMove, ss.Depth, isGood: true);
-                    }
+                    // if the move caused a beta cutoff, it's history is increased
+                    if (!isCapture) QuietHistory.ChangeRep(curMove, ss.Depth, isGood: true);
+                    else            CaptureHistory.ChangeRep(curMove, ss.Depth, isGood: true);
                     
                     // there are both quiet and capture killer tables,
                     // which sort the move automatically, so don't worry

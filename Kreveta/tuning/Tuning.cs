@@ -6,8 +6,6 @@
 #pragma warning disable CA1031
 #pragma warning disable CA1305
 
-using Kreveta.evaluation;
-using Kreveta.moveorder;
 using Kreveta.search;
 
 using System;

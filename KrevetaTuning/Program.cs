@@ -24,7 +24,7 @@ internal static class Program {
 
     private const int ShiftsPerEval = 3;
 
-    private static float _krevetaBaseMSE;
+    private static float _krevetaBaseMAE;
     private static float _krevetaBaseMoveAccuracy;
     
     // stores (shift_sum, number_of_shifts)
@@ -109,8 +109,7 @@ internal static class Program {
             // Stockfish gets more time to evaluate the positions,
             // so that the tweaks based on its outputs are precise
             (int eval, string move) = stockfish.EvaluateFEN(fen, 20, EvalMode.FullSearch);
-            if (_mode == EvalMode.FullSearch)
-                eval = Math.Clamp(eval, -1000, 1000);
+            eval = Math.Clamp(eval, -1000, 1000);
             
             stockfish.Quit();
             
@@ -125,13 +124,13 @@ internal static class Program {
     private static void GenerateKrevetaBaseOutputs() {
         Console.WriteLine("Evaluating Kreveta base...");
         var kreveta = new UCIEngine(KrevetaPath);
-        (float MSE, float MoveAccuracy) result = EvaluateKreveta(kreveta, CancellationToken.None);
+        (float MAE, float MoveAccuracy) result = EvaluateKreveta(kreveta, CancellationToken.None);
         
-        _krevetaBaseMSE          = result.MSE;
+        _krevetaBaseMAE          = result.MAE;
         _krevetaBaseMoveAccuracy = result.MoveAccuracy;
         
         kreveta.Quit();
-        Console.WriteLine($"\nDone evaluating Kreveta base:\nMSE = {_krevetaBaseMSE}, MoveAccuracy = {_krevetaBaseMoveAccuracy}%\n");
+        Console.WriteLine($"\nDone evaluating Kreveta base:\nMSE = {_krevetaBaseMAE}, MoveAccuracy = {_krevetaBaseMoveAccuracy}%\n");
     }
 
     private static void EvaluateKrevetaThread(int num, CancellationToken token) {
@@ -147,12 +146,12 @@ internal static class Program {
             Console.WriteLine($"Evaluating a new Kreveta ({num + 1}/{Cycles}) with params:\n{paramCMD}\n");
 
             newKreveta.Send(paramCMD);
-            (float MSE, float MoveAccuracy) result = EvaluateKreveta(newKreveta, token);
+            (float MAE, float MoveAccuracy) result = EvaluateKreveta(newKreveta, token);
 
-            Console.WriteLine($"Done evaluating Kreveta {num + 1}/{Cycles}:\nMSE = {result.MSE}, MoveAccuracy = {result.MoveAccuracy}%\n"
+            Console.WriteLine($"Done evaluating Kreveta {num + 1}/{Cycles}:\nMSE = {result.MAE}, MoveAccuracy = {result.MoveAccuracy}%\n"
                             + $"Is it better: unsure\n");
 
-            UpdateTweaks(paramCMD, result.MSE, result.MoveAccuracy);
+            UpdateTweaks(paramCMD, result.MAE, result.MoveAccuracy);
             StoreResult();
         }
         finally {
@@ -163,10 +162,10 @@ internal static class Program {
         }
     }
 
-    private static (float MSE, float MoveAccuracy) EvaluateKreveta(UCIEngine kreveta, CancellationToken token) {
-        double totalSqError = 0;
-        int    matchMoves   = 0;
-        int    count        = 0;
+    private static (float MAE, float MoveAccuracy) EvaluateKreveta(UCIEngine kreveta, CancellationToken token) {
+        double totalError = 0;
+        int    matchMoves = 0;
+        int    count      = 0;
 
         foreach (var line in File.ReadLines(DatasetPath)) {
             token.ThrowIfCancellationRequested();
@@ -179,8 +178,8 @@ internal static class Program {
 
             (int eval, string move) = kreveta.EvaluateFEN(fen, Depth, _mode);
             
-            double diff   = eval - stockfishEval;
-            totalSqError += diff * diff;
+            double diff = eval - stockfishEval;
+            totalError += Math.Abs(diff);
             
             if (move == stockfishMove) 
                 matchMoves++;
@@ -188,14 +187,14 @@ internal static class Program {
             count++;
         }
 
-        float mse          = (float)(totalSqError / count);
+        float mae          = (float)(totalError / count);
         float moveAccuracy = 100.0f * matchMoves / count;
         
-        return (mse, moveAccuracy);
+        return (mae, moveAccuracy);
     }
 
     [MethodImpl(MethodImplOptions.Synchronized)]
-    private static void UpdateTweaks(string paramCMD, float MSE, float moveAccuracy) {
+    private static void UpdateTweaks(string paramCMD, float MAE, float moveAccuracy) {
         int[] shifts = paramCMD.Split(' ')[1..(Tweaks.Length + 1)]
             .Select(int.Parse).ToArray();
         
@@ -207,7 +206,7 @@ internal static class Program {
                                     || moveAccuracy >= _krevetaBaseMoveAccuracy;
 
         // this version seems to be better
-        if ((areMovesSame && MSE < _krevetaBaseMSE) || areMovesMoreAccurate) {
+        if ((areMovesSame && MAE < _krevetaBaseMAE) || areMovesMoreAccurate) {
             // update only when this version is better
             for (int i = 0; i < shifts.Length; i++) {
                 if (shifts[i] == 0)

@@ -22,7 +22,8 @@ internal static class ParamGenerator {
             // define custom steps for different parameters
             int maxStep = i switch {
                 0 => 300,
-                _ => 50,
+                1 => 200,
+                2 => 50
             };
         
             // this can possibly create a neverending loop

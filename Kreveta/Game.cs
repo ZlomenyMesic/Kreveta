@@ -200,7 +200,7 @@ internal static class Game {
         if (moveSeqStart == -1) return;
 
         // we save all known previous positions as 3-fold repetition exists
-        ThreeFold.AddAndCheck(ZobristHash.Hash(in Board));
+        ThreeFold.AddAndCheck(Board.Hash);
 
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
@@ -212,7 +212,7 @@ internal static class Game {
             }
 
             Board.PlayMove(move, true);
-            ThreeFold.AddAndCheck(ZobristHash.Hash(in Board));
+            ThreeFold.AddAndCheck(Board.Hash);
 
             // switch the engine's color
             EngineColor = EngineColor == Color.WHITE

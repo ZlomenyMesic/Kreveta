@@ -61,6 +61,7 @@ internal static class Program {
 
         // history tables
         _ = typeof(QuietHistory);
+        _ = typeof(CaptureHistory);
         
         // adjacent files
         _ = typeof(Eval);

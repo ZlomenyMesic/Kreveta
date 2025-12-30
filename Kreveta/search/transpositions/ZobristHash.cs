@@ -115,6 +115,48 @@ internal static unsafe class ZobristHash {
 
         return hash;
     }
+    
+    internal static ulong GetMinorPieceHash(in Board board, Color col) {
+        ulong hash      = 0UL;
+        ulong knights   = board.Pieces[(byte)col * 6 + 1];
+        ulong bishops   = board.Pieces[(byte)col * 6 + 2];
+        byte  colStride = (byte)(col == Color.WHITE ? 6 : 0);
+        
+        ReadOnlySpan<ulong> pieceHashes = Pieces;
+
+        while (knights != 0UL) {
+            int sq = BB.LS1BReset(ref knights);
+            hash ^= pieceHashes[sq * 12 + colStride + 1];
+        }
+        
+        while (bishops != 0UL) {
+            int sq = BB.LS1BReset(ref bishops);
+            hash ^= pieceHashes[sq * 12 + colStride + 2];
+        }
+
+        return hash;
+    }
+    
+    internal static ulong GetMajorPieceHash(in Board board, Color col) {
+        ulong hash      = 0UL;
+        ulong rooks     = board.Pieces[(byte)col * 6 + 3];
+        ulong queens    = board.Pieces[(byte)col * 6 + 4];
+        byte  colStride = (byte)(col == Color.WHITE ? 6 : 0);
+        
+        ReadOnlySpan<ulong> pieceHashes = Pieces;
+
+        while (rooks != 0UL) {
+            int sq = BB.LS1BReset(ref rooks);
+            hash ^= pieceHashes[sq * 12 + colStride + 3];
+        }
+        
+        while (queens != 0UL) {
+            int sq = BB.LS1BReset(ref queens);
+            hash ^= pieceHashes[sq * 12 + colStride + 4];
+        }
+
+        return hash;
+    }
 
     private static ulong NextUInt64(in Random rand) {
         byte[] bytes = new byte[

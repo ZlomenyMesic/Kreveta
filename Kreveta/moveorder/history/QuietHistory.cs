@@ -3,11 +3,9 @@
 // started 4-3-2025
 //
 
-using Kreveta.consts;
 using Kreveta.movegen;
 
 using System;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
@@ -22,10 +20,6 @@ namespace Kreveta.moveorder.history;
 // later would be the same exact blunder.
 internal static class QuietHistory {
 
-    // the moves are usually indexed [from, to] but after some testing,
-    // indexing by [from, piece] yields much better results. it may just
-    // be a failure in my implementation, though.
-
     // this array stores history values of quiet moves - no captures
     private static readonly int[][] QuietScores = new int[64][];
 
@@ -39,9 +33,6 @@ internal static class QuietHistory {
     // visited (ButterflyScores). when retrieving the quiet score, it is
     // then divided by this number to get the average.
     private static readonly int[][] ButterflyBoard = new int[64][];
-    
-    // there is still some scale, though
-    private const int RelHHScale = 12;
 
     static QuietHistory() {
         for (int i = 0; i < 64; i++) {
@@ -75,11 +66,6 @@ internal static class QuietHistory {
         });
     }
     
-    // i believe i stole these values from Stockfish, but
-    // i am not sure. they do, however, work very great
-    private const int ShiftSubtract = 5;
-    private const int ShiftLimit    = 84;
-    
     // modify the history reputation of a move. isMoveGood tells us how
     internal static void ChangeRep(Move move, int depth, bool isGood) {
         int start = move.Start;
@@ -87,7 +73,7 @@ internal static class QuietHistory {
         
         // how much should the move affect the reputation (moves at higher depths
         // are probably more reliable, so their impact should be stronger)
-        QuietScores[start][end] += Math.Min(depth * depth - ShiftSubtract, ShiftLimit)
+        QuietScores[start][end] += Math.Min(depth * depth - 5, 84)
                                
                                // we either add or subtract the shift, depending on
                                // whether the move was good or not
@@ -112,6 +98,6 @@ internal static class QuietHistory {
         // and now, as already mentioned, we divide the quiet score
         // by the number of times the move has been visited to get
         // a more average score
-        return RelHHScale * q / bf;
+        return 12 * q / bf;
     }
 }

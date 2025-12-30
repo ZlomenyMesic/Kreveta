@@ -18,18 +18,7 @@ internal static class KingCorrections {
         Array.Clear(Black, 0, Black.Length);
     }
 
-    internal static void Update(in Board board, short score, int depth) {
-        // get the static eval of the current position and the
-        // absolute difference between it and the search score
-        short diff = (short)(score - board.StaticEval);
-        
-        // compute the shift depending on the depth
-        // of the search, and the size of the difference
-        short shift = (short)Math.Clamp(diff * (depth - 2) / 256, -12, 12);
-
-        // don't bother wasting time with a zero shift
-        if (shift == 0) return;
-
+    internal static void Update(in Board board, short shift) {
         int wKingSq = (int)ulong.PopCount(board.Pieces[5]);
         int bKingSq = (int)ulong.PopCount(board.Pieces[11]);
         

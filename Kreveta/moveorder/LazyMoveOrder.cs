@@ -72,8 +72,11 @@ internal static class LazyMoveOrder {
                 // often said that conthist doesn't work well with captures,
                 // but here it seems like it does. i've also tried combining
                 // SEE with additional MVV-LVA, but that didn't work at all
-                int see  = SEE.GetCaptureScore(in board, col, move);
-                int cont = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
+                int see   = SEE.GetCaptureScore(in board, col, move);
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
+                
+                // capture history works the same as quiet history
+                int chist = CaptureHistory.GetRep(move) * 7 / 100;
 
                 // once again promotions get placed higher
                 int prom = promPiece switch {
@@ -82,14 +85,14 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] += killer + cont + prom + see;
+                scores[i] += killer + cont + chist + prom + see;
             }
         }
     }
 
     // this selects the next best move from the scored list; moves that have been
     // already played are defaulted, and default is returned once no moves remain
-    internal static Move NextMove(Span<Move> moves, Span<int> scores, int moveCount) {
+    internal static Move NextMove(Span<Move> moves, Span<int> scores, int moveCount, out int score) {
         int bestScore = int.MinValue;
         int bestIndex = -1;
 
@@ -103,10 +106,12 @@ internal static class LazyMoveOrder {
             }
         }
 
+        score = bestScore;
+
         // there aren't any moves left
         if (bestIndex == -1) 
             return default;
-        
+
         Move bestMove    = moves[bestIndex];
         moves[bestIndex] = default;
         

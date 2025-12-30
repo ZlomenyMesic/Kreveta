@@ -24,7 +24,7 @@ internal static unsafe class PawnCorrections {
 
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
-    private const int CorrTableSize   = 524_288;
+    private const int CorrTableSize   = 131_072;
 
     // maximum correction that can be stored. this needs
     // to stay in range of "short", as the whole table
@@ -70,24 +70,11 @@ internal static unsafe class PawnCorrections {
 
     // update the pawn correction - takes a board with its score evaluated
     // by an actual search, and the depth at which the search was performed.
-    internal static void Update(in Board board, int score, int depth) {
-        if (depth <= 2) return;
-
-        // get the static eval of the current position and the
-        // absolute difference between it and the search score
-        short diff = (short)(score - board.StaticEval);
-
-        // compute the shift depending on the depth
-        // of the search, and the size of the difference
-        short shift = (short)Math.Clamp(diff * (depth - 2) / 256, -12, 12);
-
-        // don't bother wasting time with a zero shift
-        if (shift == 0) return;
-        
+    internal static void Update(in Board board, short shift) {
         // hash the pawns on the current position.
         // each side has its own pawn hash
-        ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
-        ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
+        ulong wHash = ZobristHash.GetPawnHash(in board, Color.WHITE);
+        ulong bHash = ZobristHash.GetPawnHash(in board, Color.BLACK);
 
         // get the indices for both sides
         int wIndex = (int)(wHash & CorrTableSize - 1);
@@ -110,8 +97,8 @@ internal static unsafe class PawnCorrections {
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides
-        ulong wHash = ZobristHash.GetPawnHash(board, Color.WHITE);
-        ulong bHash = ZobristHash.GetPawnHash(board, Color.BLACK);
+        ulong wHash = ZobristHash.GetPawnHash(in board, Color.WHITE);
+        ulong bHash = ZobristHash.GetPawnHash(in board, Color.BLACK);
 
         int wIndex = (int)(wHash & CorrTableSize - 1);
         int bIndex = (int)(bHash & CorrTableSize - 1);

@@ -120,6 +120,10 @@ internal static partial class UCI {
                     Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}\n");
                     break;
                 
+                case "gettuning":
+                    Log($"se {Eval.StaticEval(in Game.Board)}");
+                    break;
+                
                 // stop any running searches
                 case "stop":
                     StopSearch();
