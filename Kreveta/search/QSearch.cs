@@ -18,28 +18,6 @@ namespace Kreveta.search;
 
 internal static class QSearch {
 
-    // maximum depth allowed in the quiescence search itself
-    //internal const int QSDepth = 12;
-
-    // maximum depth total - qsearch and regular search combined
-    // changes each iteration depending on pvsearch depth
-    //internal static int CurQSDepth;
-
-    // same idea as ProbeTT, but used in qsearch
-    // internal static short QProbeTT(Board board, int ply, Window window) {
-    //
-    //     int depth = QSDepth - ply - PVSearch.CurDepth;
-    //
-    //     // did we find the position and score?
-    //     if (ply >= PVSearch.CurDepth + 3 && TT.TryGetScore(board, depth, ply, window, out short ttScore))
-    //         return ttScore;
-    //
-    //     // if the position is not yet stored, we continue the qsearch and then store it
-    //     short score = Search(board, ply, window);
-    //     TT.Store(board, (sbyte)depth, ply, window, score, default);
-    //     return score;
-    // }
-
     // QUIESCENCE SEARCH:
     // instead of immediately returning the static eval of leaf nodes in the main
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
@@ -64,10 +42,10 @@ internal static class QSearch {
         if (ply >= curQSDepth)
             return board.StaticEval;
 
-        Color col = board.Color;
+        Color col = board.SideToMove;
 
         // is the side to move in check?
-        bool inCheck = !onlyCaptures && Check.IsKingChecked(board, col);
+        bool inCheck = !onlyCaptures && board.IsCheck;
 
         // stand pat is just a fancy word for static eval
         short standPat = board.StaticEval;

@@ -3,23 +3,37 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA1810
+
 using System;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
 
 internal static unsafe class LookupTables {
+
+    internal static readonly ulong* PawnCaptTargets;
+    internal static readonly ulong* KingTargets;
+    internal static readonly ulong* KnightTargets;
     
-    internal static readonly ulong* PawnCaptTargets = (ulong*)NativeMemory.AlignedAlloc(2  * 64 * sizeof(ulong),      64);
-    internal static readonly ulong* KingTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
-    internal static readonly ulong* KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+    // when escaping check or ensuring move legality, these star shapes are used
+    internal static readonly ulong* KingStars;
     
     private static bool _memoryFreed;
 
     // all lookup tables need to be initialized right as the engine launches
-    static LookupTables() 
-        // what the actual fuck is this syntactic sugar? how is this legal C#?
-        => ((Action)InitPawnTargets + InitKingTargets + InitKnightTargets)();
+    static LookupTables() {
+        PawnCaptTargets = (ulong*)NativeMemory.AlignedAlloc(2  * 64 * sizeof(ulong), 64);
+        KingTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+        KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+        KingStars       = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+        
+        InitPawnTargets();
+        InitKingTargets();
+        InitKnightTargets();
+
+        InitKingStars();
+    }
     
     // pawn, king and knight targets don't use the occupancy as explained above. the
     // target bitboard includes every single landing square, regardless of other pieces.
@@ -82,6 +96,18 @@ internal static unsafe class LookupTables {
             KnightTargets[i] = vertical | horizontal;
         }
     }
+
+    private static void InitKingStars() {
+        for (int i = 0; i < 64; i++) {
+            ulong king = 1UL << i;
+            
+            ulong knight = KnightTargets[i];
+            ulong bishop = Pext.GetBishopTargets(i, ulong.MaxValue, 0UL);
+            ulong rook   = Pext.GetRookTargets(i, ulong.MaxValue, 0UL);
+            
+            KingStars[i] = king | knight | bishop | rook;
+        }
+    }
     
     internal static void Clear() {
         if (_memoryFreed) 
@@ -94,3 +120,5 @@ internal static unsafe class LookupTables {
         _memoryFreed = true;
     }
 }
+
+#pragma warning restore CA1810

@@ -17,7 +17,6 @@ using Kreveta.movegen;
 using Kreveta.nnue;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
-using Kreveta.uci.options;
 
 using System;
 using System.Diagnostics;
@@ -33,20 +32,13 @@ namespace Kreveta;
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct Board {
 
-    // all pieces are saved here in so called bitboards.
-    // we have 12 different ulongs (bitboards) which represent
-    // all possible pieces. these bitboards are empty, and
-    // the pieces are stored as one-bits in these large bbs.
-    // since a chessboard has 64 squares and ulong has 64
-    // bits, we don't waste any memory or anything else.
-    [DebuggerDisplay("indexed [color * 6 + piece_type]")]
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
+    // all pieces are stored in so-called bitboards. each piece-color combination
+    // has its own bitboard, where ones represent the individual pieces. movegen
+    // and other piece manipulation is significantly faster than using a mailbox
     internal ulong[] Pieces = new ulong[12];
 
-    // these two bitboards simply represent all occupied
-    // squares by a certain color. it turns out to be a little
-    // faster than OR the bitboards above, although it takes
-    // 16 additional bytes of memory.
+    // additional bitboards storing all pieces of a certain color. this turns out
+    // to be slightly faster than ORing six of the bitboards above repetitively
     internal ulong WOccupied;
     internal ulong BOccupied;
 
@@ -70,23 +62,28 @@ internal struct Board {
     internal CastRights CastRights = CastRights.NONE;
 
     // the side to move
-    internal Color Color = Color.NONE;
+    internal Color SideToMove = Color.NONE;
 
     // number of moves played that weren't pawn pushes or captures
     internal byte HalfMoveClock = 0;
 
+    // the NNUE evaluator, which stores both accumulators
     internal NNUEEvaluator NNUEEval;
-    internal short         StaticEval = 0;
-    internal ulong         Hash       = 0UL;
+    
+    // the static evaluation, hash and check flag of the current position. since
+    // these values are used often, it's better than recomputing them each time
+    internal short StaticEval = 0;
+    internal ulong Hash       = 0UL;
+    internal bool  IsCheck    = false;
 
     public Board() {
         Pieces   = new ulong[12];
         NNUEEval = null!;
     }
     
-    // returns the piece at a certain square. this method isn't
-    // really the fastest, but it's useful in the case where we
-    // generate piece types for input moves
+    // returns the piece at a certain square. this method is really slow,
+    // but it's only used in places where it helps readability and doesn't
+    // affect overall performance
     [Pure] internal PType PieceAt(int index) {
         ulong sq = 1UL << index;
 
@@ -94,8 +91,7 @@ internal struct Board {
         if ((Empty & sq) != 0UL)
             return PType.NONE;
 
-        // now we loop the piece types and check whether the
-        // square is occupied by any side
+        // now we loop the piece types and check whether the square is occupied by any side
         for (int i = 0; i < 6; i++) {
             if (((Pieces[i] | Pieces[6 + i]) & sq) != 0UL)
                 return (PType)i;
@@ -108,7 +104,7 @@ internal struct Board {
     // performs a move on the board
     internal void PlayMove(Move move, bool updateStaticEval) {
         EnPassantSq = 64;
-        Color = Color == Color.WHITE
+        SideToMove = SideToMove == Color.WHITE
             ? Color.BLACK
             : Color.WHITE;
 
@@ -252,16 +248,20 @@ internal struct Board {
             CastRights &= (CastRights)mask;
         }
         
+        // in some cases, such as Perft, the static eval is useless, and
+        // would only slow the engine down.
         if (updateStaticEval) {
             NNUEEval.Update(in this, move, col);
             StaticEval = (short)((NNUEEval.Score + Eval.StaticEval(in this)) / 2);
         }
 
-        Hash = ZobristHash.Hash(in this);
+        // these things are used in Perft as well, so no harm is done
+        Hash    = ZobristHash.Hash(in this);
+        IsCheck = Check.IsKingChecked(in this, colOpp);
     }
 
     private void PlayReversibleMove(Move move) {
-        Color col = Color;
+        Color col = SideToMove;
         
         // start & end squares
         ulong start = 1UL << move.Start;
@@ -459,7 +459,7 @@ internal struct Board {
             fen.Append(curEmpty);
 
         // side to move (either w or b)
-        fen.Append(Color == Color.WHITE ? " w " : " b ");
+        fen.Append(SideToMove == Color.WHITE ? " w " : " b ");
         
         // castling rights
         if (CastRights == 0)
@@ -488,7 +488,7 @@ internal struct Board {
             
             EnPassantSq   = 64,
             CastRights    = CastRights.ALL,
-            Color         = Color.WHITE,
+            SideToMove         = Color.WHITE,
             HalfMoveClock = 0,
             
             Pieces = {

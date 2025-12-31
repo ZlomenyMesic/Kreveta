@@ -64,7 +64,7 @@ internal static unsafe class ZobristHash {
     }
 
     internal static ulong Hash(in Board board) {
-        ulong hash = board.Color == Color.WHITE
+        ulong hash = board.SideToMove == Color.WHITE
             ? WhiteToMove
             : BlackToMove;
 

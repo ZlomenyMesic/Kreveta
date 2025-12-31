@@ -15,8 +15,7 @@ internal static class Pext {
         // mask of relevant squares - diag/antidiag, excluding edge squares
         ulong relevantMask = PextLookupTables.BishopMask[sq];
         
-        // extract relevant occupancy bits into dense index using PEXT.
-        // i have no idea how or why this works, but it indeed does :)
+        // extract relevant occupancy bits into dense index using PEXT
         int index = (int)Bmi2.X64.ParallelBitExtract(occupied, relevantMask);
         
         // start of the bishop attack table

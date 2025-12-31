@@ -106,7 +106,7 @@ internal static class Perft {
             child.PlayMove(moves[i], false);
 
             // the move is illegal (we moved to or stayed in check)
-            if (Check.IsKingChecked(in child, board.Color))
+            if (Check.IsKingChecked(in child, board.SideToMove))
                 continue;
 
             // otherwise continue the search deeper

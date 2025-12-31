@@ -121,7 +121,7 @@ internal static partial class UCI {
                     break;
                 
                 case "gettuning":
-                    Log($"se {Eval.StaticEval(in Game.Board)}");
+                    Log($"se {Game.Board.StaticEval}");
                     break;
                 
                 // stop any running searches

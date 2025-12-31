@@ -5,7 +5,6 @@
 
 using System;
 using Kreveta.consts;
-using Kreveta.movegen;
 using Kreveta.movegen.pieces;
 
 using System.Runtime.CompilerServices;
@@ -14,16 +13,16 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.evaluation;
 
 internal static class Eval {
-    
-    // the side to play gets a small bonus
-    private const sbyte SideToMoveBonus = 5;
 
-    // POSITION STRUCTURE BONUSES & MALUSES
-    internal static int DoubledPawnMalus   = -44;
-    internal static int IsolatedPawnMalus  = -156;
-    internal static int PassedPawnBonus    = 70;
-    internal static int ConnectedPawnBonus = 33;
-    internal static int BlockedPawnMalus   = -30;
+    internal static int SideToMoveBonus = 15;
+    internal static int InCheckMalus    = -30;
+
+    // pawn structure bonuses and maluses. all are scaled in mp
+    // and later rescaled to centipawns to allow higher accuracy
+    internal static int DoubledPawnMalus   = -71;
+    internal static int IsolatedPawnMalus  = -151;
+    internal static int PassedPawnBonus    = 49;
+    internal static int BlockedPawnMalus   = -56;
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
@@ -45,7 +44,6 @@ internal static class Eval {
     // so a positive score means the position is likely to be winning for
     // white, and a negative score should be better for black
     internal static short StaticEval(in Board board) {
-
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
 
@@ -79,23 +77,15 @@ internal static class Eval {
 
         short eval = (short)(wEval - bEval);
 
-        // pawn eval:
-        // 
-        // 1. penalties for doubled, tripled, and more stacked pawns
-        // 2. penalties for isolated pawns (no friendly pawns on adjacent files)
-        // 3. bonuses for connected pawns in the other half of the board
-        // 4. penalties for pawns blocked by friendly pieces
         eval += (short)((PawnEval(pieces[0], pieces[6], Color.WHITE, wOccupied)
                          - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
+
+        eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
         
-        eval += RookEval(pieces, pieceCount);
         eval += KingEval(pieces, wOccupied, bOccupied);
 
-        if (Check.IsKingChecked(in board, Color.WHITE)) eval -= 30;
-        if (Check.IsKingChecked(in board, Color.BLACK)) eval += 30;
-
         // side to move should also get a slight advantage
-        eval += (short)(board.Color == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        eval += (short)(board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
         return eval;
     }
     
@@ -118,82 +108,14 @@ internal static class Eval {
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawnMalus);
             eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus * (col == Color.WHITE ? 8 - (sq >> 3) : (sq >> 3)));
             
-            ulong targets = Pawn.GetPawnCaptureTargets(sq, 64, col, pawns);
-            eval += (short)((int)ulong.PopCount(targets) * ConnectedPawnBonus);
-            
             if (col == Color.WHITE && (1UL << sq - 8 & friendlyPieces) != 0UL)
                 eval += BlockedPawnMalus;
 
             else if (col == Color.BLACK && (1UL << sq + 8 & friendlyPieces) != 0UL)
                 eval += BlockedPawnMalus;
         }
-
-        /*short eval = 0;
-        for (int i = 0; i < 8; i++) {
-            ulong file = Consts.RelevantFileMask[i];
-
-            // count the number of pawns on the file
-            int fileOcc = (int)ulong.PopCount(file & p);
-            if (fileOcc == 0)
-                continue;
-
-            // penalties for doubled pawns. by subtracting 1 we can simultaneously
-            // penalize all sorts of stacked pawns while not checking single ones
-            eval += (short)((fileOcc - 1) * DoubledPawnMalus);
-
-            // if the number of pawns on current file is equal to the number of pawns
-            // on the current plus adjacent files, we know the pawn/s are isolated
-            int adjOcc = (int)ulong.PopCount(AdjFiles[i] & p);
-
-            // isolani is an isolated pawn on the d-file. this usually tends
-            // to be the worst isolated pawn, so there's a higher penalty
-            sbyte isolani = i == 3 ? IsolaniAddPenalty : (sbyte)0;
-            eval += (short)(fileOcc != adjOcc ? 0 : IsolatedPawnPenalty + isolani);
-        }
-
-        ulong copy = p;
-        while (copy != 0UL) {
-            byte sq = BB.LS1BReset(ref copy);
-
-            if (col == Color.WHITE ? sq < 40 : sq > 23) {
-
-                // add a bonus for connected pawns in the opponent's half of the board.
-                // this should (and hopefully does) increase the playing strength in
-                // endgames and also allow better progressing into endgames
-                ulong targets = Pawn.GetPawnCaptureTargets(sq, 64, col, p);
-                eval += (short)((int)ulong.PopCount(targets) * ConnectedPawnBonus);
-            }
-
-            // penalize blocked pawns - pawns that have a friendly piece directly in
-            // front of them and thus cannot push further. in order to push this pawn,
-            // you first have to move the other piece, which makes it worse.
-            if (col == Color.WHITE && (1UL << sq - 8 & wOccupied) != 0UL)
-                eval += BlockedPawnPenalty;
-
-            else if (col == Color.BLACK && (1UL << sq + 8 & bOccupied) != 0UL)
-                eval += BlockedPawnPenalty;
-        }*/
-
+        
         return (short)eval;
-    }
-
-    private static short RookEval(ReadOnlySpan<ulong> pieces, byte pieceCount) {
-        short eval = 0;
-
-        // rooks are, as opposed to knights, more valuable if there are
-        // fewer pieces on the board. this should motivate the engine into
-        // protecting and keeping its rooks as it goes into the endgame.
-        // number of white rooks and black rooks on the board:
-        byte wRooksCount = (byte)ulong.PopCount(pieces[3]);
-        byte bRooksCount = (byte)ulong.PopCount(pieces[9]);
-
-        // add some eval for white if it has rooks
-        eval += (short)(wRooksCount * (32 - pieceCount) / 2);
-
-        // subtract some eval for black it has rooks
-        eval -= (short)(bRooksCount * (32 - pieceCount) / 2);
-
-        return eval;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -205,8 +127,8 @@ internal static class Eval {
         ulong bProtection = King.GetKingTargets(BB.LS1B(pieces[11]), bOccupied);
 
         // bonus for the number of friendly pieces protecting the king
-        short wProtBonus = (short)(ulong.PopCount(wProtection) * 2);
-        short bProtBonus = (short)(ulong.PopCount(bProtection) * 2);
+        short wProtBonus = (short)((int)ulong.PopCount(wProtection) * 2);
+        short bProtBonus = (short)((int)ulong.PopCount(bProtection) * 2);
 
         eval += (short)(wProtBonus - bProtBonus);
 

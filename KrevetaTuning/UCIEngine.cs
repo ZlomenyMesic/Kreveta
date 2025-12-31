@@ -67,7 +67,7 @@ internal sealed class UCIEngine {
             return (eval, bestMove);
         }
         
-        Send("eval");
+        Send("gettuning");
             
         while (_output.ReadLine() is { } line) {
             if (line.StartsWith("se")) {

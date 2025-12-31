@@ -163,7 +163,7 @@ internal static class PVSearch {
         // store the current two-move sequence in countermove history - the previously
         // played move, and the best response (counter) to this move found by the search
         if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth)
-            CounterMoveHistory.Add(board.Color, ss.LastMove, result.PV[0]);
+            CounterMoveHistory.Add(board.SideToMove, ss.LastMove, result.PV[0]);
         
         /*if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
             ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
@@ -193,7 +193,7 @@ internal static class PVSearch {
             return (0, []);
 
         // just to simplify who's turn it is
-        Color col = board.Color;
+        Color col = board.SideToMove;
 
         // 1. MATE DISTANCE PRUNING (0 Elo)
         // this is a weird variant of MDP, not sure whether it actually helps, but
@@ -228,8 +228,8 @@ internal static class PVSearch {
         CurNodes++;
         PVSControl.TotalNodes++;
 
-        // is the color to play currently in check?
-        bool inCheck     = Check.IsKingChecked(board, col);
+        // is the side to move currently in check?
+        bool  inCheck    = board.IsCheck;
         short staticEval = board.StaticEval;
 
         //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
@@ -267,10 +267,11 @@ internal static class PVSearch {
             // child with a move skipped
             var nullChild = board.Clone() with {
                 EnPassantSq = 64,
-                Color       = (Color)((int)col ^ 1)
+                SideToMove  = (Color)((int)col ^ 1)
             };
             
-            nullChild.Hash = ZobristHash.Hash(in nullChild);
+            nullChild.Hash    = ZobristHash.Hash(in nullChild);
+            nullChild.IsCheck = Check.IsKingChecked(in nullChild, nullChild.SideToMove);
             
             // the depth reduction
             int R = 7 + ss.Depth / 3;
@@ -423,7 +424,7 @@ internal static class PVSearch {
                 goto skipPVS;
             
             int  see        = isCapture ? SEE.GetCaptureScore(in board, col, curMove) : 0;
-            bool givesCheck = Check.IsKingChecked(child, col == Color.WHITE ? Color.BLACK : Color.WHITE);
+            bool givesCheck = child.IsCheck;
             
             // once again update the static eval in the improving stack,
             // but this time after the move has been already played

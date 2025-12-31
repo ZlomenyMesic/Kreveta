@@ -20,9 +20,9 @@ internal static class Program {
     private const int Depth = 8;
     
     // limit how many "new engines" to create/test
-    private const int Cycles = 1_000_000;
+    private const int Cycles = 3_000_000;
 
-    private const int ShiftsPerEval = 3;
+    private const int ShiftsPerEval = 1;
 
     private static float _krevetaBaseMAE;
     private static float _krevetaBaseMoveAccuracy;
@@ -37,7 +37,7 @@ internal static class Program {
     private static readonly List<UCIEngine>         ActiveEngines = [];
     
     internal enum EvalMode { FullSearch, StaticEval }
-    private const EvalMode _mode = EvalMode.FullSearch;
+    private const EvalMode _mode = EvalMode.StaticEval;
     
     internal static void Main() {
         Console.CancelKeyPress += (_, e) => {
@@ -148,7 +148,7 @@ internal static class Program {
             newKreveta.Send(paramCMD);
             (float MAE, float MoveAccuracy) result = EvaluateKreveta(newKreveta, token);
 
-            Console.WriteLine($"Done evaluating Kreveta {num + 1}/{Cycles}:\nMSE = {result.MAE}, MoveAccuracy = {result.MoveAccuracy}%\n"
+            Console.WriteLine($"Done evaluating Kreveta {num + 1}/{Cycles}:\nMAE = {result.MAE}, MoveAccuracy = {result.MoveAccuracy}%\n"
                             + $"Is it better: unsure\n");
 
             UpdateTweaks(paramCMD, result.MAE, result.MoveAccuracy);
@@ -199,8 +199,8 @@ internal static class Program {
             .Select(int.Parse).ToArray();
         
         // if in static eval mode, don't measure move accuracy
-        bool areMovesMoreAccurate = _mode == EvalMode.StaticEval 
-                                    || moveAccuracy > _krevetaBaseMoveAccuracy;
+        bool areMovesMoreAccurate = _mode != EvalMode.StaticEval 
+                                    && moveAccuracy > _krevetaBaseMoveAccuracy;
         
         bool areMovesSame = _mode == EvalMode.StaticEval 
                                     || moveAccuracy >= _krevetaBaseMoveAccuracy;

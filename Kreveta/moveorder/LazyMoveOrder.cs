@@ -19,7 +19,7 @@ internal static class LazyMoveOrder {
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
     internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
-        Color col         = board.Color;
+        Color col         = board.SideToMove;
         bool  isEarlyGame = board.GamePhase() > 119;
         
         // find killers and a potential countermove
@@ -76,7 +76,7 @@ internal static class LazyMoveOrder {
                 int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
                 
                 // capture history works the same as quiet history
-                int chist = CaptureHistory.GetRep(move) * 7 / 100;
+                int chist = CaptureHistory.GetRep(move) / 150;
 
                 // once again promotions get placed higher
                 int prom = promPiece switch {

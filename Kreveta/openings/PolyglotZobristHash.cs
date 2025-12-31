@@ -83,7 +83,7 @@ internal static class PolyglotZobristHash {
         }
         
         // if white is to move, XOR another value
-        if (board.Color == Color.WHITE) 
+        if (board.SideToMove == Color.WHITE) 
             hash ^= PGRandomU64[SideToMoveOffset];
         
         return hash;

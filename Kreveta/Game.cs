@@ -121,7 +121,7 @@ internal static class Game {
             default: InvalidFENCallback($"invalid side to move: \"{tokens[3]}\""); return;
         }
 
-        Board.Color = EngineColor;
+        Board.SideToMove = EngineColor;
 
         // the third token marks, which sides still have their castling rights. if neither
         // side can castle, this is a dash. otherwise, the characters may be "k" or "q" for

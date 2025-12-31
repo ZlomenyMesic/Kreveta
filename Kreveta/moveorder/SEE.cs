@@ -21,7 +21,7 @@ internal static class SEE {
             return [];
         }
         if (capts.Length == 1) {
-            seeScores = [GetCaptureScore(in board, board.Color, capts[0])];
+            seeScores = [GetCaptureScore(in board, board.SideToMove, capts[0])];
             return new Span<Move>([capts[0]]);
         }
 
@@ -30,7 +30,7 @@ internal static class SEE {
         int cur = 0;
 
         for (int i = 0; i < capts.Length; i++) {
-            int score = GetCaptureScore(in board, board.Color, capts[i]);
+            int score = GetCaptureScore(in board, board.SideToMove, capts[i]);
             
             if (!prune || score >= 0)
                 scores[cur++] = (capts[i], score);

@@ -66,7 +66,7 @@ internal unsafe sealed class NNUEEvaluator {
             AddEmbedding(blackFeat[i], _accBlack);
         }
 
-        UpdateEvaluation(board.Color, count + 2);
+        UpdateEvaluation(board.SideToMove, count + 2);
     }
     
 
