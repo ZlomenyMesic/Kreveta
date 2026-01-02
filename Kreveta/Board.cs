@@ -509,8 +509,9 @@ internal struct Board {
         };
 
         board.NNUEEval   = new NNUEEvaluator(in board);
-        board.StaticEval = 17;
+        board.StaticEval = (short)((board.NNUEEval.Score + Eval.StaticEval(in board)) / 2);
         board.Hash       = ZobristHash.Hash(in board);
+        board.IsCheck    = Check.IsKingChecked(in board, board.SideToMove);
         
         return board;
     }

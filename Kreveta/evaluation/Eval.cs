@@ -14,15 +14,15 @@ namespace Kreveta.evaluation;
 
 internal static class Eval {
 
-    internal static int SideToMoveBonus = 15;
+    internal static int SideToMoveBonus = 6;
     internal static int InCheckMalus    = -30;
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    internal static int DoubledPawnMalus   = -71;
-    internal static int IsolatedPawnMalus  = -151;
-    internal static int PassedPawnBonus    = 49;
-    internal static int BlockedPawnMalus   = -56;
+    internal static int DoubledPawnMalus  = -40;
+    internal static int IsolatedPawnMalus = -156;
+    internal static int PassedPawnBonus   = 78;
+    internal static int BlockedPawnMalus  = -65;
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
@@ -81,7 +81,6 @@ internal static class Eval {
                          - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
 
         eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
-        
         eval += KingEval(pieces, wOccupied, bOccupied);
 
         // side to move should also get a slight advantage
@@ -106,7 +105,7 @@ internal static class Eval {
             int   oppAdjOcc = (int)ulong.PopCount(adjFiles & enemyPawns);
             
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawnMalus);
-            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus * (col == Color.WHITE ? 8 - (sq >> 3) : (sq >> 3)));
+            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3));
             
             if (col == Color.WHITE && (1UL << sq - 8 & friendlyPieces) != 0UL)
                 eval += BlockedPawnMalus;
