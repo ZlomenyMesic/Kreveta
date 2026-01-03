@@ -165,10 +165,6 @@ internal static class PVSearch {
         if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth)
             CounterMoveHistory.Add(board.SideToMove, ss.LastMove, result.PV[0]);
         
-        /*if (result.PV.Length != 0 && ss.Depth > ContinuationHistory.MinStoreDepth) {
-            ContinuationHistory.Add(ss.Penultimate, ss.Previous, result.PV[0]);
-        }*/
-        
         // update this position's score in pawncorrhist. we have to do this
         // here, otherwise repeating positions would take over the whole thing
         if (result.Score > ss.Window.Alpha && result.Score < ss.Window.Beta)
@@ -231,9 +227,7 @@ internal static class PVSearch {
         // is the side to move currently in check?
         bool  inCheck    = board.IsCheck;
         short staticEval = board.StaticEval;
-
-        //short pawnCorr = PawnCorrectionHistory.GetCorrection(in board);
-
+        
         // if we got here from a PV node, and the move that was played to get
         // here was the move from the previous PV, we are in a PV node as well
         ss.IsPV = ss.IsPV && (ss.Ply == 0 
@@ -302,11 +296,12 @@ internal static class PVSearch {
         // update the static eval search stack
         improvStack.UpdateStaticEval(staticEval, ss.Ply);
         bool rootImproving = improvStack.IsImproving(ss.Ply, col);
+        int  rootCorr      = int.MinValue;
 
         // 3. RAZORING (~18 Elo)
         // (kind of inspired by Stockfish) if a position is very, very bad, we skip the
         // move expansion and return qsearch score instead. this cannot be done when in check
-        if (!ss.IsPV && !inCheck && !rootImproving) {
+        if (!ss.IsPV && !inCheck) {
             // this margin is really just magic, but it feels right
             int margin = 574 + 367 * ss.Depth * ss.Depth;
 
@@ -438,9 +433,8 @@ internal static class PVSearch {
             // 3) we are escaping check or giving a check
             bool interesting = expandedNodes == 1 
                                || ss.IsPV
-                               || ss.Ply <= 4 && isCapture
-                               || inCheck     || givesCheck;
-
+                               || inCheck || givesCheck;
+            
             // 7. FUTILITY PRUNING (~56 Elo)
             // we try to discard moves near the leaves, which have no potential of raising alpha.
             // futility margin represents the largest possible score gain through a single move.
@@ -457,7 +451,7 @@ internal static class PVSearch {
                 int margin = 95 + 97 * ss.Depth
                                 + 2 * childCorr                     // this acts like a measure of uncertainty
                                 + (improving ? 0 : -23)             // not improving nodes prune more
-                                + Math.Clamp(see / 122, -39, 17)    // tweak the margin based on SEE
+                                + Math.Clamp(see / 112, -39, 17)    // tweak the margin based on SEE
                                 + Math.Clamp(curScore / 80, -6, 14) // if history is good, prune less
                                 + windowSize;                       // another measure of uncertainty
                 
@@ -481,7 +475,8 @@ internal static class PVSearch {
                         ? board.StaticEval + margin <= ss.Window.Alpha
                         : board.StaticEval - margin >= ss.Window.Beta)) {
                     
-                    int rootCorr = Corrections.Get(in board);
+                    if (rootCorr == int.MinValue)
+                        rootCorr = Corrections.Get(in board);
                     
                     // this turns out to work quite well - only reduce when the root
                     // pawn correction is bad, and the child correction is even worse
@@ -495,7 +490,8 @@ internal static class PVSearch {
                         // instead of just pruning this branch, we assume
                         // all following moves are even worse, so we cut
                         // off completely and return the lower bound
-                        return (col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta, []);
+                        return (col == Color.WHITE 
+                            ? ss.Window.Alpha : ss.Window.Beta, []);
                     }
                 }
             }

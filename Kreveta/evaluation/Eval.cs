@@ -19,8 +19,8 @@ internal static class Eval {
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    internal static int DoubledPawnMalus  = -40;
-    internal static int IsolatedPawnMalus = -156;
+    internal static int DoubledPawnMalus  = -33;
+    internal static int IsolatedPawnMalus = -149;
     internal static int PassedPawnBonus   = 78;
     internal static int BlockedPawnMalus  = -65;
     
