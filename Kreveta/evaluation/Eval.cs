@@ -6,6 +6,7 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
+using Kreveta.tuning;
 
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
@@ -14,15 +15,15 @@ namespace Kreveta.evaluation;
 
 internal static class Eval {
 
-    internal static int SideToMoveBonus = 6;
-    internal static int InCheckMalus    = -30;
+    private const int SideToMoveBonus = 6;
+    private const int InCheckMalus    = -30;
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    internal static int DoubledPawnMalus  = -33;
-    internal static int IsolatedPawnMalus = -149;
-    internal static int PassedPawnBonus   = 78;
-    internal static int BlockedPawnMalus  = -65;
+    private const int DoubledPawnMalus  = -33;
+    private const int IsolatedPawnMalus = -149;
+    private const int PassedPawnBonus   = 78;
+    private const int BlockedPawnMalus  = -65;
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
@@ -35,15 +36,29 @@ internal static class Eval {
         }
     }
 
-    // returns the static evaluation of a position. static eval is used
-    // in the leaf nodes of the search tree or is some pruning cases. it
-    // doesn't implement any searches, so it is purely static. the point
-    // of this method is to give the engine a very rough estimate of how
-    // good a position is. it evaluates material, piece position, pawn
-    // structure, king safety, etc. the score returned is color relative,
-    // so a positive score means the position is likely to be winning for
-    // white, and a negative score should be better for black
+    // returns the static evaluation of a position. static eval is used mainly in the leaf
+    // nodes of the search tree. it evaluates material, piece placement, pawn structure,
+    // king safety, etc., but doesn't perform any search. the static eval is hybrid, which
+    // means a classical eval is combined with a trained NNUE eval
     internal static short StaticEval(in Board board) {
+        int nnue    = board.NNUEEval.Score;
+        int classic = Classical(in board);
+
+        // carefully combine the two terms
+        int combined = (17 * nnue + 15 * classic) / 32;
+
+        // an idea taken from stockfish: in order to avoid hallucinating wins
+        // where 50-move draw is basically inevitable, the eval is gradually
+        // pulled closer to zero as the counter increases
+        combined -= combined * board.HalfMoveClock / 199;
+
+        return (short)combined;
+    }
+    
+    // this is the classical/hand-crafted eval, that doesn't rely on NNUE. the reason
+    // it's still here is that our NNUE understands positional advantage more than
+    // material, so this kind of just makes sure that no material blindness occurs.
+    internal static short Classical(in Board board) {
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
 

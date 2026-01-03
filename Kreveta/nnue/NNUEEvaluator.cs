@@ -175,7 +175,7 @@ internal unsafe sealed class NNUEEvaluator {
         // (only for the color that moved the king)
         if (piece == PType.KING)
             RebuildAccumulator(in board, moved);
-
+        
         UpdateEvaluation(opp, (int)ulong.PopCount(board.Occupied));
     }
 

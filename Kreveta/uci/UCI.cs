@@ -145,7 +145,7 @@ internal static partial class UCI {
                     var nnue = new NNUEEvaluator(Game.Board);
 
                     // log the classical eval score and NNUE score
-                    Log($"\nClassical: {Eval.StaticEval(in Game.Board)}");
+                    Log($"\nClassical: {Eval.Classical(in Game.Board)}");
                     Log($"NNUE:      {nnue.Score}");
                     Log($"Combined:  {Game.Board.StaticEval}\n");
                     break;

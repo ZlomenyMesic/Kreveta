@@ -6,7 +6,6 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.moveorder.history;
-using Kreveta.tuning;
 
 using System;
 
@@ -49,8 +48,8 @@ internal static class LazyMoveOrder {
                 
                 // punish queen and king moves in the opening or early
                 // middlegame, of course except for castling
-                int queen = movedPiece == PType.QUEEN && isEarlyGame                           ? -97  : 0;
-                int king  = movedPiece == PType.KING && promPiece != PType.KING && isEarlyGame ? -209 : 0;
+                int queen = movedPiece == PType.QUEEN && isEarlyGame                            ? -97  : 0;
+                int king  = movedPiece == PType.KING  && isEarlyGame && promPiece != PType.KING ? -209 : 0;
 
                 // promotions and castling get placed higher
                 int prom = promPiece switch {
@@ -66,7 +65,7 @@ internal static class LazyMoveOrder {
             else {
                 // killers and counters are the same as in quiets, but
                 // higher scores are applied to push captures above quiets
-                int killer  = isKiller ? 2978 : 1532;
+                int killer = isKiller ? 3098 : 1652;
                 
                 // static exchange evaluation and continuation history. it is
                 // often said that conthist doesn't work well with captures,
@@ -76,7 +75,7 @@ internal static class LazyMoveOrder {
                 int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
                 
                 // capture history works the same as quiet history
-                int chist = CaptureHistory.GetRep(move) / 150;
+                int chist = CaptureHistory.GetRep(move) / 130;
 
                 // once again promotions get placed higher
                 int prom = promPiece switch {

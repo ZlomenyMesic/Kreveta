@@ -510,10 +510,7 @@ internal static class PVSearch {
                 reduction += 1079;
 
             // further extension/reduction based on SEE
-            reduction -= see * 58 / 100;
-
-            //if      (curScore > 3000) reduction += -238 - curScore / 94;
-            //if (curScore < -1195) reduction +=  130 + curScore / 110;
+            reduction -= see * 63 / 100;
             
             // if improving, reduce less
             reduction += improving     ? -31 : 49;
@@ -529,8 +526,7 @@ internal static class PVSearch {
                 reduction -= 180;
 
             // now make sure that a true extension isn't applied
-            if (ss.Ply != 0)
-                reduction = Math.Max(1024, reduction);
+            reduction = Math.Max(1024, reduction);
             
             curDepth -= reduction / 1024;
 

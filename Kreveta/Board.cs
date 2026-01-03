@@ -248,16 +248,16 @@ internal struct Board {
             CastRights &= (CastRights)mask;
         }
         
+        // these things are used in Perft as well, so no harm is done
+        Hash    = ZobristHash.Hash(in this);
+        IsCheck = Check.IsKingChecked(in this, colOpp);
+        
         // in some cases, such as Perft, the static eval is useless, and
         // would only slow the engine down.
         if (updateStaticEval) {
             NNUEEval.Update(in this, move, col);
-            StaticEval = (short)((NNUEEval.Score + Eval.StaticEval(in this)) / 2);
+            StaticEval = Eval.StaticEval(in this);
         }
-
-        // these things are used in Perft as well, so no harm is done
-        Hash    = ZobristHash.Hash(in this);
-        IsCheck = Check.IsKingChecked(in this, colOpp);
     }
 
     private void PlayReversibleMove(Move move) {
@@ -507,11 +507,11 @@ internal struct Board {
                 [11] = 0x0000000000000010UL  // k
             }
         };
-
-        board.NNUEEval   = new NNUEEvaluator(in board);
-        board.StaticEval = (short)((board.NNUEEval.Score + Eval.StaticEval(in board)) / 2);
+        
         board.Hash       = ZobristHash.Hash(in board);
         board.IsCheck    = Check.IsKingChecked(in board, board.SideToMove);
+        board.NNUEEval   = new NNUEEvaluator(in board);
+        board.StaticEval = Eval.StaticEval(in board);
         
         return board;
     }

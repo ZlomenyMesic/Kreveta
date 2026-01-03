@@ -1,4 +1,4 @@
-﻿﻿//
+﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //
@@ -11,7 +11,6 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
 using Kreveta.search;
-using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
@@ -169,9 +168,11 @@ internal static class Game {
             Board.EnPassantSq = 64;
         
         // the fifth token is the halfmove clock - how many quiet half moves have
-        // happened in a row already. this is used to check for 50 move rule draw
-        if (tokens.Length >= 7 && byte.TryParse(tokens[6], out byte halfmoveclock))
-            Board.HalfMoveClock = halfmoveclock;
+        // happened in a row already. this is used to check for 50 move rule draw.
+        // there is sometimes also a full move clock, which just counts moves from
+        // the beginning of the game, but that is useless
+        if (tokens.Length >= 7 && byte.TryParse(tokens[6], out byte halfmoveClock))
+            Board.HalfMoveClock = halfmoveClock;
 
         else if (tokens.Length != 6) {
             InvalidFENCallback($"invalid halfmove clock: \"{tokens[5]}\"");
@@ -179,12 +180,7 @@ internal static class Game {
         }
 
         Board.NNUEEval   = new NNUEEvaluator(in Board);
-        //Board.StaticEval = Board.NNUEEval.Score;
-        Board.StaticEval = (short)((Board.NNUEEval.Score + Eval.StaticEval(in Board)) / 2);
-        //Board.StaticEval = Eval.StaticEval(in Board);
-
-        // after these tokens may also follow a fullmove and halfmove clock,
-        // but we don't need this information for anything
+        Board.StaticEval = Eval.StaticEval(in Board);
 
         // the fen string can be followed by a sequence of moves, which have
         // been played from the position. for example, most GUIs would pass

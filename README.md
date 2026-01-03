@@ -15,9 +15,9 @@
 ## About
 
 An amateur, UCI-compatible chess engine written entirely in C#.
-Although originally developed as a hobby project, it now serves
-as the basis for my SOČ thesis. It is designed to be fast, strong
-and reliable, while still aiming for code clarity and proper
+Originally developed as a hobby project, but now serves as the
+basis for my SOČ thesis. Designed to balance strength, speed and
+reliability, while still aiming for code clarity and proper
 documentation, making it ideal for others to study, experiment
 with, or use as a foundation for future engines.
 Development started on **March 3, 2025**.
