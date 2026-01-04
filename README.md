@@ -15,7 +15,7 @@
 ## About
 
 An amateur, UCI-compatible chess engine written entirely in C#.
-Originally developed as a hobby project, but now serves as the
+Originally developed as a hobby project, but now also serves as the
 basis for my SOČ thesis. Designed to balance strength, speed and
 reliability, while still aiming for code clarity and proper
 documentation, making it ideal for others to study, experiment
@@ -26,45 +26,15 @@ Development started on **March 3, 2025**.
 
 ### Elo Ratings
 
-| Site    | Time Control | Games | Elo rating |
-|---------|--------------|-------|------------|
-| Lichess | Bullet       | 500   | 2193       |
-| Lichess | Blitz        | 356   | 2159       |
-| Lichess | Rapid        | 57    | 2228       |
-| CCRL    | ...          | ...   | TBD        |
-| ...     | ...          | ...   | ...        |
-
----
-
-## Benchmarks
-
-All measurements were performed on a 12th Gen Intel(R) Core(TM) i7-12700H (2.30 GHz) processor.
-
-### Regular search (initial position)
-
-Kreveta 2.2.1 with default hash table size (128 MiB) was used.
-
-| Full Depth | Sel. Depth | Time (s) | Nodes Searched | NPS       | Best Move |
-|------------|------------|----------|----------------|-----------|-----------|
-| 5          | 9          | 00.010   | 2,495          | 249,500   | e4        |
-| 10         | 16         | 00.064   | 46,067         | 719,797   | e4        |
-| 15         | 24         | 00.374   | 410,639        | 1,097,965 | e4        |
-| 20         | 31         | 07.562   | 9,574,359      | 1,266,282 | e4        |
-
-> [!NOTE]
-> Selective depth is the actual depth achieved via quiescence search.
-
-### Perft results (initial position)
-
-| Depth | Nodes           | Time (s)   | NPS         |
-|-------|-----------------|------------|-------------|
-| 1     | 20              | 00.00138   | 14,493      |
-| 2     | 400             | 00.00157   | 254,777     |
-| 3     | 8,902           | 00.00227   | 3,921,586   |
-| 4     | 197,281         | 00.00867   | 22,757,065  |
-| 5     | 4,865,609       | 00.06745   | 72,133,857  |
-| 6     | 119,060,324     | 00.89998   | 132,291,615 |
-| 7     | 3,195,901,860   | 13.14543   | 243,118,769 |
+| Version | Release      | Site    | Time Control | Games | Elo rating |
+|---------|--------------|---------|--------------|-------|------------|
+| 1.2.3   | Oct 31, 2025 | CCRL    | Blitz 2+1    | 934   | 1737       |
+| 2.0.0   | Dec 1, 2025  | CCRL    | Blitz 2+1    | 939   | 1945       |
+| ...     | ...          | ...     | ...          | ...   | ...        |
+| 2.2.2   | Jan 4, 2026  | Lichess | Bullet       | 701   | 2225       |
+| 2.2.2   | Jan 4, 2026  | Lichess | Blitz        | 467   | 2195       |
+| 2.2.2   | Jan 4, 2026  | Lichess | Rapid        | 151   | 2241       |
+| 2.2.2   | Jan 4, 2026  | Lichess | Classical    | 12    | 2276       |
 
 ---
 
@@ -74,39 +44,38 @@ Kreveta 2.2.1 with default hash table size (128 MiB) was used.
 
 - Bitboard representation of positions
 - Precomputed slider tables with PEXT-based lookups
+- King star logic for check situations
 
 ### Search Features
 
 - Principal Variation Search with Alpha-Beta Pruning
 - Quiescence search for leaf nodes
-- Null Move Pruning (NMP)
-- Late Move Pruning (LMP) and Reductions (LMR) relative to history
-- Futility Pruning (FP) and Delta Pruning for QSearch
-- SEE pruning and reductions
+- NMP, RFP, Razoring, FP and LMP
+- Delta Pruning and SEE Pruning for QSearch
 - Mate Distance Pruning (MDP)
-- Move ordering based on TT, SEE and others
-- Killer move table + countermove heuristics
-- Quiet history and pawn corrections
-- Improving search stack
+- Fractional reductions
+- Lazy move ordering
+- Killers, capture killers and countermoves
+- Quiet, capture and 2-ply continuation histories
+- Pawn, king, minor piece and major piece corrections
 - Resizable transposition table (1-1000 MiB)
 - Rational time management
 
 ### Static Evaluation
 
 - **Classical part**
-  - Piece-Square Tables with tapering evaluation
-  - Pawn structure eval (doubling, isolation, connection, blocking)
-  - Bishop pairs and open/semi-open file rooks
-  - Tapering evaluation for knights and rooks
+  - PST with tapering evaluation
+  - Pawn structure (doubling, isolation, blocking, passed pawns)
   - King safety based on friendly protection
 - **NNUE**
   - 128->16->16->1 architecture
   - 8 subnets/buckets based on piece count
+  - Trained on ~143M self-play positions
 
 ### Others
 
 - Generic Polyglot opening book support
-- [NeoKolors](https://github.com/KryKomDev/NeoKolors) library for logging UCI communication
+- Fancy statistics printing
 - Custom [parameter tuning](https://github.com/ZlomenyMesic/Kreveta/tree/master/KrevetaTuning) project
 
 ---
