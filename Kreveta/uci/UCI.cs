@@ -12,6 +12,7 @@
 #pragma warning disable CA1305
 #pragma warning disable CA1031
 
+using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
@@ -79,6 +80,9 @@ internal static partial class UCI {
                 case "ucinewgame":
                     Game.FullGame      = true;
                     Game.PreviousScore = 0;
+                    
+                    // this resets the potentially stored recapture
+                    Game.TryStoreRecapture([], 0);
                     
                     TT.Clear();
                     break;
@@ -245,6 +249,26 @@ internal static partial class UCI {
         if (Game.IsTerminalPosition(out string error)) {
             CannotStartSearchCallback.Invoke(error);
             return;
+        }
+
+        if (Game.FullGame) {
+            Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
+            int count = Movegen.GetLegalMoves(ref Game.Board, legal);
+
+            // when playing a full game, and there is a single legal
+            // move, no time is wasted searching, and the move is played
+            if (count == 1) {
+                Console.WriteLine($"bestmove {legal[0].ToLAN()}");
+                return;
+            }
+
+            // check if the previous searched expected us to
+            // play an obvious recapture, and if yes, play it
+            Move recapture = Game.TryGetRecapture();
+            if (recapture != default) {
+                Console.WriteLine($"bestmove {recapture.ToLAN()}");
+                return;
+            }
         }
 
         // this sets the time budget

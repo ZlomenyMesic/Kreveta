@@ -600,7 +600,7 @@ internal static class PVSearch {
                 // out, we may have still found a move better than the current one
                 if (ss.Ply == 0 && !Abort)
                     NextBestMove = curMove; 
-
+                
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];
                 Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);

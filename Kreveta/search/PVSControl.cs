@@ -196,6 +196,10 @@ internal static class PVSControl {
         if (BestMove != default && BestMove != PVSearch.PV[0])
             PVChanges++;
         BestMove = PVSearch.PV[0];
+        
+        // check if we expect the opponent to capture one of
+        // our pieces, and have an immediate obvious recapture
+        Game.TryStoreRecapture(PVSearch.PV, PVSearch.CurIterDepth);
 
         // now there's a bit of magic with mate scores. our "mate in X" function
         // returns the number of plies until mate, but the conventional way to

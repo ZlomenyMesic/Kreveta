@@ -261,6 +261,47 @@ internal static class Game {
         error = string.Empty;
         return false;
     }
+
+    // in order to mimic rational human play, recaptures are taken into account. if in one
+    // search the pv is our best move followed by two captures on the same square, it means
+    // we expect our opponent to capture one of our pieces, and we immediately recapture the
+    // aggressor. if such a scenario is found, the recapture is stored, and if the opponent
+    // indeed plays as we expected, we skip search and play it instantly.
+    private static ulong _recaptPosHash;
+    private static Move  _recapture;
+    
+    // this evaluates the pv and if all succeeds, the recapture is stored
+    internal static void TryStoreRecapture(Move[] pv, int depth) {
+        _recaptPosHash = 0UL;
+        _recapture     = default;
+        
+        if (depth < 8                       // don't trust low depths too much
+            || !FullGame                    // don't attempt any recaptures when not playing a full game
+            || pv.Length < 3                // the pv isn't even long enough
+            || pv[1].Capture == PType.NONE  // either of the moves isn't a capture
+            || pv[2].Capture == PType.NONE
+            || pv[1].End != pv[2].End)      // the captures don't land on the same square (not a recapture)
+            return;
+        
+        // play the two moves
+        var temp = Board.Clone();
+        temp.PlayMove(pv[0], false);
+        temp.PlayMove(pv[1], false);
+        
+        // store the recapture, and the position from which it is played
+        _recaptPosHash = temp.Hash;
+        _recapture     = pv[2];
+    }
+
+    // try to get the recapture once in a new search
+    internal static Move TryGetRecapture() {
+        if (!FullGame || _recapture == default)
+            return default;
+        
+        // we must make sure that the opponent actually played the capture
+        return Board.Hash == _recaptPosHash 
+            ? _recapture : default;
+    }
 }
 
 #pragma warning restore CA1304
