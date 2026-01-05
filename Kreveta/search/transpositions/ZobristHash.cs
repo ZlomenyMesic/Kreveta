@@ -34,33 +34,28 @@ internal static unsafe class ZobristHash {
         = (ulong*)NativeMemory.AlignedAlloc(16 * sizeof(ulong), 64);
 
     // white x black to play
-    private static readonly ulong WhiteToMove;
-    private static readonly ulong BlackToMove;
+    private static ulong WhiteToMove;
+    private static ulong BlackToMove;
 
-    // this seed was taken from MinimalChess, and actually
-    // works very well. might try to find a better one in the
-    // future, though
+    // this seed was taken from MinimalChess, and works very well.
+    // might try to find a better one in the future, though
     private const int Seed = 228126;
 
-    static ZobristHash() {
+    internal static void Init() {
         var rand = new Random(Seed);
 
-        for (int sq = 0; sq < 64; sq++) {
-            for (int p = 0; p < 12; p++) {
+        for (int sq = 0; sq < 64; sq++)
+            for (int p = 0; p < 12; p++)
                 Pieces[sq * 12 + p] = NextUInt64(rand);
-            }
-        }
 
-        for (int file = 0; file < 8; file++) {
+        for (int file = 0; file < 8; file++)
             EnPassant[file] = NextUInt64(rand);
-        }
 
         WhiteToMove = NextUInt64(rand);
         BlackToMove = NextUInt64(rand);
 
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 16; i++)
             Castling[i] = NextUInt64(rand);
-        }
     }
 
     internal static ulong Hash(in Board board) {

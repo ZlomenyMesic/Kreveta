@@ -45,5 +45,6 @@ internal static class Corrections {
         KingCorrections.Clear();
         PawnCorrections.Realloc();
         MinorPieceCorrections.Clear();
+        MajorPieceCorrections.Clear();
     }
 }

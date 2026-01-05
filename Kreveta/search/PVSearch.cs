@@ -115,9 +115,7 @@ internal static class PVSearch {
         QuietHistory.Clear();
         CaptureHistory.Clear();
         CounterMoveHistory.Clear();
-
         ContinuationHistory.Clear();
-        
         Corrections.Clear();
         
         TT.Clear();
@@ -144,8 +142,8 @@ internal static class PVSearch {
         where NodeType : ISearchNodeType {
 
         // did we find the position and score?
-        // we also need to check the ply, since too early tt lookups cause some serious blunders
-        if (ss.Ply >= TT.MinProbingPly && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
+        // also repeating positions cannot occur under 4 plies
+        if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
             CurNodes++;
             PVSControl.TotalNodes++;
 
@@ -155,9 +153,8 @@ internal static class PVSearch {
 
         // in case the position is not yet stored, we fully search it and then store it
         var result = Search<NodeType>(ref board, ss, isNMP);
-
-        // no heuristics should ever be updated when in NMP null-move search,
-        // as the position is likely illegal and would pollute the ecosystem
+        
+        // store the found score and best move in tt
         TT.Store(board.Hash, ss.Depth, ss.Ply, ss.Window, result.Score, result.PV.Length != 0 ? result.PV[0] : default);
         
         // store the current two-move sequence in countermove history - the previously
@@ -165,8 +162,8 @@ internal static class PVSearch {
         if (result.PV.Length != 0 && ss.Depth > CounterMoveHistory.MinStoreDepth)
             CounterMoveHistory.Add(board.SideToMove, ss.LastMove, result.PV[0]);
         
-        // update this position's score in pawncorrhist. we have to do this
-        // here, otherwise repeating positions would take over the whole thing
+        // update this position's score in pawncorrhist. bounds have to be checked,
+        // as a bound score is certainly not reliable enough to correct the eval
         if (result.Score > ss.Window.Alpha && result.Score < ss.Window.Beta)
             Corrections.Update(board, result.Score, ss.Depth);
 
@@ -238,9 +235,9 @@ internal static class PVSearch {
         // we play a null move (only switching sides), and then perform a reduced search with
         // a null window around beta. if the returned score fails high, we expect that not
         // skipping our move would "fail even higher", and thus can prune this node
-        if (ss.Ply >= MinNMPPly      // minimum ply for nmp
-            && !inCheck              // don't prune when in check
-            && board.GamePhase() > 0 // don't prune in absolute endgames
+        if (ss.Ply >= MinNMPPly       // minimum ply for nmp
+            && !inCheck               // don't prune when in check
+            && board.GamePhase() > 30 // don't prune in absolute endgames
 
             // in the early stages of the search, alpha and beta are set to
             // their limit values, so doing the reduced search would only
@@ -265,7 +262,7 @@ internal static class PVSearch {
             };
             
             nullChild.Hash    = ZobristHash.Hash(in nullChild);
-            nullChild.IsCheck = Check.IsKingChecked(in nullChild, nullChild.SideToMove);
+            nullChild.IsCheck = false;
             
             // the depth reduction
             int R = 7 + ss.Depth / 3;
@@ -296,14 +293,14 @@ internal static class PVSearch {
         // update the static eval search stack
         improvStack.UpdateStaticEval(staticEval, ss.Ply);
         bool rootImproving = improvStack.IsImproving(ss.Ply, col);
-        int  rootCorr      = int.MinValue;
 
         // 3. RAZORING (~18 Elo)
         // (kind of inspired by Stockfish) if a position is very, very bad, we skip the
         // move expansion and return qsearch score instead. this cannot be done when in check
         if (!ss.IsPV && !inCheck) {
             // this margin is really just magic, but it feels right
-            int margin = 574 + 367 * ss.Depth * ss.Depth;
+            // TODO: +-10, +15?
+            int margin = 534 + 377 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE
                     ? staticEval + margin < ss.Window.Alpha
@@ -393,8 +390,8 @@ internal static class PVSearch {
             
             expandedNodes++;
             
-            Board child   = board.Clone();
-            child.PlayMove(curMove, true);
+            Board child = board.Clone();
+            child.PlayMove(curMove, updateStaticEval: true);
             
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
@@ -431,29 +428,33 @@ internal static class PVSearch {
             //    or any move in the principal variation
             // 2) the ply is low, and the move is a capture
             // 3) we are escaping check or giving a check
-            bool interesting = expandedNodes == 1 
-                               || ss.IsPV
-                               || inCheck || givesCheck;
+            bool skipFP = expandedNodes == 1 
+                          || ss.IsPV
+                          || inCheck 
+                          || givesCheck;
             
             // 7. FUTILITY PRUNING (~56 Elo)
             // we try to discard moves near the leaves, which have no potential of raising alpha.
             // futility margin represents the largest possible score gain through a single move.
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can prune this branch
-            if (!interesting && ss.Ply >= 4 && ss.Depth <= 5) {
-                int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 12);
-                int childCorr  = Corrections.Get(in child);
-
+            if (!skipFP && ss.Ply >= 4 && ss.Depth <= 4) {
+                int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 11);
+                int childCorr  = Math.Abs(Corrections.Get(in child));
+                int moveIndex  = Math.Min(0, (10 - expandedNodes) / 16);
+                // TODO: 16 + 5?
+                
                 // as taken from CPW:
                 // "If at depth 1 the margin does not exceed the value of a minor piece, at
                 // depth 2 it should be more like the value of a rook."
                 // we don't really follow this exactly, but our approach is kind of similar
-                int margin = 95 + 97 * ss.Depth
-                                + 2 * childCorr                     // this acts like a measure of uncertainty
-                                + (improving ? 0 : -23)             // not improving nodes prune more
-                                + Math.Clamp(see / 112, -39, 17)    // tweak the margin based on SEE
-                                + Math.Clamp(curScore / 80, -6, 14) // if history is good, prune less
-                                + windowSize;                       // another measure of uncertainty
+                int margin = 100 + 92 * ss.Depth
+                                 + childCorr                         // this acts like a measure of uncertainty
+                                 + (improving ? 0 : -23)             // not improving nodes prune more
+                                 + Math.Clamp(see / 112, -39, 17)    // tweak the margin based on SEE
+                                 + Math.Clamp(curScore / 80, -6, 14) // if history is good, prune less
+                                 + windowSize                        // another measure of uncertainty
+                                 + moveIndex;                        // late moves get a lower margin
                 
                 // if we didn't manage to raise alpha, prune this branch
                 if (col == Color.WHITE
@@ -466,33 +467,24 @@ internal static class PVSearch {
                     continue;
                 }
 
-                // FUTILITY CUTOFFS (~25 Elo)
+                // FUTILITY CUTOFFS (? Elo)
                 // a small idea i had - if the leaf or close to leaf nodes seem
                 // to be really bad, we try to fail low by adding the futility
                 // margin to the static eval of the current position, not the child
-                if (ss.Depth <= 3 && !rootImproving && !improving
+                // TODO: +- 25
+                if (ss.Depth <= 3 && !rootImproving && !improving && curScore < -625
                     && (col == Color.WHITE
                         ? board.StaticEval + margin <= ss.Window.Alpha
                         : board.StaticEval - margin >= ss.Window.Beta)) {
                     
-                    if (rootCorr == int.MinValue)
-                        rootCorr = Corrections.Get(in board);
-                    
-                    // this turns out to work quite well - only reduce when the root
-                    // pawn correction is bad, and the child correction is even worse
-                    if (col == Color.WHITE 
-                            ? childCorr < rootCorr && rootCorr < 0
-                            : childCorr > rootCorr && rootCorr > 0) {
-                        
-                        CurNodes++; PVSControl.TotalNodes++;
-                        if (!isNMP) ThreeFold.Remove(child.Hash);
+                    CurNodes++; PVSControl.TotalNodes++;
+                    if (!isNMP) ThreeFold.Remove(child.Hash);
 
-                        // instead of just pruning this branch, we assume
-                        // all following moves are even worse, so we cut
-                        // off completely and return the lower bound
-                        return (col == Color.WHITE 
-                            ? ss.Window.Alpha : ss.Window.Beta, []);
-                    }
+                    // instead of just pruning this branch, we assume
+                    // all following moves are even worse, so we cut
+                    // off completely and return the lower bound
+                    return (col == Color.WHITE 
+                        ? ss.Window.Alpha : ss.Window.Beta, []);
                 }
             }
             
@@ -608,9 +600,6 @@ internal static class PVSearch {
                 // out, we may have still found a move better than the current one
                 if (ss.Ply == 0 && !Abort)
                     NextBestMove = curMove; 
-
-                // store the new best move in tt
-                TT.Store(board.Hash, (sbyte)curDepth, ss.Ply, ss.Window, fullSearch.Score, curMove);
 
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];

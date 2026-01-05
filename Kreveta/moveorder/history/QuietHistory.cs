@@ -34,7 +34,7 @@ internal static class QuietHistory {
     // then divided by this number to get the average.
     private static readonly int[][] ButterflyBoard = new int[64][];
 
-    static QuietHistory() {
+    internal static void Init() {
         for (int i = 0; i < 64; i++) {
             QuietScores[i]    = new int[64];
             ButterflyBoard[i] = new int[64];

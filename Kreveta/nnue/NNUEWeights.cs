@@ -17,20 +17,20 @@ using System.Reflection;
 namespace Kreveta.nnue;
 
 internal static class NNUEWeights {
-    internal static readonly short[]   Embedding;
-    internal static readonly short[][] H1Kernels;
-    internal static readonly short[][] H2Kernels;
-    internal static readonly short[][] H1Biases;
-    internal static readonly short[][] H2Biases;
-    internal static readonly short[][] OutputKernels;
-    internal static readonly short[]   OutputBiases;
+    internal static short[]   Embedding;
+    internal static short[][] H1Kernels;
+    internal static short[][] H2Kernels;
+    internal static short[][] H1Biases;
+    internal static short[][] H2Biases;
+    internal static short[][] OutputKernels;
+    internal static short[]   OutputBiases;
 
     private  const int FeatCount = 40960;
     internal const int EmbedDims = 128;
     internal const int H1Neurons = 16;
     internal const int H2Neurons = 16;
 
-    static NNUEWeights() {
+    internal static void Load() {
         var asm = Assembly.GetExecutingAssembly();
         using Stream? stream = asm.GetManifestResourceStream($"{Program.Name}.{Program.Network}");
 

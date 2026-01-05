@@ -19,7 +19,7 @@ internal static class CaptureHistory {
     private static readonly int[][] CaptureScores  = new int[64][];
     private static readonly int[][] ButterflyBoard = new int[64][];
 
-    static CaptureHistory() {
+    internal static void Init() {
         for (int i = 0; i < 64; i++) {
             CaptureScores[i]  = new int[64];
             ButterflyBoard[i] = new int[64];

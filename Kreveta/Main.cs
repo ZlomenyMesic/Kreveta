@@ -16,7 +16,6 @@ using Kreveta.approx;
 using System;
 using System.Diagnostics;
 using System.Runtime.Intrinsics.X86;
-using System.Threading;
 
 namespace Kreveta;
 
@@ -47,34 +46,31 @@ internal static class Program {
             UCI.Log("AVX2 and BMI2 hardware support is required. Your current CPU features:");
             UCI.Log($"  AVX2: {Avx2.IsSupported}");
             UCI.Log($"  BMI2: {Bmi2.IsSupported}");
-            UCI.Log("This means you sadly won't be able to run this engine :(");
+            UCI.Log("This means you sadly won't be able to use this engine :(");
             Console.ReadKey();
         }
 
-        // this forces running static constructors to ensure everything
-        // is initialized right at the beginning; otherwise crash :(
-        _ = typeof(ZobristHash);
+        ZobristHash.Init();
 
         // pre-compute move lookup tables
-        _ = typeof(PextLookupTables);
-        _ = typeof(LookupTables);
+        PextLookupTables.Init();
+        LookupTables.Init();
 
         // history tables
-        _ = typeof(QuietHistory);
-        _ = typeof(CaptureHistory);
+        QuietHistory.Init();
+        CaptureHistory.Init();
+        ContinuationHistory.Init();
         
         // adjacent files
-        _ = typeof(Eval);
+        Eval.Init();
 
         // load the embedded nnue weights
-        _ = typeof(NNUEWeights);
-        _ = typeof(MathApprox);
-
-        ContinuationHistory.Init();
+        NNUEWeights.Load();
+        MathApprox.Init();
         
         // the engine sometimes crashes unexplainably during initialization,
         // and this tiny delay actually seems to be suppressing the issue
-        Thread.Sleep(350);
+        //Thread.Sleep(350);
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
@@ -89,7 +85,7 @@ internal static class Program {
         // manually allocated memory is spread throughout the whole
         // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
-            ((Action)TT.Clear + PerftTT.Clear + PawnCorrections.Clear + Killers.Clear + LookupTables.Clear + ZobristHash.Clear)();
+            ((Action)TT.Clear + PerftTT.Clear + PawnCorrections.Clear + LookupTables.Clear + ZobristHash.Clear)();
         }
     }
 }

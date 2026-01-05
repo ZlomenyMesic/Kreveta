@@ -6,7 +6,6 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
-using Kreveta.tuning;
 
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
@@ -27,7 +26,7 @@ internal static class Eval {
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
-    static Eval() {
+    internal static void Init() {
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
             AdjFiles[i] = Consts.RelevantFileMask[i]

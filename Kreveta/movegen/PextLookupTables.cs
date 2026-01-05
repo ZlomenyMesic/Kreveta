@@ -15,9 +15,9 @@ internal static class PextLookupTables {
     internal static readonly int[]   BishopOffset       = new int[64];
     internal static readonly int[]   RookOffset         = new int[64];
     private  static readonly byte[]  BishopRelevantBits = new byte[64];
-    private  static readonly  byte[] RookRelevantBits   = new byte[64];
+    private  static readonly byte[]  RookRelevantBits   = new byte[64];
 
-    static PextLookupTables() {
+    internal static void Init() {
         GenerateMasks();
         BuildBishopTables();
         BuildRookTables();

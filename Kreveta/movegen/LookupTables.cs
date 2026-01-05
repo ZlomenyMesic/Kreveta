@@ -12,22 +12,17 @@ namespace Kreveta.movegen;
 
 internal static unsafe class LookupTables {
 
-    internal static readonly ulong* PawnCaptTargets;
-    internal static readonly ulong* KingTargets;
-    internal static readonly ulong* KnightTargets;
+    internal static readonly ulong* PawnCaptTargets = (ulong*)NativeMemory.AlignedAlloc(2  * 64 * sizeof(ulong), 64);
+    internal static readonly ulong* KingTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
+    internal static readonly ulong* KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
     
     // when escaping check or ensuring move legality, these star shapes are used
-    internal static readonly ulong* KingStars;
+    internal static readonly ulong* KingStars = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
     
     private static bool _memoryFreed;
 
     // all lookup tables need to be initialized right as the engine launches
-    static LookupTables() {
-        PawnCaptTargets = (ulong*)NativeMemory.AlignedAlloc(2  * 64 * sizeof(ulong), 64);
-        KingTargets     = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
-        KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
-        KingStars       = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
-        
+    internal static void Init() {
         InitPawnTargets();
         InitKingTargets();
         InitKnightTargets();
