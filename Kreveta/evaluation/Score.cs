@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA1305
+
 using Kreveta.consts;
 
 using System;
@@ -49,4 +51,12 @@ internal static class Score {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int LimitScore(int score)
         => (int)Math.Round(NonMateScoreLimit * (float)Math.Tanh((double)score / 1125), 0);
+
+    // converts a centipawn score to pawns, adds +/- signs, returns as string
+    internal static string ToRegular(int score) {
+        string sign = score > 0 ? "+" : score < 0 ? "" : " ";
+        return $"{sign}{MathF.Round(score / 100f, 2):F2}";
+    }
 }
+
+#pragma warning restore CA1305

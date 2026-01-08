@@ -26,7 +26,7 @@ internal static class QSearch {
     internal static short Search(ref Board board, int ply, Window window, int curQSDepth, bool isNMP, bool onlyCaptures) {
 
         // exit the search if we should abort
-        if (PVSearch.Abort)
+        if (PVSearch.Abort && PVSearch.CurIterDepth > 1)
             return 0;
 
         // increment the node counter

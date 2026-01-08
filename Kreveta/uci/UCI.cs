@@ -15,7 +15,6 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.nnue;
 using Kreveta.openings;
 using Kreveta.perft;
 using Kreveta.search;
@@ -87,9 +86,16 @@ internal static partial class UCI {
                     TT.Clear();
                     break;
                 
-                // the "setoption ..." command is used to acces internal parameters
-                case "setoption":
-                    Options.Set(tokens);
+                // "uci" tells the GUI that UCI is supported, and also lists available options
+                case "uci":
+                    // print some engine info for nicer display
+                    Log($"id name {Program.Name}-{Program.Version}\n" +
+                        $"id author {Program.Author}\n");
+
+                    // and print all modifiable options
+                    Options.Print();
+
+                    Log("uciok");
                     break;
                 
                 // when we receive "isready", we shall respond with "readyok".
@@ -98,19 +104,22 @@ internal static partial class UCI {
                     Log("readyok");
                     break;
                 
-                // "uci" tells the GUI that UCI is supported, and also lists available options
-                case "uci":
-                    CmdUCI();
+                // the "setoption ... " command is used to access internal parameters
+                case "setoption":
+                    Options.Set(tokens);
                     break;
                 
+                // set up a position
                 case "position":
                     CmdPosition(tokens);
                     break;
                 
+                // start searching the best move
                 case "go":
                     CmdGo(tokens);
                     break;
                 
+                // run perft at a specified depth
                 case "perft":
                     CmdPerft(tokens);
                     break;
@@ -133,10 +142,7 @@ internal static partial class UCI {
                     StopSearch();
                     break;
                 
-                case "test":
-                    Test();
-                    break;
-                
+                // clear the console window
                 case "cls":
                     Console.Clear();
                     break;
@@ -145,18 +151,14 @@ internal static partial class UCI {
                     Tuning.TuneParams(tokens);
                     break;
 
+                // nicely print the static eval of the position
                 case "eval": {
-                    var nnue = new NNUEEvaluator(Game.Board);
-
-                    // log the classical eval score and NNUE score
-                    Log($"\nClassical: {Eval.Classical(in Game.Board)}");
-                    Log($"NNUE:      {nnue.Score}");
-                    Log($"Combined:  {Game.Board.StaticEval}\n");
+                    Eval.PrintAnalysis(in Game.Board);
                     break;
                 }
                 
                 case "help" or "-help" or "--help" or "h" or "-h" or "--h":
-                    Log("Kreveta is a free and open-source chess engine, released under the MIT license. UCI protocol is used to communicate with GUIs. Please read the full documentation on GitHub: https://github.com/ZlomenyMesic/Kreveta");
+                    Log("Kreveta is an open-source chess engine, released under the MIT license. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta");
                     break;
 
                 default:
@@ -164,21 +166,6 @@ internal static partial class UCI {
                     break;
             }
         }
-    }
-
-    // when the engine receives the "uci" command, it is supposed
-    // to respond with "uciok" to let the GUI know UCI is supported
-    private static void CmdUCI() {
-        const string UCIOK = "uciok";
-
-        // other than that we also print some engine info for nicer display
-        Log($"id name {Program.Name}-{Program.Version}\n" +
-            $"id author {Program.Author}\n");
-
-        // and we print all modifiable options
-        Options.Print();
-
-        Log($"{UCIOK}");
     }
 
     // "position ..." command sets the current position, which the
@@ -341,10 +328,6 @@ internal static partial class UCI {
         ShouldAbortSearch = false;
         
         PVSearch.Reset();
-    }
-
-    private static void Test() {
-
     }
 }
     

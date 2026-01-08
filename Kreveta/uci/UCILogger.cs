@@ -16,8 +16,8 @@ namespace Kreveta.uci;
 internal static partial class UCI {
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Log(string? msg)
-        => Output.WriteLine(msg);
+    internal static void Log(string? msg, bool nl = true)
+        => Output.Write(msg + (nl ? '\n' : string.Empty));
 
     // had to use this crazy syntax just because it exists
     internal static void LogMultiple(__arglist) {

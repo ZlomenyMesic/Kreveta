@@ -139,7 +139,7 @@ internal static class TimeMan {
     }
 
     private static void CalculateTimeBudget() {
-        const int moveOverhead = 30;
+        const int moveOverhead = 50;
         
         // we have a strictly set time for our search,
         // or are in an infinite search, so we don't
@@ -167,13 +167,13 @@ internal static class TimeMan {
         long baseTime = (long)((timeLeft + inc * 0.8) / (movesToGo + 1));
 
         // never allow zero search time
-        long budget = Math.Max(15, baseTime - moveOverhead);
+        long budget = Math.Max(moveOverhead / 2, baseTime - moveOverhead);
 
         // cap extremely long thinks
         long maxBudget = (long)(timeLeft * 0.40);
         budget = Math.Min(budget, maxBudget);
 
-        TimeBudget = Math.Max(10, budget);
+        TimeBudget = Math.Max(20, budget);
     }
     
     private static int EstimateMovesToGo(Board board) {

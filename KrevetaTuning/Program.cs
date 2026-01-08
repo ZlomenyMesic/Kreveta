@@ -37,7 +37,7 @@ internal static class Program {
     private static readonly List<UCIEngine>         ActiveEngines = [];
     
     internal enum EvalMode { FullSearch, StaticEval }
-    private const EvalMode _mode = EvalMode.StaticEval;
+    private const EvalMode _mode = EvalMode.FullSearch;
     
     internal static void Main() {
         Console.CancelKeyPress += (_, e) => {

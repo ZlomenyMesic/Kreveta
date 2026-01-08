@@ -197,7 +197,7 @@ internal unsafe sealed class NNUEEvaluator {
     private static int ExtractFeatures(in Board board, out Span<int> whiteFeat, out Span<int> blackFeat) {
         int wKing = BB.LS1B(board.Pieces[5]);
         int bKing = BB.LS1B(board.Pieces[11]);
-
+        
         int count = (int)ulong.PopCount(board.Occupied) - 2;
         ReadOnlySpan<ulong> pieces = board.Pieces;
         
@@ -210,13 +210,13 @@ internal unsafe sealed class NNUEEvaluator {
             ulong w = pieces[pt];
             ulong b = pieces[6 + pt];
 
-            while (w != 0) {
+            while (w != 0UL) {
                 byte sq = BB.LS1BReset(ref w);
                 whiteFeat[count]   = FeatureIndex(Color.WHITE, wKing, pt, Color.WHITE, sq);
                 blackFeat[count++] = FeatureIndex(Color.BLACK, bKing, pt, Color.WHITE, sq);
             }
             
-            while (b != 0) {
+            while (b != 0UL) {
                 byte sq = BB.LS1BReset(ref b);
                 whiteFeat[count]   = FeatureIndex(Color.WHITE, wKing, pt, Color.BLACK, sq);
                 blackFeat[count++] = FeatureIndex(Color.BLACK, bKing, pt, Color.BLACK, sq);

@@ -15,7 +15,10 @@ using Kreveta.approx;
 
 using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.Intrinsics.X86;
+using System.Threading;
 
 namespace Kreveta;
 
@@ -68,16 +71,21 @@ internal static class Program {
         NNUEWeights.Load();
         MathApprox.Init();
         
-        // the engine sometimes crashes unexplainably during initialization,
-        // and this tiny delay actually seems to be suppressing the issue
-        //Thread.Sleep(350);
-        
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
         Game.Board = Board.CreateStartpos();
         
+        string buildTime = Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .First(a => a.Key == "BuildTimestamp").Value ?? "";
+        
         // header text when launching the engine
-        UCI.Log($"{Name}-{Version} by {Author}");
+        Console.ForegroundColor = ConsoleColor.Red;
+        UCI.Log($"{Name}-{Version} ", nl: false);
+        Console.ResetColor();
+        
+        UCI.Log($"by {Author} (built {buildTime})");
+        UCI.Log($"Using NNUE file: {Network}");
         UCI.InputLoop();
         
         return 0;
@@ -85,7 +93,11 @@ internal static class Program {
         // manually allocated memory is spread throughout the whole
         // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
-            ((Action)TT.Clear + PerftTT.Clear + PawnCorrections.Clear + LookupTables.Clear + ZobristHash.Clear)();
+            TT.Clear();
+            PerftTT.Clear();
+            PawnCorrections.Clear();
+            LookupTables.Clear();
+            ZobristHash.Clear();
         }
     }
 }

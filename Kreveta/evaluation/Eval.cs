@@ -6,6 +6,7 @@
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
+using Kreveta.uci;
 
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
@@ -57,7 +58,7 @@ internal static class Eval {
     // this is the classical/hand-crafted eval, that doesn't rely on NNUE. the reason
     // it's still here is that our NNUE understands positional advantage more than
     // material, so this kind of just makes sure that no material blindness occurs.
-    internal static short Classical(in Board board) {
+    private static short Classical(in Board board) {
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
 
@@ -172,5 +173,39 @@ internal static class Eval {
         // both white and black have 0 or 1 knights or bishops
         return ulong.PopCount(pieces[1] | pieces[2]) < 2UL
                && ulong.PopCount(pieces[7] | pieces[8]) < 2UL;
+    }
+    
+    internal static void PrintAnalysis(in Board board) {
+        int pcount = (int)ulong.PopCount(board.Occupied);
+        
+        int material = 0;
+        for (byte sq = 0; sq < 64; sq++) {
+            PType piece = board.PieceAt(sq);
+            Color color = (board.WOccupied & 1UL << sq) != 0 ? Color.WHITE : Color.BLACK;
+
+            if (piece != PType.NONE)
+                material += EvalTables.GetTableValue((byte)piece, color, sq, pcount)
+                            * (color == Color.WHITE ? 1 : -1);
+        }
+
+        int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied)
+                     - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
+
+        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
+                    + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
+
+        int total = material + pawns + kings + (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        
+        UCI.Log("\nClassical (Hand-Crafted): ", nl: false);
+        UCI.Log($"{Score.ToRegular(total)}\n"
+                + $"  Material (PST): {Score.ToRegular(material)}\n"
+                + $"  Pawn structure: {Score.ToRegular(pawns)}\n"
+                + $"  King safety:    {Score.ToRegular(kings)}\n");
+        
+        UCI.Log("NNUE (trained network):   ", nl: false);
+        UCI.Log($"{Score.ToRegular(board.NNUEEval.Score)}\n");
+        
+        UCI.Log("Combined & scaled:        ", nl: false);
+        UCI.Log($"{Score.ToRegular(board.StaticEval)}\n");
     }
 }

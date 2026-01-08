@@ -11,6 +11,7 @@ using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
 using Kreveta.search;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
@@ -106,6 +107,12 @@ internal static class Game {
             sq++;
         }
 
+        int pieceCount = (int)ulong.PopCount(Board.Occupied);
+        if (pieceCount is > 32 or < 2) {
+            InvalidFENCallback($"illegal number of pieces: {pieceCount}");
+            return;
+        }
+
         // the second token tells us, which color's turn it is. "w" means white,
         // "b" means black. the actual color to play may be still modified by the
         // moves played from this position, though
@@ -181,6 +188,8 @@ internal static class Game {
 
         Board.NNUEEval   = new NNUEEvaluator(in Board);
         Board.StaticEval = Eval.StaticEval(in Board);
+        Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);
+        Board.Hash       = ZobristHash.Hash(in Board);
 
         // the fen string can be followed by a sequence of moves, which have
         // been played from the position. for example, most GUIs would pass

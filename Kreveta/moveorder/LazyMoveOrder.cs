@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.moveorder.history;
+using Kreveta.tuning;
 
 using System;
 
@@ -24,11 +25,11 @@ internal static class LazyMoveOrder {
         // find killers and a potential countermove
         var captKillers = Killers.GetCluster(depth, captures: true);
         var killers     = Killers.GetCluster(depth, captures: false);
-        var counterMove = CounterMoveHistory.Get(col, previous);
+        var counterMove = depth <= 2 ? CounterMoveHistory.Get(col, previous) : default;
         
         for (int i = 0; i < count; i++) {
             Move move = moves[i];
-
+            
             PType promPiece = move.Promotion;
             bool  isCapture = move.Capture != PType.NONE || promPiece == PType.PAWN;
             bool  isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
@@ -71,12 +72,12 @@ internal static class LazyMoveOrder {
                 // often said that conthist doesn't work well with captures,
                 // but here it seems like it does. i've also tried combining
                 // SEE with additional MVV-LVA, but that didn't work at all
-                int see   = SEE.GetCaptureScore(in board, col, move);
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
+                int see  = SEE.GetCaptureScore(in board, col, move);
+                int cont = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
                 
                 // capture history works the same as quiet history
                 int chist = CaptureHistory.GetRep(move) / 130;
-
+                
                 // once again promotions get placed higher
                 int prom = promPiece switch {
                     PType.QUEEN => 284,
@@ -84,7 +85,10 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] += killer + cont + chist + prom + see;
+                scores[i] += killer 
+                             + Math.Clamp(cont, -77, 79)
+                             + Math.Clamp(chist, -9, 10)
+                             + prom + see;
             }
         }
     }

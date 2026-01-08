@@ -1,4 +1,4 @@
-﻿﻿//
+﻿//
 // Kreveta chess engine by ZlomenyMesic
 // started 4-3-2025
 //

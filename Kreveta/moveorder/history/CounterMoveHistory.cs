@@ -18,15 +18,10 @@ namespace Kreveta.moveorder.history;
 // a move, and we store the best response (counter) to this move. when ordering moves, we
 // check if the counter is stored for the previous move, and we place it a little higher
 internal static class CounterMoveHistory {
-
-    // we cannot really use this at higher depths, since the results
-    // can often be a bit misleading. only allowing retrieving at lower
-    // depths actually increases the playing strength, though
-    internal const int MaxRetrieveDepth = 2;
-
+    
     // in order to store actually correct counters, we only save the
     // ones found at higher depths
-    internal const int MinStoreDepth    = 4;
+    internal const int MinStoreDepth = 4;
     
     // !!! the color is of the side that is to play the counter, while
     // the starting and targets squares are of the other side's move !!!

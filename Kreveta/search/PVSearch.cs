@@ -441,7 +441,7 @@ internal static class PVSearch {
             if (!skipFP && ss.Ply >= 4 && ss.Depth <= 4) {
                 int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 11);
                 int childCorr  = Math.Abs(Corrections.Get(in child));
-                int moveIndex  = Math.Min(0, (10 - expandedNodes) / 16);
+                int moveIndex  = 0;//Math.Min(0, (10 - expandedNodes) / 16);
                 // TODO: 16 + 5?
                 
                 // as taken from CPW:
@@ -451,7 +451,7 @@ internal static class PVSearch {
                 int margin = 100 + 92 * ss.Depth
                                  + childCorr                         // this acts like a measure of uncertainty
                                  + (improving ? 0 : -23)             // not improving nodes prune more
-                                 + Math.Clamp(see / 112, -39, 17)    // tweak the margin based on SEE
+                                 + see / 60                          // tweak the margin based on SEE
                                  + Math.Clamp(curScore / 80, -6, 14) // if history is good, prune less
                                  + windowSize                        // another measure of uncertainty
                                  + moveIndex;                        // late moves get a lower margin

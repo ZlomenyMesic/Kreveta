@@ -11,6 +11,7 @@ using System;
 namespace Kreveta.tuning;
 
 internal static class Tuning {
+    
     internal static void TuneParams(ReadOnlySpan<string> tokens) {
     }
 }
