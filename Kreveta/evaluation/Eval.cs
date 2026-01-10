@@ -109,26 +109,34 @@ internal static class Eval {
         
         ulong copy = pawns;
         while (copy != 0UL) {
-            byte sq = BB.LS1BReset(ref copy);
+            byte  sq   = BB.LS1BReset(ref copy);
             ulong file = Consts.RelevantFileMask[sq & 7];
             
+            // calculate the number of pawns on the current file,
+            // and for each one more than 1 add a small penalty
             int fileOcc = (int)ulong.PopCount(file & pawns);
             eval += (short)((fileOcc - 1) * DoubledPawnMalus);
             
+            // calculate the number of friendly and enemy pawns
+            // on the two adjacent files (and the current one)
             ulong adjFiles  = AdjFiles[sq & 7];
             int   adjOcc    = (int)ulong.PopCount(adjFiles & pawns);
             int   oppAdjOcc = (int)ulong.PopCount(adjFiles & enemyPawns);
             
+            // if no friendly pawns are adjacent, the pawn is isolated
+            // and penalized. similarly, if there are no enemy pawns,
+            // the pawn is passed, and a bonus is added, scaled by rank
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawnMalus);
             eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3));
-            
+
+            // also check if there's a friendly piece blocking the pawn
             if (col == Color.WHITE && (1UL << sq - 8 & friendlyPieces) != 0UL)
                 eval += BlockedPawnMalus;
 
             else if (col == Color.BLACK && (1UL << sq + 8 & friendlyPieces) != 0UL)
                 eval += BlockedPawnMalus;
         }
-        
+
         return (short)eval;
     }
 
@@ -196,7 +204,7 @@ internal static class Eval {
 
         int total = material + pawns + kings + (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
         
-        UCI.Log("\nClassical (Hand-Crafted): ", nl: false);
+        UCI.Log("\nClassical (hand-crafted): ", nl: false);
         UCI.Log($"{Score.ToRegular(total)}\n"
                 + $"  Material (PST): {Score.ToRegular(material)}\n"
                 + $"  Pawn structure: {Score.ToRegular(pawns)}\n"
