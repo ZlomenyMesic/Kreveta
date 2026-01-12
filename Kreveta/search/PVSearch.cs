@@ -516,33 +516,28 @@ internal static class PVSearch {
             }*/
             
             // 5. REDUCTIONS (~50 Elo)
-            int reduction = 180;
-            
-            // extend the search of the first few root moves
-            // (this is done by reducing all other moves)
-            if (isRoot && expandedNodes >= 5)
-                reduction += 125;
-            
-            // reduce/extend based on how optimistic SEE looks. also,
-            // if SEE is really low, further reductions are applied
-            reduction -= see * 2 / 25 + (see < -100 ? -135 : 0);
-            
-            // if improving, reduce less
-            reduction += improving     ? -4 : 6;
-            reduction += rootImproving ? -5 : 4;
-            
-            // check and capture extensions
-            if (inCheck)    reduction -= 28;
-            if (givesCheck) reduction -= 27;
-            if (isCapture)  reduction -= 14;
+            int reduction = 1;
 
-            // queen promotion idea
-            if (curMove.Promotion == PType.QUEEN)
-                reduction -= 22;
+            // first few root moves are extended - we don't expect to find an extraordinary
+            // move somewhere later in the movelist (this is done by reducing all other moves)
+            if (isRoot && expandedNodes >= 5)
+                reduction++;
+
+            // if a capture seems to be bad, and the position isn't critical, reduce it
+            if (!inCheck && !givesCheck && see < -100)
+                reduction++;
+
+            // single reply/evasion extensions; since it's just one move, it hopefully
+            // shouldn't be a burden, but long check sequences may appear unnecessarily
+            // TODO - TEST #1
+            if (!isTTMove && moveCount == 1)
+                reduction--;
+
+            // TODO - TEST #2
+            if (isTTMove && expandedNodes != 1)
+                reduction++;
             
-            // now make sure that a true extension isn't applied
-            reduction = Math.Max(128, reduction);
-            curDepth -= reduction / 128;
+            curDepth -= reduction;
 
             // despite the fact that PVS searches only the first move with a full window, it didn't
             // work here. instead, a few early moves are searched fully, and the rest with a null
