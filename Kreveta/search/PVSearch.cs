@@ -441,19 +441,16 @@ internal static class PVSearch {
             if (!skipFP && ss.Ply >= 4 && ss.Depth <= 4) {
                 int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 11);
                 int childCorr  = Math.Abs(Corrections.Get(in child));
-                int moveIndex  = cutNode ? Math.Min(0, (10 - expandedNodes) / 20) : 0;
                 
                 // as taken from CPW:
                 // "If at depth 1 the margin does not exceed the value of a minor piece, at
                 // depth 2 it should be more like the value of a rook."
                 // we don't really follow this exactly, but our approach is kind of similar
                 int margin = 100 + 92 * ss.Depth
-                                 + childCorr                         // this acts like a measure of uncertainty
-                                 + (improving ? 0 : -23)             // not improving nodes prune more
-                                 + see / 65                          // tweak the margin based on SEE
-                                 + Math.Clamp(curScore / 80, -6, 14) // if history is good, prune less
-                                 + windowSize                        // another measure of uncertainty
-                                 + moveIndex;                        // late moves get a lower margin
+                                 + childCorr             // this acts like a measure of uncertainty
+                                 + (improving ? 0 : -23) // not improving nodes prune more
+                                 + see / 65              // tweak the margin based on SEE
+                                 + windowSize;           // another measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
                 if (col == Color.WHITE
@@ -492,6 +489,7 @@ internal static class PVSearch {
                 ? new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
                 : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
 
+            // X. DOUBLE MOVE PRUNING
             /*if (ss.Ply > 6 && !ss.IsPV && !inCheck && !givesCheck && !improving) {
                 var nullChild = child.Clone() with {
                     SideToMove  = col,
@@ -551,7 +549,7 @@ internal static class PVSearch {
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
             // TODO - DEPTH OR NO DEPTH
-            int  maxExpNodes = (isTTMove ? 1 : 3 + ss.Depth / 4) + (isPV ? 4 : 0);
+            int  maxExpNodes = (isTTMove ? 1 : 3) + (isPV ? 4 : 0);
             bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 100;
 
             // late move pruning and common PVS logic are merged here. expected fail-low moves are
@@ -560,11 +558,11 @@ internal static class PVSearch {
             if (!skipLMP) {
                 // if moveorder score is bad, reduction is larger. the score is based
                 // on quiet history, continuation history and a few more factors
-                int R = curScore < -453 ? 5 : 4;
+                int R = curScore < -443 ? 5 : 4;
                 
                 // some SEE tweaking - worse captures get higher reductions
-                if (see > 0) R--;
-                if (see < 0) R++;
+                if (improving  || see > 94) R--;
+                if (!improving && see < 0)  R++;
 
                 // once again a reduced depth search
                 int score = ProbeTT<NonPVNode>(ref child, 
