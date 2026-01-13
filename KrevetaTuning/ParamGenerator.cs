@@ -9,7 +9,7 @@ using System.Text;
 namespace KrevetaTuning;
 
 internal static class ParamGenerator {
-    internal const int ParamCount = 4;
+    internal const int ParamCount = 1;
     
     internal static string CreateCMD(int paramCount) {
         int[] shifts = new int[ParamCount];
@@ -21,8 +21,7 @@ internal static class ParamGenerator {
 
             // define custom steps for different parameters
             int maxStep = i switch {
-                0 or 1 => 50,
-                _ => 10
+                _ => 15
             };
         
             // this can possibly create a neverending loop

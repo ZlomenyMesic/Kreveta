@@ -448,8 +448,9 @@ internal static class PVSearch {
                 // we don't really follow this exactly, but our approach is kind of similar
                 int margin = 100 + 92 * ss.Depth
                                  + childCorr             // this acts like a measure of uncertainty
-                                 + (improving ? 0 : -23) // not improving nodes prune more
+                                 + (improving ? 0 : -23) // not improving nodes => prune more
                                  + see / 65              // tweak the margin based on SEE
+                                 + (cutNode ? -14 : 0)
                                  + windowSize;           // another measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
@@ -529,13 +530,8 @@ internal static class PVSearch {
 
             // single reply/evasion extensions; since it's just one move, it hopefully
             // shouldn't be a burden, but long check sequences may appear unnecessarily
-            // TODO - TEST #1
             if (!isTTMove && moveCount == 1)
                 reduction--;
-
-            // TODO - TEST #2
-            if (isTTMove && expandedNodes != 1)
-                reduction++;
             
             curDepth -= reduction;
 
@@ -543,7 +539,6 @@ internal static class PVSearch {
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
-            // TODO - DEPTH OR NO DEPTH
             int  maxExpNodes = (isTTMove ? 1 : 3) + (isPV ? 4 : 0);
             bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 100;
 
