@@ -4,6 +4,7 @@
 //
 
 using Kreveta.consts;
+using Kreveta.movegen;
 
 using System;
 
@@ -139,7 +140,7 @@ internal static class TimeMan {
     }
 
     private static void CalculateTimeBudget() {
-        const int moveOverhead = 50;
+        const int moveOverhead = 30;
         
         // we have a strictly set time for our search,
         // or are in an infinite search, so we don't
@@ -149,6 +150,8 @@ internal static class TimeMan {
             return;
         }
         
+        // if movestogo isn't present, estimate the remaining move count
+        // based on the game phase (endgame => fewer moves left expected)
         int movesToGo = _movesToGo == 0 
             ? EstimateMovesToGo(Game.Board)
             : _movesToGo;
@@ -163,16 +166,18 @@ internal static class TimeMan {
         movesToGo -= (int)((timeAdvantage - 1) * (movesToGo / 6.5f));
         movesToGo  = Math.Max(6, movesToGo);
         
+        // taking time increments in low remaining time scenarios is dangerous
+        bool lowTime = timeLeft < 3 * inc + 2 * moveOverhead;
+        long effectiveInc = (long)(lowTime ? 0 : inc * 0.8f);
+
         // base time per move
-        long baseTime = (long)((timeLeft + inc * 0.8) / (movesToGo + 1));
+        long baseTime = (timeLeft + effectiveInc) / (movesToGo + 1);
 
         // never allow zero search time
         long budget = Math.Max(moveOverhead / 2, baseTime - moveOverhead);
 
         // cap extremely long thinks
-        long maxBudget = (long)(timeLeft * 0.40);
-        budget = Math.Min(budget, maxBudget);
-
+        budget = Math.Min(budget, (long)(timeLeft * 0.4f));
         TimeBudget = Math.Max(20, budget);
     }
     
@@ -180,21 +185,14 @@ internal static class TimeMan {
         float p = board.GamePhase() / 150f;
 
         // smooth base expected moves interpolation
-        float expected = p * 36f           // middlegame
-                         + (1f - p) * 12f; // endgame
+        float expected = p          * 38f    // middlegame
+                         + (1f - p) * 12.5f; // endgame
         
-        // total piece count excluding kings (which are always present)
-        int pieceCount = (int)ulong.PopCount(board.Occupied) - 2;
-
-        // map piece count into a multiplier roughly 0.75–1.35
-        float complexityMult = 1f + (pieceCount - 10) * 0.025f;
+        // add a level of complexity into the result - positions with more
+        // available legal moves are more complex, and thus searched longer
+        int moveCount = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
+        float complexityMult = 1f + (moveCount - 19) * 0.025f;
         complexityMult = Math.Clamp(complexityMult, 0.75f, 1.35f);
-        
-        // check for ultra low material positions
-        if (p <= 0.12f) {
-            expected        = Math.Min(expected, 10f);
-            complexityMult *= 0.85f;
-        }
         
         int result = (int)(expected * complexityMult);
 

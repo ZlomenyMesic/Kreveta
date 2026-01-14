@@ -177,9 +177,10 @@ internal static class PVSearch {
     private static (short Score, Move[] PV) Search<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode)
         where NodeType : ISearchNodeType {
         
-        bool isRoot = typeof(NodeType) == typeof(RootNode);
-        bool isPV   = typeof(NodeType) == typeof(PVNode) || isRoot;
-
+        bool rootNode = typeof(NodeType) == typeof(RootNode);
+        bool pvNode   = typeof(NodeType) == typeof(PVNode) || rootNode;
+        bool allNode  = !pvNode && !cutNode;
+        
         // either crossed the time budget or maximum nodes.
         // we also cannot abort the first iteration - no bestmove
         if (Abort && CurIterDepth > 1)
@@ -317,7 +318,7 @@ internal static class PVSearch {
         // 4. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.IsPV && !inCheck && rootImproving) {
+        if (!ss.IsPV && !inCheck && rootImproving && (cutNode || allNode)) {
             int margin = 204 + 278 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
@@ -335,9 +336,8 @@ internal static class PVSearch {
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
-        if (!ss.IsPV && !isTTMove && !inCheck
-            && ss.Depth >= 5 && ss.Ply >= 3
-            && ss.Window.Alpha + 1 < ss.Window.Beta) {
+        if (!ss.IsPV && !isTTMove && !inCheck && (pvNode || cutNode)
+            && ss.Depth >= 5 && ss.Ply >= 3) {
 
             ss.Depth--;
         }
@@ -450,7 +450,7 @@ internal static class PVSearch {
                                  + childCorr             // this acts like a measure of uncertainty
                                  + (improving ? 0 : -23) // not improving nodes => prune more
                                  + see / 65              // tweak the margin based on SEE
-                                 + (cutNode ? -14 : 0)
+                                 + (!pvNode ? -14 : 0)   // all nodes prune more aggressively
                                  + windowSize;           // another measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
@@ -462,26 +462,6 @@ internal static class PVSearch {
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     
                     continue;
-                }
-
-                // FUTILITY CUTOFFS (? Elo)
-                // a small idea i had - if the leaf or close to leaf nodes seem
-                // to be really bad, we try to fail low by adding the futility
-                // margin to the static eval of the current position, not the child
-                // TODO: +- 25
-                if (ss.Depth <= 3 && !rootImproving && !improving && curScore < -625
-                    && (col == Color.WHITE
-                        ? board.StaticEval + margin <= ss.Window.Alpha
-                        : board.StaticEval - margin >= ss.Window.Beta)) {
-                    
-                    CurNodes++; PVSControl.TotalNodes++;
-                    if (!ignore3Fold) ThreeFold.Remove(child.Hash);
-
-                    // instead of just pruning this branch, we assume
-                    // all following moves are even worse, so we cut
-                    // off completely and return the lower bound
-                    return (col == Color.WHITE 
-                        ? ss.Window.Alpha : ss.Window.Beta, []);
                 }
             }
             
@@ -521,7 +501,7 @@ internal static class PVSearch {
 
             // first few root moves are extended - we don't expect to find an extraordinary
             // move somewhere later in the movelist (this is done by reducing all other moves)
-            if (isRoot && expandedNodes >= 5)
+            if (rootNode && expandedNodes >= 5)
                 reduction++;
 
             // if a capture seems to be bad, and the position isn't critical, reduce it
@@ -539,8 +519,8 @@ internal static class PVSearch {
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
-            int  maxExpNodes = (isTTMove ? 1 : 3) + (isPV ? 4 : 0);
-            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || isRoot || see >= 100;
+            int  maxExpNodes = (isTTMove ? 1 : 3) + (pvNode ? 4 : 0);
+            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || rootNode || see >= 100;
 
             // late move pruning and common PVS logic are merged here. expected fail-low moves are
             // searched with a null alpha window at a reduced depth, and only if they somehow raise
@@ -558,7 +538,7 @@ internal static class PVSearch {
                 int score = ProbeTT<NonPVNode>(ref child, 
                     new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.Extensions, nullWindowAlpha, default, false),
                     ignore3Fold, 
-                    cutNode: true // LMP reduced search is always a cut node
+                    cutNode: false
                 ).Score;
                 
                 if (col == Color.WHITE
@@ -579,16 +559,25 @@ internal static class PVSearch {
             if (!skipLMP && curDepth < ss.Depth - 1)
                 curDepth++;
             
-            fullSearch = ProbeTT<PVNode>(
-                ref child,
-                ss with { 
-                    Ply      = (sbyte)(ss.Ply + 1),
-                    Depth    = (sbyte)curDepth, 
-                    LastMove = curMove
-                },
-                ignore3Fold,
-                cutNode: false
-            );
+            fullSearch = pvNode 
+                ? ProbeTT<PVNode>(
+                    ref child,
+                    ss with { 
+                        Ply      = (sbyte)(ss.Ply + 1),
+                        Depth    = (sbyte)curDepth, 
+                        LastMove = curMove
+                    },
+                    ignore3Fold,
+                    cutNode: false)
+                : ProbeTT<NonPVNode>(
+                    ref child,
+                    ss with { 
+                        Ply      = (sbyte)(ss.Ply + 1),
+                        Depth    = (sbyte)curDepth, 
+                        LastMove = curMove
+                    },
+                    ignore3Fold,
+                    cutNode: allNode);
             
             skipPVS:
             if (!ignore3Fold) ThreeFold.Remove(child.Hash);
