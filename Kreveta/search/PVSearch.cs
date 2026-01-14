@@ -181,6 +181,9 @@ internal static class PVSearch {
         bool pvNode   = typeof(NodeType) == typeof(PVNode) || rootNode;
         bool allNode  = !pvNode && !cutNode;
         
+        if (pvNode && ss.Window.Alpha + 1 == ss.Window.Beta)
+            pvNode = false;
+        
         // either crossed the time budget or maximum nodes.
         // we also cannot abort the first iteration - no bestmove
         if (Abort && CurIterDepth > 1)
@@ -280,7 +283,7 @@ internal static class PVSearch {
                     isPv:       false
                 ),
                 ignore3Fold: true,
-                cutNode:     true
+                cutNode:     false
             ).Score;
 
             // if we failed high, prune this node
@@ -330,14 +333,15 @@ internal static class PVSearch {
 
         // try to retrieve a known best move from the transposition table
         bool isTTMove = TT.TryGetBestMove(board.Hash, out Move ttMove);
-
+        
         // 4. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
-        if (!ss.IsPV && !isTTMove && !inCheck && (pvNode || cutNode)
-            && ss.Depth >= 5 && ss.Ply >= 3) {
+        if (!ss.IsPV && !isTTMove && !inCheck && pvNode
+            && ss.Depth >= 5 && ss.Ply >= 3
+            && ss.Window.Alpha + 1 < ss.Window.Beta) {
 
             ss.Depth--;
         }
@@ -450,7 +454,7 @@ internal static class PVSearch {
                                  + childCorr             // this acts like a measure of uncertainty
                                  + (improving ? 0 : -23) // not improving nodes => prune more
                                  + see / 65              // tweak the margin based on SEE
-                                 + (!pvNode ? -14 : 0)   // all nodes prune more aggressively
+                                 + (allNode ? -14 : 0)   // all nodes prune more aggressively
                                  + windowSize;           // another measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
@@ -471,7 +475,7 @@ internal static class PVSearch {
                 : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
 
             // X. DOUBLE MOVE PRUNING
-            /*if (ss.Ply > 6 && !ss.IsPV && !inCheck && !givesCheck && !improving) {
+            /*if (ss.Ply > 6 && !ss.IsPV && !inCheck && !givesCheck && !improving && allNode) {
                 var nullChild = child.Clone() with {
                     SideToMove  = col,
                     EnPassantSq = 64
@@ -480,12 +484,12 @@ internal static class PVSearch {
                 nullChild.Hash       = ZobristHash.Hash(in nullChild);
                 nullChild.StaticEval = Eval.StaticEval(in nullChild);
 
-                int depth = ss.Depth - (7 + ss.Depth / 3);
+                int depth = ss.Depth * 2 / 3 - 7;
                 var reduced = Search<NonPVNode>(
                     ref nullChild,
                     new SearchState((sbyte)(ss.Ply + 1), (sbyte)depth, ss.Extensions, nullWindowAlpha, default, false),
                     ignore3Fold: true,
-                    cutNode:     true
+                    cutNode:     false
                 );
                 
                 if (col == Color.WHITE 
@@ -538,7 +542,7 @@ internal static class PVSearch {
                 int score = ProbeTT<NonPVNode>(ref child, 
                     new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.Extensions, nullWindowAlpha, default, false),
                     ignore3Fold, 
-                    cutNode: false
+                    cutNode: true
                 ).Score;
                 
                 if (col == Color.WHITE
@@ -577,7 +581,7 @@ internal static class PVSearch {
                         LastMove = curMove
                     },
                     ignore3Fold,
-                    cutNode: allNode);
+                    cutNode: !cutNode);
             
             skipPVS:
             if (!ignore3Fold) ThreeFold.Remove(child.Hash);
