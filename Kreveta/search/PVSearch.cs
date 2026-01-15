@@ -10,6 +10,7 @@ using Kreveta.moveorder;
 using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
+using Kreveta.tuning;
 using Kreveta.uci;
 
 using System;
@@ -180,7 +181,7 @@ internal static class PVSearch {
         bool rootNode = typeof(NodeType) == typeof(RootNode);
         bool pvNode   = typeof(NodeType) == typeof(PVNode) || rootNode;
         bool allNode  = !pvNode && !cutNode;
-        
+
         if (pvNode && ss.Window.Alpha + 1 == ss.Window.Beta)
             pvNode = false;
         
@@ -242,14 +243,9 @@ internal static class PVSearch {
         if (ss.Ply >= MinNMPPly       // minimum ply for nmp
             && !inCheck               // don't prune when in check
             && board.GamePhase() > 30 // don't prune in absolute endgames
-
-            // in the early stages of the search, alpha and beta are set to
-            // their limit values, so doing the reduced search would only
-            // waste time, since we are unable to fail high
-            && (col == Color.WHITE
-                ? ss.Window.Beta  < short.MaxValue
-                : ss.Window.Alpha > short.MinValue)
             
+            // make sure static eval is over or at least close to beta to not
+            // waste time searching positions, which probably won't fail high
             && (col == Color.WHITE
                 ? staticEval >= ss.Window.Beta  - 3 * ss.Depth
                 : staticEval <= ss.Window.Alpha + 3 * ss.Depth)) {
@@ -271,6 +267,8 @@ internal static class PVSearch {
             // the depth reduction
             int R = 7 + ss.Depth / 3;
 
+            if (cutNode) R++;
+            
             // perform the reduced search
             short nmpScore = ProbeTT<NonPVNode>(
                 ref nullChild,
@@ -307,6 +305,9 @@ internal static class PVSearch {
             // TODO: +-10, +15?
             int margin = 534 + 377 * ss.Depth * ss.Depth;
 
+            //if (rootImproving) margin += 67;
+            //if (allNode)       margin -= 54;
+
             if (col == Color.WHITE
                     ? staticEval + margin < ss.Window.Alpha
                     : staticEval - margin > ss.Window.Beta) {
@@ -321,7 +322,7 @@ internal static class PVSearch {
         // 4. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.IsPV && !inCheck && rootImproving && (cutNode || allNode)) {
+        if (!ss.IsPV && !inCheck && rootImproving && (allNode || cutNode)) {
             int margin = 204 + 278 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
@@ -509,7 +510,7 @@ internal static class PVSearch {
                 reduction++;
 
             // if a capture seems to be bad, and the position isn't critical, reduce it
-            if (!inCheck && !givesCheck && see < -100)
+            if (!inCheck && !givesCheck && see <= -100 && !pvNode)
                 reduction++;
 
             // single reply/evasion extensions; since it's just one move, it hopefully
@@ -563,7 +564,7 @@ internal static class PVSearch {
             if (!skipLMP && curDepth < ss.Depth - 1)
                 curDepth++;
             
-            fullSearch = pvNode 
+            fullSearch = pvNode
                 ? ProbeTT<PVNode>(
                     ref child,
                     ss with { 
@@ -641,7 +642,7 @@ internal static class PVSearch {
             
         // if we got here, it means we have searched through
         // the moves, but haven't got a beta cutoff
-        return expandedNodes == 0 
+        return expandedNodes == 0
 
             // we didn't expand any nodes - terminal node
             // (no legal moves exist)

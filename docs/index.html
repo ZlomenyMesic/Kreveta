@@ -55,6 +55,23 @@
       color: var(--orange);
     }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* sidebar stays fixed-height */
+    .sidebar {
+      height: 100vh;
+      flex-shrink: 0;
+    }
+
+    /* only main content scrolls */
+    .content {
+      height: 100vh;
+      overflow-y: auto;
+    }
+
     .nav {
       display: flex;
       flex-direction: column;
@@ -193,6 +210,68 @@
     .semi-bold {
       font-weight: 620;
     }
+
+    .tests-version {
+      margin-top: 2.5rem;
+    }
+
+    .tests-header {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .tests-header h2 {
+      margin: 0;
+    }
+
+    .version-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      line-height: 1;
+    }
+
+    /* latest stable version */
+    .version-badge.latest {
+      background-color: #2fbf71;
+      color: white;
+    }
+
+    /* pre-release */
+    .version-badge.prerelease {
+      background-color: var(--orange);
+      color: white;
+    }
+
+    .test-block {
+      margin-bottom: 1.8rem;
+    }
+
+    .test-title {
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    pre.test-code {
+      background-color: #fffdf7;
+      border-left: 4px solid var(--orange);
+      padding: 0rem 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      max-width: 700px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    pre.test-code code {
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.9rem;
+      color: var(--dark);
+    }
   </style>
 </head>
 <body>
@@ -202,7 +281,7 @@
     <nav class="nav">
       <button data-target="download" class="active"><i class="fa-solid fa-download"></i> Download</button>
       <button data-target="about"><i class="fa-solid fa-info-circle"></i> About</button>
-      <button data-target="docs"><i class="fa-solid fa-book"></i> Documentation</button>
+      <button data-target="tests"><i class="fa-solid fa-book"></i> Tests</button>
     </nav>
     <footer>
       <p>Made by <a href="https://github.com/ZlomenyMesic">ZlomenyMesic</a></p>
@@ -212,9 +291,9 @@
   <main class="content">
     <section id="download" class="active">
       <h1>Download Kreveta</h1>
-      <p>Kreveta is just a chess engine, with no built-in GUI. To play against Kreveta,
-         or let it compete with other engines, you may want to download an external GUI,
-         such as <a href="https://cutechess.com/">Cutechess</a>.
+      <p>Kreveta is purely a chess engine, with no built-in GUI. To play against Kreveta,
+         or let it compete against other engines, downloading an external GUI,
+         such as <a href="https://cutechess.com/">Cutechess</a>, is recommended.
         <br/>
         <br/>
          UCI is the only communication protocol supported.
@@ -241,18 +320,9 @@
         <br/>
         Kreveta is a long-term hobby project, which I've been working on for a few years now,
         with each engine being derived from the previous one. The development of the current
-        version started on <span class="semi-bold">March 3, 2025</span>, and is now being used as the basis for my SOČ paper.
+        version started on <span class="semi-bold">March 3, 2025</span>, and is now being used
+        as the basis for my SOČ thesis.
       </p>
-      <h2>Cool Features</h2>
-      <p>
-        Apart from the generic bitboards, move lookups, PVS and pruning techniques, Kreveta also
-        provides various cool features and enhancaments, such as:
-      </p>
-      <ul>
-          <li>Polyglot opening book support (see options)</li>
-          <li><a href="https://github.com/KryKomDev/NeoKolors/">NeoKolors</a> UCI communication logging</li>
-          <li>Custom <a href="https://github.com/ZlomenyMesic/Kreveta/tree/master/KrevetaTuning/">parameter tuning project</a></li>
-      </ul>
       <h2>Contributions</h2>
       <p>
         So far, I am the only contributor to the engine and the author of this website. However,
@@ -266,13 +336,58 @@
       </p>
     </section>
 
-    <section id="docs">
-      <h1>Documentation</h1>
+    <section id="tests">
+      <h1>Tests</h1>
       <p>
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum ante ipsum primis in faucibus orci luctus et
-        ultrices posuere cubilia curae; Sed euismod nulla ut fermentum bibendum. Integer eget nisl urna. Mauris
-        efficitur vel sapien vel fermentum.
+        Each version is tested against its predecessor,
+        using <a href="https://cutechess.com/">Cutechess-cli</a>.
       </p>
+
+      <div class="tests-version">
+        <div class="tests-header">
+          <h2>Kreveta 2.2.3</h2>
+          <span class="version-badge prerelease">PRE-RELEASE</span>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">STC 8+0.05s</div>
+          <pre class="test-code"><code>
+no tests carried out yet
+          </code></pre>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">LTC 60+0.05s</div>
+          <pre class="test-code"><code>
+no tests carried out yet
+        </code></pre>
+        </div>
+      </div>
+
+      <div class="tests-version">
+        <div class="tests-header">
+          <h2>Kreveta 2.2.2</h2>
+          <span class="version-badge latest">LATEST</span>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">STC 8+0.05s</div>
+          <pre class="test-code"><code>
+Elo   | 112.1 +/- 20.6
+Games | total: 1000, W: 579, L: 267, D: 154
+Score | 0.656, LOS: 100.0 %
+          </code></pre>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">LTC 60+0.05s</div>
+          <pre class="test-code"><code>
+Elo   | 116.8 +/- 19.8
+Games | total: 1000, W: 553, L: 229, D: 218
+Score | 0.662, LOS: 100.0 %
+        </code></pre>
+        </div>
+      </div>
     </section>
   </main>
 

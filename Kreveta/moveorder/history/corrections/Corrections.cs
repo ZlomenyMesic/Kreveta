@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+using Kreveta.tuning;
+
 using System;
 using System.Runtime.CompilerServices;
 
@@ -30,12 +32,15 @@ internal static class Corrections {
         MajorPieceCorrections.Update(in board, shift);
     }
     
+    // 69 15  9  8
+    // 73  6 12 10
+    // 76  7 10  9
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short Get(in Board board) {
-        int pawn  = 69 * PawnCorrections.Get(in board);
-        int king  = 15 * KingCorrections.Get(in board);
-        int minor = 9  * MinorPieceCorrections.Get(in board);
-        int major = 8  * MajorPieceCorrections.Get(in board);
+        int pawn  = 76 * PawnCorrections.Get(in board);
+        int king  =  7 * KingCorrections.Get(in board);
+        int minor = 10 * MinorPieceCorrections.Get(in board);
+        int major =  9 * MajorPieceCorrections.Get(in board);
 
         return (short)((pawn + king + minor + major) / 100);
     }
