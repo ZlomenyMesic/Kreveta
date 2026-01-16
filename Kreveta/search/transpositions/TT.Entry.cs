@@ -39,7 +39,7 @@ internal static partial class TT {
 
         // (1 byte)
         [field: FieldOffset(8 + 4 + 2 + 1)]
-        internal SpecialFlags Flags;
+        internal ScoreFlags Flags;
     }
 
     // size of a single hash entry

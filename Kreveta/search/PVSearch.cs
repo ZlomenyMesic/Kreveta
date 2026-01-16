@@ -295,7 +295,7 @@ internal static class PVSearch {
         
         // update the static eval search stack
         improvStack.UpdateStaticEval(staticEval, ss.Ply);
-        bool rootImproving = improvStack.IsImproving(ss.Ply, col);
+        bool parentImproving = improvStack.IsImproving(ss.Ply, col);
 
         // 3. RAZORING (~18 Elo)
         // (kind of inspired by Stockfish) if a position is very, very bad, we skip the
@@ -305,8 +305,8 @@ internal static class PVSearch {
             // TODO: +-10, +15?
             int margin = 534 + 377 * ss.Depth * ss.Depth;
 
-            //if (rootImproving) margin += 67;
-            //if (allNode)       margin -= 54;
+            if (parentImproving) margin += 33;
+            if (allNode)       margin -= 27;
 
             if (col == Color.WHITE
                     ? staticEval + margin < ss.Window.Alpha
@@ -322,7 +322,7 @@ internal static class PVSearch {
         // 4. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.IsPV && !inCheck && rootImproving && (allNode || cutNode)) {
+        if (!ss.IsPV && !inCheck && parentImproving && (allNode || cutNode)) {
             int margin = 204 + 278 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
@@ -333,19 +333,42 @@ internal static class PVSearch {
         }
 
         // try to retrieve a known best move from the transposition table
-        bool isTTMove = TT.TryGetBestMove(board.Hash, out Move ttMove);
+        bool ttMoveExists = TT.TryGetBestMove(board.Hash, out Move ttMove, out short ttScore, out TT.ScoreFlags ttFlags, out int ttDepth);
+        
+        // small probcut idea from Stockfish
+        /*int probcutMargin = 578 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
+        int probcutBeta   = col == Color.WHITE 
+            ? ss.Window.Beta  + probcutMargin 
+            : ss.Window.Alpha - probcutMargin;
+        
+        // make sure the tt score is the correct bound
+        if (ttFlags.HasFlag(col == Color.WHITE ? TT.ScoreFlags.LOWER_BOUND : TT.ScoreFlags.UPPER_BOUND)
+            && ttDepth >= ss.Depth - 4
+            && !Score.IsMateScore(probcutBeta) && !Score.IsMateScore(ttScore)
+            && (col == Color.WHITE ? ttScore >= probcutBeta : ttScore <= probcutBeta))
+
+            return ((short)probcutBeta, []);*/
         
         // 4. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
-        if (!ss.IsPV && !isTTMove && !inCheck && pvNode
+        if (!ss.IsPV && !ttMoveExists && !inCheck && pvNode
             && ss.Depth >= 5 && ss.Ply >= 3
             && ss.Window.Alpha + 1 < ss.Window.Beta) {
 
             ss.Depth--;
         }
+        
+        // test whether the tt score is optimistic that we can raise alpha or cause a beta cutoff
+        bool ttOptimistic = ttMoveExists && (col == Color.WHITE 
+            ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore > ss.Window.Alpha
+            : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore < ss.Window.Beta);
+
+        // after this move index threshold all quiets are skipped
+        int skipQuietsThreshold = 400 + 3 * ss.Depth * ss.Depth
+            + (ttOptimistic || parentImproving || inCheck || !allNode ? 1000 : 0);
         
         // was moveorder score assigning already performed?
         bool       scoresAssigned = false;
@@ -428,6 +451,11 @@ internal static class PVSearch {
             // but this time after the move has been already played
             improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1);
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
+            
+            if (!isCapture && !givesCheck && !improving && expandedNodes >= skipQuietsThreshold) {
+                //PVSControl.max++;
+                continue;
+            }
 
             // conditions for an interesting move:
             // 1) we are evaluating the first move of a position,
@@ -510,12 +538,12 @@ internal static class PVSearch {
                 reduction++;
 
             // if a capture seems to be bad, and the position isn't critical, reduce it
-            if (!inCheck && !givesCheck && see <= -100 && !pvNode)
+            if (!inCheck && !givesCheck && see <= -100)
                 reduction++;
 
             // single reply/evasion extensions; since it's just one move, it hopefully
             // shouldn't be a burden, but long check sequences may appear unnecessarily
-            if (!isTTMove && moveCount == 1)
+            if (!ttMoveExists && moveCount == 1)
                 reduction--;
             
             curDepth -= reduction;
@@ -524,7 +552,7 @@ internal static class PVSearch {
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
-            int  maxExpNodes = (isTTMove ? 1 : 3) + (pvNode ? 4 : 0);
+            int  maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
             bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || rootNode || see >= 100;
 
             // late move pruning and common PVS logic are merged here. expected fail-low moves are

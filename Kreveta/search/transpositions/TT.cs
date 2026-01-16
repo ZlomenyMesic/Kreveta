@@ -23,9 +23,6 @@ namespace Kreveta.search.transpositions;
 // of nodes in the tree.
 internal static unsafe partial class TT {
 
-    // minimum ply needed to look up scores in tt
-    internal const int MinProbingPly = 4;
-
     // size of the table
     private static int TableSize = GetTableSize();
 
@@ -132,19 +129,19 @@ internal static unsafe partial class TT {
             // we don't actually subtract the current ply, we add it. the idea
             // is, however, the same
             entry.Score = (short)(score + Math.Sign(score) * ply);
-            entry.Flags |= SpecialFlags.SCORE_EXACT;
+            entry.Flags |= ScoreFlags.SCORE_EXACT;
         }
 
         else if (score >= window.Beta) {
-            entry.Flags |= SpecialFlags.SCORE_UPPER_BOUND;
+            entry.Flags |= ScoreFlags.LOWER_BOUND;
             entry.Score = window.Beta;
 
         } else if (score <= window.Alpha) {
-            entry.Flags |= SpecialFlags.SCORE_LOWER_BOUND;
+            entry.Flags |= ScoreFlags.UPPER_BOUND;
             entry.Score = window.Alpha;
 
         } else {
-            entry.Flags |= SpecialFlags.SCORE_EXACT;
+            entry.Flags |= ScoreFlags.SCORE_EXACT;
             entry.Score = score;
         }
 
@@ -156,8 +153,11 @@ internal static unsafe partial class TT {
         Table[i] = entry;
     }
 
-    internal static bool TryGetBestMove(ulong hash, out Move bestMove) {
-        bestMove = default;
+    internal static bool TryGetBestMove(ulong hash, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
+        ttMove  = default;
+        ttScore = 0;
+        ttFlags = default;
+        ttDepth = 0;
 
         int i = HashIndex(hash);
         Entry entry = Table[i];
@@ -166,9 +166,12 @@ internal static unsafe partial class TT {
         if (entry.Hash != hash)
             return false;
 
-        bestMove = entry.BestMove;
+        ttMove  = entry.BestMove;
+        ttScore = entry.Score;
+        ttFlags = entry.Flags;
+        ttDepth = entry.Depth;
 
-        if (bestMove != default) {
+        if (ttMove != default) {
             TTHits++;
             return true;
         }
@@ -185,7 +188,7 @@ internal static unsafe partial class TT {
 
         // don't return a score if the position is old, doesn't
         // exist, or the score is a result of a shallower search
-        if (entry.Hash != hash || entry.Depth <= depth)
+        if (entry.Hash != hash || entry.Depth < depth + 1)
             return false;
 
         score = entry.Score;
@@ -202,9 +205,9 @@ internal static unsafe partial class TT {
         
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
-        if (entry.Flags.HasFlag(SpecialFlags.SCORE_EXACT)
-            || entry.Flags.HasFlag(SpecialFlags.SCORE_LOWER_BOUND) && score <= window.Alpha
-            || entry.Flags.HasFlag(SpecialFlags.SCORE_UPPER_BOUND) && score >= window.Beta) {
+        if (entry.Flags.HasFlag(ScoreFlags.SCORE_EXACT)
+            || entry.Flags.HasFlag(ScoreFlags.UPPER_BOUND) && score <= window.Alpha
+            || entry.Flags.HasFlag(ScoreFlags.LOWER_BOUND) && score >= window.Beta) {
 
             TTHits++;
             return true;

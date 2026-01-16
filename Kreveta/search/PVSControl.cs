@@ -269,8 +269,11 @@ internal static class PVSControl {
         // as per the convention, the engine's response
         // must be terminated by a newline character
         UCI.Log(info);
+        //Console.WriteLine(max);
     }
-
+    internal static int max = 0;
+    
+    
     // TODO - REMOVE 3FOLD REPETTITION FROM TT
     // try to find the pv outside the stored array
     private static IEnumerable<Move> ElongatePV() {
@@ -286,7 +289,7 @@ internal static class PVSControl {
         int depth = PVSearch.PV.Length;
 
         // try going deeper through the transposition table
-        while (TT.TryGetBestMove(board.Hash, out Move ttMove)) {
+        while (TT.TryGetBestMove(board.Hash, out Move ttMove, out _, out _, out _)) {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable
