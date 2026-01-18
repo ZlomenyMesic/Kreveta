@@ -29,15 +29,15 @@ internal ref struct SearchState {
     // the previous move played
     internal Move LastMove;
     
-    // is this a PV node from the previous search iteration?
-    internal bool IsPV;
+    // is this position a part of the previous principal variation?
+    internal bool FollowPV;
 
-    internal SearchState(sbyte ply, sbyte depth, byte priorReductions, Window window, Move lastMove, bool isPv) {
+    internal SearchState(sbyte ply, sbyte depth, byte priorReductions, Window window, Move lastMove, bool followPv) {
         Ply             = ply;
         Depth           = depth;
         PriorReductions = priorReductions;
         Window          = window;
         LastMove        = lastMove;
-        IsPV            = isPv;
+        FollowPV        = followPv;
     }
 }

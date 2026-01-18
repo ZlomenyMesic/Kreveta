@@ -23,15 +23,13 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where we can for instance lose a queen in the next move
-    internal static short Search(ref Board board, int ply, Window window, int curQSDepth, bool isNMP, bool onlyCaptures) {
-
+    internal static short Search(ref Board board, int ply, Window window, int curQSDepth) {
         // exit the search if we should abort
         if (PVSearch.Abort && PVSearch.CurIterDepth > 1)
             return 0;
 
         // increment the node counter
-        PVSearch.CurNodes++;
-        PVSControl.TotalNodes++;
+        PVSControl.TotalNodes++; PVSearch.CurNodes++;
 
         // this stores the highest achieved search depth in this
         // iteration. if we surpassed it, store it as the new one
@@ -42,12 +40,9 @@ internal static class QSearch {
         if (ply >= curQSDepth)
             return board.StaticEval;
 
-        Color col = board.SideToMove;
-
-        // is the side to move in check?
-        bool inCheck = !onlyCaptures && board.IsCheck;
-
         // stand pat is just a fancy word for static eval
+        Color col      = board.SideToMove;
+        bool  inCheck  = board.IsCheck;
         short standPat = board.StaticEval;
 
         // don't try to cutoff when in check
@@ -62,64 +57,45 @@ internal static class QSearch {
                     : window.Beta;
         }
 
-        // a bit complex idea - if we are checked, we generate all legal moves,
-        // not just captures. but once we get out of check, we no longer want
-        // to return to generating all legal moves, so we pass this as an argument
-        // to the next search, and we only generate captures from a certain point.
-        onlyCaptures = !inCheck || onlyCaptures;
-
         // if we aren't in check we only generate captures
         Span<Move> moves = stackalloc Move[Consts.MoveBufferSize];
-        int count = Movegen.GetLegalMoves(ref board, moves, onlyCaptures);
+        int count = Movegen.GetLegalMoves(ref board, moves, !inCheck);
 
         // no moves have been generated
         if (count == 0) {
 
-            // if we aren't checked, it means there just aren't any more captures,
-            // and we can return the stand pat. as already mentioned, from a certain
-            // point we only generate captures, so we don't bother checking for checks
-            // right now, because we could encounter false mate scores we might be in
-            // stalemate, though (there's nothing we can do... TUTUTUTU TUTUTU)
-            if (onlyCaptures) return standPat;
-
-            // otherwise return the mate score
-            return inCheck
-                ? Score.CreateMateScore(col, ply)
-                : (short)0;
+            // if we aren't checked, it means there simply aren't any more
+            // captures in the position. however, we might be stalemated,
+            // but such cases shouldn't hurt the evaluation
+            return !inCheck 
+                ? standPat
+                : Score.CreateMateScore(col, ply);
         }
 
         // we aren't checked => sort the generated captures
-        int[] seeScores = [];
-        if (onlyCaptures) moves = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, true);
+        int[]         seeScores = [];
+        if (!inCheck) moves     = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, true);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
             
             // DELTA PRUNING:
-            // very similar to futility pruning but makes use of the value of
-            // the currently captured piece (or SEE score to be exact), which
-            // is added to the stand pat with a margin, and if the eval still
-            // doesn't raise alpha, we prune this branch
+            // very similar to futility pruning but makes use of the value of the currently
+            // captured piece (or SEE score to be exact), which is added to the stand pat with
+            // a margin, and if the eval still doesn't raise alpha, we prune this branch
             if (!inCheck && ply >= PVSearch.CurIterDepth + 4) {
-                int colMult = col == Color.WHITE ? 1 : -1;
-                
-                // value of the piece we just captured
-                int captured = onlyCaptures ? seeScores[i] : 0;
+                int captured = seeScores[i];
 
                 // the delta base is multiplied by depth, but the depth must be calculated
                 // in a bit more difficult way (maximum qsearch depth - current ply)
-                int delta = (curQSDepth - ply) * 77 * colMult;
-
-                // add the see score, and the margin (called delta)
-                var standPatCopy = standPat;
-                standPatCopy += (short)(captured * 21 / 20 * colMult);
-                standPatCopy += (short)delta;
+                int delta = (curQSDepth - ply) * 77 + captured;
 
                 // did we fail low?
                 if (col == Color.WHITE
-                        ? standPatCopy <= window.Alpha
-                        : standPatCopy >= window.Beta) {
+                        ? standPat + delta <= window.Alpha
+                        : standPat - delta >= window.Beta) {
                     
+                    PVSControl.TotalNodes++; PVSearch.CurNodes++;
                     continue;
                 }
             }
@@ -128,7 +104,7 @@ internal static class QSearch {
             child.PlayMove(moves[i], true);
 
             // full search
-            short score = Search(ref child, ply + 1, window, curQSDepth, isNMP, onlyCaptures);
+            short score = Search(ref child, ply + 1, window, curQSDepth);
 
             // try to get a beta cutoff
             if (window.TryCutoff(score, col)) {
