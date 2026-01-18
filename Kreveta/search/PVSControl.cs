@@ -269,10 +269,7 @@ internal static class PVSControl {
         // as per the convention, the engine's response
         // must be terminated by a newline character
         UCI.Log(info);
-        //Console.WriteLine(max);
     }
-    internal static int max = 0;
-    
     
     // TODO - REMOVE 3FOLD REPETTITION FROM TT
     // try to find the pv outside the stored array

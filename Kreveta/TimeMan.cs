@@ -185,8 +185,8 @@ internal static class TimeMan {
         float p = board.GamePhase() / 150f;
 
         // smooth base expected moves interpolation
-        float expected = p          * 38f    // middlegame
-                         + (1f - p) * 12.5f; // endgame
+        float expected = p          * 38f  // middlegame
+                         + (1f - p) * 12f; // endgame
         
         // add a level of complexity into the result - positions with more
         // available legal moves are more complex, and thus searched longer

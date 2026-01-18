@@ -10,7 +10,6 @@ using Kreveta.moveorder;
 using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
-using Kreveta.tuning;
 using Kreveta.uci;
 
 using System;
@@ -88,12 +87,12 @@ internal static class PVSearch {
         improvStack.Expand(CurIterDepth);
 
         SearchState defaultSS = new(
-            ply:        0, 
-            depth:      (sbyte)CurIterDepth,
-            extensions: 0,
-            window:     aspiration,
-            lastMove:   default,
-            isPv:       true
+            ply:             0, 
+            depth:           (sbyte)CurIterDepth,
+            priorReductions: 0,
+            window:          aspiration,
+            lastMove:        default,
+            isPv:            true
         );
 
         // actual start of the search tree
@@ -235,7 +234,62 @@ internal static class PVSearch {
         ss.IsPV = ss.IsPV && (ss.Ply == 0 
                                       || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
         
-        // 2. NULL MOVE PRUNING (~107 Elo)
+                // update the static eval search stack
+        improvStack.UpdateStaticEval(staticEval, ss.Ply);
+        bool parentImproving = improvStack.IsImproving(ss.Ply, col);
+
+        // 2. RAZORING (~18 Elo)
+        // (kind of inspired by Stockfish) if a position is very, very bad, we skip the
+        // move expansion and return qsearch score instead. this cannot be done when in check
+        if (!ss.IsPV && !inCheck) {
+            // this margin is really just magic, but it feels right
+            int margin = 534 + 377 * ss.Depth * ss.Depth;
+
+            if (parentImproving) margin += 33;
+            if (allNode)         margin -= 27;
+
+            if (col == Color.WHITE
+                    ? staticEval + margin < ss.Window.Alpha
+                    : staticEval - margin > ss.Window.Beta) {
+
+                // perform the quiescence search and ensure it actually fails low
+                short qEval = QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, ignore3Fold, false);
+                if (col == Color.WHITE ? qEval <= ss.Window.Alpha : qEval >= ss.Window.Beta)
+                    return (qEval, []);
+            }
+        }
+        
+        // 3. STATIC NULL MOVE PRUNING (~4 Elo)
+        // also called reverse futility pruning; if the static eval at close-to-leaf
+        // nodes fails high despite subtracting a margin, prune this branch
+        if (!ss.IsPV && !inCheck && parentImproving && (allNode || cutNode)) {
+            int margin = 204 + 278 * ss.Depth * ss.Depth;
+
+            if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
+                return (ss.Window.Beta, []);
+
+            if (col == Color.BLACK && staticEval + margin < ss.Window.Alpha)
+                return (ss.Window.Alpha, []);
+        }
+
+        // try to retrieve a known best move from the transposition table
+        bool ttMoveExists = TT.TryGetBestMove(board.Hash, out Move ttMove, out short ttScore, out TT.ScoreFlags ttFlags, out int ttDepth);
+        
+        // small probcut idea from Stockfish
+        /*int probcutMargin = 578 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
+        int probcutBeta   = col == Color.WHITE 
+            ? ss.Window.Beta  + probcutMargin 
+            : ss.Window.Alpha - probcutMargin;
+        
+        // make sure the tt score is the correct bound
+        if (ttFlags.HasFlag(col == Color.WHITE ? TT.ScoreFlags.LOWER_BOUND : TT.ScoreFlags.UPPER_BOUND)
+            && ttDepth >= ss.Depth - 4 && cutNode && !inCheck
+            && !Score.IsMateScore(probcutBeta) && !Score.IsMateScore(ttScore)
+            && (col == Color.WHITE ? ttScore >= probcutBeta : ttScore <= probcutBeta))
+
+            return ((short)probcutBeta, []);*/
+        
+        // 4. NULL MOVE PRUNING (~107 Elo)
         // we assume that in every position there is at least one move that improves it. first,
         // we play a null move (only switching sides), and then perform a reduced search with
         // a null window around beta. if the returned score fails high, we expect that not
@@ -273,12 +327,12 @@ internal static class PVSearch {
             short nmpScore = ProbeTT<NonPVNode>(
                 ref nullChild,
                 new SearchState(
-                    ply:        (sbyte)(ss.Ply + 1),
-                    depth:      (sbyte)(ss.Depth - R),
-                    extensions: ss.Extensions,
-                    window:     nullWindowBeta,
-                    lastMove:   default,
-                    isPv:       false
+                    ply:             (sbyte)(ss.Ply + 1),
+                    depth:           (sbyte)(ss.Depth - R),
+                    priorReductions: ss.PriorReductions,
+                    window:          nullWindowBeta,
+                    lastMove:        default,
+                    isPv:            false
                 ),
                 ignore3Fold: true,
                 cutNode:     false
@@ -293,71 +347,16 @@ internal static class PVSearch {
             }
         }
         
-        // update the static eval search stack
-        improvStack.UpdateStaticEval(staticEval, ss.Ply);
-        bool parentImproving = improvStack.IsImproving(ss.Ply, col);
-
-        // 3. RAZORING (~18 Elo)
-        // (kind of inspired by Stockfish) if a position is very, very bad, we skip the
-        // move expansion and return qsearch score instead. this cannot be done when in check
-        if (!ss.IsPV && !inCheck) {
-            // this margin is really just magic, but it feels right
-            // TODO: +-10, +15?
-            int margin = 534 + 377 * ss.Depth * ss.Depth;
-
-            if (parentImproving) margin += 33;
-            if (allNode)       margin -= 27;
-
-            if (col == Color.WHITE
-                    ? staticEval + margin < ss.Window.Alpha
-                    : staticEval - margin > ss.Window.Beta) {
-
-                // perform the quiescence search and ensure it actually fails low
-                short qEval = QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, ignore3Fold, false);
-                if (col == Color.WHITE ? qEval <= ss.Window.Alpha : qEval >= ss.Window.Beta)
-                    return (qEval, []);
-            }
-        }
-        
-        // 4. STATIC NULL MOVE PRUNING (~4 Elo)
-        // also called reverse futility pruning; if the static eval at close-to-leaf
-        // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.IsPV && !inCheck && parentImproving && (allNode || cutNode)) {
-            int margin = 204 + 278 * ss.Depth * ss.Depth;
-
-            if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
-                return (ss.Window.Beta, []);
-
-            if (col == Color.BLACK && staticEval + margin < ss.Window.Alpha)
-                return (ss.Window.Alpha, []);
-        }
-
-        // try to retrieve a known best move from the transposition table
-        bool ttMoveExists = TT.TryGetBestMove(board.Hash, out Move ttMove, out short ttScore, out TT.ScoreFlags ttFlags, out int ttDepth);
-        
-        // small probcut idea from Stockfish
-        /*int probcutMargin = 578 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
-        int probcutBeta   = col == Color.WHITE 
-            ? ss.Window.Beta  + probcutMargin 
-            : ss.Window.Alpha - probcutMargin;
-        
-        // make sure the tt score is the correct bound
-        if (ttFlags.HasFlag(col == Color.WHITE ? TT.ScoreFlags.LOWER_BOUND : TT.ScoreFlags.UPPER_BOUND)
-            && ttDepth >= ss.Depth - 4
-            && !Score.IsMateScore(probcutBeta) && !Score.IsMateScore(ttScore)
-            && (col == Color.WHITE ? ttScore >= probcutBeta : ttScore <= probcutBeta))
-
-            return ((short)probcutBeta, []);*/
-        
-        // 4. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
+        // 5. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
         if (!ss.IsPV && !ttMoveExists && !inCheck && pvNode
-            && ss.Depth >= 5 && ss.Ply >= 3
+            && ss.Depth >= 5 && ss.Ply >= 3 && ss.PriorReductions <= 3
             && ss.Window.Alpha + 1 < ss.Window.Beta) {
 
+            ss.PriorReductions++;
             ss.Depth--;
         }
         
@@ -452,8 +451,10 @@ internal static class PVSearch {
             improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1);
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
             
+            // 6. QUIET PRUNING
+            // at very low depths, when there are way too many moves, and we aren't
+            // optimistic about raising alpha, some of the late quiets are skipped
             if (!isCapture && !givesCheck && !improving && expandedNodes >= skipQuietsThreshold) {
-                //PVSControl.max++;
                 continue;
             }
 
@@ -471,7 +472,7 @@ internal static class PVSearch {
             // futility margin represents the largest possible score gain through a single move.
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can prune this branch
-            if (!skipFP && ss.Ply >= 4 && ss.Depth <= 4) {
+            if (!skipFP && ss.Ply >= 4 && ss.Depth <= 5) {
                 int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 11);
                 int childCorr  = Math.Abs(Corrections.Get(in child));
                 
@@ -483,19 +484,25 @@ internal static class PVSearch {
                                  + childCorr             // this acts like a measure of uncertainty
                                  + (improving ? 0 : -23) // not improving nodes => prune more
                                  + see / 65              // tweak the margin based on SEE
-                                 + (allNode ? -14 : 0)   // all nodes prune more aggressively
+                                 //+ (allNode ? -14 : 0)   // all nodes prune more aggressively
                                  + windowSize;           // another measure of uncertainty
                 
+                // find the difference between alpha and static eval + margin
+                int diff = col == Color.WHITE 
+                    ? childStaticEval + margin - ss.Window.Alpha
+                    : ss.Window.Beta - childStaticEval + margin;
+                
                 // if we didn't manage to raise alpha, prune this branch
-                if (col == Color.WHITE
-                        ? childStaticEval + margin <= ss.Window.Alpha
-                        : childStaticEval - margin >= ss.Window.Beta) {
-                    
+                if (diff <= 0 && ss.Depth <= 4) {
                     CurNodes++; PVSControl.TotalNodes++;
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     
                     continue;
                 }
+                
+                // futility reductions
+                if (diff <= 10 && ss.PriorReductions <= 3)
+                    curDepth--;
             }
             
             // null window around alpha
@@ -529,7 +536,8 @@ internal static class PVSearch {
                 }
             }*/
             
-            // 5. REDUCTIONS (~50 Elo)
+            // 8. OTHER REDUCTIONS/EXTENSIONS
+            // some moves are reduced or extended based on whether they are interesting
             int reduction = 1;
 
             // first few root moves are extended - we don't expect to find an extraordinary
@@ -548,6 +556,7 @@ internal static class PVSearch {
             
             curDepth -= reduction;
 
+            // 9. LATE MOVE PRUNING
             // despite the fact that PVS searches only the first move with a full window, it didn't
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
@@ -561,6 +570,7 @@ internal static class PVSearch {
             if (!skipLMP) {
                 // if moveorder score is bad, reduction is larger. the score is based
                 // on quiet history, continuation history and a few more factors
+                //int R = curScore < -383 - 8 * CurIterDepth ? 5 : 4;
                 int R = curScore < -443 ? 5 : 4;
                 
                 // some SEE tweaking - worse captures get higher reductions
@@ -569,7 +579,7 @@ internal static class PVSearch {
 
                 // once again a reduced depth search
                 int score = ProbeTT<NonPVNode>(ref child, 
-                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.Extensions, nullWindowAlpha, default, false),
+                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.PriorReductions, nullWindowAlpha, default, false),
                     ignore3Fold, 
                     cutNode: true
                 ).Score;

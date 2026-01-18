@@ -188,7 +188,7 @@ internal static unsafe partial class TT {
 
         // don't return a score if the position is old, doesn't
         // exist, or the score is a result of a shallower search
-        if (entry.Hash != hash || entry.Depth < depth + 1)
+        if (entry.Hash != hash || entry.Depth < depth)
             return false;
 
         score = entry.Score;

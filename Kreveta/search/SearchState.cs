@@ -20,26 +20,24 @@ internal ref struct SearchState {
     // this number can be reduced.
     internal sbyte Depth;
     
-    // the total number of plies extended, used to limit extensions
-    internal byte Extensions;
+    // used to restrict certain reductions/extensions
+    internal byte PriorReductions;
     
     // the current alpha-beta score bounds
     internal Window Window;
     
-    // the last two played moves that got us here
-    //internal Move Penultimate;
+    // the previous move played
     internal Move LastMove;
     
     // is this a PV node from the previous search iteration?
     internal bool IsPV;
 
-    internal SearchState(sbyte ply, sbyte depth, byte extensions, Window window, /*Move penultimate,*/ Move lastMove, bool isPv) {
-        Ply         = ply;
-        Depth       = depth;
-        Extensions  = extensions;
-        Window      = window;
-        //Penultimate = penultimate;
-        LastMove    = lastMove;
-        IsPV    = isPv;
+    internal SearchState(sbyte ply, sbyte depth, byte priorReductions, Window window, Move lastMove, bool isPv) {
+        Ply             = ply;
+        Depth           = depth;
+        PriorReductions = priorReductions;
+        Window          = window;
+        LastMove        = lastMove;
+        IsPV            = isPv;
     }
 }
