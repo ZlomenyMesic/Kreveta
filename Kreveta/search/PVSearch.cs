@@ -169,10 +169,12 @@ internal static class PVSearch {
         return result;
     }
     
-    // finally the actual PVS recursive function:
-    // ply starts at zero and increases each ply (no shit sherlock). depth,
-    // on the other hand, starts at the highest value and decreases over
-    // time. once we get to depth = 0, we drop into the qsearch.
+    // finally the actual PVS algorithm:
+    // ply starts at zero and increases over time, while depth starts at the highest
+    // value and decreases. the function recursively calls itself to generate a sort
+    // of "tree" of possible future positions, and tracks the best possible path to
+    // go. computing all positions is impossible, so different pruning and reduction
+    // techniques are used to skip likely irrelevant branches
     private static (short Score, Move[] PV) Search<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode, bool nmpVerification)
         where NodeType : ISearchNodeType {
         
@@ -211,12 +213,10 @@ internal static class PVSearch {
         bool  inCheck    = board.IsCheck;
         short staticEval = board.StaticEval;
         
-        // if we got here from a PV node, and the move that was played to get
-        // here was the move from the previous PV, we are in a PV node as well
-        ss.FollowPV = ss.FollowPV && (ss.Ply == 0 
-                                      || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
+        // check whether we are still following the previous principal variation
+        ss.FollowPV = ss.FollowPV && (rootNode || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
         
-                // update the static eval search stack
+        // update the static eval search stack
         improvStack.UpdateStaticEval(staticEval, ss.Ply);
         bool parentImproving = improvStack.IsImproving(ss.Ply, col);
 
@@ -258,7 +258,7 @@ internal static class PVSearch {
         bool ttMoveExists = TT.TryGetBestMove(board.Hash, out Move ttMove, out short ttScore, out TT.ScoreFlags ttFlags, out int ttDepth);
         
         // small probcut idea from Stockfish
-        int probcutMargin = 558 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
+        int probcutMargin = 578 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
         int probcutBeta   = col == Color.WHITE 
             ? ss.Window.Beta  + probcutMargin 
             : ss.Window.Alpha - probcutMargin;
@@ -279,7 +279,7 @@ internal static class PVSearch {
         // skipping our move would "fail even higher", and thus can prune this node
         if (ss.Ply >= MinNMPPly       // minimum ply for nmp
             && !inCheck               // don't prune when in check
-            && board.GamePhase() > 30 // don't prune in absolute endgames
+            && board.GamePhase() > 25 // don't prune in absolute endgames
             
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
@@ -298,8 +298,11 @@ internal static class PVSearch {
                 SideToMove  = (Color)((int)col ^ 1)
             };
             
-            nullChild.Hash    = ZobristHash.Hash(in nullChild);
-            nullChild.IsCheck = false;
+            // somewhat mimic the eval difference from switching sides.
+            // this helps a lot, as recomputing static eval wastes time
+            nullChild.StaticEval += (short)(col == Color.WHITE ? -12 : 12);
+            nullChild.IsCheck     = false;
+            nullChild.Hash        = ZobristHash.Hash(in nullChild);
             
             // the depth reduction
             int R = 7 + ss.Depth / 3;
@@ -315,7 +318,7 @@ internal static class PVSearch {
                     priorReductions: ss.PriorReductions,
                     window:          nullWindowBeta,
                     lastMove:        default,
-                    followPv:            false
+                    followPv:        false
                 ),
                 ignore3Fold:     true,
                 cutNode:         false,
@@ -323,9 +326,9 @@ internal static class PVSearch {
             ).Score;
 
             // if we failed high, prune this node
-            if (!Score.IsMateScore(nmpScore) && (col == Color.WHITE
+            if (col == Color.WHITE
                     ? nmpScore >= ss.Window.Beta
-                    : nmpScore <= ss.Window.Alpha)) {
+                    : nmpScore <= ss.Window.Alpha) {
                 
                 return (nmpScore, []);
                 
@@ -421,6 +424,10 @@ internal static class PVSearch {
                 // when moveorder returns default, there aren't any moves left
                 if (curMove == default) break;
             }
+
+            // if we have a searchmove restriction, skip other moves in root
+            if (rootNode && Game.SearchMoves.Count > 0 && !Game.SearchMoves.Contains(curMove))
+                continue;
             
             expandedNodes++;
             
@@ -547,7 +554,7 @@ internal static class PVSearch {
             int reduction = 1
                 + (rootNode && expandedNodes >= 5         ? 1 : 0)  // first few root moves are extended
                 + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
-                - (givesCheck              && see >=  100 ? 1 : 0)  // check extensions for good captures
+                - (givesCheck              && see >=  200 ? 1 : 0)  // check extensions for good captures
                 - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
             // apply the reduction, make sure we don't extend more than one ply
@@ -628,10 +635,7 @@ internal static class PVSearch {
             if (col == Color.WHITE
                     ? fullSearch.Score <= ss.Window.Alpha
                     : fullSearch.Score >= ss.Window.Beta) {
-
-                // decrease the move's reputation
-                // (although we are modifying quiet history, not checking
-                // whether this move is a capture yields better results)
+                
                 if (!isCapture) QuietHistory.ChangeRep(curMove, curDepth, isGood: false);
                 else            CaptureHistory.ChangeRep(curMove, curDepth, isGood: false);
                 
@@ -645,7 +649,7 @@ internal static class PVSearch {
                 // when using iterative deepening, the PV move from the previous
                 // iteration is searched first. that means, even if our time runs
                 // out, we may have still found a move better than the current one
-                if (ss.Ply == 0 && !Abort)
+                if (rootNode && !Abort)
                     NextBestMove = curMove; 
                 
                 // place the current move in front of the received pv to build a new pv
@@ -654,7 +658,7 @@ internal static class PVSearch {
                 pv[0] = curMove;
                 
                 if (ss.LastMove != default)
-                    ContinuationHistory.Add(ss.LastMove, curMove, curDepth - 1, isGood: true);
+                    ContinuationHistory.Add(ss.LastMove, curMove, curDepth / 2, isGood: true);
 
                 // beta cutoff (see alpha-beta pruning); alpha is larger
                 // than beta, so we can stop searching this branch, because

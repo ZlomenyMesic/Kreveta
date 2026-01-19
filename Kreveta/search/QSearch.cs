@@ -22,7 +22,7 @@ internal static class QSearch {
     // instead of immediately returning the static eval of leaf nodes in the main
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
-    // evaluating positions where we can for instance lose a queen in the next move
+    // evaluating positions where there's for instancea hanging queen (horizon effect)
     internal static short Search(ref Board board, int ply, Window window, int curQSDepth) {
         // exit the search if we should abort
         if (PVSearch.Abort && PVSearch.CurIterDepth > 1)

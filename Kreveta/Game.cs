@@ -15,6 +15,7 @@ using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
+using System.Collections.Generic;
 
 // ReSharper disable InconsistentNaming
 
@@ -34,6 +35,9 @@ internal static class Game {
     
     // the score from the previous turn - applied when playing a full game
     internal static int  PreviousScore;
+
+    // if the user only want to search specific moves
+    internal static readonly List<Move> SearchMoves = [];
 
     private static void InvalidFENCallback(string context) {
         // reset the board

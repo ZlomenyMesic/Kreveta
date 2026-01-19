@@ -43,100 +43,72 @@ internal static class TimeMan {
     internal static void ProcessTimeTokens(ReadOnlySpan<string> tokens) {
         _whiteTime = _blackTime = _whiteInc = _blackInc = MoveTime = _movesToGo = 0;
 
-        // tokens aren't filtered before being passed to
-        // this method, so they might contain anything.
-        // for this reason we don't print any errors when
-        // we receive an unknown token, we just use the
-        // default time budget
-        for (int i = 1; i < tokens.Length; ) {
-            bool success = false;
-
+        // tokens aren't filtered before being passed to this method, so they might
+        // contain anything. for this reason we don't print any errors when we receive
+        // an unknown token, we just use the default time budget
+        for (int i = 1; i < tokens.Length; i++) {
             switch (tokens[i]) {
                 
                 // we have no time limit for our search, the only thing
                 // capable of terminating it is the "stop" command :((
                 case "infinite": {
                     MoveTime = long.MaxValue;
-                    success = true;
-
-                    // "infinite" doesn't come with any parameters
-                    i++;
                     break;
                 }
                 
                 // there is a specific time budget for this move, which
                 // we must not exceed, but we also shouldn't end early
                 case "movetime": {
-                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out MoveTime)) {
-                        success = true;
-
-                        // "movetime" and other arguments come together
-                        // with a number, which we have already parsed
-                        // above, so we skip the argument, which would
-                        // just be the number
-                        i += 2;
-                    } break;
+                    if (i != tokens.Length - 1)
+                        _ = long.TryParse(tokens[i + 1], out MoveTime);
+                    break;
                 }
                 
                 // white's total time left on the clock
                 case "wtime": {
-                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out _whiteTime)) {
-                        success = true;
-                        i += 2;
-                    } break;
+                    if (i != tokens.Length - 1)
+                        _ = long.TryParse(tokens[i + 1], out _whiteTime);
+                    break;
                 }
                 
                 // black's total time left on the clock
                 case "btime": {
-                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out _blackTime)) {
-                        success = true;
-                        i += 2;
-                    } break;
+                    if (i != tokens.Length - 1)
+                        _ = long.TryParse(tokens[i + 1], out _blackTime);
+                    break;
                 }
                 
                 // the number of moves we have yet to play until a time reset/addition
                 case "movestogo": {
-                    if (i != tokens.Length - 1 && int.TryParse(tokens[i + 1], out _movesToGo)) {
-                        success = true;
-                        i += 2;
-                    } break;
+                    if (i != tokens.Length - 1)
+                        _ = int.TryParse(tokens[i + 1], out _movesToGo);
+                    break;
                 }
 
                 // white's time increment after each move played
                 case "winc": {
-                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out _whiteInc)) {
-                        success = true;
-                        i += 2;
-                    } break;
+                    if (i != tokens.Length - 1)
+                        _ = long.TryParse(tokens[i + 1], out _whiteInc);
+                    break;
                 }
                 
                 case "binc": {
-                    if (i != tokens.Length - 1 && long.TryParse(tokens[i + 1], out _blackInc)) {
-                        success = true;
-                        i += 2;
-                    } break;
+                    if (i != tokens.Length - 1)
+                        _ = long.TryParse(tokens[i + 1], out _blackInc);
+                    break;
                 }
             }
-
-            // failed to parse numbers
-            if (!success) 
-                goto arg_fail;
-
-            // we still have more arguments to process
-            if (i != tokens.Length) 
-                continue;
-
-            // now we try to use the info we got to set a rational time budget
-            CalculateTimeBudget();
-            return;
         }
 
-        // if anything went wrong during token parsing,
-        // we don't care at all and just use the default
-        // time budget
-        arg_fail:
-        TimeBudget = DefaultTimeBudget;
-        MoveTime   = DefaultTimeBudget;
+        // if we haven't received time arguments, or failed to parse them, default time budget is used
+        if (MoveTime == 0 && (Game.EngineColor == Color.WHITE ? _whiteTime == 0 : _blackTime == 0)) {
+            TimeBudget = DefaultTimeBudget;
+            MoveTime   = DefaultTimeBudget;
+            return;
+        }
+        
+        // try to use the info we got to set a rational time budget
+        CalculateTimeBudget();
     }
 
     private static void CalculateTimeBudget() {

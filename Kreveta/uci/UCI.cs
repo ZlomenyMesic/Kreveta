@@ -282,9 +282,14 @@ internal static partial class UCI {
 
         if (tokens.Contains("nodes"))
             Log("Node count restrictions are not supported");
-        
-        if (tokens.Contains("searchmoves"))
-            Log("Search moves restrictions are not supported");
+
+        // if the user/GUI sends the "searchmoves" argument, we expect a list of legal moves
+        // available from the position, and the search will only berestricted to these moves
+        Game.SearchMoves.Clear();
+        int smIndex = MemoryExtensions.IndexOf(tokens, "searchmoves");
+        if (smIndex++ != -1)
+            while (tokens.Length > smIndex && Move.IsCorrectFormat(tokens[smIndex]))
+                Game.SearchMoves.Add(tokens[smIndex++].ToMove(in Game.Board));
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
@@ -304,7 +309,7 @@ internal static partial class UCI {
         // needed, but the "stop" command is very important
         SearchThread = new Thread(() => PVSControl.StartSearch(depth)) {
             Name     = $"{Program.Name}-{Program.Version}_Search",
-            Priority = ThreadPriority.Highest
+            Priority = ThreadPriority.Highest,
         };
         SearchThread.Start();
     }

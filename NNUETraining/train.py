@@ -40,9 +40,9 @@ BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
 
-EMBED_DIM         = 1024
+EMBED_DIM         = 256
 H1_NEURONS        = 16
-H2_NEURONS        = 32
+H2_NEURONS        = 16
 BATCH_SIZE        = 4096
 
 SAMPLES_QUEUE_MAX = 10000
@@ -61,11 +61,11 @@ BUCKET_TABLE = tf.constant([
 ], dtype = tf.int32)
 
 CONFIG = {
-    "random_move_freq": 0.14,
+    "random_move_freq": 0.08,
     "book_moves":       16,
     "mirror_enabled":   False,
-    "min_depth":        8,
-    "max_depth":        10
+    "min_depth":        1,
+    "max_depth":        1
 }
 
 def load_config():
@@ -228,8 +228,8 @@ def build_model() -> keras.Model:
     )([stacked, inp_pcnt])
 
     lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 4e-3,
-        decay_rate            = 0.99987, # 0.99991
+        initial_learning_rate = 1e-2,
+        decay_rate            = 0.99991, # 0.99991
         decay_steps           = 1,
         staircase             = False
     )
@@ -346,7 +346,7 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
             # otherwise let the engine choose the move
             else:
                 try:
-                    move_depth = rng.randint(3, 10)
+                    move_depth = rng.randint(1, 8)
                     result     = engine.play(board, chess.engine.Limit(depth = move_depth))
 
                     if result.move is None:
@@ -363,7 +363,8 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
 
             try:
                 info  = engine.analyse(board, chess.engine.Limit(
-                    depth = rng.randint(CONFIG["min_depth"], CONFIG["max_depth"])
+                    #depth = rng.randint(CONFIG["min_depth"], CONFIG["max_depth"])
+                    depth = 1
                 ))
                 score = info.get("score")
 
