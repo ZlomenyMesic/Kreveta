@@ -18,13 +18,13 @@ internal static class LazyMoveOrder {
     // move ordering is used, where first all moves are assigned different scores,
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
-    internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
+    internal static void AssignScores(in Board board, int ply, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
         Color col         = board.SideToMove;
         bool  isEarlyGame = board.GamePhase() > 119;
         
         // find killers and a potential countermove
-        var captKillers = Killers.GetCluster(depth, captures: true);
-        var killers     = Killers.GetCluster(depth, captures: false);
+        var captKillers = Killers.GetCluster(ply, captures: true);
+        var killers     = Killers.GetCluster(ply, captures: false);
         var counterMove = depth <= 2 ? CounterMoveHistory.Get(col, previous) : default;
         
         for (int i = 0; i < count; i++) {

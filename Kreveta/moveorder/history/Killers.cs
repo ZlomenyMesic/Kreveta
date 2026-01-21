@@ -21,12 +21,12 @@ internal static unsafe class Killers {
     private static int _size;
 
     // number of saved killers per ply/depth
-    private const int CapacityPerCluster = 7;
+    private const int CapacityPerCluster = 4;
 
     // increase the array size by one ply for the next iteration
     internal static void Expand(int depth) {
         // new parameters for the table
-        _depth = depth;
+        _depth = depth + 1;
         _size  = _depth * CapacityPerCluster;
         
         Array.Resize(ref _killers,     _size);
@@ -43,16 +43,18 @@ internal static unsafe class Killers {
     }
 
     // save a new killer move at the specified depth
-    internal static void Add(Move move, int depth) {
-        fixed (Move* q = &_killers[depth])
-        fixed (Move* c = &_captKillers[depth]) {
+    internal static void Add(Move move, int ply) {
+        ply = Math.Min(ply, _depth);
+        
+        fixed (Move* q = &_killers[ply])
+        fixed (Move* c = &_captKillers[ply]) {
             var table = move.Capture == PType.NONE ? q : c;
 
             // there is an assumption that the latest killers should also be
             // the most relevant ones. for this reason we constantly shift
             // and remove old killers, and put the new ones to the front
 
-            int offset = CapacityPerCluster * (_depth - depth);
+            int offset = CapacityPerCluster * (_depth - ply);
             int last   = offset + CapacityPerCluster - 1;
 
             // try to get the index of the move in case it's already stored.
@@ -77,11 +79,13 @@ internal static unsafe class Killers {
     }
 
     // returns the cluster of killers at a certain depth
-    internal static Span<Move> GetCluster(int depth, bool captures) {
-        fixed (Move* q = &_killers[depth])
-        fixed (Move* c = &_captKillers[depth]) {
+    internal static Span<Move> GetCluster(int ply, bool captures) {
+        ply = Math.Min(ply, _depth);
+
+        fixed (Move* q = &_killers[ply])
+        fixed (Move* c = &_captKillers[ply]) {
             
-            int offset = CapacityPerCluster * (_depth - depth);
+            int offset = CapacityPerCluster * (_depth - ply);
             return new Span<Move>((captures ? c : q) + offset, CapacityPerCluster);
         }
     }

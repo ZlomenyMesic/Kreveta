@@ -403,7 +403,7 @@ internal static class PVSearch {
                 if (!scoresAssigned) {
                     moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
                     
-                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
+                    LazyMoveOrder.AssignScores(in board, ss.Ply, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it
@@ -513,7 +513,7 @@ internal static class PVSearch {
                 }
                 
                 // futility reductions
-                if (diff <= 8 && ss.PriorReductions <= 3)
+                if (diff <= 4 && ss.PriorReductions <= 3)
                     curDepth--;
             }
             
@@ -554,7 +554,6 @@ internal static class PVSearch {
             int reduction = 1
                 + (rootNode && expandedNodes >= 5         ? 1 : 0)  // first few root moves are extended
                 + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
-                - (givesCheck              && see >=  200 ? 1 : 0)  // check extensions for good captures
                 - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
             // apply the reduction, make sure we don't extend more than one ply
@@ -657,6 +656,9 @@ internal static class PVSearch {
                 Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 pv[0] = curMove;
                 
+                //
+                // TODO - TEST1 CURDEPTH / 2 OR -1
+                //
                 if (ss.LastMove != default)
                     ContinuationHistory.Add(ss.LastMove, curMove, curDepth / 2, isGood: true);
 
@@ -664,6 +666,9 @@ internal static class PVSearch {
                 // than beta, so we can stop searching this branch, because
                 // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
+                    //
+                    // TODO - TEST2 USE SSDEPTH INSTEAD
+                    //
                     if (ss.LastMove != default)
                         ContinuationHistory.Add(ss.LastMove, curMove, curDepth, isGood: true);
 
@@ -673,7 +678,7 @@ internal static class PVSearch {
                     
                     // there are both quiet and capture killer tables,
                     // which sort the move automatically, so don't worry
-                    Killers.Add(curMove, ss.Depth);
+                    Killers.Add(curMove, ss.Ply);
 
                     // quit searching other moves and return this score
                     return (fullSearch.Score, pv);
