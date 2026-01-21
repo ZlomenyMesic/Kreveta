@@ -23,12 +23,12 @@ internal unsafe sealed class NNUEEvaluator {
 
     private static readonly int[] BucketTable = [
         -1, -1,        // shouldn't ever happen
-        0, 0, 0, 0, 0, // very late endgames
-        1, 1, 1, 1, 1,
-        2, 2, 2, 2,
-        3, 3, 3, 3,
-        4, 4, 4, 4,
-        5, 5, 5,
+        0, 0, 0, 0, 0, // very late endgame
+        1, 1, 1, 1, 1, // endgame
+        2, 2, 2, 2,    // late middlegame/endgame
+        3, 3, 3, 3,    // late middlegame
+        4, 4, 4, 4,    // middlegame
+        5, 5, 5,       // early middlegame
         6, 6, 6,       // late opening/early middlegame
         7, 7, 7        // early opening, needs extra precision
     ];
@@ -278,7 +278,8 @@ internal unsafe sealed class NNUEEvaluator {
             _accWhite.AsSpan().CopyTo(concat[EmbedDims..]);
         }
 
-        int bucket = Math.Min(7, pcnt / 4);//BucketTable[pcnt]));
+        int bucket = Math.Min(7, pcnt / 4);
+        //int bucket = BucketTable[pcnt];
 
         ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[bucket];
         ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[bucket];

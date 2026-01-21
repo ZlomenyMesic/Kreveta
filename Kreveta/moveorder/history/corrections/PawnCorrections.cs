@@ -62,10 +62,8 @@ internal static unsafe class PawnCorrections {
             byteCount: CorrTableSize * sizeof(short),
             alignment: 64);
 
-        for (int i = 0; i < CorrTableSize; ++i) {
-            _whiteCorrections[i] = 0;
-            _blackCorrections[i] = 0;
-        }
+        NativeMemory.Clear(_whiteCorrections, CorrTableSize);
+        NativeMemory.Clear(_blackCorrections, CorrTableSize);
     }
 
     // update the pawn correction - takes a board with its score evaluated

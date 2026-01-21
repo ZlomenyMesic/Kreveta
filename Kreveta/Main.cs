@@ -18,7 +18,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Intrinsics.X86;
-using System.Threading;
 
 namespace Kreveta;
 

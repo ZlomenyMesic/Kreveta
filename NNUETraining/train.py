@@ -33,9 +33,10 @@ WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "weights\\nnue_weights.bin")
 SHAPES_PATH  = os.path.join(SCRIPT_DIR, "weights\\nnue_shapes.json")
 CONFIG_PATH  = os.path.join(SCRIPT_DIR, "config.json")
 
-NUM_WORKERS = 10
-ENGINE_CMD  = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
-BOOK_PATH   = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
+NUM_WORKERS    = 10
+ENGINE_CMD     = "C:\\Users\\michn\\Downloads\\Stockfish.exe"
+GOOD_BOOK_PATH = "C:\\Users\\michn\\Downloads\\polyglot\\rodent.bin"
+BAD_BOOK_PATH  = "C:\\Users\\michn\\Downloads\\polyglot\\Human.bin"
 
 # total features (shared by accumulators)
 FEATURE_COUNT     = 40960
@@ -313,9 +314,11 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
         return
     
     try:
-        book = chess.polyglot.open_reader(BOOK_PATH)
+        good_book = chess.polyglot.open_reader(GOOD_BOOK_PATH)
+        bad_book  = chess.polyglot.open_reader(BAD_BOOK_PATH)
     except Exception:
-        book = None
+        good_book = None
+        bad_book  = None
 
     rng = random.Random(time.time() + worker_id)
 
@@ -334,7 +337,8 @@ def engine_worker(worker_id: int, samples_queue: Queue, stop_event: mp.Event):
                 board.push(move)
 
             # random polyglot book move
-            elif book is not None and plies < CONFIG["book_moves"]:
+            elif plies < CONFIG["book_moves"]:
+                book = good_book if rng.random() > 0.15 else bad_book
                 try:
                     entries = list(book.find_all(board))
                     if entries:

@@ -15,8 +15,6 @@ internal static partial class TT {
     internal enum ScoreFlags : byte {
         LOWER_BOUND = 1, // the score is at least x (was above beta)
         UPPER_BOUND = 2, // the score is at most x (was below alpha)
-        SCORE_EXACT = 4, // the score fell right into the window
-
-        SHOULD_OVERWRITE = 8 // the node is old and should be overwritten
+        SCORE_EXACT = 4  // the score fell right into the window
     }
 }

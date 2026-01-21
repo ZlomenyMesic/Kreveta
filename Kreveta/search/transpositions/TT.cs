@@ -23,32 +23,36 @@ namespace Kreveta.search.transpositions;
 // of nodes in the tree.
 internal static unsafe partial class TT {
 
-    // size of the table
-    private static int TableSize = GetTableSize();
+    // size of the table and buckets
+    private const  int BucketSize  = 4;
+    private static int BucketCount = GetTableSize();
 
     // how many entries are currently stored
     private static int Stored;
 
     // the table itself
     private static Entry* Table = (Entry*)NativeMemory.AlignedAlloc(
-        byteCount: (nuint)(TableSize * EntrySize),
+        byteCount: (nuint)(BucketCount * BucketSize * EntrySize),
         alignment: EntrySize);
 
     internal static ulong TTHits;
 
-    // hashfull tells us how filled is the hash table
-    // in permill (entries per thousand). this number
-    // is sent regularly to the GUI, which allows it
-    // sent us a hash table clearing command (option)
-    // in case we are too full to free some memory
+    // hashfull tells us how filled is the hash table in permill (entries
+    // per thousand). this number is sent regularly to the GUI, which allows
+    // it sent us a hash table clearing command (option) in case we are too
+    // full to free some memory
     internal static int Hashfull =>
-        (int)((float)Stored / TableSize * 1000);
+        (int)((float)Stored / (BucketCount * BucketSize) * 1000);
 
     // tt array size = mebibytes * bytes_in_mib / entry_size
     // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
         const long EntriesInMiB = 1_048_576 / EntrySize;
-        return (int)(Options.Hash * EntriesInMiB);
+        int size = (int)(Options.Hash * EntriesInMiB / BucketSize);
+        
+        // to avoid potential indices pointing outside
+        // the table, the size is adjusted accordingly
+        return size - size % BucketSize;
     }
 
     // generate an index in the tt for a specific board hash
@@ -60,59 +64,97 @@ internal static unsafe partial class TT {
         // method suggested somewhere online - to make the indices
         // more evenly dispersed, XOR the two hash halves first
         uint hash32 = (uint)hash ^ (uint)(hash >> 32);
-        return (int)(hash32 % TableSize);
+        return (int)(hash32 % BucketCount) * BucketSize;
     }
 
-    // delete all entries from the table
+    // delete all entries and free the memory
     internal static void Clear() {
         if (Table is not null) {
             NativeMemory.AlignedFree(Table);
             Table = null;
         }
 
-        Stored    = 0;
-        TableSize = GetTableSize();
-        TTHits    = 0UL;
+        Stored      = 0;
+        BucketCount = GetTableSize();
+        TTHits      = 0UL;
     }
 
     internal static void Init() {
         Clear();
+
+        nuint byteCount = (nuint)(BucketCount * BucketSize * EntrySize);
         
         Table = (Entry*)NativeMemory.AlignedAlloc(
-            byteCount: (nuint)(TableSize * EntrySize),
+            byteCount: byteCount,
             alignment: EntrySize);
-    }
-
-    /*internal static void IncreaseAge() {
-        if (Table is null) {
-            Init();
-            return;
-        }
         
-        for (int i = 0; i < TableSize; i++) {
-            if (Table[i].Hash != 0UL) {
-                Table[i].Depth = (sbyte)(Table[i].Depth - 3);
-                Table[i].Flags |= SpecialFlags.SHOULD_OVERWRITE;
-
-                if (Table[i].Depth <= 0)
-                    Table[i] = default;
-            }
-        }
-    }*/
+        Console.WriteLine($"{Table[30].Depth} {Table[30].Hash}");
+    }
 
     // store a position in the table. the best move doesn't have to be specified
     internal static void Store(ulong hash, sbyte depth, int ply, Window window, short score, Move bestMove) {
-        int i = HashIndex(hash);
+        int index  = HashIndex(hash);
+        var bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
 
-        // maybe an entry is already stored
-        Entry existing = Table[i];
-        //bool  isOld    = (existing.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
+        int emptyIndex      = -1;
+        int shallowestIndex = -1;
+        int shallowestDepth = int.MaxValue;
 
-        // is the slot already occupied with a result of a higher
-        // depth search? we want to overwrite old positions, though
-        if (existing.Hash != 0UL && existing.Depth > depth)
-            return;
+        // the entry at this index will be overwritten
+        int overwriteIndex;
 
+        // go through the bucket content
+        for (int i = 0; i < BucketSize; i++) {
+            // 1. if the exact same position is already stored, it's only overwritten
+            // in case its evaluation is the result of a shallower search. we must
+            // make sure to return if this is false to avoid storing it twice
+            if (bucket[i].Hash == hash) {
+                if (depth >= bucket[i].Depth) {
+                    overwriteIndex = i;
+                    goto indexSelected;
+                }
+                return;
+            }
+
+            // 2. if this position isn't in the bucket, try to find
+            // the first empty slot, which is going to be filled
+            if (bucket[i].Hash == 0UL) {
+                if (emptyIndex == -1)
+                    emptyIndex = i;
+
+                continue;
+            }
+
+            // 3. if this position isn't yet stored, and there are no empty slots
+            // left, we track the entry with the shallowest depth. the least used
+            // entry is given a depth penalty, so it's overwritten more easily
+            if (bucket[i].Depth < shallowestDepth) {
+                shallowestDepth = bucket[i].Depth;
+                shallowestIndex = i;
+            }
+        }
+
+        // there is an empty slot left
+        if (emptyIndex != -1) {
+            // increase the stored entries counter
+            Stored++;
+            
+            overwriteIndex = emptyIndex;
+            goto indexSelected;
+        }
+
+        // if there are no empty slots, we overwrite the shallowest entry,
+        // but ONLY if its evaluation depth is lower than the current one
+        if (shallowestDepth <= depth) {
+            overwriteIndex = shallowestIndex;
+            goto indexSelected;
+        }
+        
+        // no suitable entry for overwriting has been found
+        return;
+        
+        // we have found a suitable index for overwriting, so we build the new entry
+        indexSelected:
         var entry = new Entry {
             Hash     = hash,
             Depth    = depth,
@@ -145,12 +187,8 @@ internal static unsafe partial class TT {
             entry.Score = score;
         }
 
-        // if we aren't overwriting an existing entry, increase the counter
-        if (existing.Hash == 0UL)
-            Stored++;
-
         // store the new entry or overwrite the old one if allowed
-        Table[i] = entry;
+        Table[index + overwriteIndex] = entry;
     }
 
     internal static bool TryGetBestMove(ulong hash, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
@@ -159,11 +197,21 @@ internal static unsafe partial class TT {
         ttFlags = default;
         ttDepth = 0;
 
-        int i = HashIndex(hash);
-        Entry entry = Table[i];
+        // find the corresponding bucket
+        int   index  = HashIndex(hash);
+        var   bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
+        Entry entry  = default;
 
-        // the position isn't saved
-        if (entry.Hash != hash)
+        // look through the bucket and try to find this position
+        for (int i = 0; i < BucketSize; i++) {
+            if (bucket[i].Hash == hash) {
+                entry = bucket[i];
+                break;
+            }
+        }
+
+        // the position isn't stored in the bucket
+        if (entry.Hash == 0UL)
             return false;
 
         ttMove  = entry.BestMove;
@@ -182,17 +230,26 @@ internal static unsafe partial class TT {
     internal static bool TryGetScore(ulong hash, int depth, int ply, Window window, out short score) {
         score = 0;
 
-        int   i     = HashIndex(hash);
-        Entry entry = Table[i];
-        //bool  isOld = (entry.Flags & SpecialFlags.SHOULD_OVERWRITE) != 0;
+        // find the corresponding bucket
+        int   index  = HashIndex(hash);
+        var   bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
+        Entry entry  = default;
 
-        // don't return a score if the position is old, doesn't
-        // exist, or the score is a result of a shallower search
-        if (entry.Hash != hash || entry.Depth < depth)
+        // look through the bucket and try to find this position
+        for (int i = 0; i < BucketSize; i++) {
+            if (bucket[i].Hash == hash) {
+                entry = bucket[i];
+                break;
+            }
+        }
+
+        // don't return a score if the position doesn't exist, or
+        // the evaluation stored is a result of a shallower search
+        if (entry.Hash == 0UL || entry.Depth < depth)
             return false;
 
         score = entry.Score;
-
+        
         // when retrieving the eval, we do the opposite of what is
         // described above - we add the current ply to the "mate in X"
         // to make it relative to the root node once again
