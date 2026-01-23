@@ -28,7 +28,7 @@ internal static class Score {
 
     // checks whether the score falls above the mate score threshold
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsMateScore(int score)
+    internal static bool IsMate(int score)
         => Math.Abs(score) > MateScoreThreshold;
 
     // when printing a mate score, we prefer the "mate in x" format,

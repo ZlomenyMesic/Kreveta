@@ -19,10 +19,6 @@ namespace Kreveta.moveorder.history;
 // check if the counter is stored for the previous move, and we place it a little higher
 internal static class CounterMoveHistory {
     
-    // in order to store actually correct counters, we only save the
-    // ones found at higher depths
-    internal const int MinStoreDepth = 4;
-    
     // !!! the color is of the side that is to play the counter, while
     // the starting and targets squares are of the other side's move !!!
     private static readonly Move[] CounterMoves = new Move[2 * 64 * 64];

@@ -20,18 +20,6 @@ internal unsafe sealed class NNUEEvaluator {
     private const int H1Neurons = NNUEWeights.H1Neurons;
     private const int H2Neurons = NNUEWeights.H2Neurons;
     private const int H1Input   = EmbedDims * 2;
-
-    private static readonly int[] BucketTable = [
-        -1, -1,        // shouldn't ever happen
-        0, 0, 0, 0, 0, // very late endgame
-        1, 1, 1, 1, 1, // endgame
-        2, 2, 2, 2,    // late middlegame/endgame
-        3, 3, 3, 3,    // late middlegame
-        4, 4, 4, 4,    // middlegame
-        5, 5, 5,       // early middlegame
-        6, 6, 6,       // late opening/early middlegame
-        7, 7, 7        // early opening, needs extra precision
-    ];
     
     internal const int QScale = 1024;
 

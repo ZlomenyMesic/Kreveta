@@ -165,7 +165,7 @@ internal static unsafe partial class TT {
         // idea from MinimalChess: when a position is evaluated "mate in X", the X plies are
         // relative to the root node. when we store such position, though, we have to subtract
         // the current ply to get the actual X plies relative to the position, not root.
-        if (Score.IsMateScore(score)) {
+        if (Score.IsMate(score)) {
 
             // since a mate score is a number of plies subtracted from a base,
             // we don't actually subtract the current ply, we add it. the idea
@@ -253,7 +253,7 @@ internal static unsafe partial class TT {
         // when retrieving the eval, we do the opposite of what is
         // described above - we add the current ply to the "mate in X"
         // to make it relative to the root node once again
-        if (Score.IsMateScore(score)) {
+        if (Score.IsMate(score)) {
             score -= (short)(Math.Sign(score) * ply);
 
             TTHits++;

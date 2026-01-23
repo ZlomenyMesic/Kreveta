@@ -75,7 +75,7 @@ internal static class PVSControl {
             PVSearch.NextBestMove = default;
 
             Window aspiration   = Window.Infinite;
-            bool   isAspiration = false;
+            //bool   isAspiration = false;
             
             // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.8f;
@@ -150,7 +150,7 @@ internal static class PVSControl {
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we
             // can stop the search to avoid wasting time
-            if (Game.FullGame && Score.IsMateScore(PVSearch.PVScore))
+            if (Game.FullGame && Score.IsMate(PVSearch.PVScore))
                 break;
             
             PrevElapsed = sw.ElapsedMilliseconds;
@@ -222,7 +222,7 @@ internal static class PVSControl {
         // too lazy to care, but i might modify it a bit in the future. so here
         // we just check whether the pv score is mate or not, and based on that
         // we either print the "mate in X" or the score in centipawns
-        string score = Score.IsMateScore(PVSearch.PVScore) 
+        string score = Score.IsMate(PVSearch.PVScore) 
             ? $"mate {mateScore}"
             : $"cp {Score.LimitScore(PVSearch.PVScore) 
                     * (Game.EngineColor == Color.WHITE ? 1 : -1)}";

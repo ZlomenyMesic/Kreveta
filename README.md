@@ -31,10 +31,10 @@ Development started on **March 3, 2025**.
 | 1.2.3   | Oct 31, 2025 | CCRL    | Blitz 2+1    | 934   | 1737       |
 | 2.0.0   | Dec 1, 2025  | CCRL    | Blitz 2+1    | 939   | 1945       |
 | ...     | ...          | ...     | ...          | ...   | ...        |
-| 2.2.2   | Jan 4, 2026  | Lichess | Bullet       | 701   | 2225       |
-| 2.2.2   | Jan 4, 2026  | Lichess | Blitz        | 467   | 2195       |
-| 2.2.2   | Jan 4, 2026  | Lichess | Rapid        | 151   | 2241       |
-| 2.2.2   | Jan 4, 2026  | Lichess | Classical    | 12    | 2276       |
+| 2.2.2   | Jan 13, 2026 | Lichess | Bullet       | 701   | 2225       |
+| 2.2.2   | Jan 13, 2026 | Lichess | Blitz        | 467   | 2195       |
+| 2.2.2   | Jan 13, 2026 | Lichess | Rapid        | 151   | 2241       |
+| 2.2.2   | Jan 13, 2026 | Lichess | Classical    | 12    | 2276       |
 
 ---
 
@@ -137,22 +137,6 @@ Prints the currently set position.
 
 Clears the console window.
 
-### `bench` (non-UCI)
-
-Runs current benchmarks.
-
-### `test` (non-UCI)
-
-Performs currently set up tests.
-
-### `tune <p1 p2 p3 ...>` (non-UCI)
-
-Tunes internal parameters. Don't worry, you'll figure it out.
-
 ### `help` (non-UCI)
 
 Redirects you here.
-
----
-
-## Build & Run

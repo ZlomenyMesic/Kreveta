@@ -23,8 +23,8 @@ internal static class LazyMoveOrder {
         bool  isEarlyGame = board.GamePhase() > 119;
         
         // find killers and a potential countermove
-        var captKillers = Killers.GetCluster(ply, captures: true);
-        var killers     = Killers.GetCluster(ply, captures: false);
+        var captKillers = Killers.GetCluster(depth, captures: true);
+        var killers     = Killers.GetCluster(depth, captures: false);
         var counterMove = depth <= 2 ? CounterMoveHistory.Get(col, previous) : default;
         
         for (int i = 0; i < count; i++) {

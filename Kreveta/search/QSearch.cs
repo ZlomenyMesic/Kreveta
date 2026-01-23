@@ -84,7 +84,7 @@ internal static class QSearch {
             // captured piece (or SEE score to be exact), which is added to the stand pat with
             // a margin, and if the eval still doesn't raise alpha, we prune this branch
             if (!inCheck && ply >= PVSearch.CurIterDepth + 4) {
-                int captured = seeScores[i];
+                int captured = (2 * seeScores[i] + EvalTables.PieceValues[(int)moves[i].Capture]) / 3;
 
                 // the delta base is multiplied by depth, but the depth must be calculated
                 // in a bit more difficult way (maximum qsearch depth - current ply)
