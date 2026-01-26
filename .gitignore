@@ -6,6 +6,7 @@
 # NNUE Training archive
 archive/
 weights/
+new_training/
 
 # NNUE Training logs and model snapshots
 *.keras

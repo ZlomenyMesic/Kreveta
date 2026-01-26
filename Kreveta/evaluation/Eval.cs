@@ -9,6 +9,8 @@ using Kreveta.movegen.pieces;
 using Kreveta.uci;
 
 using System.Runtime.CompilerServices;
+using Kreveta.movegen;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.evaluation;
@@ -140,21 +142,28 @@ internal static class Eval {
         return (short)eval;
     }
 
+    // king safety evaluation
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static short KingEval(ReadOnlySpan<ulong> pieces, ulong wOccupied, ulong bOccupied) {
-        short eval = 0;
+        int  eval  = 0;
+        byte wKing = BB.LS1B(pieces[5]);
+        byte bKing = BB.LS1B(pieces[11]);
 
-        // same color pieces around the king - protection
-        ulong wProtection = King.GetKingTargets(BB.LS1B(pieces[5]),  wOccupied);
-        ulong bProtection = King.GetKingTargets(BB.LS1B(pieces[11]), bOccupied);
+        // find all pieces adjacent to either king
+        ulong wProtection = King.GetKingTargets(wKing, wOccupied);
+        ulong bProtection = King.GetKingTargets(bKing, bOccupied);
+        ulong wEvil       = King.GetKingTargets(wKing, bOccupied);
+        ulong bEvil       = King.GetKingTargets(bKing, wOccupied);
 
-        // bonus for the number of friendly pieces protecting the king
-        short wProtBonus = (short)((int)ulong.PopCount(wProtection) * 2);
-        short bProtBonus = (short)((int)ulong.PopCount(bProtection) * 2);
+        // reward friendly pieces next to the king - works as protection, also helps in endgames
+        // where the king is supposed to guard his pawns. the other way, enemy pieces in contact
+        // with the king are penalized, as they form a threat
+        eval += (int)ulong.PopCount(wProtection) * 2;
+        eval -= (int)ulong.PopCount(bProtection) * 2;
+        eval -= (int)ulong.PopCount(wEvil)       * 4;
+        eval += (int)ulong.PopCount(bEvil)       * 4;
 
-        eval += (short)(wProtBonus - bProtBonus);
-
-        return eval;
+        return (short)eval;
     }
 
     // in certain endgames, insufficient material draw happens when
@@ -183,9 +192,14 @@ internal static class Eval {
                && ulong.PopCount(pieces[7] | pieces[8]) < 2UL;
     }
     
+    // this is used to print the static evaluation using the "eval" command. the actual static eval
+    // computation is heavily optimized, so adding this logic directly into it would be difficult,
+    // and would also hurt performance. the logic is obviously kept the same, but written in a less
+    // optimized and more readable way
     internal static void PrintAnalysis(in Board board) {
         int pcount = (int)ulong.PopCount(board.Occupied);
         
+        // first calculate the material part using piece-square tables
         int material = 0;
         for (byte sq = 0; sq < 64; sq++) {
             PType piece = board.PieceAt(sq);
@@ -196,12 +210,15 @@ internal static class Eval {
                             * (color == Color.WHITE ? 1 : -1);
         }
 
+        // then pawn structure evaluation
         int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied)
                      - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
 
+        // king safety evaluation
         int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
                     + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
 
+        // and combined this makes the classical part of evaluation
         int total = material + pawns + kings + (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
         
         UCI.Log("\nClassical (hand-crafted): ", nl: false);
@@ -210,9 +227,12 @@ internal static class Eval {
                 + $"  Pawn structure: {Score.ToRegular(pawns)}\n"
                 + $"  King safety:    {Score.ToRegular(kings)}\n");
         
+        // then there's the NNUE part, which is already calculated inside the board
         UCI.Log("NNUE (trained network):   ", nl: false);
         UCI.Log($"{Score.ToRegular(board.NNUEEval.Score)}\n");
         
+        // and for the final output we also use the eval stored in the board, as it uses the
+        // same factors already mentioned, but scales them and applies 50-move rule diminishing
         UCI.Log("Combined & scaled:        ", nl: false);
         UCI.Log($"{Score.ToRegular(board.StaticEval)}\n");
     }

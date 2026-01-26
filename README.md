@@ -26,15 +26,16 @@ Development started on **March 3, 2025**.
 
 ### Elo Ratings
 
-| Version | Release      | Site    | Time Control | Games | Elo rating |
-|---------|--------------|---------|--------------|-------|------------|
-| 1.2.3   | Oct 31, 2025 | CCRL    | Blitz 2+1    | 934   | 1737       |
-| 2.0.0   | Dec 1, 2025  | CCRL    | Blitz 2+1    | 939   | 1945       |
-| ...     | ...          | ...     | ...          | ...   | ...        |
-| 2.2.2   | Jan 13, 2026 | Lichess | Bullet       | 701   | 2225       |
-| 2.2.2   | Jan 13, 2026 | Lichess | Blitz        | 467   | 2195       |
-| 2.2.2   | Jan 13, 2026 | Lichess | Rapid        | 151   | 2241       |
-| 2.2.2   | Jan 13, 2026 | Lichess | Classical    | 12    | 2276       |
+| Site    | Time Control | Release | Rating | Games |
+|---------|--------------|---------|--------|-------|
+| CCRL    | Blitz 2+1    | 1.2.3   | 1738   | 934   |
+| CCRL    | Blitz 2+1    | 2.0.0   | 1946   | 939   |
+| CCRL    | Blitz 2+1    | 2.2.2   | 2181   | 416   |
+| ...     | ...          | ...     | ...    | ...   |
+| Lichess | Bullet       | INDEV   | 2175   | 872   |
+| Lichess | Blitz        | INDEV   | 2205   | 594   |
+| Lichess | Rapid        | INDEV   | 2218   | 219   |
+| Lichess | Classical    | INDEV   | 2136   | 45    |
 
 ---
 

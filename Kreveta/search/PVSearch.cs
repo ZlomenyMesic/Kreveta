@@ -118,6 +118,9 @@ internal static class PVSearch {
         ContinuationHistory.Clear();
         Corrections.Clear();
         
+        if (!Game.FullGame)
+            StaticEvalDiffHistory.Clear();
+        
         TT.Clear();
     }
 
@@ -380,7 +383,7 @@ internal static class PVSearch {
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
         if (!ttMoveExists && !inCheck && pvNode && ss.Window.Alpha + 1 < ss.Window.Beta
-            && !ss.FollowPV && ss.Depth >= 5 && ss.Ply >= 3 && ss.PriorReductions <= 7) {
+            && !ss.FollowPV && ss.Depth >= 5 && ss.Ply >= 3) {
 
             ss.PriorReductions++;
             ss.Depth--;
@@ -464,6 +467,12 @@ internal static class PVSearch {
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
             bool  isCapture       = curMove.Capture != PType.NONE || curMove.Promotion == PType.PAWN;
+
+            // update this move's static eval difference history
+            if (!isCapture) {
+                int seDiff = (childStaticEval - staticEval) * (col == Color.WHITE ? 1 : -1);
+                StaticEvalDiffHistory.Add(curMove, seDiff);
+            }
             
             // since draw positions skip PVS, the full search
             // result must be initialized in advance (as draw)
@@ -549,8 +558,8 @@ internal static class PVSearch {
             // 7. QUIET REDUCTIONS
             // at very low depths, when there are way too many moves, and we aren't
             // optimistic about raising alpha, some of the late quiets are reduced
-            //if (!isCapture && !givesCheck && !improving && expandedNodes >= skipQuietsThreshold)
-            //    reduction++;
+            if (!isCapture && !givesCheck && !improving && expandedNodes >= skipQuietsThreshold)
+                reduction++;
 
             // X. DOUBLE MOVE PRUNING
             /*if (ss.Ply > 6 && !ss.IsPV && !inCheck && !givesCheck && !improving && allNode) {
@@ -607,9 +616,9 @@ internal static class PVSearch {
                 // boards being cleared. the reduction is also based on see, whether we are improving and depth
                 int scoreThreshold = -373 - 8 * CurIterDepth - (ttOptimistic ? 10 : 0);
                 int R = 4
-                    + (curScore < scoreThreshold ? ss.Depth / 7 : 0)
-                    - (improving  || see > 94    ? 1            : 0)
-                    + (!improving && see < 0     ? 1            : 0);
+                    + (curScore < scoreThreshold ? 1 : 0)
+                    - (improving  || see > 94    ? 1 : 0)
+                    + (!improving && see < 0     ? 1 : 0);
                 
                 // null window around alpha
                 var nullWindowAlpha = col == Color.WHITE

@@ -25,6 +25,7 @@ using Kreveta.uci.options;
 using System;
 using System.IO;
 using System.Threading;
+using Kreveta.moveorder.history;
 
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
@@ -82,6 +83,7 @@ internal static partial class UCI {
                     
                     // this resets the potentially stored recapture
                     Game.TryStoreRecapture([], 0);
+                    StaticEvalDiffHistory.Clear();
                     
                     TT.Clear();
                     break;

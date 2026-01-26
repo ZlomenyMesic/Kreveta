@@ -46,6 +46,7 @@ internal static class LazyMoveOrder {
                 // then quiet and continuation history is applied
                 int qhist = QuietHistory.GetRep(move) * 35 / 100;
                 int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 38 / 100 : 0;
+                int se    = StaticEvalDiffHistory.Get(move) * 9 / 32;
                 
                 // punish queen and king moves in the opening or early
                 // middlegame, of course except for castling
@@ -60,7 +61,7 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] += killer + counter + qhist + queen + king + prom + cont;
+                scores[i] += killer + counter + qhist + cont + se + queen + king + prom;
             }
 
             else {
