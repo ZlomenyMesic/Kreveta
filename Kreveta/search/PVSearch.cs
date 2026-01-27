@@ -118,8 +118,11 @@ internal static class PVSearch {
         ContinuationHistory.Clear();
         Corrections.Clear();
         
-        if (!Game.FullGame)
-            StaticEvalDiffHistory.Clear();
+        // when playing a full game, storing the se diff history values helps
+        // moveorder in the next search. we want to age the values a lot, though,
+        // so they don't remain there forever
+        if (!Game.FullGame) StaticEvalDiffHistory.Clear();
+        else                StaticEvalDiffHistory.Age();
         
         TT.Clear();
     }
@@ -240,11 +243,11 @@ internal static class PVSearch {
         }
 
         // 2. RAZORING (~18 Elo)
-        // if the static evaluation is very bad, the move expansion is skipped and the qsearch score is
+        // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
         // returned instead. this cannot be done when in check, and the qsearch score must be validated
         if (!ss.FollowPV && !inCheck) {
             // this margin is really just magic, but it feels right
-            int margin = 534 + 377 * ss.Depth * ss.Depth;
+            int margin = 539 + 375 * ss.Depth * ss.Depth;
 
             // some additional margin tuning
             if (parentImproving) margin += 33;
@@ -265,7 +268,7 @@ internal static class PVSearch {
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
         if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
-            int margin = 204 + 278 * ss.Depth * ss.Depth;
+            int margin = 208 + 282 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
                 return (ss.Window.Beta, []);
@@ -278,7 +281,7 @@ internal static class PVSearch {
         // inspired by Stockfish, but modified quite a bit. if the tt score isn't reliable enough
         // to cause the search to be skipped completely, we at least try to reduce this node if
         // the tt score isn't too shallow, and it is much above beta
-        int probcutMargin = 578 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
+        int probcutMargin = 593 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
         int probcutBeta   = col == Color.WHITE 
             ? ss.Window.Beta  + probcutMargin 
             : ss.Window.Alpha - probcutMargin;
@@ -292,6 +295,16 @@ internal static class PVSearch {
             ss.PriorReductions++;
             ss.Depth--;
         }
+        
+        // is the tt score optimistic that we can raise alpha or cause a beta cutoff
+        bool ttOptimistic = ttMoveExists && (col == Color.WHITE 
+            ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore > ss.Window.Alpha
+            : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore < ss.Window.Beta);
+        
+        // is the tt score optimistic that we can cause a beta cutoff?
+        bool ttBetaCutoff = ttMoveExists && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
+            ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta
+            : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha);
         
         // 5. NULL MOVE PRUNING (~107 Elo)
         // we assume that in every position there is at least one move that improves it. first,
@@ -328,7 +341,7 @@ internal static class PVSearch {
             // the depth reduction
             int R = 7 + ss.Depth / 3;
 
-            if (cutNode) R++;
+            if (cutNode || ttBetaCutoff) R++;
             
             // perform the reduced search
             short nmpScore = ProbeTT<NonPVNode>(
@@ -389,11 +402,6 @@ internal static class PVSearch {
             ss.Depth--;
         }
         
-        // test whether the tt score is optimistic that we can raise alpha or cause a beta cutoff
-        bool ttOptimistic = ttMoveExists && (col == Color.WHITE 
-            ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore > ss.Window.Alpha
-            : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore < ss.Window.Beta);
-
         // after this move index threshold all quiets are skipped
         int skipQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
             + (inCheck      || !allNode        ? 1000 : 0)

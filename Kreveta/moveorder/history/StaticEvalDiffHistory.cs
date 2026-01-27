@@ -18,6 +18,13 @@ internal static class StaticEvalDiffHistory {
         Array.Clear(Count, 0, Count.Length);
     }
 
+    internal static void Age() {
+        for (int i = 0; i < 64 * 64; i++) {
+            Diffs[i] /= 8;
+            Count[i] /= 8;
+        }
+    }
+
     internal static void Add(Move move, int evalDiff) {
         int index = move.Start * 64 + move.End;
 

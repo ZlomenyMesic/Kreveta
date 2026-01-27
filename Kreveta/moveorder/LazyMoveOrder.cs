@@ -40,7 +40,7 @@ internal static class LazyMoveOrder {
 
                 // killers and counters obviously get a higher score,
                 // as they have previously proved to be effective
-                int killer  = isKiller  ? 896 : 0;
+                int killer  = isKiller  ? 856 : 0;
                 int counter = isCounter ? 105 : 0;
                 
                 // then quiet and continuation history is applied
@@ -73,11 +73,9 @@ internal static class LazyMoveOrder {
                 // often said that conthist doesn't work well with captures,
                 // but here it seems like it does. i've also tried combining
                 // SEE with additional MVV-LVA, but that didn't work at all
-                int see  = SEE.GetCaptureScore(in board, col, move);
-                int cont = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
-                
-                // capture history works the same as quiet history
-                int chist = CaptureHistory.GetRep(move) / 130;
+                int see   = SEE.GetCaptureScore(in board, col, move);
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
+                int chist = CaptureHistory.GetRep(move) / 115;
                 
                 // once again promotions get placed higher
                 int prom = promPiece switch {
