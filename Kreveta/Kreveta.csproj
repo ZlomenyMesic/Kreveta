@@ -24,7 +24,7 @@
       <Link>KrevetaLogo.ico</Link>
     </None>
     
-    <EmbeddedResource Include="..\docs\networks\nnue-128-16-16-v4-lc0.bin" />
+    <EmbeddedResource Include="..\docs\networks\nnue-128-16-16-v4.bin" />
     <AssemblyMetadata Include="BuildTimestamp" Value="$(BuildTimestamp)" />
   </ItemGroup>
 
