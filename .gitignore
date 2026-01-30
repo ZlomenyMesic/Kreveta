@@ -8,6 +8,10 @@ archive/
 weights/
 new_training/
 
+# Large sub-projects
+NNUETraining/
+KrevetaTuning/
+
 # NNUE Training logs and model snapshots
 *.keras
 *.csv

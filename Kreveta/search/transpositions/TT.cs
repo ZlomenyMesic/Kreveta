@@ -87,8 +87,6 @@ internal static unsafe partial class TT {
         Table = (Entry*)NativeMemory.AlignedAlloc(
             byteCount: byteCount,
             alignment: EntrySize);
-        
-        Console.WriteLine($"{Table[30].Depth} {Table[30].Hash}");
     }
 
     // store a position in the table. the best move doesn't have to be specified

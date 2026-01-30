@@ -26,7 +26,7 @@ internal static class Program {
     internal const string Name    = "Kreveta";
     internal const string Version = "2.2.3";
     internal const string Author  = "ZlomenyMesic";
-    internal const string Network = "nnue-128-16-16-v4.bin";
+    internal const string Network = "nnue-128-16-16-v4-lc0.bin";
 
     internal static int Main(string[] args) {
         

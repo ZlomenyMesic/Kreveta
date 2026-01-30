@@ -32,10 +32,10 @@ Development started on **March 3, 2025**.
 | CCRL    | Blitz 2+1    | 2.0.0   | 1946   | 939   |
 | CCRL    | Blitz 2+1    | 2.2.2   | 2181   | 416   |
 | ...     | ...          | ...     | ...    | ...   |
-| Lichess | Bullet       | INDEV   | 2175   | 872   |
-| Lichess | Blitz        | INDEV   | 2205   | 594   |
-| Lichess | Rapid        | INDEV   | 2218   | 219   |
-| Lichess | Classical    | INDEV   | 2136   | 45    |
+| Lichess | Bullet       | INDEV   | 2166   | 950   |
+| Lichess | Blitz        | INDEV   | 2220   | 644   |
+| Lichess | Rapid        | INDEV   | 2220   | 260   |
+| Lichess | Classical    | INDEV   | 2182   | 73    |
 
 ---
 
@@ -54,7 +54,6 @@ Development started on **March 3, 2025**.
 - NMP, RFP, Razoring, FP and LMP
 - Delta Pruning and SEE Pruning for QSearch
 - Mate Distance Pruning (MDP)
-- Fractional reductions
 - Lazy move ordering
 - Killers, capture killers and countermoves
 - Quiet, capture and 2-ply continuation histories
@@ -119,12 +118,11 @@ Changes engine configuration. Available options:
 - **PolyglotBook** (string): sets the path to the Polyglot book
 - **PolyglotRisk** (spin): decides how risky the engine acts when choosing from multiple differently weighted moves in the Polyglot book
 - **Hash** (spin): size of the TT in MiB (other tables are not affected)
-- **NKLogs** (check): enables/disables logging all UCI communication into an external log file
 - **PrintStats** (check): enables/disables printing fancy statistics at the end of regular and perft searches
 
 ### `quit`
 
-Shuts down the engine immediately.
+Exits the program as soon as possible.
 
 ### `perft` (non-UCI)
 

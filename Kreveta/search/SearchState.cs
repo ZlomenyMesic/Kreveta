@@ -28,16 +28,20 @@ internal ref struct SearchState {
     
     // the previous move played
     internal Move LastMove;
+
+    // for singular extensions we must exclude a move from the search
+    internal Move ExcludedMove;
     
     // is this position a part of the previous principal variation?
     internal bool FollowPV;
 
-    internal SearchState(sbyte ply, sbyte depth, sbyte priorReductions, Window window, Move lastMove, bool followPv) {
+    internal SearchState(sbyte ply, sbyte depth, sbyte priorReductions, Window window, Move lastMove, Move excludedMove, bool followPv) {
         Ply             = ply;
         Depth           = depth;
         PriorReductions = priorReductions;
         Window          = window;
         LastMove        = lastMove;
+        ExcludedMove    = excludedMove;
         FollowPV        = followPv;
     }
 }

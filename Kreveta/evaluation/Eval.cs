@@ -9,7 +9,6 @@ using Kreveta.movegen.pieces;
 using Kreveta.uci;
 
 using System.Runtime.CompilerServices;
-using Kreveta.movegen;
 
 // ReSharper disable InconsistentNaming
 
@@ -46,7 +45,7 @@ internal static class Eval {
         int nnue    = board.NNUEEval.Score;
         int classic = Classical(in board);
 
-        // carefully combine the two terms
+        // both terms are carefully combined
         int combined = (17 * nnue + 15 * classic) / 32;
 
         // an idea taken from stockfish: in order to avoid hallucinating wins
