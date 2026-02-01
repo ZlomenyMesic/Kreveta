@@ -7,7 +7,7 @@ using System;
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.approx;
+namespace Kreveta.nnue.approx;
 
 internal static partial class MathApprox {
     private const int PtCPMin = 5;

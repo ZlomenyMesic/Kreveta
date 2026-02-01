@@ -5,7 +5,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
-using Kreveta.approx;
+using Kreveta.nnue.approx;
 
 using System;
 using System.Runtime.CompilerServices;
@@ -15,7 +15,7 @@ using System.Runtime.Intrinsics.X86;
 
 namespace Kreveta.nnue;
 
-internal unsafe sealed class NNUEEvaluator {
+internal sealed unsafe class NNUEEvaluator {
     private const int EmbedDims = NNUEWeights.EmbedDims;
     private const int H1Neurons = NNUEWeights.H1Neurons;
     private const int H2Neurons = NNUEWeights.H2Neurons;

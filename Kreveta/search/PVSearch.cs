@@ -243,7 +243,7 @@ internal static class PVSearch {
             staticEval += (short)((ttScore - staticEval) / step);
         }
 
-        // 2. RAZORING (~18 Elo)
+        // 2. RAZORING
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
         // returned instead. this cannot be done when in check, and the qsearch score must be validated
         if (!ss.FollowPV && !inCheck) {
@@ -265,7 +265,7 @@ internal static class PVSearch {
             }
         }
         
-        // 3. STATIC NULL MOVE PRUNING (~4 Elo)
+        // 3. STATIC NULL MOVE PRUNING
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
         if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
@@ -307,14 +307,14 @@ internal static class PVSearch {
             ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta
             : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha);
         
-        // 5. NULL MOVE PRUNING (~107 Elo)
+        // 5. NULL MOVE PRUNING
         // we assume that in every position there is at least one move that improves it. first,
         // we play a null move (only switching sides), and then perform a reduced search with
         // a null window around beta. if the returned score fails high, we expect that not
         // skipping our move would "fail even higher", and thus can prune this node
-        if (ss.Ply >= MinNMPPly       // minimum ply for nmp
-            && !inCheck               // don't prune when in check
-            && board.GamePhase() > 25 // don't prune in absolute endgames
+        if (ss.Ply >= (pvNode ? MinNMPPly : MinNMPPly - 1) // minimum ply for nmp
+            && !inCheck                                    // don't prune when in check
+            && board.GamePhase() > 25                      // don't prune in absolute endgames
             
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
@@ -339,9 +339,13 @@ internal static class PVSearch {
             nullChild.IsCheck     = false;
             nullChild.Hash        = ZobristHash.Hash(in nullChild);
             
-            // the depth reduction
+            // the depth reduction scaled by depth (adaptive null move pruning)
             int R = 7 + ss.Depth / 3;
+                      
+            // larger reduction if static eval is much over beta
+            R += Math.Max(0, col == Color.WHITE ? staticEval - ss.Window.Beta : ss.Window.Alpha - staticEval) / 275;
 
+            // increased reduction for cutnodes or when tt thinks there's a cutoff
             if (cutNode || ttBetaCutoff) R++;
             
             // perform the reduced search
@@ -369,31 +373,39 @@ internal static class PVSearch {
             }
         }
         
-        // 6. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
+        // 6. INTERNAL ITERATIVE REDUCTIONS
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
         if (!ttMoveExists && !inCheck && ss.Window.Alpha + 1 < ss.Window.Beta
-            && !ss.FollowPV && (pvNode && ss.Depth >= 5 || cutNode && ss.Depth >= 7) && ss.Ply >= 3) {
+            && !ss.FollowPV && pvNode && ss.Depth >= 5 && ss.Ply >= 3) {
 
             ss.PriorReductions++;
             ss.Depth--;
         }
+
+        // 7. MATE EXTENSIONS
+        // if even a shallower tt score has found mate, the search depth is
+        // extended to prevent not seeing the mate again by some mistake
+        /*if (Score.IsMate(ttScore)) {
+            ss.PriorReductions--;
+            ss.Depth++;
+        }*/
         
         // if the tt move is excluded from search
         if (ttMove == ss.ExcludedMove) ttMoveExists = false;
         
-        // after this move index threshold all quiets are skipped
-        int skipQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
+        // after this move index threshold all quiets are reduced
+        int reduceQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
             + (inCheck      || !allNode        ? 1000 : 0)
             + (ttOptimistic || parentImproving ? 5    : 0);
 
-        // X. COUNTER-BALANCE REDUCTIONS/EXTENSIONS
+        // 8. COUNTER-BALANCE EXTENSIONS
         // if the node seems to have potential, but has been reduced a lot, this reduction is countered
         // by extending the node. the other way it works too, if a node is terrible, but hasn't been
         // reduced nearly enough, it is fixed here
-        /*if (pvNode && ttOptimistic && parentImproving && ss.PriorReductions >= 3 + ss.Ply / 4) {
+        /*if (pvNode && ttBetaCutoff && parentImproving && ss.PriorReductions >= 3 + ss.Ply / 4) {
             ss.PriorReductions--;
             ss.Depth++;
         }*/
@@ -468,10 +480,9 @@ internal static class PVSearch {
                 StaticEvalDiffHistory.Add(curMove, seDiff);
             }
             
-            // since draw positions skip PVS, the full search
-            // result must be initialized in advance (as draw)
+            // since draw positions skip PVS, the full search result must be initialized in advance
             (short Score, Move[] PV) fullSearch = (0, []);
-            int curDepth = ss.Depth;
+            int                      curDepth   = ss.Depth - 1;
             
             // check the position for a 3-fold repetition draw. it is very
             // important that we also remove this move from the stack, which
@@ -509,7 +520,7 @@ internal static class PVSearch {
                           || inCheck 
                           || givesCheck;
             
-            // 8. FUTILITY PRUNING (~56 Elo)
+            // 9. FUTILITY PRUNING
             // we try to discard moves near the leaves, which have no potential of raising alpha.
             // futility margin represents the largest possible score gain through a single move.
             // if we add this margin to the static eval of the position and still don't raise
@@ -542,29 +553,29 @@ internal static class PVSearch {
                     continue;
                 }
                 
-                // 9. FUTILITY REDUCTIONS
+                // 10. FUTILITY REDUCTIONS
                 // a very small idea i had, helps only a little bit. if the move
                 // didn't fail low, but was very close to it, it is at least reduced
                 if (diff <= 7 && ss.PriorReductions <= 4 && !improving && allNode)
                     reduction++;
             }
             
-            // 7. QUIET REDUCTIONS
+            // 11. QUIET REDUCTIONS
             // at very low depths, when there are way too many moves, and we aren't
             // optimistic about raising alpha, some of the late quiets are reduced
-            if (!isCapture && !givesCheck && !improving && expandedNodes >= skipQuietsThreshold)
+            if (!isCapture && !givesCheck && !improving && expandedNodes >= reduceQuietsThreshold)
                 reduction++;
             
-            // 10. SINGULAR EXTENSIONS
+            // 12. SINGULAR EXTENSIONS
             // based on the tt score we set the singular beta bound, and perform a reduced search that
             // doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
             // e.g. the only reasonable move, and it is extended
-            if ((pvNode || cutNode) && ss.Depth >= 6 && ttMoveExists && expandedNodes == 1 && ttDepth >= ss.Depth - 3
+            if ((pvNode || cutNode) && ss.Depth >= 5 && ttMoveExists && expandedNodes == 1 && ttDepth >= ss.Depth - 2
                 && ttFlags.HasFlag(col == Color.WHITE ? TT.ScoreFlags.LOWER_BOUND : TT.ScoreFlags.UPPER_BOUND)
                 && !Score.IsMate(ttScore)) {
 
                 // the singular beta is the tt score minus a small margin
-                int sbOffset       = 47 + (ss.Depth - ttDepth);
+                int sbOffset       = 50 + (ss.Depth - ttDepth);
                 var singularWindow = col == Color.WHITE
                     ? new Window((short)(ttScore - sbOffset - 1), (short)(ttScore - sbOffset)) 
                     : new Window((short)(ttScore + sbOffset),     (short)(ttScore + sbOffset + 1));
@@ -581,48 +592,47 @@ internal static class PVSearch {
                 
                 ss.ExcludedMove = default;
 
-                // the score is below alpha, the tt move is singular, and is extended
-                if (col == Color.WHITE 
-                        ? singScore < ttScore - sbOffset 
-                        : singScore > ttScore + sbOffset) {
+                if (!Score.IsMate(singScore)) {
+                    // the score is below alpha, the tt move is singular, and is extended
+                    if (col == Color.WHITE 
+                            ? singScore < ttScore - sbOffset 
+                            : singScore > ttScore + sbOffset) {
                     
-                    curDepth++;
-                    
-                    // double extension
-                    if (ttMove.Capture != PType.NONE && ttBetaCutoff && ttDepth >= ss.Depth - 2)
-                        curDepth++;
+                        // if the tt move is really OP, it is extended by 2 plies
+                        reduction -= 1 + (ttMove.Capture != PType.NONE && ttBetaCutoff ? 1 : 0);
+                    }
+                
+                    // 13. MULTI-CUT REDUCTIONS
+                    // multi-cut prunes nodes where a reduced search of M moves causes C beta cutoffs. in this case,
+                    // if the singular search score exceeds current beta, the tt move is also expected to fail high,
+                    // and thus we have two known cutoffs, and can reduce this branch
+                    else if (col == Color.WHITE ? singScore >= ss.Window.Beta : singScore <= ss.Window.Alpha) {
+                        ss.PriorReductions++;
+                        ss.Depth--;
+
+                        // increase reduction for tt move in cutnodes
+                        if (cutNode) reduction++;
+                    }
+                
+                    // 14. NEGATIVE EXTENSIONS
+                    // if the tt move isn't singular, but we can't do multi-cut, the tt move is reduced
+                    // in favor of other moves, hoping to search those deeper. if the tt move is indeed
+                    // good, it should be able to withstand the reduction
+                    else if (ttBetaCutoff) reduction++;
                 }
-                
-                // 11. MULTI-CUT PRUNING
-                // an additional idea to singular extensions - if the search score failed high
-                // over the current beta, the node is pruned, as despite not having access to
-                // the best move (tt move), we still failed high
-                else if (!Score.IsMate(singScore) 
-                         && (col == Color.WHITE ? singScore >= ss.Window.Beta : singScore <= ss.Window.Alpha)) {
-                    
-                    if (!ignore3Fold) ThreeFold.Remove(child.Hash);
-                    return (singScore, []);
-                }
-                
-                else if (col == Color.WHITE ? ttScore >= ss.Window.Beta : ttScore <= ss.Window.Alpha)
-                    curDepth--;
-                
-                else if (cutNode)
-                    curDepth--;
             }
             
-            // 10. OTHER REDUCTIONS/EXTENSIONS
+            // 15. OTHER REDUCTIONS/EXTENSIONS
             // the search depth of the current move is lowered or raised
             // based on how interesting or important the move seems to be
             reduction += (rootNode && expandedNodes >= 5         ? 1 : 0)  // first few root moves are extended
                        + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
-            // apply the reduction, make sure we don't extend more than one ply
-            reduction = Math.Max(reduction, 0);
-            curDepth -= reduction;
+            // apply the reduction/extension
+            curDepth = ss.Depth - reduction;
 
-            // 11. LATE MOVE PRUNING
+            // 16. LATE MOVE PRUNING
             // despite the fact that PVS searches only the first move with a full window, it didn't
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
