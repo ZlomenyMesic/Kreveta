@@ -71,8 +71,6 @@ internal static class Program {
         NNUEWeights.Load();
         MathApprox.Init();
         
-        Thread.Sleep(500);
-        
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
         Game.Board = Board.CreateStartpos();

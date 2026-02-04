@@ -26,15 +26,15 @@ internal static class Game {
     // current chessboard state is saved here (root node)
     internal static Board Board = new();
 
-    // the side the engine plays on
+    // the side we are playing
     internal static Color EngineColor;
 
-    // if the engine receives the "ucinewgame" command, we know we will be
-    // playing a whole game rather than just analyzing a single position.
+    // if we receive the "ucinewgame" command, we know we will be
+    // playing a whole game rather than just analyzing a position.
     internal static bool FullGame;
     
-    // the score from the previous turn - applied when playing a full game
-    internal static int  PreviousScore;
+    // the score from our previous turn
+    internal static int PreviousScore;
 
     // if the user only want to search specific moves
     internal static readonly List<Move> SearchMoves = [];

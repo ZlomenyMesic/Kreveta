@@ -97,7 +97,7 @@ internal static class PVSearch {
         );
 
         // actual start of the search tree
-        (PVScore, PV) = Search<RootNode>(ref Game.Board, defaultSS, false, false);
+        (PVScore, PV) = Search<RootNode>(ref Game.Board, defaultSS, false, false, true);
     }
     // completely reset everything
     internal static void Reset() {
@@ -133,10 +133,10 @@ internal static class PVSearch {
     private static void StorePVinTT(Move[] pv, int depth) {
         Board board = Game.Board.Clone();
 
-        // loop all pv-nodes
+        // loop all pv moves
         for (int i = 0; i < pv.Length; i++) {
             // store the pv-node
-            TT.Store(board.Hash, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
+            TT.Store(board.Hash, (sbyte)depth--, i, Window.Infinite, PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
             board.PlayMove(pv[i], false);
@@ -144,8 +144,8 @@ internal static class PVSearch {
     }
 
     // during the search, first check the transposition table for the score, if it's not there
-    // just continue the search as usual. parameters need to be the same as in the search method itself
-    private static (short Score, Move[] PV) ProbeTT<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode) 
+    // just continue the search as usual. parameters must be same as the search method
+    private static (short Score, Move[] PV) ProbeTT<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode, bool useNMP) 
         where NodeType : ISearchNodeType {
 
         // did we find the position and score?
@@ -158,7 +158,7 @@ internal static class PVSearch {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        var result = Search<NodeType>(ref board, ss, ignore3Fold, cutNode);
+        var result = Search<NodeType>(ref board, ss, ignore3Fold, cutNode, useNMP);
         
         // store the found score and best move in tt
         TT.Store(board.Hash, ss.Depth, ss.Ply, ss.Window, result.Score, result.PV.Length != 0 ? result.PV[0] : default);
@@ -182,7 +182,7 @@ internal static class PVSearch {
     // of "tree" of possible future positions, and tracks the best possible path to
     // go. computing all positions is impossible, so different pruning and reduction
     // techniques are used to skip likely irrelevant branches
-    private static (short Score, Move[] PV) Search<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode)
+    private static (short Score, Move[] PV) Search<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode, bool useNMP)
         where NodeType : ISearchNodeType {
         
         bool rootNode = typeof(NodeType) == typeof(RootNode);
@@ -314,6 +314,7 @@ internal static class PVSearch {
         // skipping our move would "fail even higher", and thus can prune this node
         if (ss.Ply >= (pvNode ? MinNMPPly : MinNMPPly - 1) // minimum ply for nmp
             && !inCheck                                    // don't prune when in check
+            && useNMP                                      // NMP must be allowed
             && board.GamePhase() > 25                      // don't prune in absolute endgames
             
             // make sure static eval is over or at least close to beta to not
@@ -343,7 +344,7 @@ internal static class PVSearch {
             int R = 7 + ss.Depth / 3;
                       
             // larger reduction if static eval is much over beta
-            R += Math.Max(0, col == Color.WHITE ? staticEval - ss.Window.Beta : ss.Window.Alpha - staticEval) / 275;
+            R += Math.Max(0, col == Color.WHITE ? staticEval - ss.Window.Beta : ss.Window.Alpha - staticEval) / 225;
 
             // increased reduction for cutnodes or when tt thinks there's a cutoff
             if (cutNode || ttBetaCutoff) R++;
@@ -360,8 +361,9 @@ internal static class PVSearch {
                     excludedMove:    ss.ExcludedMove,
                     followPv:        false
                 ),
-                ignore3Fold: true,
-                cutNode:     false
+                ignore3Fold: true,  // ignore threefold repetition in the null search
+                cutNode:     false,
+                useNMP:      false  // don't allow two null moves directly after each other
             ).Score;
 
             // if we failed high, prune this node
@@ -384,14 +386,6 @@ internal static class PVSearch {
             ss.PriorReductions++;
             ss.Depth--;
         }
-
-        // 7. MATE EXTENSIONS
-        // if even a shallower tt score has found mate, the search depth is
-        // extended to prevent not seeing the mate again by some mistake
-        /*if (Score.IsMate(ttScore)) {
-            ss.PriorReductions--;
-            ss.Depth++;
-        }*/
         
         // if the tt move is excluded from search
         if (ttMove == ss.ExcludedMove) ttMoveExists = false;
@@ -405,7 +399,7 @@ internal static class PVSearch {
         // if the node seems to have potential, but has been reduced a lot, this reduction is countered
         // by extending the node. the other way it works too, if a node is terrible, but hasn't been
         // reduced nearly enough, it is fixed here
-        /*if (pvNode && ttBetaCutoff && parentImproving && ss.PriorReductions >= 3 + ss.Ply / 4) {
+        /*if (pvNode && ttBetaCutoff && parentImproving && ss.PriorReductions >= 3 + ss.Ply * 3 / 5) {
             ss.PriorReductions--;
             ss.Depth++;
         }*/
@@ -417,7 +411,7 @@ internal static class PVSearch {
         int        moveCount      = 0;
         int        expandedNodes  = 0;
 
-        // pv continuation to be appended
+        // PV continuation to be appended
         Move[] pv = [];
 
         // loop through possible moves
@@ -588,7 +582,7 @@ internal static class PVSearch {
                 (short singScore, _) = Search<NonPVNode>(ref board, ss with {
                     Depth  = (sbyte)(ss.Depth / 3),
                     Window = singularWindow,
-                }, ignore3Fold, cutNode);
+                }, ignore3Fold, cutNode, true);
                 
                 ss.ExcludedMove = default;
 
@@ -597,7 +591,7 @@ internal static class PVSearch {
                     if (col == Color.WHITE 
                             ? singScore < ttScore - sbOffset 
                             : singScore > ttScore + sbOffset) {
-                    
+                        
                         // if the tt move is really OP, it is extended by 2 plies
                         reduction -= 1 + (ttMove.Capture != PType.NONE && ttBetaCutoff ? 1 : 0);
                     }
@@ -633,17 +627,24 @@ internal static class PVSearch {
             curDepth = ss.Depth - reduction;
 
             // 16. LATE MOVE PRUNING
-            // despite the fact that PVS searches only the first move with a full window, it didn't
-            // work here. instead, a few early moves are searched fully, and the rest with a null
-            // window. the number of moves searched fully is based on depth, pv and cutnode. if we
-            // have a tt move, only it is searched fully
-            int  maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
-            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || givesCheck || rootNode || see >= 100;
+            // despite the fact that PVS searches only the first move with a full window, it didn't work here. instead, if the
+            // tt move is singular, only it is searched fully. then, if tt move isn't singular, but it exists, we set a base of
+            // 1, otherwise 3. then we add 4 if we are in a pv node
+            int fullSearchMoves = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
 
+            // even if the tt move isn't singular, but we can trust it, and it thinks we are
+            // not going to raise alpha by a margin, we can lower the number to just 1 too
+            /*if (ttMoveExists && ttDepth >= ss.Depth - 3 && (col == Color.WHITE 
+                    ? ttScore + 140 < ss.Window.Alpha && ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND)
+                    : ttScore - 140 > ss.Window.Beta  && ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND))) 
+                fullSearchMoves = 1;*/
+            
+            bool doNullSearch = expandedNodes > fullSearchMoves && !inCheck && !givesCheck && !rootNode && see < 100;
+            
             // late move pruning and common PVS logic are merged here. expected fail-low moves are
             // searched with a null alpha window at a reduced depth, and only if they somehow raise
             // alpha, a deeper, full window re-search is performed
-            if (!skipLMP) {
+            if (doNullSearch) {
                 
                 // if moveorder score is bad, reduction is larger. the score threshold scales with the current
                 // iteration depth, as history values tend to be larger in deeper searches due to the butterfly
@@ -660,10 +661,16 @@ internal static class PVSearch {
                     : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
 
                 // once again a reduced depth search
-                int score = ProbeTT<NonPVNode>(ref child, 
-                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.PriorReductions, nullWindowAlpha, ss.LastMove, ss.ExcludedMove, false),
+                int score = ProbeTT<NonPVNode>(ref child,
+                    ss with {
+                        Ply             = (sbyte)(ss.Ply + 1),
+                        Depth           = (sbyte)(ss.Depth - R),
+                        Window          = nullWindowAlpha,
+                        PriorReductions = (sbyte)(ss.PriorReductions + R - 1),
+                    },
                     ignore3Fold,
-                    cutNode: true
+                    cutNode: true,
+                    useNMP:  true
                 ).Score;
                 
                 if (col == Color.WHITE
@@ -683,7 +690,7 @@ internal static class PVSearch {
             }
 
             // if LMP failed, and the move was reduced, the reduction is reverted
-            if (!skipLMP && curDepth < ss.Depth - 1)
+            if (doNullSearch && curDepth < ss.Depth - 1)
                 curDepth++;
 
             // the new search state for the child node
@@ -697,8 +704,8 @@ internal static class PVSearch {
             // perform the full search. if we are in a pv node, the full search is also pv. in non pv nodes
             // the search is non pv. we can also get here after LMP fails, but even then the rules apply
             fullSearch = pvNode
-                ? ProbeTT<PVNode>(   ref child, newSS, ignore3Fold, cutNode: false)
-                : ProbeTT<NonPVNode>(ref child, newSS, ignore3Fold, cutNode: !cutNode);
+                ? ProbeTT<PVNode>(   ref child, newSS, ignore3Fold, cutNode: false,    true)
+                : ProbeTT<NonPVNode>(ref child, newSS, ignore3Fold, cutNode: !cutNode, true);
             
             // if the position turned out to be a draw earlier, the search
             // and all pruning is skipped to this point, where we do some
@@ -729,8 +736,10 @@ internal static class PVSearch {
                 
                 // place the current move in front of the received pv to build a new pv
                 pv = new Move[fullSearch.PV.Length + 1];
-                Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 pv[0] = curMove;
+
+                // the PV needs to be built, but not in cut or all nodes
+                if (pvNode) Array.Copy(fullSearch.PV, 0, pv, 1, fullSearch.PV.Length);
                 
                 if (ss.LastMove != default)
                     ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth / 2, isGood: true);

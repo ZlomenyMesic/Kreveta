@@ -136,10 +136,15 @@ internal static class TimeMan {
         // based on that potentially reduce movestogo, which makes us think longer
         float timeAdvantage = Math.Clamp((float)timeLeft / oppTimeLeft, 1f, 5f);
         movesToGo -= (int)((timeAdvantage - 1) * (movesToGo / 6.5f));
-        movesToGo  = Math.Max(6, movesToGo);
+        
+        // once we'll have built an advantage, we spend more time to keep it
+        if (Game.FullGame && Game.PreviousScore > 50)
+            movesToGo -= 1 + Game.PreviousScore / 100;
+        
+        movesToGo = Math.Max(6, movesToGo);
         
         // taking time increments in low remaining time scenarios is dangerous
-        bool lowTime = timeLeft < 3 * inc + 2 * moveOverhead;
+        bool lowTime      = timeLeft < 3 * inc + 2 * moveOverhead;
         long effectiveInc = (long)(lowTime ? 0 : inc * 0.8f);
 
         // base time per move

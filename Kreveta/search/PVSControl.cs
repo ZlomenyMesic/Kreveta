@@ -75,7 +75,7 @@ internal static class PVSControl {
             PVSearch.NextBestMove = default;
 
             Window aspiration   = Window.Infinite;
-            //bool   isAspiration = false;
+            bool   isAspiration = false;
             
             // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.8f;
@@ -96,9 +96,8 @@ internal static class PVSControl {
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
                 TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            /*if (PVSearch.CurIterDepth > 1 && TimeMan.TimeBudget < 250) { 
-                int delta = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
-                delta     = Math.Clamp(delta, -1000, 1000);
+            if (false && PVSearch.CurIterDepth > 5 && TimeMan.TimeBudget < 500 && totalInstability < -2.0) {
+                int delta = 50 + Math.Min(-15, -PVSearch.CurIterDepth / 2) + (int)(5 * totalInstability);
 
                 aspiration = new Window(
                     alpha: (short)(PVSearch.PVScore - delta),
@@ -110,7 +109,7 @@ internal static class PVSControl {
                 }
 
                 isAspiration = true;
-            }*/
+            }
             
             // search at a larger depth
             PVSearch.SearchDeeper(aspiration);
@@ -123,7 +122,7 @@ internal static class PVSControl {
             AspirationFail = 0;
 
             // aspiration window search failed low
-            /*if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
+            if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
                 AspirationFail = -1;
             
             // failed high
@@ -131,21 +130,19 @@ internal static class PVSControl {
                 AspirationFail = 1;
 
             if (AspirationFail != 0) {
-                PrevScore = PVSearch.PVScore;
+                PrevScore   = PVSearch.PVScore;
                 PrevElapsed = sw.ElapsedMilliseconds;
 
+                PVSearch.CurIterDepth--;
+
                 continue;
-            }*/
+            }
 
             // print the results to the console and save the first pv node
             GetResult();
             
             ScoreDiffs += Math.Min(1000, Math.Abs(PVSearch.PVScore - PrevScore));
             PrevScore   = PVSearch.PVScore;
-
-            // try to increase the time budget if the score from the previous
-            // turn seems to be significantly different from the current one
-            //TimeMan.TryIncreaseTimeBudget();
 
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we
