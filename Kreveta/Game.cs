@@ -6,6 +6,8 @@
 // Specify CultureInfo
 #pragma warning disable CA1304
 
+#pragma warning disable CA2014
+
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
@@ -16,6 +18,7 @@ using Kreveta.uci;
 
 using System;
 using System.Collections.Generic;
+// ReSharper disable StackAllocInsideLoop
 
 // ReSharper disable InconsistentNaming
 
@@ -43,6 +46,7 @@ internal static class Game {
         // reset the board
         Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
+        ThreeFold.Clear();
         
         UCI.Log($"Invalid position - {context}");
     }
@@ -213,9 +217,17 @@ internal static class Game {
 
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
-            var move = tokens[i].ToMove(Board);
+            if (!Move.IsCorrectFormat(tokens[i])) {
+                InvalidFENCallback($"invalid move: \"{tokens[i]}\"");
+                return;
+            }
             
-            if (!Move.IsCorrectFormat(tokens[i]) || Board.PieceAt(move.Start) == PType.NONE) {
+            var        move  = tokens[i].ToMove(Board);
+            Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
+            int        count = Movegen.GetLegalMoves(ref Board, legal);
+
+            // if the move isn't in the list of legal moves
+            if (!legal[..count].Contains(move)) {
                 InvalidFENCallback($"invalid move: \"{tokens[i]}\"");
                 return;
             }
@@ -317,4 +329,5 @@ internal static class Game {
     }
 }
 
+#pragma warning restore CA2014
 #pragma warning restore CA1304

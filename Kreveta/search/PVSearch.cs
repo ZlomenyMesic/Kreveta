@@ -365,7 +365,29 @@ internal static class PVSearch {
                     ? nmpScore >= ss.Window.Beta
                     : nmpScore <= ss.Window.Alpha) {
                 
-                return (nmpScore, []);
+                // if verification search isn't needed, return the score
+                if (ss.Depth <= 15)
+                    return (nmpScore, []);
+
+                // disable null move pruning early in verification search
+                int temp  = MinNMPPly;
+                MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;;
+
+                // do the verification search
+                nmpScore = ProbeTT<NonPVNode>(ref board,
+                    ss with {
+                        Depth  = (sbyte)(ss.Depth - R),
+                        Ply    = (sbyte)(ss.Ply + 1),
+                        Window = nullWindowBeta,
+                    }, ignore3Fold: false, cutNode: false).Score;
+
+                MinNMPPly = temp;
+
+                // check once again
+                if (col == Color.WHITE
+                        ? nmpScore >= ss.Window.Beta
+                        : nmpScore <= ss.Window.Alpha)
+                    return (nmpScore, []);
             }
         }
         
@@ -604,6 +626,10 @@ internal static class PVSearch {
                     return (singScore, []);
                 }
                 
+                // 12. NEGATIVE EXTENSIONS
+                // if the tt move isn't singular, and we cannot apply multi-cut,
+                // the tt move is reduced under some conditions to allow spending
+                // more time searching other moves, as they might be good too
                 else if (col == Color.WHITE ? ttScore >= ss.Window.Beta : ttScore <= ss.Window.Alpha)
                     curDepth--;
                 
