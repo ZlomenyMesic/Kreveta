@@ -306,6 +306,8 @@ internal static class PVSearch {
         bool ttBetaCutoff = ttMoveExists && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
             ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta
             : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha);
+
+        bool ttCapture = ttMoveExists && ttMove.Capture != PType.NONE;
         
         // 5. NULL MOVE PRUNING (~107 Elo)
         // we assume that in every position there is at least one move that improves it. first,
@@ -371,7 +373,7 @@ internal static class PVSearch {
 
                 // disable null move pruning early in verification search
                 int temp  = MinNMPPly;
-                MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;;
+                MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;
 
                 // do the verification search
                 nmpScore = ProbeTT<NonPVNode>(ref board,
@@ -415,7 +417,7 @@ internal static class PVSearch {
         // if the node seems to have potential, but has been reduced a lot, this reduction is countered
         // by extending the node. the other way it works too, if a node is terrible, but hasn't been
         // reduced nearly enough, it is fixed here
-        /*if (pvNode && ttOptimistic && parentImproving && ss.PriorReductions >= 3 + ss.Ply / 4) {
+        /*if (pvNode && inCheck && ss.PriorReductions >= 4 + ss.Ply / 3) {
             ss.PriorReductions--;
             ss.Depth++;
         }*/
@@ -640,15 +642,15 @@ internal static class PVSearch {
             // 10. OTHER REDUCTIONS/EXTENSIONS
             // the search depth of the current move is lowered or raised
             // based on how interesting or important the move seems to be
-            reduction += (rootNode && expandedNodes >= 5         ? 1 : 0)  // first few root moves are extended
-                       + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
-                       - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
+            reduction +=   (rootNode && expandedNodes >= 5         ? 1 : 0)  // first few root moves are extended
+                         + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
+                         - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
             // apply the reduction, make sure we don't extend more than one ply
             reduction = Math.Max(reduction, 0);
             curDepth -= reduction;
 
-            // 11. LATE MOVE PRUNING
+            // 11. LATE MOVE PRUNING/REDUCTIONS
             // despite the fact that PVS searches only the first move with a full window, it didn't
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
@@ -668,7 +670,8 @@ internal static class PVSearch {
                 int R = 4
                     + (curScore < scoreThreshold ? 1 : 0)
                     - (improving  || see > 94    ? 1 : 0)
-                    + (!improving && see < 0     ? 1 : 0);
+                    + (!improving && see < 0     ? 1 : 0)
+                    + (ttCapture                 ? 1 : 0);
                 
                 // null window around alpha
                 var nullWindowAlpha = col == Color.WHITE

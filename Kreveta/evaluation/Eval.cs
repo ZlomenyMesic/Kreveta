@@ -21,10 +21,10 @@ internal static class Eval {
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    private const int DoubledPawnMalus  = -33;
-    private const int IsolatedPawnMalus = -149;
-    private const int PassedPawnBonus   = 78;
-    private const int BlockedPawnMalus  = -65;
+    internal static int DoubledPawnMalus  = -33;
+    internal static int IsolatedPawnMalus = -149;
+    internal static int PassedPawnBonus   = 78;
+    internal static int BlockedPawnMalus  = -65;
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
@@ -48,10 +48,10 @@ internal static class Eval {
         // both terms are carefully combined
         int combined = (17 * nnue + 15 * classic) / 32;
 
-        // an idea taken from stockfish: in order to avoid hallucinating wins
-        // where 50-move draw is basically inevitable, the eval is gradually
-        // pulled closer to zero as the counter increases
-        combined -= combined * board.HalfMoveClock / 199;
+        // ideas taken from Stockfish. if the position is close to 50 move
+        // draw, or the evaluation might be vague, eval is pulled toward zero
+        combined -= combined * board.HalfMoveClock      / 199;
+        combined -= combined * Math.Abs(nnue - classic) / 18_236;
 
         return (short)combined;
     }

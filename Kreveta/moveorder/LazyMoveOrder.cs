@@ -18,9 +18,13 @@ internal static class LazyMoveOrder {
     // move ordering is used, where first all moves are assigned different scores,
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
+    
+    // [119, 856, 105, 100, 100, 90, -97, -209, 277, 156, 82, 3098, 1652, 100, 115, 284, 200]
+    // [118, 835, 103, 94, 102, 93, -83, -211, 279, 154, 78, 3102, 1648, 99, 109, 285, 199]
+    
     internal static void AssignScores(in Board board, int ply, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
         Color col         = board.SideToMove;
-        bool  isEarlyGame = board.GamePhase() > 119;
+        bool  isEarlyGame = board.GamePhase() > 118;
         
         // find killers and a potential countermove
         var captKillers = Killers.GetCluster(depth, captures: true);
@@ -40,24 +44,24 @@ internal static class LazyMoveOrder {
 
                 // killers and counters obviously get a higher score,
                 // as they have previously proved to be effective
-                int killer  = isKiller  ? 856 : 0;
-                int counter = isCounter ? 105 : 0;
+                int killer  = isKiller  ? 835 : 0;
+                int counter = isCounter ? 103 : 0;
                 
                 // then quiet and continuation history is applied
-                int qhist = QuietHistory.GetRep(move) * 35 / 100;
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 38 / 100 : 0;
-                int se    = StaticEvalDiffHistory.Get(move) * 9 / 32;
+                int qhist = QuietHistory.GetRep(move) * 35 / 94;
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 38 / 102 : 0;
+                int se    = StaticEvalDiffHistory.Get(move) * 93 / 320;
                 
                 // punish queen and king moves in the opening or early
                 // middlegame, of course except for castling
-                int queen = movedPiece == PType.QUEEN && isEarlyGame                            ? -97  : 0;
-                int king  = movedPiece == PType.KING  && isEarlyGame && promPiece != PType.KING ? -209 : 0;
+                int queen = movedPiece == PType.QUEEN && isEarlyGame                            ? -83  : 0;
+                int king  = movedPiece == PType.KING  && isEarlyGame && promPiece != PType.KING ? -211 : 0;
 
                 // promotions and castling get placed higher
                 int prom = promPiece switch {
-                    PType.QUEEN => 277,
-                    PType.ROOK  => 156,
-                    PType.KING  => 82,
+                    PType.QUEEN => 279,
+                    PType.ROOK  => 154,
+                    PType.KING  => 78,
                     _           => 0
                 };
 
@@ -67,27 +71,25 @@ internal static class LazyMoveOrder {
             else {
                 // killers and counters are the same as in quiets, but
                 // higher scores are applied to push captures above quiets
-                int killer = isKiller ? 3098 : 1652;
+                int killer = isKiller ? 3102 : 1648;
                 
                 // static exchange evaluation and continuation history. it is
                 // often said that conthist doesn't work well with captures,
                 // but here it seems like it does. i've also tried combining
                 // SEE with additional MVV-LVA, but that didn't work at all
                 int see   = SEE.GetCaptureScore(in board, col, move);
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 100 : 0;
-                int chist = CaptureHistory.GetRep(move) / 115;
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 99 : 0;
+                int chist = CaptureHistory.GetRep(move) / 109;
                 
                 // once again promotions get placed higher
                 int prom = promPiece switch {
-                    PType.QUEEN => 284,
-                    PType.ROOK  => 200,
+                    PType.QUEEN => 285,
+                    PType.ROOK  => 199,
                     _           => 0
                 };
 
-                scores[i] += killer 
-                             + Math.Clamp(cont, -77, 79)
-                             + Math.Clamp(chist, -9, 10)
-                             + prom + see;
+                // TODO - TEST CLAMPING
+                scores[i] += killer + see + cont + chist + prom;
             }
         }
     }

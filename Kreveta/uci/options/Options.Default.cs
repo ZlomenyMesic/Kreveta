@@ -14,7 +14,7 @@ internal static partial class Options {
         internal const string DPolyglotBook    = "";
         internal const long   DPolyglotRisk    = 0L;
         
-        internal const long   DHash            = 128L;
+        internal const long   DHash            = 32L;
         
         internal const bool   DPrintStats      = false;
     }
