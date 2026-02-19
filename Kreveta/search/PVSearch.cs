@@ -234,6 +234,7 @@ internal static class PVSearch {
         
         // try to retrieve a known best move from the transposition table
         bool ttMoveExists = TT.TryGetBestMove(board.Hash, out Move ttMove, out short ttScore, out TT.ScoreFlags ttFlags, out int ttDepth);
+        bool ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
         
         // if tt score is reliable, adjust the static eval used for pruning
         if (ttMoveExists && ttDepth >= 3 && !Score.IsMate(ttScore) && ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)) {
@@ -246,7 +247,7 @@ internal static class PVSearch {
         // 2. RAZORING (~18 Elo)
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
         // returned instead. this cannot be done when in check, and the qsearch score must be validated
-        if (!ss.FollowPV && !inCheck) {
+        if (!ss.FollowPV && !inCheck && (ss.Depth <= 2 || !ttCapture)) {
             // this margin is really just magic, but it feels right
             int margin = 539 + 375 * ss.Depth * ss.Depth;
 
@@ -280,21 +281,20 @@ internal static class PVSearch {
         
         // 4. SMALL PROBCUT IDEA
         // inspired by Stockfish, but modified quite a bit. if the tt score isn't reliable enough
-        // to cause the search to be skipped completely, we at least try to reduce this node if
-        // the tt score isn't too shallow, and it is much above beta
-        int probcutMargin = 593 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
+        // to cause the search to be skipped completely, we drop into quiescence search
+        int probcutMargin = 523 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
         int probcutBeta   = col == Color.WHITE 
             ? ss.Window.Beta  + probcutMargin 
             : ss.Window.Alpha - probcutMargin;
         
         // make sure the tt score is the correct bound
-        if (ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !inCheck && !Score.IsMate(ttScore)
+        if (ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
             && (col == Color.WHITE 
                 ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= probcutBeta
                 : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= probcutBeta)) {
 
-            ss.PriorReductions++;
-            ss.Depth--;
+            // drop into quiescence search
+            return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12), []);
         }
         
         // is the tt score optimistic that we can raise alpha or cause a beta cutoff
@@ -306,8 +306,6 @@ internal static class PVSearch {
         bool ttBetaCutoff = ttMoveExists && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
             ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta
             : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha);
-
-        bool ttCapture = ttMoveExists && ttMove.Capture != PType.NONE;
         
         // 5. NULL MOVE PRUNING (~107 Elo)
         // we assume that in every position there is at least one move that improves it. first,
@@ -408,7 +406,7 @@ internal static class PVSearch {
         // if the tt move is excluded from search
         if (ttMove == ss.ExcludedMove) ttMoveExists = false;
         
-        // after this move index threshold all quiets are skipped
+        // after this move index threshold all quiets are reduced
         int skipQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
             + (inCheck      || !allNode        ? 1000 : 0)
             + (ttOptimistic || parentImproving ? 5    : 0);
@@ -613,7 +611,7 @@ internal static class PVSearch {
                     curDepth++;
                     
                     // double extension
-                    if (ttMove.Capture != PType.NONE && ttBetaCutoff && ttDepth >= ss.Depth - 2)
+                    if (ttCapture && ttBetaCutoff && ttDepth >= ss.Depth - 2)
                         curDepth++;
                 }
                 
@@ -629,14 +627,9 @@ internal static class PVSearch {
                 }
                 
                 // 12. NEGATIVE EXTENSIONS
-                // if the tt move isn't singular, and we cannot apply multi-cut,
-                // the tt move is reduced under some conditions to allow spending
-                // more time searching other moves, as they might be good too
-                else if (col == Color.WHITE ? ttScore >= ss.Window.Beta : ttScore <= ss.Window.Alpha)
-                    curDepth--;
-                
-                else if (cutNode)
-                    curDepth--;
+                // if the tt move isn't singular, and we cannot apply multi-cut, the tt move is
+                // reduced to allow spending more time searching other moves, as they may be good
+                else reduction++;
             }
             
             // 10. OTHER REDUCTIONS/EXTENSIONS
@@ -666,7 +659,7 @@ internal static class PVSearch {
                 // if moveorder score is bad, reduction is larger. the score threshold scales with the current
                 // iteration depth, as history values tend to be larger in deeper searches due to the butterfly
                 // boards being cleared. the reduction is also based on see, whether we are improving and depth
-                int scoreThreshold = -373 - 8 * CurIterDepth - (ttOptimistic ? 10 : 0);
+                int scoreThreshold = -373 - 8 * CurIterDepth - (ttOptimistic ? 12 : 0);
                 int R = 4
                     + (curScore < scoreThreshold ? 1 : 0)
                     - (improving  || see > 94    ? 1 : 0)
