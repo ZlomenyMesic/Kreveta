@@ -340,7 +340,9 @@ internal static class PVSearch {
             nullChild.Hash        = ZobristHash.Hash(in nullChild);
             
             // the depth reduction
-            int R = 7 + ss.Depth / 3;
+            int R = 7 + ss.Depth / 3 + (col == Color.WHITE 
+                ? staticEval - ss.Window.Beta 
+                : ss.Window.Alpha - staticEval) / 350;
 
             if (cutNode || ttBetaCutoff) R++;
             

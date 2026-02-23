@@ -19,7 +19,6 @@ using Kreveta.openings;
 using Kreveta.perft;
 using Kreveta.search;
 using Kreveta.search.transpositions;
-using Kreveta.tuning;
 using Kreveta.uci.options;
 
 using System;
@@ -126,6 +125,11 @@ internal static partial class UCI {
                     CmdPerft(tokens);
                     break;
                 
+                // run bench
+                case "bench":
+                    Bench.Run(tokens);
+                    break;
+                
                 // print the current position
                 case "d":
                     Game.Board.Print();
@@ -225,7 +229,7 @@ internal static partial class UCI {
         Log("Invalid perft command syntax");
     }
 
-    private static void CmdGo(ReadOnlySpan<string> tokens) {
+    internal static void CmdGo(ReadOnlySpan<string> tokens, bool bench = false) {
         // abort the currently running search first in order to
         // run a new one, since there is a single search thread.
         StopSearch();
@@ -309,7 +313,7 @@ internal static partial class UCI {
         // the search itself runs as a separate thread to allow processing
         // other commands while the search is running - this usually isn't
         // needed, but the "stop" command is very important
-        SearchThread = new Thread(() => PVSControl.StartSearch(depth)) {
+        SearchThread = new Thread(() => PVSControl.StartSearch(depth, bench)) {
             Name     = $"{Program.Name}-{Program.Version}_Search",
             Priority = ThreadPriority.Highest,
         };

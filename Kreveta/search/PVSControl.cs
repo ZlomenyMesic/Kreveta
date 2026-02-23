@@ -44,18 +44,18 @@ internal static class PVSControl {
 
     internal static Stopwatch sw = null!;
 
-    internal static void StartSearch(int depth = DefaultMaxDepth) {
+    internal static void StartSearch(int depth = DefaultMaxDepth, bool bench = false) {
         CurMaxDepth = depth;
 
         // start iterative deepening
-        IterativeDeepeningLoop();
+        IterativeDeepeningLoop(bench);
     }
 
     // we are using an approach called iterative deepening. we search the same
     // position multiple times, but at increasingly larger depths. results from
     // previoud iterations are stored in the tt, killers, and history, which
     // makes new iterations not take too much time.
-    private static void IterativeDeepeningLoop() {
+    private static void IterativeDeepeningLoop(bool bench = false) {
         PrevElapsed = 0L;
         sw = Stopwatch.StartNew();
             
@@ -177,6 +177,12 @@ internal static class PVSControl {
         // store this score for the next turn when playing a full game
         if (Game.FullGame)
             Game.PreviousScore = PVSearch.PVScore;
+
+        // bench needs the node count
+        if (bench) {
+            Bench.Nodes   += TotalNodes;
+            Bench.Finished = true;
+        }
         
         sw.Stop();
         

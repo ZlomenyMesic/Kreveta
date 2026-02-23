@@ -6,7 +6,6 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.moveorder.history;
-using Kreveta.tuning;
 
 using System;
 
