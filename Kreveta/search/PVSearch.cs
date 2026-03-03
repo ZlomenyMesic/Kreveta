@@ -13,6 +13,7 @@ using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
+using System.Linq;
 
 // ReSharper disable InconsistentNaming
 
@@ -98,7 +99,10 @@ internal static class PVSearch {
 
         // actual start of the search tree
         (PVScore, PV) = Search<RootNode>(ref Game.Board, defaultSS, false, false);
+
+        PVSControl.TotalNodes += CurNodes;
     }
+    
     // completely reset everything
     internal static void Reset() {
         CurIterDepth  = 0;
@@ -151,7 +155,7 @@ internal static class PVSearch {
         // did we find the position and score?
         // also repeating positions cannot occur under 4 plies
         if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
-            PVSControl.TotalNodes++; CurNodes++;
+            CurNodes++;
 
             // only return the score, no pv
             return (ttScore, []);
@@ -212,7 +216,7 @@ internal static class PVSearch {
             return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12), []);
         
         // increase the nodes searched counter
-        PVSControl.TotalNodes++; CurNodes++;
+        CurNodes++;
         
         // check whether we are still following the previous principal variation
         ss.FollowPV = ss.FollowPV && (rootNode || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
@@ -502,6 +506,17 @@ internal static class PVSearch {
             // must be done anywhere where this loop is exited
             bool isThreeFold = !ignore3Fold && ThreeFold.AddAndCheck(child.Hash);
             
+            // create some deterministic noise for three-fold repetition
+            // draws, which apparently helps avoid weird loops or blindness
+            if (isThreeFold)
+#pragma warning disable CS8509
+                fullSearch.Score = (CurNodes % 3) switch {
+                    0UL => -1,
+                    1UL =>  0,
+                    2UL =>  1
+                };
+#pragma warning restore CS8509
+            
             // if there is a known draw according to chess rules
             // (either 50 move rule or insufficient mating material),
             // all pruning and reductions are skipped
@@ -560,7 +575,7 @@ internal static class PVSearch {
                 
                 // if we didn't manage to raise alpha, prune this branch
                 if (diff <= 0 && ss.Depth <= 4) {
-                    PVSControl.TotalNodes++; CurNodes++;
+                    CurNodes++;
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     
                     continue;
@@ -713,6 +728,11 @@ internal static class PVSearch {
             fullSearch = pvNode
                 ? ProbeTT<PVNode>(   ref child, newSS, ignore3Fold, cutNode: false)
                 : ProbeTT<NonPVNode>(ref child, newSS, ignore3Fold, cutNode: !cutNode);
+
+            // once search iterations start taking a bit longer, print intermediate
+            // results for each move: 'info ... currmove x ...'
+            if (rootNode && PVSControl.TotalNodes >= 5_000_000)
+                PrintCurrMoveInfo(col, fullSearch.Score, ss.Window, curDepth, curMove, expandedNodes, fullSearch.PV);
             
             // if the position turned out to be a draw earlier, the search
             // and all pruning is skipped to this point, where we do some
@@ -788,5 +808,47 @@ internal static class PVSearch {
             : (col == Color.WHITE 
                 ? ss.Window.Alpha 
                 : ss.Window.Beta, pv);
+    }
+
+    // print 'info currmove ...' once search iterations are a bit longer 
+    private static void PrintCurrMoveInfo(Color col, short score, Window window, int depth, Move curMove, int expandedNodes, Move[] pv) {
+        var info = $"info depth {depth + 1} currmove {curMove.ToLAN()} currmovenumber {expandedNodes}";
+                
+        // for the first move, we print the score every time, and also
+        // its bound (lowerbound/upperbound) or no bound if exact. later
+        // moves only print a score if they raise alpha or cause a cutoff
+        if (expandedNodes == 1 || (col == Color.WHITE 
+                ? score > window.Alpha 
+                : score < window.Beta)) {
+
+            // this magic is explained in PVSControl
+            int mateScore = Score.GetMateInX(score);
+            mateScore += Math.Sign(mateScore);
+            mateScore -= Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
+            mateScore /= Game.EngineColor == Color.WHITE ? 2 : -2;
+                    
+            string correctedScore = Score.IsMate(score) 
+                ? $"mate {mateScore}"
+                : $"cp {Score.LimitScore(score) 
+                        * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
+                    
+            info += $" score {correctedScore}";
+                    
+            // add lowerbound/upperbound. this has to be corrected based on engine
+            // color, as we are in a minimax framework, meaning it's color-relative
+            if (score <= window.Alpha)
+                info += Game.EngineColor == Color.WHITE ? " upperbound" : " lowerbound";
+                    
+            else if (score >= window.Beta)
+                info += Game.EngineColor == Color.WHITE ? " lowerbound" : " upperbound";
+            
+            // if there is a PV, print it as well
+            if (pv.Length > 0) {
+                info += $" pv {curMove.ToLAN()}";
+                info  = pv.Aggregate(info, (current, move) => current + $" {move.ToLAN()}");
+            }
+        }
+        
+        UCI.Log(info);
     }
 }

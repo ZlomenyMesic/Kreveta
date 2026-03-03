@@ -38,7 +38,7 @@ internal static unsafe class PawnCorrections {
     private static short* _whiteCorrections;
     private static short* _blackCorrections;
     
-        // clear the table
+    // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear() {
         if (_whiteCorrections is not null) {

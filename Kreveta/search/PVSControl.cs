@@ -75,7 +75,7 @@ internal static class PVSControl {
             PVSearch.NextBestMove = default;
 
             Window aspiration   = Window.Infinite;
-            //bool   isAspiration = false;
+            bool   isAspiration = false;
             
             // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.8f;
@@ -96,8 +96,8 @@ internal static class PVSControl {
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
                 TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            /*if (PVSearch.CurIterDepth > 1 && TimeMan.TimeBudget < 250) { 
-                int delta = (int)(8 + totalInstability * 2.5f - Math.Min(8, PVSearch.CurIterDepth));
+            if (PVSearch.CurIterDepth > 3 && totalInstability <= -3f) { 
+                int delta = 35 - (int)totalInstability;
                 delta     = Math.Clamp(delta, -1000, 1000);
 
                 aspiration = new Window(
@@ -110,7 +110,7 @@ internal static class PVSControl {
                 }
 
                 isAspiration = true;
-            }*/
+            }
             
             // search at a larger depth
             PVSearch.SearchDeeper(aspiration);
@@ -123,7 +123,7 @@ internal static class PVSControl {
             AspirationFail = 0;
 
             // aspiration window search failed low
-            /*if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
+            if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
                 AspirationFail = -1;
             
             // failed high
@@ -135,17 +135,13 @@ internal static class PVSControl {
                 PrevElapsed = sw.ElapsedMilliseconds;
 
                 continue;
-            }*/
+            }
 
             // print the results to the console and save the first pv node
             GetResult();
             
             ScoreDiffs += Math.Min(1000, Math.Abs(PVSearch.PVScore - PrevScore));
             PrevScore   = PVSearch.PVScore;
-
-            // try to increase the time budget if the score from the previous
-            // turn seems to be significantly different from the current one
-            //TimeMan.TryIncreaseTimeBudget();
 
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we
@@ -179,10 +175,7 @@ internal static class PVSControl {
             Game.PreviousScore = PVSearch.PVScore;
 
         // bench needs the node count
-        if (bench) {
-            Bench.Nodes   += TotalNodes;
-            Bench.Finished = true;
-        }
+        if (bench) Bench.Nodes += TotalNodes;
         
         sw.Stop();
         
@@ -194,6 +187,8 @@ internal static class PVSControl {
         PVChanges  = 0;
         PrevScore  = 0;
         ScoreDiffs = 0;
+
+        if (bench) Bench.Finished = true;
     }
 
     private static void GetResult() {
@@ -269,7 +264,7 @@ internal static class PVSControl {
                       "pv";
 
         // print the actual moves in the pv
-        info = ElongatePV().Aggregate(info, 
+        info = ElongatePV(PVSearch.PV).Aggregate(info,
             (current, move) => current + $" {move.ToLAN()}");
 
         // as per the convention, the engine's response
@@ -277,19 +272,23 @@ internal static class PVSControl {
         UCI.Log(info);
     }
     
-    // TODO - REMOVE 3FOLD REPETTITION FROM TT
     // try to find the pv outside the stored array
-    private static IEnumerable<Move> ElongatePV() {
-        Board board = Game.Board.Clone();
+    internal static IEnumerable<Move> ElongatePV(Move[] pv) {
+        Board       board  = Game.Board.Clone();
+        List<ulong> remove = [];
 
         // play along the principal variation.
         // the correct position is needed for correct tt lookups
-        foreach (Move move in PVSearch.PV) {
+        foreach (Move move in pv) {
             yield return move;
             board.PlayMove(move, false);
+            
+            remove.Add(board.Hash);
+            if (ThreeFold.AddAndCheck(board.Hash))
+                goto clearThreeFold;
         }
             
-        int depth = PVSearch.PV.Length;
+        int depth = pv.Length;
 
         // try going deeper through the transposition table
         while (TT.TryGetBestMove(board.Hash, out Move ttMove, out _, out _, out _)) {
@@ -297,10 +296,23 @@ internal static class PVSControl {
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable
             if (depth++ > PVSearch.CurIterDepth)
-                yield break;
+                goto clearThreeFold;
                 
             yield return ttMove;
             board.PlayMove(ttMove, false);
+            
+            // picking up moves from TT sometimes creates infinite loops, that would
+            // actually end in a draw. ThreeFold is used here to make sure the PV is
+            // actually legal, so if a draw is encountered, the PV is ended. we must
+            // make sure to actually remove the hashes from ThreeFold, too.
+            remove.Add(board.Hash);
+            if (ThreeFold.AddAndCheck(board.Hash))
+                goto clearThreeFold;
         }
+        
+        // clear the threefold for next search iteration
+        clearThreeFold:
+        foreach (var hash in remove)
+            ThreeFold.Remove(hash);
     }
 }

@@ -29,7 +29,7 @@ internal static class QSearch {
             return 0;
 
         // increment the node counter
-        PVSControl.TotalNodes++; PVSearch.CurNodes++;
+        PVSearch.CurNodes++;
 
         // this stores the highest achieved search depth in this
         // iteration. if we surpassed it, store it as the new one
@@ -95,7 +95,7 @@ internal static class QSearch {
                         ? standPat + delta <= window.Alpha
                         : standPat - delta >= window.Beta) {
                     
-                    PVSControl.TotalNodes++; PVSearch.CurNodes++;
+                    PVSearch.CurNodes++;
                     continue;
                 }
             }
