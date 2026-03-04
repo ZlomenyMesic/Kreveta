@@ -74,6 +74,14 @@ internal static partial class Options {
             Type         = OpType.CHECK,
             DefaultValue = Default.DPrintStats,
             Value        = Default.DPrintStats
+        },
+        
+        // play worst moves
+        new() {
+            Name         = nameof(PlayWorst),
+            Type         = OpType.CHECK,
+            DefaultValue = Default.DPlayWorst,
+            Value        = Default.DPlayWorst
         }
     ];
 
@@ -86,6 +94,7 @@ internal static partial class Options {
     internal static long   PolyglotRisk    => (long)  options[2].Value;
     internal static long   Hash            => (long)  options[3].Value;
     internal static bool   PrintStats      => (bool)  options[4].Value;
+    internal static bool   PlayWorst       => (bool)  options[5].Value;
 
     // used to print the option types when 'uci' is entered
     private static string GetName(this OpType type)

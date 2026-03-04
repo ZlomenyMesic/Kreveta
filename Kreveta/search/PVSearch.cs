@@ -11,6 +11,7 @@ using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
+using Kreveta.uci.options;
 
 using System;
 using System.Linq;
@@ -54,7 +55,7 @@ internal static class PVSearch {
     
     internal static bool Abort 
         => UCI.ShouldAbortSearch
-           || PVSControl.sw.ElapsedMilliseconds >= AbortTimeThreshold;
+           || PVSControl.Stopwatch.ElapsedMilliseconds >= AbortTimeThreshold;
 
     // increase the depth and do a re-search
     internal static void SearchDeeper(Window aspiration) {
@@ -316,6 +317,8 @@ internal static class PVSearch {
         // we play a null move (only switching sides), and then perform a reduced search with
         // a null window around beta. if the returned score fails high, we expect that not
         // skipping our move would "fail even higher", and thus can prune this node
+        int nmpEvalMargin = 3 * ss.Depth + (parentImproving ? 5 : 0);
+        
         if (ss.Ply >= MinNMPPly       // minimum ply for nmp
             && !inCheck               // don't prune when in check
             && board.GamePhase() > 25 // don't prune in absolute endgames
@@ -323,8 +326,8 @@ internal static class PVSearch {
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
             && (col == Color.WHITE
-                ? staticEval >= ss.Window.Beta  - 3 * ss.Depth
-                : staticEval <= ss.Window.Alpha + 3 * ss.Depth)) {
+                ? staticEval >= ss.Window.Beta  - nmpEvalMargin
+                : staticEval <= ss.Window.Alpha + nmpEvalMargin)) {
             
             // null window around beta
             Window nullWindowBeta = col == Color.WHITE 
@@ -416,15 +419,6 @@ internal static class PVSearch {
         int skipQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
             + (inCheck      || !allNode        ? 1000 : 0)
             + (ttOptimistic || parentImproving ? 5    : 0);
-
-        // X. COUNTER-BALANCE REDUCTIONS/EXTENSIONS
-        // if the node seems to have potential, but has been reduced a lot, this reduction is countered
-        // by extending the node. the other way it works too, if a node is terrible, but hasn't been
-        // reduced nearly enough, it is fixed here
-        /*if (pvNode && inCheck && ss.PriorReductions >= 4 + ss.Ply / 3) {
-            ss.PriorReductions--;
-            ss.Depth++;
-        }*/
         
         // was moveorder score assigning already performed?
         bool       scoresAssigned = false;
@@ -652,9 +646,12 @@ internal static class PVSearch {
             // 10. OTHER REDUCTIONS/EXTENSIONS
             // the search depth of the current move is lowered or raised
             // based on how interesting or important the move seems to be
-            reduction +=   (rootNode && expandedNodes >= 5         ? 1 : 0)  // first few root moves are extended
-                         + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
-                         - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
+            bool lateRootMove = rootNode && expandedNodes >= 
+                4 + PVSControl.LastInstability / 2 + Math.Max(3 - CurIterDepth, 0);
+            
+            reduction += (lateRootMove                           ? 1 : 0)  // first few root moves are extended
+                       + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
+                       - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
             // apply the reduction, make sure we don't extend more than one ply
             reduction = Math.Max(reduction, 0);
@@ -728,11 +725,15 @@ internal static class PVSearch {
             fullSearch = pvNode
                 ? ProbeTT<PVNode>(   ref child, newSS, ignore3Fold, cutNode: false)
                 : ProbeTT<NonPVNode>(ref child, newSS, ignore3Fold, cutNode: !cutNode);
+            
+            if (rootNode) {
+                if (Options.PlayWorst) fullSearch.Score *= -1;
 
-            // once search iterations start taking a bit longer, print intermediate
-            // results for each move: 'info ... currmove x ...'
-            if (rootNode && PVSControl.TotalNodes >= 5_000_000)
-                PrintCurrMoveInfo(col, fullSearch.Score, ss.Window, curDepth, curMove, expandedNodes, fullSearch.PV);
+                // once search iterations start taking a bit longer, print intermediate
+                // results for each move: 'info ... currmove x ...'
+                if (PVSControl.TotalNodes >= 5_000_000 && !Abort)
+                    PrintCurrMoveInfo(col, fullSearch.Score, ss.Window, curDepth, curMove, expandedNodes, fullSearch.PV);
+            }
             
             // if the position turned out to be a draw earlier, the search
             // and all pruning is skipped to this point, where we do some

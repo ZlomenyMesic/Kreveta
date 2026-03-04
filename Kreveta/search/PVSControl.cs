@@ -37,12 +37,13 @@ internal static class PVSControl {
     private static float PVChanges;
     private static float ScoreDiffs;
     private static int   PrevScore;
+    internal static float LastInstability;
 
     // -1 = aspiration window search failed low
     //  1 = failed high
     private static int AspirationFail;
 
-    internal static Stopwatch sw = null!;
+    internal static Stopwatch Stopwatch = null!;
 
     internal static void StartSearch(int depth = DefaultMaxDepth, bool bench = false) {
         CurMaxDepth = depth;
@@ -56,8 +57,9 @@ internal static class PVSControl {
     // previoud iterations are stored in the tt, killers, and history, which
     // makes new iterations not take too much time.
     private static void IterativeDeepeningLoop(bool bench = false) {
-        PrevElapsed = 0L;
-        sw = Stopwatch.StartNew();
+        PrevElapsed     = 0L;
+        Stopwatch       = Stopwatch.StartNew();
+        LastInstability = 0L;
             
         // we have to call tt clear here, because the user
         // might have changed the hash size settings, so we
@@ -70,7 +72,7 @@ internal static class PVSControl {
 
         // we still have time and are allowed to search deeper
         while (PVSearch.CurIterDepth < CurMaxDepth 
-               && sw.ElapsedMilliseconds < TimeMan.TimeBudget) {
+               && Stopwatch.ElapsedMilliseconds < TimeMan.TimeBudget) {
 
             PVSearch.NextBestMove = default;
 
@@ -91,6 +93,7 @@ internal static class PVSControl {
             // it starts negative, as when the search is stable, the time budget
             // and aspiration window deltas have to be reduced
             float totalInstability = -6f + scoreInstability + pvInstability;
+            LastInstability        = totalInstability;
             
             // try to reduce or increase the time budget based on instability
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
@@ -119,7 +122,7 @@ internal static class PVSControl {
             if (PVSearch.Abort)
                 break;
                 
-            CurElapsed     = sw.ElapsedMilliseconds - PrevElapsed;
+            CurElapsed     = Stopwatch.ElapsedMilliseconds - PrevElapsed;
             AspirationFail = 0;
 
             // aspiration window search failed low
@@ -132,7 +135,7 @@ internal static class PVSControl {
 
             if (AspirationFail != 0) {
                 PrevScore = PVSearch.PVScore;
-                PrevElapsed = sw.ElapsedMilliseconds;
+                PrevElapsed = Stopwatch.ElapsedMilliseconds;
 
                 continue;
             }
@@ -149,15 +152,15 @@ internal static class PVSControl {
             if (Game.FullGame && Score.IsMate(PVSearch.PVScore))
                 break;
             
-            PrevElapsed = sw.ElapsedMilliseconds;
+            PrevElapsed = Stopwatch.ElapsedMilliseconds;
         }
        
-        long time = sw.ElapsedMilliseconds == 0 ? 1 : sw.ElapsedMilliseconds;
+        long time = Stopwatch.ElapsedMilliseconds == 0 ? 1 : Stopwatch.ElapsedMilliseconds;
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false,
             ("Nodes Searched", TotalNodes),
-            ("Time Spent",     sw.Elapsed),
+            ("Time Spent",     Stopwatch.Elapsed),
             ("Average NPS",    (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),
             ("TT Hits",        TT.TTHits)
         );
@@ -177,7 +180,7 @@ internal static class PVSControl {
         // bench needs the node count
         if (bench) Bench.Nodes += TotalNodes;
         
-        sw.Stop();
+        Stopwatch.Stop();
         
         // reset all counters for the next search
         // (not the next iteration of the current one)
@@ -251,7 +254,7 @@ internal static class PVSControl {
                       $"nps {nps} " +
 
                       // total time spent so far
-                      $"time {sw.ElapsedMilliseconds} " +
+                      $"time {Stopwatch.ElapsedMilliseconds} " +
 
                       // how full is the hash table (permill)
                       $"hashfull {TT.Hashfull} " +
@@ -273,7 +276,7 @@ internal static class PVSControl {
     }
     
     // try to find the pv outside the stored array
-    internal static IEnumerable<Move> ElongatePV(Move[] pv) {
+    private static IEnumerable<Move> ElongatePV(Move[] pv) {
         Board       board  = Game.Board.Clone();
         List<ulong> remove = [];
 

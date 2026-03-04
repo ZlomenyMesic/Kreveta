@@ -21,10 +21,10 @@ internal static class Eval {
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    internal static int DoubledPawnMalus  = -33;
-    internal static int IsolatedPawnMalus = -149;
-    internal static int PassedPawnBonus   = 78;
-    internal static int BlockedPawnMalus  = -65;
+    private const int DoubledPawnMalus  = -33;
+    private const int IsolatedPawnMalus = -149;
+    private const int PassedPawnBonus   = 78;
+    private const int BlockedPawnMalus  = -65;
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 

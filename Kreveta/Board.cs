@@ -487,7 +487,7 @@ internal struct Board {
             
             EnPassantSq   = 64,
             CastRights    = CastRights.ALL,
-            SideToMove         = Color.WHITE,
+            SideToMove    = Color.WHITE,
             HalfMoveClock = 0,
             
             Pieces = {
