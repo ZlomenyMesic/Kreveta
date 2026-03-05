@@ -26,6 +26,9 @@ using System.IO;
 using System.Threading;
 using Kreveta.moveorder.history;
 
+using System.Text;
+// ReSharper disable StackAllocInsideLoop
+
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
@@ -70,7 +73,7 @@ internal static partial class UCI {
             ReadOnlySpan<string> tokens = input.Split(' ');
 
             // the first token is obviously the command itself
-            switch (tokens[0]) {
+            switch (tokens[0].ToLower(null)) {
                 
                 // the GUI sends the "ucinewgame" command to inform the engine
                 // that it will be playing a whole game, instead of just maybe
@@ -156,6 +159,12 @@ internal static partial class UCI {
                 // nicely print the static eval of the position
                 case "eval": {
                     Eval.PrintAnalysis(in Game.Board);
+                    break;
+                }
+
+                // print all legal moves
+                case "moves": {
+                    PrintLegalMoves();
                     break;
                 }
                 
@@ -335,6 +344,36 @@ internal static partial class UCI {
         ShouldAbortSearch = false;
         
         PVSearch.Reset();
+    }
+
+    // on command 'moves' all legal moves are printed, sorted by piece
+    private static void PrintLegalMoves() {
+        Span<Move> legal  = stackalloc Move[Consts.MoveBufferSize];
+        int        count  = Movegen.GetLegalMoves(ref Game.Board, legal);
+        var        output = new StringBuilder();
+
+        output.Append($"\nTotal legal moves: {count}\n");
+
+        // sort the moves by piece
+        for (int i = 0; i < 6; i++) {
+#pragma warning disable CS8509
+            output.Append(i switch {
+                0 => "\nPawns:  ",
+                1 => "\nKnights:",
+                2 => "\nBishops:",
+                3 => "\nRooks:  ",
+                4 => "\nQueens: ",
+                5 => "\nKing:   "
+            });
+#pragma warning restore CS8509
+            
+            // add only the moves that are this piece
+            for (int j = 0; j < count; j++)
+                if (legal[j].Piece == (PType)i)
+                    output.Append($" {legal[j].ToLAN()}");
+        }
+        
+        Log($"{output}\n");
     }
 }
     
