@@ -34,9 +34,9 @@ internal static class PVSControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    private static float PVChanges;
-    private static float ScoreDiffs;
-    private static int   PrevScore;
+    private static float  PVChanges;
+    private static float  ScoreDiffs;
+    private static int    PrevScore;
     internal static float LastInstability;
 
     // -1 = aspiration window search failed low
@@ -99,7 +99,7 @@ internal static class PVSControl {
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
                 TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            if (PVSearch.CurIterDepth > 3 && totalInstability <= -3f) { 
+            if (PVSearch.CurIterDepth > 3 && totalInstability <= -5f) { 
                 int delta = 35 - (int)totalInstability;
                 delta     = Math.Clamp(delta, -1000, 1000);
 
@@ -134,7 +134,7 @@ internal static class PVSControl {
                 AspirationFail = 1;
 
             if (AspirationFail != 0) {
-                PrevScore = PVSearch.PVScore;
+                PrevScore   = PVSearch.PVScore;
                 PrevElapsed = Stopwatch.ElapsedMilliseconds;
 
                 continue;
@@ -153,6 +153,14 @@ internal static class PVSControl {
                 break;
             
             PrevElapsed = Stopwatch.ElapsedMilliseconds;
+        }
+
+        // fastchess wants us to print last info when force-stopping a search
+        if (PVSearch.Abort) {
+            if (PVSearch.PVScore == 0)
+                PVSearch.PVScore = (short)PrevScore;
+            
+            GetResult();
         }
        
         long time = Stopwatch.ElapsedMilliseconds == 0 ? 1 : Stopwatch.ElapsedMilliseconds;
@@ -197,9 +205,12 @@ internal static class PVSControl {
     private static void GetResult() {
 
         // save the first pv node as the current best move
-        if (BestMove != default && BestMove != PVSearch.PV[0])
+        if (BestMove != default && PVSearch.PV.Length != 0 && BestMove != PVSearch.PV[0])
             PVChanges++;
-        BestMove = PVSearch.PV[0];
+        
+        // PV becomes unreliable when aborting the search
+        if (!PVSearch.Abort && PVSearch.PV.Length != 0)
+            BestMove = PVSearch.PV[0];
         
         // check if we expect the opponent to capture one of
         // our pieces, and have an immediate obvious recapture
@@ -267,8 +278,10 @@ internal static class PVSControl {
                       "pv";
 
         // print the actual moves in the pv
-        info = ElongatePV(PVSearch.PV).Aggregate(info,
-            (current, move) => current + $" {move.ToLAN()}");
+        if (!PVSearch.Abort)
+            info = ElongatePV(PVSearch.PV).Aggregate(info,
+                (current, move) => current + $" {move.ToLAN()}");
+        else info += $" {BestMove.ToLAN()}";
 
         // as per the convention, the engine's response
         // must be terminated by a newline character
@@ -279,7 +292,7 @@ internal static class PVSControl {
     private static IEnumerable<Move> ElongatePV(Move[] pv) {
         Board       board  = Game.Board.Clone();
         List<ulong> remove = [];
-
+        
         // play along the principal variation.
         // the correct position is needed for correct tt lookups
         foreach (Move move in pv) {
@@ -301,7 +314,6 @@ internal static class PVSControl {
             if (depth++ > PVSearch.CurIterDepth)
                 goto clearThreeFold;
                 
-            yield return ttMove;
             board.PlayMove(ttMove, false);
             
             // picking up moves from TT sometimes creates infinite loops, that would
@@ -311,6 +323,8 @@ internal static class PVSControl {
             remove.Add(board.Hash);
             if (ThreeFold.AddAndCheck(board.Hash))
                 goto clearThreeFold;
+            
+            yield return ttMove;
         }
         
         // clear the threefold for next search iteration
