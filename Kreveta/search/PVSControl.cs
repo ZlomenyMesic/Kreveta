@@ -99,7 +99,7 @@ internal static class PVSControl {
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
                 TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            if (PVSearch.CurIterDepth > 3 && totalInstability <= -5f) { 
+            if (PVSearch.CurIterDepth > 8 && totalInstability <= -3.5f) {
                 int delta = 35 - (int)totalInstability;
                 delta     = Math.Clamp(delta, -1000, 1000);
 

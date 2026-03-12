@@ -29,7 +29,7 @@ namespace Kreveta;
 
 // can be neither readonly nor record
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct Board {
+internal unsafe struct Board {
 
     // all pieces are stored in so-called bitboards. each piece-color combination
     // has its own bitboard, where ones represent the individual pieces. movegen
@@ -99,11 +99,28 @@ internal struct Board {
         // we shouldn't ever get here
         return PType.NONE;
     }
+
+    // does this side have any pieces except pawns and the king?
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Pure] internal bool HasNonPawnMaterial(Color col)
+        => ((col == Color.WHITE ? WOccupied : BOccupied) 
+            ^ (Pieces[(int)col * 6] | Pieces[5 + (int)col * 6])) != 0UL;
     
     // performs a move on the board
     internal void PlayMove(Move move, bool updateStaticEval) {
+        
+        // the zobrist hash is not recomputed each move. since the changes
+        // are small, all differences are applied directly in this method
+        Hash ^= EnPassantSq != 64 ? ZobristHash.EnPassant[EnPassantSq & 7] : 0UL;
+        Hash ^=                     ZobristHash.WhiteToMove;
+        Hash ^=                     ZobristHash.Castling[(int)CastRights];
+        
+        // save time by storing piece hashes like this
+        ReadOnlySpan<ulong> pieceHashes = ZobristHash.Pieces;
+        int hashColStride = SideToMove == Color.WHITE ? 6 : 0;
+        
         EnPassantSq = 64;
-        SideToMove = SideToMove == Color.WHITE
+        SideToMove  = SideToMove == Color.WHITE
             ? Color.BLACK
             : Color.WHITE;
 
@@ -129,6 +146,9 @@ internal struct Board {
         PType piece = move.Piece;
         PType capt  = move.Capture;
 
+        // remove starting piece from hash
+        Hash ^= pieceHashes[start8 * 12 + (int)piece + hashColStride];
+
         // reset the half move clock
         if (piece == PType.PAWN || capt != PType.NONE)
             HalfMoveClock = 0;
@@ -145,6 +165,10 @@ internal struct Board {
             // xor the captured pawn and move our pawn
             Pieces[(byte)colOpp * 6] ^= captureSq;
             Pieces[(byte)col    * 6] ^= start | end;
+
+            // remove the captured piece and add the new pawn
+            Hash ^= pieceHashes[BB.LS1B(captureSq) * 12 + 6 - hashColStride];
+            Hash ^= pieceHashes[end8               * 12     + hashColStride];
 
             if (col == Color.WHITE) {
                 WOccupied ^= start | end;
@@ -167,39 +191,51 @@ internal struct Board {
                 _ => 0UL
             };
 
-            // king
+            // king and rook
             Pieces[(byte)col * 6 + (byte)PType.KING] ^= start | end;
-
-            // rook
             Pieces[(byte)col * 6 + (byte)PType.ROOK] ^= rook;
 
             if (col == Color.WHITE) WOccupied ^= rook | start | end;
             else                    BOccupied ^= rook | start | end;
+            
+            Hash ^= pieceHashes[end8 * 12 + 5 + hashColStride];
+            
+            // the rook must be both removed and added, thus we need to reset the first bit
+            Hash ^= pieceHashes[BB.LS1BReset(ref rook) * 12 + 3 + hashColStride];
+            Hash ^= pieceHashes[BB.LS1B(rook)          * 12 + 3 + hashColStride];
         }
 
-        // promotion
+        // regular promotion
         else if (prom != PType.NONE) {
             Pieces[(byte)col * 6 + (byte)piece] ^= start;
             Pieces[(byte)col * 6 + (byte)prom]  ^= end;
 
             if (col == Color.WHITE) WOccupied ^= start | end;
             else                    BOccupied ^= start | end;
+
+            // promotion piece is handled separately
+            Hash ^= pieceHashes[end8 * 12 + (int)prom + hashColStride];
         }
 
         // regular move
         else {
             Pieces[(byte)col * 6 + (byte)piece] ^= start | end;
+            Hash ^= pieceHashes[end8 * 12 + (int)piece + hashColStride];
 
             // if we double pushed a pawn, set the en passant square
             if (piece == PType.PAWN && (col == Color.WHITE
-                ? start >> 16 == end
-                : start << 16 == end))
+                    ? start >> 16 == end
+                    : start << 16 == end)) {
 
                 // en passant square is the square over which the
                 // pawn has double pushed, not the capture square
                 EnPassantSq = BB.LS1B(col == Color.WHITE
                     ? start >> 8
                     : start << 8);
+
+                // hash the new en passant square
+                Hash ^= ZobristHash.EnPassant[EnPassantSq & 7];
+            }
 
             if (col == Color.WHITE) WOccupied ^= start | end;
             else                    BOccupied ^= start | end;
@@ -208,12 +244,14 @@ internal struct Board {
         // capture
         if (capt != PType.NONE) {
             Pieces[(byte)colOpp * 6 + (byte)capt] ^= end;
+            Hash ^= pieceHashes[end8 * 12 + (int)capt + 6 - hashColStride];
 
             if (col == Color.WHITE) BOccupied ^= end;
             else                    WOccupied ^= end;
         }
 
         if (CastRights != CastRights.NONE && piece == PType.KING) {
+            
             // remove castling rights after a king moves
             CastRights &= (CastRights)(col == Color.WHITE
                 ? 0xC   // all except KQ
@@ -246,9 +284,10 @@ internal struct Board {
             // remove castling rights after a rook moves
             CastRights &= (CastRights)mask;
         }
+
+        Hash ^= ZobristHash.Castling[(int)CastRights];
         
         // these things are used in Perft as well, so no harm is done
-        Hash    = ZobristHash.Hash(in this);
         IsCheck = Check.IsKingChecked(in this, colOpp);
         
         // in some cases, such as Perft, the static eval is useless, and
@@ -507,7 +546,7 @@ internal struct Board {
             }
         };
         
-        board.Hash       = ZobristHash.Hash(in board);
+        board.Hash       = ZobristHash.GetHash(in board);
         board.IsCheck    = Check.IsKingChecked(in board, board.SideToMove);
         board.NNUEEval   = new NNUEEvaluator(in board);
         board.StaticEval = Eval.StaticEval(in board);

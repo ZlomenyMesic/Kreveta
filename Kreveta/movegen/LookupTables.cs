@@ -17,7 +17,8 @@ internal static unsafe class LookupTables {
     internal static readonly ulong* KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
     
     // when escaping check or ensuring move legality, these star shapes are used
-    internal static readonly ulong* KingStars = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+    internal static readonly ulong* KingStars   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+    internal static readonly ulong* KingSquares = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
     
     private static bool _memoryFreed;
 
@@ -27,7 +28,7 @@ internal static unsafe class LookupTables {
         InitKingTargets();
         InitKnightTargets();
 
-        InitKingStars();
+        InitKingShapes();
     }
     
     // pawn, king and knight targets don't use the occupancy as explained above. the
@@ -92,15 +93,27 @@ internal static unsafe class LookupTables {
         }
     }
 
-    private static void InitKingStars() {
+    private static void InitKingShapes() {
         for (int i = 0; i < 64; i++) {
             ulong king = 1UL << i;
             
+            // king stars represent squares from which a check may be given
             ulong knight = KnightTargets[i];
             ulong bishop = Pext.GetBishopTargets(i, ulong.MaxValue, 0UL);
             ulong rook   = Pext.GetRookTargets(i, ulong.MaxValue, 0UL);
             
             KingStars[i] = king | knight | bishop | rook;
+            
+            // king squares are simply squares close to the king, and they
+            // are used to better evaluate king safety in static evaluation
+            ulong center = KingTargets[i];
+            ulong diag   = Pext.GetBishopTargets(i, center, 0UL);
+
+            KingSquares[i] = center;
+            while (diag != 0UL) {
+                int next = BB.LS1BReset(ref diag);
+                KingSquares[i] |= KingTargets[next];
+            }
         }
     }
     

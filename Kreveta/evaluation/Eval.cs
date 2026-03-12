@@ -5,6 +5,7 @@
 
 using System;
 using Kreveta.consts;
+using Kreveta.movegen;
 using Kreveta.movegen.pieces;
 using Kreveta.uci;
 
@@ -14,7 +15,7 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
 
-internal static class Eval {
+internal static unsafe class Eval {
 
     private const int SideToMoveBonus = 6;
     private const int InCheckMalus    = -30;
@@ -51,7 +52,7 @@ internal static class Eval {
         // ideas taken from Stockfish. if the position is close to 50 move
         // draw, or the evaluation might be vague, eval is pulled toward zero
         combined -= combined * board.HalfMoveClock      / 199;
-        combined -= combined * Math.Abs(nnue - classic) / 18_236;
+        combined -= combined * Math.Abs(nnue - classic) / 64_000;
 
         return (short)combined;
     }
@@ -97,7 +98,9 @@ internal static class Eval {
                          - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
 
         eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
-        eval += KingEval(pieces, wOccupied, bOccupied);
+        eval += KingEval(pieces, wOccupied, bOccupied,
+            pieces[3] | pieces[4],
+            pieces[9] | pieces[10]);
 
         // side to move should also get a slight advantage
         eval += (short)(board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
@@ -143,7 +146,7 @@ internal static class Eval {
 
     // king safety evaluation
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval(ReadOnlySpan<ulong> pieces, ulong wOccupied, ulong bOccupied) {
+    private static short KingEval(ReadOnlySpan<ulong> pieces, ulong wOccupied, ulong bOccupied, ulong wMajor, ulong bMajor) {
         int  eval  = 0;
         byte wKing = BB.LS1B(pieces[5]);
         byte bKing = BB.LS1B(pieces[11]);
@@ -162,6 +165,10 @@ internal static class Eval {
         eval -= (int)ulong.PopCount(wEvil)       * 4;
         eval += (int)ulong.PopCount(bEvil)       * 4;
 
+        // further maluses for enemy major pieces in proximity
+        /*eval -= (int)ulong.PopCount(LookupTables.KingSquares[wKing] & bMajor) * 2;
+        eval += (int)ulong.PopCount(LookupTables.KingSquares[bKing] & wMajor) * 2;*/
+        
         return (short)eval;
     }
 
@@ -214,7 +221,7 @@ internal static class Eval {
                      - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
 
         // king safety evaluation
-        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
+        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied, board.Pieces[3] | board.Pieces[4], board.Pieces[9] | board.Pieces[10])
                     + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
 
         // and combined this makes the classical part of evaluation

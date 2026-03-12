@@ -197,7 +197,7 @@ internal static class Game {
         Board.NNUEEval   = new NNUEEvaluator(in Board);
         Board.StaticEval = Eval.StaticEval(in Board);
         Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);
-        Board.Hash       = ZobristHash.Hash(in Board);
+        Board.Hash       = ZobristHash.GetHash(in Board);
 
         // the fen string can be followed by a sequence of moves, which have
         // been played from the position. for example, most GUIs would pass

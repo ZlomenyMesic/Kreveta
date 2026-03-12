@@ -8,10 +8,19 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.moveorder.history.corrections;
 
+// correction histories map differences between static evaluations and search
+// scores of positions. the inconsistencies are mapped to certain patterns on
+// the board, and when a different position with same patterns appears in the
+// future, its evaluation may be corrected.
+//
+// here we use 4 correction histories. pawn corrections map pawn structure, and
+// are generally the most reliable correction type. minor and major pieces are
+// also mapped. king corrections work quite good as well, but instead of mapping
+// patterns, they just generally measure where evaluation is heading.
 internal static class Corrections {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Update(in Board board, short score, int depth) {
-        if (depth <= 2) return;
+        if (depth <= 0) return;
         
         // get the static eval of the current position and the
         // absolute difference between it and the search score
@@ -19,7 +28,7 @@ internal static class Corrections {
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference
-        short shift = (short)Math.Clamp(diff * (depth - 2) / 256, -12, 12);
+        short shift = (short)Math.Clamp(diff * depth / 300, -15, 15);
 
         // don't bother wasting time with a zero shift
         if (shift == 0) return;
@@ -32,6 +41,8 @@ internal static class Corrections {
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static short Get(in Board board) {
+        
+        // these weights show, which corrections are most reliable
         int pawn  = 73 * PawnCorrections.Get(in board);
         int king  =  6 * KingCorrections.Get(in board);
         int minor = 12 * MinorPieceCorrections.Get(in board);

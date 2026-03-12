@@ -23,19 +23,18 @@ namespace Kreveta.search.transpositions;
 internal static unsafe class ZobristHash {
 
     // every square-piece combination
-    private static readonly ulong[] Pieces = new ulong[64 * 12];
+    internal static readonly ulong[] Pieces = new ulong[64 * 12];
 
     // possible files of en passant square
-    private static readonly ulong* EnPassant
+    internal static readonly ulong* EnPassant
         = (ulong*)NativeMemory.AlignedAlloc(8 * sizeof(ulong), 64);
 
     // all possible combinations of castling rights
-    private static readonly ulong* Castling
+    internal static readonly ulong* Castling
         = (ulong*)NativeMemory.AlignedAlloc(16 * sizeof(ulong), 64);
 
-    // white x black to play
-    private static ulong WhiteToMove;
-    private static ulong BlackToMove;
+    // side to move
+    internal static ulong WhiteToMove;
 
     // this seed was taken from MinimalChess, and works very well.
     // might try to find a better one in the future, though
@@ -52,16 +51,14 @@ internal static unsafe class ZobristHash {
             EnPassant[file] = NextUInt64(rand);
 
         WhiteToMove = NextUInt64(rand);
-        BlackToMove = NextUInt64(rand);
 
         for (int i = 0; i < 16; i++)
             Castling[i] = NextUInt64(rand);
     }
 
-    internal static ulong Hash(in Board board) {
+    internal static ulong GetHash(in Board board) {
         ulong hash = board.SideToMove == Color.WHITE
-            ? WhiteToMove
-            : BlackToMove;
+            ? WhiteToMove : 0UL;
 
         hash ^= Castling[(byte)board.CastRights];
 
@@ -73,7 +70,6 @@ internal static unsafe class ZobristHash {
         
         // this is used to minimize array bound checks
         for (byte i = 0; i < 6; i++) {
-                
             ulong wCopy = boardPieces[i];
             ulong bCopy = boardPieces[6 + i];
 
@@ -93,9 +89,13 @@ internal static unsafe class ZobristHash {
         return hash;
     }
 
+    // the following methods only hash a certain piece type or more piece types
+    // on the board. they work the same way as the default zobrist hash, but don't
+    // hash the whole board. this is used in correction histories, where specific
+    // patterns of the board are matched with evaluation inconsistencies.
     internal static ulong GetPawnHash(in Board board, Color col) {
         ulong hash = 0UL;
-        ulong copy = board.Pieces[(byte)col * 6 /* + PType.PAWN */];
+        ulong copy = board.Pieces[(byte)col * 6];
         
         // since we only hash pawns, we don't need to include the piece
         // type at all, because pawns are 0. we only want the color stride
@@ -105,12 +105,13 @@ internal static unsafe class ZobristHash {
 
         while (copy != 0UL) {
             int sq = BB.LS1BReset(ref copy);
-            hash ^= pieceHashes[sq * 12 + colStride];
+            hash  ^= pieceHashes[sq * 12 + colStride];
         }
 
         return hash;
     }
     
+    // only hash knights and bishops
     internal static ulong GetMinorPieceHash(in Board board, Color col) {
         ulong hash      = 0UL;
         ulong knights   = board.Pieces[(byte)col * 6 + 1];
@@ -121,17 +122,18 @@ internal static unsafe class ZobristHash {
 
         while (knights != 0UL) {
             int sq = BB.LS1BReset(ref knights);
-            hash ^= pieceHashes[sq * 12 + colStride + 1];
+            hash  ^= pieceHashes[sq * 12 + colStride + 1];
         }
         
         while (bishops != 0UL) {
             int sq = BB.LS1BReset(ref bishops);
-            hash ^= pieceHashes[sq * 12 + colStride + 2];
+            hash  ^= pieceHashes[sq * 12 + colStride + 2];
         }
 
         return hash;
     }
     
+    // only hash rooks and queens
     internal static ulong GetMajorPieceHash(in Board board, Color col) {
         ulong hash      = 0UL;
         ulong rooks     = board.Pieces[(byte)col * 6 + 3];
@@ -142,12 +144,12 @@ internal static unsafe class ZobristHash {
 
         while (rooks != 0UL) {
             int sq = BB.LS1BReset(ref rooks);
-            hash ^= pieceHashes[sq * 12 + colStride + 3];
+            hash  ^= pieceHashes[sq * 12 + colStride + 3];
         }
         
         while (queens != 0UL) {
             int sq = BB.LS1BReset(ref queens);
-            hash ^= pieceHashes[sq * 12 + colStride + 4];
+            hash  ^= pieceHashes[sq * 12 + colStride + 4];
         }
 
         return hash;
