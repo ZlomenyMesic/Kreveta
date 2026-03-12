@@ -26,16 +26,15 @@ Development started on **March 3, 2025**.
 
 ### Elo Ratings
 
-| Site    | Time Control | Release | Rating | Games |
-|---------|--------------|---------|--------|-------|
-| CCRL    | Blitz 2+1    | 1.2.3   | 1738   | 934   |
-| CCRL    | Blitz 2+1    | 2.0.0   | 1946   | 939   |
-| CCRL    | Blitz 2+1    | 2.2.2   | 2181   | 416   |
-| ...     | ...          | ...     | ...    | ...   |
-| Lichess | Bullet       | INDEV   | 2166   | 950   |
-| Lichess | Blitz        | INDEV   | 2220   | 644   |
-| Lichess | Rapid        | INDEV   | 2220   | 260   |
-| Lichess | Classical    | INDEV   | 2182   | 73    |
+Kreveta has been tested and rated on numerous sites using various time controls.
+
+| Site                                                                                                          | Time Control                   | Tested Releases     |
+|---------------------------------------------------------------------------------------------------------------|--------------------------------|---------------------|
+| [Lichess](https://lichess.org/@/ZlomenyMesic)                                                                 | Bullet, Blitz, Rapid, Classical | all                 |
+| [CCRL](https://www.computerchess.org.uk/ccrl/404/cgi/compare_engines.cgi?family=Kreveta)                      | Blitz 2+1                      | 1.2.3, 2.0.0, 2.2.2 |
+| [CCI](https://github.com/computer-chess-index/cci/blob/main/engines/Kreveta.md)                               | STC, LTC, VLTC                 | 1.2.4+              |
+| [CEDR](https://chessengines.blogspot.com/search?q=kreveta)                                                    | Unknown                        | 2.0.0+              |
+| [CCRAT](https://docs.google.com/spreadsheets/d/1AgE6EJw3JRBI6M4_TrdaWZcQjZy8DYqRYq71mAjNLsI/edit?gid=0#gid=0) | 80+1s                          | 1.2.3               |
 
 ---
 

@@ -18,9 +18,6 @@ internal static class LazyMoveOrder {
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
     
-    // [119, 856, 105, 100, 100, 90, -97, -209, 277, 156, 82, 3098, 1652, 100, 115, 284, 200]
-    // [118, 835, 103, 94, 102, 93, -83, -211, 279, 154, 78, 3102, 1648, 99, 109, 285, 199]
-    
     internal static void AssignScores(in Board board, int ply, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
         Color col         = board.SideToMove;
         bool  isEarlyGame = board.GamePhase() > 118;
