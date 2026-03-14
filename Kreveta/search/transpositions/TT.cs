@@ -189,7 +189,7 @@ internal static unsafe partial class TT {
         Table[index + overwriteIndex] = entry;
     }
 
-    internal static bool TryGetBestMove(ulong hash, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
+    internal static bool TryGetBestMove(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
         ttMove  = default;
         ttScore = 0;
         ttFlags = default;
@@ -216,15 +216,17 @@ internal static unsafe partial class TT {
         ttScore = entry.Score;
         ttFlags = entry.Flags;
         ttDepth = entry.Depth;
-
-        if (ttMove != default) {
-            TTHits++;
-            return true;
-        }
-
-        return false;
+        
+        // when retrieving the eval, we do the opposite of what is
+        // described above - we add the current ply to the "mate in X"
+        // to make it relative to the root node once again
+        if (Score.IsMate(ttScore))
+            ttScore -= (short)(Math.Sign(ttScore) * ply);
+        
+        TTHits++;
+        return true;
     }
-
+    
     internal static bool TryGetScore(ulong hash, int depth, int ply, Window window, out short score) {
         score = 0;
 

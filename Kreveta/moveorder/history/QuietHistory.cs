@@ -47,13 +47,10 @@ internal static class QuietHistory {
     internal static void Shrink() {
         Parallel.For(0, 64, i => {
             Parallel.For(0, 64, j => {
-                
-                // history reputation is straightforward
-                QuietScores[i][j] /= 2;
-                
                 // this for an unexplainable reason works
                 // out to be the best option available
-                ButterflyBoard[i][j] = Math.Min(1, ButterflyBoard[i][j]);
+                QuietScores[i][j]    /= 2;
+                ButterflyBoard[i][j] /= 3;
             });
         });
     }
@@ -67,17 +64,13 @@ internal static class QuietHistory {
     }
     
     // modify the history reputation of a move. isMoveGood tells us how
-    internal static void ChangeRep(Move move, int depth, bool isGood) {
+    internal static void ChangeRep(Move move, int weight, bool isGood) {
         int start = move.Start;
         int end   = move.End;
         
         // how much should the move affect the reputation (moves at higher depths
         // are probably more reliable, so their impact should be stronger)
-        QuietScores[start][end] += Math.Min(depth * depth - 5, 84)
-                               
-                               // we either add or subtract the shift, depending on
-                               // whether the move was good or not
-                               * (isGood ? 1 : -1);
+        QuietScores[start][end] += weight * weight * (isGood ? 1 : -1);
 
         // add the move as visited, too
         ButterflyBoard[start][end]++;
@@ -91,13 +84,10 @@ internal static class QuietHistory {
         // quiet score and butterfly score
         int q  = QuietScores[start][end];
         int bf = ButterflyBoard[start][end];
-
-        // precaution to not divide by zero
-        if (bf == 0) return 0;
         
         // and now, as already mentioned, we divide the quiet score
         // by the number of times the move has been visited to get
         // a more average score
-        return 12 * q / bf;
+        return bf == 0 ? 0 : 10 * q / bf;
     }
 }

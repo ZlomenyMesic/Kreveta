@@ -16,16 +16,16 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.evaluation;
 
 internal static unsafe class Eval {
-
+    
     private const int SideToMoveBonus = 6;
-    private const int InCheckMalus    = -30;
+    private const int InCheckMalus    = -31;
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    private const int DoubledPawnMalus  = -33;
-    private const int IsolatedPawnMalus = -149;
-    private const int PassedPawnBonus   = 78;
-    private const int BlockedPawnMalus  = -65;
+    private const int DoubledPawnMalus  = -25;
+    private const int IsolatedPawnMalus = -152;
+    private const int PassedPawnBonus   = 73;
+    private const int BlockedPawnMalus  = -67;
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
@@ -51,8 +51,8 @@ internal static unsafe class Eval {
 
         // ideas taken from Stockfish. if the position is close to 50 move
         // draw, or the evaluation might be vague, eval is pulled toward zero
-        combined -= combined * board.HalfMoveClock      / 199;
-        combined -= combined * Math.Abs(nnue - classic) / 64_000;
+        combined -= combined * board.HalfMoveClock      / 201;
+        combined -= combined * Math.Abs(nnue - classic) / 63_754;
 
         return (short)combined;
     }
@@ -95,7 +95,7 @@ internal static unsafe class Eval {
         short eval = (short)(wEval - bEval);
 
         eval += (short)((PawnEval(pieces[0], pieces[6], Color.WHITE, wOccupied)
-                         - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
+                       - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
 
         eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
         eval += KingEval(pieces, wOccupied, bOccupied,

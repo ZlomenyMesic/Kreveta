@@ -14,8 +14,8 @@ internal static class KingCorrections {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear() {
-        Array.Clear(White, 0, White.Length);
-        Array.Clear(Black, 0, Black.Length);
+        Array.Clear(White, 0, 64);
+        Array.Clear(Black, 0, 64);
     }
 
     internal static void Update(in Board board, short shift) {

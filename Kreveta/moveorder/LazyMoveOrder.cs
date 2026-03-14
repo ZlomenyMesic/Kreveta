@@ -75,7 +75,7 @@ internal static class LazyMoveOrder {
                 // SEE with additional MVV-LVA, but that didn't work at all
                 int see   = SEE.GetCaptureScore(in board, col, move);
                 int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 99 : 0;
-                int chist = CaptureHistory.GetRep(move) / 109;
+                int chist = CaptureHistory.GetRep(move) / 111;
                 
                 // once again promotions get placed higher
                 int prom = promPiece switch {

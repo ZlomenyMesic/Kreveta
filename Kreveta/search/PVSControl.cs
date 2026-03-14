@@ -80,28 +80,26 @@ internal static class PVSControl {
             bool   isAspiration = false;
             
             // these have to be aged out to allow new information to be considered
-            PVChanges  *= 0.8f;
-            ScoreDiffs *= 0.85f;
+            PVChanges  *= 0.69f;
+            ScoreDiffs *= 1.05f;
             
             // calculate the instability of the best move, and the score
-            float pvInstability    = PVChanges * PVChanges * PVChanges * 1.5f;
+            float pvInstability    = PVChanges * PVChanges * PVChanges * 1.46f;
             float scoreInstability = PVSearch.CurIterDepth != 0 
-                ? ScoreDiffs / PVSearch.CurIterDepth
-                : 0f;
+                ? ScoreDiffs / PVSearch.CurIterDepth : 0f;
 
             // somehow combine the two into a total search instability metric.
             // it starts negative, as when the search is stable, the time budget
             // and aspiration window deltas have to be reduced
-            float totalInstability = -6f + scoreInstability + pvInstability;
+            float totalInstability = -5.42f + 0.96f * scoreInstability + 0.99f * pvInstability;
             LastInstability        = totalInstability;
             
             // try to reduce or increase the time budget based on instability
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
                 TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            if (PVSearch.CurIterDepth > 8 && totalInstability <= -3.5f) {
-                int delta = 35 - (int)totalInstability;
-                delta     = Math.Clamp(delta, -1000, 1000);
+            if (PVSearch.CurIterDepth > 3 && totalInstability <= -2.49f) {
+                int delta = 38 - (int)(totalInstability * 0.97f);
 
                 aspiration = new Window(
                     alpha: (short)(PVSearch.PVScore - delta),
@@ -307,11 +305,11 @@ internal static class PVSControl {
         int depth = pv.Length;
 
         // try going deeper through the transposition table
-        while (TT.TryGetBestMove(board.Hash, out Move ttMove, out _, out _, out _)) {
+        while (TT.TryGetBestMove(board.Hash, depth, out Move ttMove, out _, out _, out _)) {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable
-            if (depth++ > PVSearch.CurIterDepth)
+            if (depth++ > PVSearch.CurIterDepth || ttMove == default)
                 goto clearThreeFold;
                 
             board.PlayMove(ttMove, false);

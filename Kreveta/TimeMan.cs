@@ -139,7 +139,7 @@ internal static class TimeMan {
         movesToGo  = Math.Max(6, movesToGo);
         
         // taking time increments in low remaining time scenarios is dangerous
-        bool lowTime = timeLeft < 3 * inc + 2 * moveOverhead;
+        bool lowTime      = timeLeft < 3 * inc + 2 * moveOverhead;
         long effectiveInc = (long)(lowTime ? 0 : inc * 0.8f);
 
         // base time per move
@@ -149,7 +149,7 @@ internal static class TimeMan {
         long budget = Math.Max(moveOverhead / 2, baseTime - moveOverhead);
 
         // cap extremely long thinks
-        budget = Math.Min(budget, (long)(timeLeft * 0.4f));
+        budget     = Math.Min(budget, (long)(timeLeft * 0.4f));
         TimeBudget = Math.Max(20, budget);
     }
     
@@ -157,19 +157,20 @@ internal static class TimeMan {
         float p = board.GamePhase() / 150f;
 
         // smooth base expected moves interpolation
-        float expected = p          * 38f  // middlegame
-                         + (1f - p) * 12f; // endgame
+        float expected = p          * 37.2f  // middlegame
+                         + (1f - p) * 11.8f; // endgame
+
+        // pawns can promote and prolong the game
+        expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
         
         // add a level of complexity into the result - positions with more
         // available legal moves are more complex, and thus searched longer
-        int moveCount = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
-        float complexityMult = 1f + (moveCount - 19) * 0.025f;
-        complexityMult = Math.Clamp(complexityMult, 0.75f, 1.35f);
-        
-        int result = (int)(expected * complexityMult);
+        int   moveCount      = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
+        float complexityMult = Math.Clamp(1.03f + (moveCount - 19.7f) * 0.022f, 0.76f, 1.34f);
+        int   result         = (int)(expected * complexityMult);
 
         // clamp to reasonable range
-        return Math.Clamp(result, 8, 45);
+        return Math.Clamp(result, 11, 45);
     }
 
     // depending on whether the position seems to be stable or unstable,
@@ -183,12 +184,12 @@ internal static class TimeMan {
         long timeLeft = Game.EngineColor == Color.WHITE
             ? _whiteTime : _blackTime;
 
-        if (timeLeft < 250) return;
+        if (timeLeft < 247) return;
 
         long bonus = (long)(instability < 0
-            ? instability * depth / 3
-            : instability * depth / 9);
+            ? instability * depth / 3.2f
+            : instability * depth / 8.9f);
 
-        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 400, 1 + timeLeft / 400);
+        TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 403, 1 + timeLeft / 397);
     }
 }

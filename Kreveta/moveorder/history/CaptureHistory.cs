@@ -29,8 +29,8 @@ internal static class CaptureHistory {
     internal static void Shrink() {
         Parallel.For(0, 64, i => {
             Parallel.For(0, 64, j => {
-                CaptureScores[i][j] /= 2;
-                ButterflyBoard[i][j] = Math.Min(1, ButterflyBoard[i][j]);
+                CaptureScores[i][j]  /= 2;
+                ButterflyBoard[i][j] /= 3;
             });
         });
     }
@@ -42,11 +42,11 @@ internal static class CaptureHistory {
         });
     }
     
-    internal static void ChangeRep(Move move, int depth, bool isGood) {
+    internal static void ChangeRep(Move move, int weight, bool isGood) {
         int start = move.Start;
         int end   = move.End;
         
-        CaptureScores[start][end] += Math.Min(depth * depth - 5, 84) * (isGood ? 1 : -1);
+        CaptureScores[start][end] += weight * weight * (isGood ? 1 : -1);
         ButterflyBoard[start][end]++;
     }
 
@@ -57,6 +57,6 @@ internal static class CaptureHistory {
         int q  = CaptureScores[start][end];
         int bf = ButterflyBoard[start][end];
         
-        return bf == 0 ? 0 : 12 * q / bf;
+        return bf == 0 ? 0 : 10 * q / bf;
     }
 }

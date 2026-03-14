@@ -38,7 +38,7 @@ internal static class EvalTables {
     }
 
     // rough estimate of piece values. used in SEE and delta pruning
-    internal static readonly short[] PieceValues = [108, 319, 330, 520, 924, 10000, -1];
+    internal static readonly short[] PieceValues = [113, 308, 346, 512, 927, 10000, -1];
 
 #region MIDDLEGAME
     private static readonly short[] Middlegame = [
