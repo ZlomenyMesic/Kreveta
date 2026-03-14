@@ -23,7 +23,8 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where there's for instancea hanging queen (horizon effect)
-    internal static short Search(ref Board board, int ply, Window window, int curQSDepth) {
+    internal static short Search(ref Board board, int ply, Window window, int curQSDepth, int prevSq) {
+        
         // exit the search if we should abort
         if (PVSearch.Abort && PVSearch.CurIterDepth > 1)
             return 0;
@@ -79,16 +80,26 @@ internal static class QSearch {
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
             
+            // MOVECOUNT PRUNING:
+            // late captures are simply skipped, unless being a recapture
+            if (!inCheck && i > 3 && ply >= PVSearch.CurIterDepth + 4 && moves[i].End != prevSq
+                && !Score.IsMate(col == Color.WHITE ? window.Alpha : window.Beta)) {
+                
+                PVSearch.CurNodes++;
+                continue;
+            }
+            
             // DELTA PRUNING:
             // very similar to futility pruning but makes use of the value of the currently
             // captured piece (or SEE score to be exact), which is added to the stand pat with
             // a margin, and if the eval still doesn't raise alpha, we prune this branch
             if (!inCheck && ply >= PVSearch.CurIterDepth + 4) {
-                int captured = (2 * seeScores[i] + EvalTables.PieceValues[(int)moves[i].Capture]) / 3;
+                int captured    = EvalTables.PieceValues[(int)moves[i].Capture];
+                int captureTerm = (2 * seeScores[i] + captured) / 3;
 
                 // the delta base is multiplied by depth, but the depth must be calculated
                 // in a bit more difficult way (maximum qsearch depth - current ply)
-                int delta = (curQSDepth - ply) * 77 + captured;
+                int delta = (curQSDepth - ply) * 77 + captureTerm;
 
                 // did we fail low?
                 if (col == Color.WHITE
@@ -104,7 +115,7 @@ internal static class QSearch {
             child.PlayMove(moves[i], true);
 
             // full search
-            short score = Search(ref child, ply + 1, window, curQSDepth);
+            short score = Search(ref child, ply + 1, window, curQSDepth, moves[i].End);
 
             // try to get a beta cutoff
             if (window.TryCutoff(score, col)) {
