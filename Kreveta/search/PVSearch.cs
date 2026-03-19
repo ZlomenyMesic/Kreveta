@@ -112,8 +112,6 @@ internal static unsafe class PVSearch {
         PVScore       = 0;
         PV            = [];
         NextBestMove  = default;
-        
-        TimeMan.TimeBudgetAdjusted = false;
 
         improvStack.Expand(0);
 
