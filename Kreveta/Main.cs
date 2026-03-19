@@ -31,9 +31,14 @@ internal static class Program {
     internal static int Main(string[] args) {
         
         // although this can make the engine a bit unstable,
-        // it seems to bring quite nice performance benefits
-        using var cur     = Process.GetCurrentProcess();
-        cur.PriorityClass = ProcessPriorityClass.RealTime;
+        // it seems to bring quite nice performance benefits.
+        // we wrap this in a try-catch as it might fail on some systems
+        try {
+            using var cur     = Process.GetCurrentProcess();
+            cur.PriorityClass = ProcessPriorityClass.High;
+        } catch {
+            UCI.Log("Unable to set process priority to High. Continuing with Normal priority.");
+        }
 
         // free manually allocated memory before exiting
         AppDomain.CurrentDomain.ProcessExit += FreeMemory;
@@ -42,15 +47,11 @@ internal static class Program {
         if (args.Length != 0)
             UCI.Log("Command line arguments are not supported");
 
-        // okay, i know this is really evil, but i am just far too lazy
-        // to implement fallbacks, but i might get to it in the future
-        if (!Avx2.IsSupported || !Bmi2.IsSupported) {
-            UCI.Log("AVX2 and BMI2 hardware support is required. Your current CPU features:");
-            UCI.Log($"  AVX2: {Avx2.IsSupported}");
-            UCI.Log($"  BMI2: {Bmi2.IsSupported}");
-            UCI.Log("This means you sadly won't be able to use this engine :(");
-            Console.ReadKey();
-        }
+        // hardware support is checked at compile time
+#if !AVX2 || !BMI2
+        UCI.Log("The engine was built without AVX2/BMI2 support or on a non-x64 platform.");
+        UCI.Log("It is using slower software fallbacks.");
+#endif
 
         ZobristHash.Init();
 
