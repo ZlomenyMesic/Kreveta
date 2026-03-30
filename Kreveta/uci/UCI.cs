@@ -15,16 +15,15 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.moveorder.history;
 using Kreveta.openings;
 using Kreveta.perft;
 using Kreveta.search;
-using Kreveta.search.transpositions;
 using Kreveta.uci.options;
 
 using System;
 using System.IO;
 using System.Threading;
-using Kreveta.moveorder.history;
 
 using System.Text;
 // ReSharper disable StackAllocInsideLoop
@@ -270,7 +269,7 @@ internal static partial class UCI {
         }
 
         // this sets the time budget
-        TimeMan.ProcessTimeTokens(tokens);
+        TM.ProcessTimeTokens(tokens);
 
         int depth           = PVSControl.DefaultMaxDepth;
         int depthTokenIndex = MemoryExtensions.IndexOf(tokens, "depth");
@@ -284,7 +283,7 @@ internal static partial class UCI {
                 if (!int.TryParse(tokens[depthTokenIndex + 1], out depth))
                     throw new InvalidCastException();
 
-                TimeMan.TimeBudget = long.MaxValue;
+                TM.TimeBudget = long.MaxValue;
             } catch {
                 Log("Invalid or missing depth argument");
             }
@@ -308,7 +307,7 @@ internal static partial class UCI {
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
-        if (depthTokenIndex == -1 && (TimeMan.MoveTime == 0 || TimeMan.TimeBudgetIsDefault) && Options.PolyglotUseBook) {
+        if (depthTokenIndex == -1 && (TM.MoveTime == 0 || TM.TimeBudgetIsDefault) && Options.PolyglotUseBook) {
             Move bookMove = Polyglot.GetBookMove(in Game.Board);
             
             if (bookMove != default) {
@@ -317,7 +316,7 @@ internal static partial class UCI {
             }
         }
 
-        Log($"info string ideal time budget {TimeMan.TimeBudget} ms");
+        Log($"info string ideal time budget {TM.TimeBudget} ms");
 
         // the search itself runs as a separate thread to allow processing
         // other commands while the search is running - this usually isn't

@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.search.transpositions;
 
-internal static partial class TT {
+internal static partial class TranspositionTable {
     // this entry is stored for every position
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {

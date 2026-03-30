@@ -6,7 +6,6 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.search.transpositions;
 using Kreveta.uci;
 
 using System;
@@ -68,11 +67,14 @@ internal static class PVSControl {
         
         // null move pruning starts at later plies when closer to endgame
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
-        PVSearch.MinNMPPly = Math.Max(3, (32 - pieceCount) / 6);
+        PVSearch.MinNMPPly = Math.Max(
+            Math.Max(3, (32 - pieceCount) / 6),
+            0//Game.Ply / 25
+        );
 
         // we still have time and are allowed to search deeper
         while (PVSearch.CurIterDepth < CurMaxDepth 
-               && Stopwatch.ElapsedMilliseconds < TimeMan.TimeBudget) {
+               && Stopwatch.ElapsedMilliseconds < TM.TimeBudget) {
 
             PVSearch.NextBestMove = default;
 
@@ -96,10 +98,11 @@ internal static class PVSControl {
             
             // try to reduce or increase the time budget based on instability
             if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
-                TimeMan.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
+                TM.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
             if (PVSearch.CurIterDepth > 3 && totalInstability <= -2.49f) {
                 int delta = 38 - (int)(totalInstability * 0.97f);
+                               //+ Math.Abs(PrevScore) / 50;
 
                 aspiration = new Window(
                     alpha: (short)(PVSearch.PVScore - delta),

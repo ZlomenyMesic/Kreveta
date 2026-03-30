@@ -21,7 +21,7 @@ namespace Kreveta.search.transpositions;
 // positions along with their score and the best move from that position.
 // this data can be used to order moves or greatly decrease the number
 // of nodes in the tree.
-internal static unsafe partial class TT {
+internal static unsafe partial class TranspositionTable {
 
     // size of the table and buckets
     private const  int BucketSize  = 4;

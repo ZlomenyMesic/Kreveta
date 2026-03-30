@@ -8,7 +8,7 @@ using System;
 
 namespace Kreveta.search.transpositions;
 
-internal static partial class TT {
+internal static partial class TranspositionTable {
     // depending on where the score fell relatively to the
     // window when saving to TT, we store the score type
     [Flags]

@@ -10,7 +10,7 @@ using System;
 
 namespace Kreveta;
 
-internal static class TimeMan {
+internal static class TimeManager {
 
     // when time arguments are missing or incomplete,
     // we can go with these default values
@@ -160,14 +160,14 @@ internal static class TimeMan {
         float p = board.GamePhase() / 150f;
 
         // smooth base expected moves interpolation
-        float expected = p          * 37.2f  // middlegame
-                         + (1f - p) * 11.8f; // endgame
+        float expected =       p  * 37.2f  // middlegame
+                       + (1f - p) * 11.8f; // endgame
 
         // pawns can promote and prolong the game
         expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
-
-        // spend more time in the opening
-        expected -= p > 149.99f ? 3.5f : 0;
+        
+        //float expected2 = MathF.Max(13f, (150f - Game.Ply) / 5f);
+        //expected = (5f * expected + 3f * expected2) / 8f;
         
         // add a level of complexity into the result - positions with more
         // available legal moves are more complex, and thus searched longer

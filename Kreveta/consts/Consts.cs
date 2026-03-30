@@ -3,17 +3,20 @@
 // started 4-3-2025
 //
 
-// ReSharper disable InconsistentNaming
+// simplifying syntax later on
+global using TT = Kreveta.search.transpositions.TranspositionTable;
+global using TM = Kreveta.TimeManager;
 
 using System.Runtime.Intrinsics.X86;
 
+// ReSharper disable InconsistentNaming
 namespace Kreveta.consts;
 
 internal static class Consts {
 
     // CPU-dependent optimizations, we must check whether they are supported
-    internal static bool UseAVX2 = Avx2.IsSupported;
-    internal static bool UseBMI2 = Bmi2.IsSupported;
+    internal static readonly bool UseAVX2 = Avx2.IsSupported;
+    internal static readonly bool UseBMI2 = Bmi2.IsSupported;
 
     // capacity of the buffer in movegen. also used in MoveOrder and Perft
     internal const int MoveBufferSize = 110;

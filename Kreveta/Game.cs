@@ -35,6 +35,7 @@ internal static class Game {
     // if the engine receives the "ucinewgame" command, we know we will be
     // playing a whole game rather than just analyzing a single position.
     internal static bool FullGame;
+    internal static int  Ply;
     
     // the score from the previous turn - applied when playing a full game
     internal static int  PreviousScore;
@@ -46,16 +47,18 @@ internal static class Game {
         // reset the board
         Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
-        ThreeFold.Clear();
+        Ply         = 0;
         
+        ThreeFold.Clear();
         UCI.Log($"Invalid position - {context}");
     }
 
     internal static void SetStartpos(ReadOnlySpan<string> tokens) {
         Board       = Board.CreateStartpos();
         EngineColor = Color.WHITE;
-        ThreeFold.Clear();
+        Ply         = 0;
         
+        ThreeFold.Clear();
         PlayMoves(tokens);
     }
 
@@ -72,6 +75,7 @@ internal static class Game {
 
         // clear the board from previous game/search
         Board = new Board();
+        Ply   = 0;
         ThreeFold.Clear();
         
         // the first token is the actual position. all ranks are separated by a "/". between the
@@ -184,8 +188,6 @@ internal static class Game {
         
         // the fifth token is the halfmove clock - how many quiet half moves have
         // happened in a row already. this is used to check for 50 move rule draw.
-        // there is sometimes also a full move clock, which just counts moves from
-        // the beginning of the game, but that is useless
         if (tokens.Length >= 7 && byte.TryParse(tokens[6], out byte halfmoveClock))
             Board.HalfMoveClock = halfmoveClock;
 
@@ -193,6 +195,11 @@ internal static class Game {
             InvalidFENCallback($"invalid halfmove clock: \"{tokens[5]}\"");
             return;
         }
+        
+        // there should also be a fullmove clock counting moves from the
+        // beginning of the game, which is used for time management
+        if (tokens.Length >= 8 && int.TryParse(tokens[7], out int fullmoveClock))
+            Ply = fullmoveClock;
 
         Board.NNUEEval   = new NNUEEvaluator(in Board);
         Board.StaticEval = Eval.StaticEval(in Board);
@@ -234,6 +241,8 @@ internal static class Game {
 
             Board.PlayMove(move, true);
             ThreeFold.AddAndCheck(Board.Hash);
+
+            Ply++;
 
             // switch the engine's color
             EngineColor = EngineColor == Color.WHITE

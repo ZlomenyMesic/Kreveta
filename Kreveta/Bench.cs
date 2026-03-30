@@ -36,9 +36,9 @@ internal static class Bench {
     // provide a reliable speed measurement, as real searches are performed, and to be
     // able to differentiate engine versions by assigning them the bench node count
     internal static void Run(ReadOnlySpan<string> tokens) {
-        TimeMan.MoveTime = long.MaxValue;
-        Game.FullGame    = false;
-        Nodes            = 0UL;
+        TM.MoveTime   = long.MaxValue;
+        Game.FullGame = false;
+        Nodes         = 0UL;
         
         // there can be either default or custom depth
         int depth = 12;
