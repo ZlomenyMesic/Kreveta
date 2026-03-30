@@ -67,7 +67,7 @@ internal static partial class UCI {
                 continue;
 
             // quit should terminate the program as soon as possible
-            if (input == "quit")
+            if (input is "quit" or "exit")
                 return;
 
             ReadOnlySpan<string> tokens = input.Split(' ');
@@ -134,7 +134,7 @@ internal static partial class UCI {
                     break;
                 
                 // print the current position
-                case "d":
+                case "d" or "draw" or "display":
                     Game.Board.Print();
                     
                     Log($"FEN:           {Game.Board.FEN()}");
@@ -308,7 +308,7 @@ internal static partial class UCI {
 
         // don't use book moves when we want an actual search at a specified depth
         // or when movetime is set (either specific search time or infinite time)
-        if (depthTokenIndex == -1 && TimeMan.MoveTime == 0 && Options.PolyglotUseBook) {
+        if (depthTokenIndex == -1 && (TimeMan.MoveTime == 0 || TimeMan.TimeBudgetIsDefault) && Options.PolyglotUseBook) {
             Move bookMove = Polyglot.GetBookMove(in Game.Board);
             
             if (bookMove != default) {

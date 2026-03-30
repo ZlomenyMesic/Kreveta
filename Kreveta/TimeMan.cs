@@ -38,10 +38,11 @@ internal static class TimeMan {
     // sets a boundary when the search should be aborted,
     // but it can be ended prematurely
     internal static long TimeBudget;
-    internal static bool TimeBudgetAdjusted;
+    internal static bool TimeBudgetIsDefault;
 
     internal static void ProcessTimeTokens(ReadOnlySpan<string> tokens) {
-        _whiteTime = _blackTime = _whiteInc = _blackInc = MoveTime = _movesToGo = 0;
+        TimeBudget = _whiteTime = _blackTime = _whiteInc = _blackInc = MoveTime = _movesToGo = 0;
+        TimeBudgetIsDefault = false;
 
         // tokens aren't filtered before being passed to this method, so they might
         // contain anything. for this reason we don't print any errors when we receive
@@ -102,8 +103,10 @@ internal static class TimeMan {
 
         // if we haven't received time arguments, or failed to parse them, default time budget is used
         if (MoveTime == 0 && (Game.EngineColor == Color.WHITE ? _whiteTime == 0 : _blackTime == 0)) {
-            TimeBudget = DefaultTimeBudget;
-            MoveTime   = DefaultTimeBudget;
+            TimeBudgetIsDefault = true;
+            TimeBudget          = DefaultTimeBudget;
+            MoveTime            = DefaultTimeBudget;
+
             return;
         }
         
