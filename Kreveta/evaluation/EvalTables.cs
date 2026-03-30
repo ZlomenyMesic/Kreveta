@@ -20,7 +20,7 @@ internal static class EvalTables {
 
         // we have to index the piece type and position correctly. white
         // pieces are straightforward, but black piece have to be mirrored
-        short index = (short)(type * 64 + (col == Color.WHITE 
+        short index = (short)(type * 64 + (col == Color.WHITE
             ? sq         // the square
             : sq ^ 56)); // the square flipped to the opposite rank
 

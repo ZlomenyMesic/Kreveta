@@ -165,6 +165,9 @@ internal static class TimeMan {
 
         // pawns can promote and prolong the game
         expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
+
+        // spend more time in the opening
+        expected -= p > 149.99f ? 3.5f : 0;
         
         // add a level of complexity into the result - positions with more
         // available legal moves are more complex, and thus searched longer

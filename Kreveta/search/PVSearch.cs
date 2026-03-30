@@ -142,7 +142,7 @@ internal static unsafe class PVSearch {
             TT.Store(board.Hash, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
-            board.PlayMove(pv[i], false, CurNodes);
+            board.PlayMove(pv[i], false);
         }
     }
 
@@ -299,7 +299,7 @@ internal static unsafe class PVSearch {
         // 3. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
+        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode) && ss.ExcludedMove == default) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
@@ -319,7 +319,7 @@ internal static unsafe class PVSearch {
         
         // make sure the tt score is the correct bound
         if (ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
-            && (col == Color.WHITE 
+            && ss.ExcludedMove == default && (col == Color.WHITE 
                 ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= probcutBeta
                 : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= probcutBeta)) {
 
@@ -337,6 +337,7 @@ internal static unsafe class PVSearch {
         if (ss.Ply >= MinNMPPly // minimum ply for nmp
             && !inCheck         // don't prune when in check
             && nonPawnMat       // don't prune in absolute endgames
+            && ss.ExcludedMove == default
             
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
@@ -494,7 +495,7 @@ internal static unsafe class PVSearch {
             expandedNodes++;
             
             Board child = board.Clone();
-            child.PlayMove(curMove, updateStaticEval: true, CurNodes);
+            child.PlayMove(curMove, updateStaticEval: true);
             
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
@@ -667,7 +668,7 @@ internal static unsafe class PVSearch {
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
 
             // increase reduction for moves with bad history
-            reduction -= Math.Min(curScore / 600, 0);
+            reduction -= Math.Min(curScore / 700, 0);
             
             // apply the reduction, make sure we don't extend more than one ply
             reduction = Math.Max(reduction, 0);
@@ -691,10 +692,10 @@ internal static unsafe class PVSearch {
                 // boards being cleared. the reduction is also based on see, whether we are improving and depth
                 int scoreThreshold = -379 - 9 * CurIterDepth - (ttOptimistic ? 12 : 0);
                 int R = 4
-                    + (curScore < scoreThreshold       ? 1 : 0)
-                    - (improving  || see > 94          ? 1 : 0)
-                    + (!improving && see < 0           ? 1 : 0)
-                    + (ttCapture && ttDepth > ss.Depth ? 1 : 0);
+                    + (curScore < scoreThreshold ? 1 : 0)
+                    - (improving  || see > 94    ? 1 : 0)
+                    + (!improving && see < 0     ? 1 : 0)
+                    + (ttCapture                 ? 1 : 0);
                 
                 // null window around alpha
                 var nullWindowAlpha = col == Color.WHITE
@@ -719,7 +720,7 @@ internal static unsafe class PVSearch {
                     else            CaptureHistory.ChangeRep(curMove, lmWeight, isGood: false);
                     
                     if (ss.LastMove != default)
-                        ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth - R, isGood: false);
+                        ContinuationHistory.Add(ss.LastMove, curMove, lmWeight, isGood: false);
                         
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     continue;
@@ -789,7 +790,7 @@ internal static unsafe class PVSearch {
                 pv[0] = curMove;
                 
                 if (ss.LastMove != default)
-                    ContinuationHistory.Add(ss.LastMove, curMove, weight, isGood: true);
+                    ContinuationHistory.Add(ss.LastMove, curMove, weight / 2, isGood: true);
                 
                 // beta cutoff (see alpha-beta pruning); alpha is larger
                 // than beta, so we can stop searching this branch, because

@@ -41,7 +41,7 @@ internal static class Eval {
     // nodes of the search tree. it evaluates material, piece placement, pawn structure,
     // king safety, etc., but doesn't perform any search. the static eval is hybrid, which
     // means a classical eval is combined with a trained NNUE eval
-    internal static short StaticEval(in Board board, ulong nodes) {
+    internal static short StaticEval(in Board board) {
         int nnue    = board.NNUEEval.Score;
         int classic = Classical(in board);
 
@@ -97,9 +97,7 @@ internal static class Eval {
                        - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
 
         eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
-        eval += KingEval(pieces, wOccupied, bOccupied,
-            pieces[3] | pieces[4],
-            pieces[9] | pieces[10]);
+        eval += KingEval(pieces, wOccupied, bOccupied);
 
         // side to move should also get a slight advantage
         eval += (short)(board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
@@ -147,7 +145,7 @@ internal static class Eval {
 
     // king safety evaluation
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short KingEval(ReadOnlySpan<ulong> pieces, ulong wOccupied, ulong bOccupied, ulong wMajor, ulong bMajor) {
+    private static short KingEval(ReadOnlySpan<ulong> pieces, ulong wOccupied, ulong bOccupied) {
         int  eval  = 0;
         byte wKing = BB.LS1B(pieces[5]);
         byte bKing = BB.LS1B(pieces[11]);
@@ -165,10 +163,6 @@ internal static class Eval {
         eval -= (int)ulong.PopCount(bProtection) * 2;
         eval -= (int)ulong.PopCount(wEvil)       * 4;
         eval += (int)ulong.PopCount(bEvil)       * 4;
-
-        // further maluses for enemy major pieces in proximity
-        /*eval -= (int)ulong.PopCount(LookupTables.KingSquares[wKing] & bMajor) * 2;
-        eval += (int)ulong.PopCount(LookupTables.KingSquares[bKing] & wMajor) * 2;*/
         
         return (short)eval;
     }
@@ -222,7 +216,7 @@ internal static class Eval {
                      - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
 
         // king safety evaluation
-        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied, board.Pieces[3] | board.Pieces[4], board.Pieces[9] | board.Pieces[10])
+        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
                     + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
 
         // and combined this makes the classical part of evaluation

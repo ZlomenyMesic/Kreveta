@@ -120,7 +120,7 @@ internal static class QSearch {
             }
             
             Board child = board.Clone();
-            child.PlayMove(moves[i], true, PVSearch.CurNodes);
+            child.PlayMove(moves[i], true);
 
             // full search
             short score = Search(ref child, ply + 1, window, curQSDepth, moves[i].End);

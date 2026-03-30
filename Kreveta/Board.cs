@@ -107,7 +107,7 @@ internal unsafe struct Board {
             ^ (Pieces[(int)col * 6] | Pieces[5 + (int)col * 6])) != 0UL;
     
     // performs a move on the board
-    internal void PlayMove(Move move, bool updateStaticEval, ulong nodes) {
+    internal void PlayMove(Move move, bool updateStaticEval) {
         
         // the zobrist hash is not recomputed each move. since the changes
         // are small, all differences are applied directly in this method
@@ -294,7 +294,7 @@ internal unsafe struct Board {
         // would only slow the engine down.
         if (updateStaticEval) {
             NNUEEval.Update(in this, move, col);
-            StaticEval = Eval.StaticEval(in this, nodes);
+            StaticEval = Eval.StaticEval(in this);
         }
     }
 
@@ -549,7 +549,7 @@ internal unsafe struct Board {
         board.Hash       = ZobristHash.GetHash(in board);
         board.IsCheck    = Check.IsKingChecked(in board, board.SideToMove);
         board.NNUEEval   = new NNUEEvaluator(in board);
-        board.StaticEval = Eval.StaticEval(in board, 0);
+        board.StaticEval = Eval.StaticEval(in board);
         
         return board;
     }

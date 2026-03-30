@@ -295,7 +295,7 @@ internal static class PVSControl {
         // the correct position is needed for correct tt lookups
         foreach (Move move in pv) {
             yield return move;
-            board.PlayMove(move, false, 0UL);
+            board.PlayMove(move, false);
             
             remove.Add(board.Hash);
             if (ThreeFold.AddAndCheck(board.Hash))
@@ -312,7 +312,7 @@ internal static class PVSControl {
             if (depth++ > PVSearch.CurIterDepth || ttMove == default)
                 goto clearThreeFold;
                 
-            board.PlayMove(ttMove, false, 0UL);
+            board.PlayMove(ttMove, false);
             
             // picking up moves from TT sometimes creates infinite loops, that would
             // actually end in a draw. ThreeFold is used here to make sure the PV is

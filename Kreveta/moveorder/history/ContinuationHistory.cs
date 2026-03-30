@@ -33,7 +33,7 @@ internal static class ContinuationHistory {
         if (bonus == 0) return;
         
         int i = Index((int)previous.Piece, previous.End, (int)current.Piece, current.End);
-        int v = _table[i] + bonus * (isGood ? 1 : -1);
+        int v = _table[i] + bonus * bonus * (isGood ? 1 : -1) / 8;
 
         if ((uint)(v + 2048) > 4096)
             v = v > 0 ? 2048 : -2048;

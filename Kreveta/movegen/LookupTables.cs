@@ -18,7 +18,6 @@ internal static unsafe class LookupTables {
     
     // when escaping check or ensuring move legality, these star shapes are used
     internal static readonly ulong* KingStars   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
-    internal static readonly ulong* KingSquares = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
     
     private static bool _memoryFreed;
 
@@ -103,17 +102,6 @@ internal static unsafe class LookupTables {
             ulong rook   = Pext.GetRookTargets(i, ulong.MaxValue, 0UL);
             
             KingStars[i] = king | knight | bishop | rook;
-            
-            // king squares are simply squares close to the king, and they
-            // are used to better evaluate king safety in static evaluation
-            ulong center = KingTargets[i];
-            ulong diag   = Pext.GetBishopTargets(i, center, 0UL);
-
-            KingSquares[i] = center;
-            while (diag != 0UL) {
-                int next = BB.LS1BReset(ref diag);
-                KingSquares[i] |= KingTargets[next];
-            }
         }
     }
     
