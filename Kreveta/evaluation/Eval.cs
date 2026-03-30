@@ -5,7 +5,6 @@
 
 using System;
 using Kreveta.consts;
-using Kreveta.movegen;
 using Kreveta.movegen.pieces;
 using Kreveta.uci;
 
@@ -15,7 +14,7 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.evaluation;
 
-internal static unsafe class Eval {
+internal static class Eval {
     
     private const int SideToMoveBonus = 6;
     private const int InCheckMalus    = -31;
@@ -42,7 +41,7 @@ internal static unsafe class Eval {
     // nodes of the search tree. it evaluates material, piece placement, pawn structure,
     // king safety, etc., but doesn't perform any search. the static eval is hybrid, which
     // means a classical eval is combined with a trained NNUE eval
-    internal static short StaticEval(in Board board) {
+    internal static short StaticEval(in Board board, ulong nodes) {
         int nnue    = board.NNUEEval.Score;
         int classic = Classical(in board);
 
@@ -107,7 +106,9 @@ internal static unsafe class Eval {
         return eval;
     }
     
-    // bonuses or penalties for pawn structure
+    // bonuses or penalties for pawn structure. the central evaluation function
+    // calls this function twice, once for each color, and handles proper signs.
+    // this means we don't need to evaluate color-relative here
     private static short PawnEval(ulong pawns, ulong enemyPawns, Color col, ulong friendlyPieces) {
         int eval = 0;
         

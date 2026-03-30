@@ -195,7 +195,7 @@ internal static class Game {
         }
 
         Board.NNUEEval   = new NNUEEvaluator(in Board);
-        Board.StaticEval = Eval.StaticEval(in Board);
+        Board.StaticEval = Eval.StaticEval(in Board, 0UL);
         Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);
         Board.Hash       = ZobristHash.GetHash(in Board);
 
@@ -232,7 +232,7 @@ internal static class Game {
                 return;
             }
 
-            Board.PlayMove(move, true);
+            Board.PlayMove(move, true, 0UL);
             ThreeFold.AddAndCheck(Board.Hash);
 
             // switch the engine's color
@@ -310,8 +310,8 @@ internal static class Game {
         
         // play the two moves
         var temp = Board.Clone();
-        temp.PlayMove(pv[0], false);
-        temp.PlayMove(pv[1], false);
+        temp.PlayMove(pv[0], false, 0UL);
+        temp.PlayMove(pv[1], false, 0UL);
         
         // store the recapture, and the position from which it is played
         _recaptPosHash = temp.Hash;

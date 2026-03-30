@@ -29,11 +29,11 @@ internal static class ContinuationHistory {
     // store a new continuation - same as with counters, there
     // is no priority measure, old continuations get overwritten
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Add(Move previous, Move current, int depth, bool isGood) {
-        if (depth <= 0) return;
+    internal static void Add(Move previous, Move current, int bonus, bool isGood) {
+        if (bonus == 0) return;
         
         int i = Index((int)previous.Piece, previous.End, (int)current.Piece, current.End);
-        int v = _table[i] + (isGood ? depth : -depth) * depth / 8;
+        int v = _table[i] + bonus * (isGood ? 1 : -1);
 
         if ((uint)(v + 2048) > 4096)
             v = v > 0 ? 2048 : -2048;

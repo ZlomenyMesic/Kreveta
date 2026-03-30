@@ -24,7 +24,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "2.2.5";
+    internal const string Version = "2.2.6";
     internal const string Author  = "ZlomenyMesic";
     internal const string Network = "nnue-128-16-16-v4.bin";
 

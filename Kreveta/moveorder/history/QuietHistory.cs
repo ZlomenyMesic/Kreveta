@@ -68,8 +68,9 @@ internal static class QuietHistory {
         int start = move.Start;
         int end   = move.End;
         
-        // how much should the move affect the reputation (moves at higher depths
-        // are probably more reliable, so their impact should be stronger)
+        // how much should the move affect the reputation (moves at higher depths are
+        // probably more reliable, so their impact should be stronger). also, if the
+        // sign of the bonus is different from the existing value, the bonus is scaled
         QuietScores[start][end] += weight * weight * (isGood ? 1 : -1);
 
         // add the move as visited, too

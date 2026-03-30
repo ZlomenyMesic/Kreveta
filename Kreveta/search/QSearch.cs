@@ -46,13 +46,21 @@ internal static class QSearch {
         bool  inCheck  = board.IsCheck;
         short standPat = board.StaticEval;
 
-        // don't try to cutoff when in check
+        // STAND PAT PRUNING:
+        // based on the null move observation, there is always at least one good move
+        // in every position. since we're only searching captures, e.g. a subset of all
+        // legal moves, we cannot return a bad score if we don't find a good move. so,
+        // to combat that, we assume there is a good move, try to cut off using the
+        // static evaluation and only then search. we cannot do this when in check, as
+        // we would be searching all evasions, breaking the initial assumption
         if (!inCheck) {
             short corr = Corrections.Get(in board);
             
+            int newAlpha = standPat + corr;
+            
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
-            if (window.TryCutoff((short)(standPat + corr), col))
+            if (window.TryCutoff((short)newAlpha, col))
                 return col == Color.WHITE
                     ? window.Alpha
                     : window.Beta;
@@ -112,7 +120,7 @@ internal static class QSearch {
             }
             
             Board child = board.Clone();
-            child.PlayMove(moves[i], true);
+            child.PlayMove(moves[i], true, PVSearch.CurNodes);
 
             // full search
             short score = Search(ref child, ply + 1, window, curQSDepth, moves[i].End);

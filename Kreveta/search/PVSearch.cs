@@ -144,7 +144,7 @@ internal static unsafe class PVSearch {
             TT.Store(board.Hash, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
-            board.PlayMove(pv[i], false);
+            board.PlayMove(pv[i], false, CurNodes);
         }
     }
 
@@ -496,7 +496,7 @@ internal static unsafe class PVSearch {
             expandedNodes++;
             
             Board child = board.Clone();
-            child.PlayMove(curMove, updateStaticEval: true);
+            child.PlayMove(curMove, updateStaticEval: true, CurNodes);
             
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
@@ -636,7 +636,7 @@ internal static unsafe class PVSearch {
                     weight += 2;
                     curDepth++;
                     
-                    // double extension
+                    // double extension if tt move seems to be a good capture
                     if (ttCapture && ttBetaCutoff && ttDepth >= ss.Depth - 2)
                         curDepth++;
                 }
@@ -667,6 +667,9 @@ internal static unsafe class PVSearch {
             reduction += (lateRootMove                           ? 1 : 0)  // first few root moves are extended
                        + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
+
+            // increase reduction for moves with bad history
+            reduction -= Math.Min(curScore / 600, 0);
             
             // apply the reduction, make sure we don't extend more than one ply
             reduction = Math.Max(reduction, 0);
@@ -690,10 +693,10 @@ internal static unsafe class PVSearch {
                 // boards being cleared. the reduction is also based on see, whether we are improving and depth
                 int scoreThreshold = -379 - 9 * CurIterDepth - (ttOptimistic ? 12 : 0);
                 int R = 4
-                    + (curScore < scoreThreshold ? 1 : 0)
-                    - (improving  || see > 94    ? 1 : 0)
-                    + (!improving && see < 0     ? 1 : 0)
-                    + (ttCapture                 ? 1 : 0);
+                    + (curScore < scoreThreshold       ? 1 : 0)
+                    - (improving  || see > 94          ? 1 : 0)
+                    + (!improving && see < 0           ? 1 : 0)
+                    + (ttCapture && ttDepth > ss.Depth ? 1 : 0);
                 
                 // null window around alpha
                 var nullWindowAlpha = col == Color.WHITE
@@ -766,11 +769,11 @@ internal static unsafe class PVSearch {
                     ? fullSearch.Score <= ss.Window.Alpha
                     : fullSearch.Score >= ss.Window.Beta) {
                 
-                if (!isCapture) QuietHistory.ChangeRep(  curMove, weight, isGood: false);
+                if (!isCapture) QuietHistory.ChangeRep(curMove,   weight, isGood: false);
                 else            CaptureHistory.ChangeRep(curMove, weight, isGood: false);
                 
                 if (ss.LastMove != default)
-                    ContinuationHistory.Add(ss.LastMove, curMove, curDepth, isGood: false);
+                    ContinuationHistory.Add(ss.LastMove, curMove, weight, isGood: false);
             }
 
             // we went through all the pruning and didn't fail low
@@ -788,15 +791,15 @@ internal static unsafe class PVSearch {
                 pv[0] = curMove;
                 
                 if (ss.LastMove != default)
-                    ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth / 2, isGood: true);
-
+                    ContinuationHistory.Add(ss.LastMove, curMove, weight, isGood: true);
+                
                 // beta cutoff (see alpha-beta pruning); alpha is larger
                 // than beta, so we can stop searching this branch, because
                 // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
                     if (ss.LastMove != default)
-                        ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth, isGood: true);
-
+                        ContinuationHistory.Add(ss.LastMove, curMove, 2 * weight, isGood: true);
+                    
                     // if the move caused a beta cutoff, it's history is increased
                     if (!isCapture) QuietHistory.ChangeRep(curMove,   2 * weight, isGood: true);
                     else            CaptureHistory.ChangeRep(curMove, 2 * weight, isGood: true);
