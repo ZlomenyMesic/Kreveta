@@ -120,9 +120,11 @@ internal unsafe struct Board {
         int hashColStride = SideToMove == Color.WHITE ? 6 : 0;
         
         EnPassantSq = 64;
-        SideToMove  = SideToMove == Color.WHITE
-            ? Color.BLACK
-            : Color.WHITE;
+
+        // switch the side to move
+        Color col    = SideToMove;
+        Color colOpp = 1 - col;
+        SideToMove   = 1 - SideToMove;
 
         // start and end squares
         byte start8 = (byte)move.Start;
@@ -131,15 +133,6 @@ internal unsafe struct Board {
         // start and end squares represented as bitboards
         ulong start = 1UL << start8;
         ulong end   = 1UL << end8;
-
-        // color and opposite color
-        Color col = (WOccupied & start) == 0UL
-            ? Color.BLACK
-            : Color.WHITE;
-
-        Color colOpp = col == Color.WHITE
-            ? Color.BLACK
-            : Color.WHITE;
 
         // other stuff
         PType prom  = move.Promotion;

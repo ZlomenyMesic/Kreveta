@@ -4,7 +4,7 @@
 //
 
 // ReSharper disable InconsistentNaming
-namespace Kreveta.approx;
+namespace Kreveta.nnue.approx;
 
 // these things are used in NNUE. there are precomputed tables for sigmoid and a weird
 // function converting the network output into a useful cp score. avoiding Math.Log and

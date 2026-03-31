@@ -8,10 +8,10 @@ using Kreveta.movegen;
 using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.nnue;
+using Kreveta.nnue.approx;
 using Kreveta.perft;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
-using Kreveta.approx;
 
 using System;
 using System.Diagnostics;
@@ -66,14 +66,6 @@ internal static class Program {
         
         // adjacent files
         Eval.Init();
-
-        // load the embedded nnue weights
-        NNUEWeights.Load();
-        MathApprox.Init();
-        
-        // the default position is startpos to prevent crashes when
-        // the user types go or perft without setting a position
-        Game.Board = Board.CreateStartpos();
         
         string buildTime = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()
@@ -85,9 +77,16 @@ internal static class Program {
         Console.ResetColor();
         
         UCI.Log($"by {Author} (built {buildTime})");
-        UCI.Log($"Using NNUE file: {Network}");
-        UCI.InputLoop();
         
+        // load the embedded nnue weights
+        NNUEWeights.Load();
+        MathApprox.Init();
+        
+        // the default position is startpos to prevent crashes when
+        // the user types go or perft without setting a position
+        Game.Board = Board.CreateStartpos();
+
+        UCI.InputLoop();
         return 0;
         
         // manually allocated memory is spread throughout the whole

@@ -49,7 +49,7 @@ internal static class NNUEWeights {
 
         int offset = 0;
 
-        // === 1. EMBEDDING ===
+        // embeddings
         const int embedLen = FeatCount * EmbedDims;
         Embedding = new short[embedLen];
         for (int i = 0; i < embedLen; i++)
@@ -129,7 +129,7 @@ internal static class NNUEWeights {
             s5OutputKernel, s6OutputKernel, s7OutputKernel, s8OutputKernel
         ];
 
-        // === 2. LOAD SUBNETS IN REAL KERAS ORDER ===
+        // load subnets
         for (int subnet = 0; subnet < 8; subnet++) {
             LoadH1Kernel(all, H1K[subnet], ref offset);
             LoadH1Bias  (all, H1B[subnet], ref offset);
@@ -142,7 +142,7 @@ internal static class NNUEWeights {
 
         short[] OB = new short[8];
 
-        // === 3. LOAD OUTPUTS PER SUBNET ===
+        // load outputs per subnet
         for (int subnet = 0; subnet < 8; subnet++) {
             for (int i = 0; i < H2Neurons; i++)
                 OK[subnet][i] = all[offset++];
@@ -157,6 +157,8 @@ internal static class NNUEWeights {
 
         OutputKernels = OK;
         OutputBiases  = OB;
+        
+        UCI.Log($"Using NNUE file: {Program.Network}");
     }
 
     private static void LoadH1Kernel(short[] all, short[] dest, ref int offset) {

@@ -5,7 +5,7 @@
 
 using Kreveta.consts;
 using Kreveta.movegen;
-using Kreveta.approx;
+using Kreveta.nnue.approx;
 
 using System;
 using System.Runtime.CompilerServices;
@@ -57,7 +57,6 @@ internal unsafe sealed class NNUEEvaluator {
         UpdateEvaluation(board.SideToMove, count + 2);
     }
     
-
     internal void Update(in Board board, Move move, Color moved) {
         var wAdd = stackalloc int[2];
         var wRem = stackalloc int[2];

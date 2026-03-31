@@ -188,19 +188,14 @@ internal static class Game {
         
         // the fifth token is the halfmove clock - how many quiet half moves have
         // happened in a row already. this is used to check for 50 move rule draw.
-        if (tokens.Length >= 7 && byte.TryParse(tokens[6], out byte halfmoveClock))
-            Board.HalfMoveClock = halfmoveClock;
-
-        else if (tokens.Length != 6) {
-            InvalidFENCallback($"invalid halfmove clock: \"{tokens[5]}\"");
-            return;
-        }
+        if (tokens.Length >= 7 && int.TryParse(tokens[6], out int halfmoveClock))
+            Board.HalfMoveClock = (byte)Math.Max(0, halfmoveClock);
         
         // there should also be a fullmove clock counting moves from the
         // beginning of the game, which is used for time management
         if (tokens.Length >= 8 && int.TryParse(tokens[7], out int fullmoveClock))
-            Ply = fullmoveClock;
-
+            Ply = Math.Max(0, fullmoveClock);
+        
         Board.NNUEEval   = new NNUEEvaluator(in Board);
         Board.StaticEval = Eval.StaticEval(in Board);
         Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);

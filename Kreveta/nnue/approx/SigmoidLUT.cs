@@ -3,13 +3,11 @@
 // started 4-3-2025
 //
 
-using Kreveta.nnue;
-
 using System;
 using System.Runtime.CompilerServices;
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.approx;
+namespace Kreveta.nnue.approx;
 
 internal static partial class MathApprox {
     private const int SigmHalfTable = 5 * NNUEEvaluator.QScale;

@@ -35,6 +35,20 @@ internal static class Eval {
                 | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0UL)
                 | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0UL);
         }
+
+        /*for (int i = 0; i < 64; i++) {
+            EvalTables.Middlegame[i]          += Tuning.x1;
+            EvalTables.Middlegame[i + 1 * 64] += Tuning.x2;
+            EvalTables.Middlegame[i + 2 * 64] += Tuning.x3;
+            EvalTables.Middlegame[i + 3 * 64] += Tuning.x4;
+            EvalTables.Middlegame[i + 4 * 64] += Tuning.x5;
+            
+            EvalTables.Endgame[i]          += Tuning.x6;
+            EvalTables.Endgame[i + 1 * 64] += Tuning.x7;
+            EvalTables.Endgame[i + 2 * 64] += Tuning.x8;
+            EvalTables.Endgame[i + 3 * 64] += Tuning.x9;
+            EvalTables.Endgame[i + 4 * 64] += Tuning.x10;
+        }*/
     }
 
     // returns the static evaluation of a position. static eval is used mainly in the leaf
@@ -119,6 +133,8 @@ internal static class Eval {
             // and for each one more than 1 add a small penalty
             int fileOcc = (int)ulong.PopCount(file & pawns);
             eval += (short)((fileOcc - 1) * DoubledPawnMalus);
+
+            bool isProtected = Pawn.GetPawnCaptureTargets(sq, 0, 1 - col, pawns) != 0UL;
             
             // calculate the number of friendly and enemy pawns
             // on the two adjacent files (and the current one)
@@ -130,13 +146,13 @@ internal static class Eval {
             // and penalized. similarly, if there are no enemy pawns,
             // the pawn is passed, and a bonus is added, scaled by rank
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawnMalus);
-            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3));
+            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus 
+                                                      * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3)
+                                                      * (isProtected ? 2 : 1));
 
             // also check if there's a friendly piece blocking the pawn
-            if (col == Color.WHITE && (1UL << sq - 8 & friendlyPieces) != 0UL)
-                eval += BlockedPawnMalus;
-
-            else if (col == Color.BLACK && (1UL << sq + 8 & friendlyPieces) != 0UL)
+            if (col == Color.WHITE ? (1UL << sq - 8 & friendlyPieces) != 0UL
+                                   : (1UL << sq + 8 & friendlyPieces) != 0UL)
                 eval += BlockedPawnMalus;
         }
 
