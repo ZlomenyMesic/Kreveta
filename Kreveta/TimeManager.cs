@@ -166,8 +166,9 @@ internal static class TimeManager {
         // pawns can promote and prolong the game
         expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
         
-        //float expected2 = MathF.Max(13f, (150f - Game.Ply) / 5f);
-        //expected = (5f * expected + 3f * expected2) / 8f;
+        // use the game ply to further approximate remaining moves
+        float plyTerm = MathF.Max(13f, (150f - Game.Ply) / 5f);
+        expected = (5f * expected + 3f * plyTerm) / 8f;
         
         // add a level of complexity into the result - positions with more
         // available legal moves are more complex, and thus searched longer

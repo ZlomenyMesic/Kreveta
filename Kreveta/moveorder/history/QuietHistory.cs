@@ -64,14 +64,14 @@ internal static class QuietHistory {
     }
     
     // modify the history reputation of a move. isMoveGood tells us how
-    internal static void ChangeRep(Move move, int weight, bool isGood) {
+    internal static void ChangeRep(Move move, int weight) {
         int start = move.Start;
         int end   = move.End;
         
         // how much should the move affect the reputation (moves at higher depths are
         // probably more reliable, so their impact should be stronger). also, if the
         // sign of the bonus is different from the existing value, the bonus is scaled
-        QuietScores[start][end] += weight * weight * (isGood ? 1 : -1);
+        QuietScores[start][end] += weight * Math.Abs(weight);
 
         // add the move as visited, too
         ButterflyBoard[start][end]++;

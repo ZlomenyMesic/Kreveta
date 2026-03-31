@@ -69,7 +69,7 @@ internal static class PVSControl {
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(
             Math.Max(3, (32 - pieceCount) / 6),
-            0//Game.Ply / 25
+            Game.Ply / 25
         );
 
         // we still have time and are allowed to search deeper
@@ -101,8 +101,8 @@ internal static class PVSControl {
                 TM.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
             if (PVSearch.CurIterDepth > 3 && totalInstability <= -2.49f) {
-                int delta = 38 - (int)(totalInstability * 0.97f);
-                               //+ Math.Abs(PrevScore) / 50;
+                int delta = 38 - (int)(totalInstability * 0.97f)
+                               + Math.Abs(PrevScore) / 50;
 
                 aspiration = new Window(
                     alpha: (short)(PVSearch.PVScore - delta),

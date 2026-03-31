@@ -15,6 +15,7 @@ using Kreveta.uci.options;
 
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 // ReSharper disable InconsistentNaming
 
@@ -299,7 +300,7 @@ internal static unsafe class PVSearch {
         // 3. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)/* && ss.ExcludedMove == default*/) {
+        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode) && ss.ExcludedMove == default) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
@@ -319,7 +320,7 @@ internal static unsafe class PVSearch {
         
         // make sure the tt score is the correct bound
         if (ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
-            /*&& ss.ExcludedMove == default*/ && (col == Color.WHITE 
+            && ss.ExcludedMove == default && (col == Color.WHITE 
                 ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= probcutBeta
                 : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= probcutBeta)) {
 
@@ -337,7 +338,7 @@ internal static unsafe class PVSearch {
         if (ss.Ply >= MinNMPPly // minimum ply for nmp
             && !inCheck         // don't prune when in check
             && nonPawnMat       // don't prune in absolute endgames
-            //&& ss.ExcludedMove == default
+            && ss.ExcludedMove == default
             
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
@@ -713,14 +714,9 @@ internal static unsafe class PVSearch {
                         ? score <= ss.Window.Alpha
                         : score >= ss.Window.Beta) {
 
+                    // penalize the move in histories
                     int lmWeight = weight + Math.Max(0, ss.Depth - R);
-                        
-                    // penalize this move's histories if it fails low
-                    if (!isCapture) QuietHistory.ChangeRep(  curMove, lmWeight, isGood: false);
-                    else            CaptureHistory.ChangeRep(curMove, lmWeight, isGood: false);
-                    
-                    if (ss.LastMove != default)
-                        ContinuationHistory.Add(ss.LastMove, curMove, lmWeight, isGood: false);
+                    StoreMoveHistory(ss.LastMove, curMove, isCapture, -lmWeight, -ss.Depth + R);
                         
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     continue;
@@ -768,11 +764,7 @@ internal static unsafe class PVSearch {
                     ? fullSearch.Score <= ss.Window.Alpha
                     : fullSearch.Score >= ss.Window.Beta) {
                 
-                if (!isCapture) QuietHistory.ChangeRep(curMove,   weight, isGood: false);
-                else            CaptureHistory.ChangeRep(curMove, weight, isGood: false);
-                
-                if (ss.LastMove != default)
-                    ContinuationHistory.Add(ss.LastMove, curMove, weight, isGood: false);
+                StoreMoveHistory(ss.LastMove, curMove, isCapture, weight, curDepth);
             }
 
             // we went through all the pruning and didn't fail low
@@ -790,18 +782,13 @@ internal static unsafe class PVSearch {
                 pv[0] = curMove;
                 
                 if (ss.LastMove != default)
-                    ContinuationHistory.Add(ss.LastMove, curMove, weight / 2, isGood: true);
+                    ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth / 2);
                 
                 // beta cutoff (see alpha-beta pruning); alpha is larger
                 // than beta, so we can stop searching this branch, because
                 // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
-                    if (ss.LastMove != default)
-                        ContinuationHistory.Add(ss.LastMove, curMove, 2 * weight, isGood: true);
-                    
-                    // if the move caused a beta cutoff, it's history is increased
-                    if (!isCapture) QuietHistory.ChangeRep(curMove,   2 * weight, isGood: true);
-                    else            CaptureHistory.ChangeRep(curMove, 2 * weight, isGood: true);
+                    StoreMoveHistory(ss.LastMove, curMove, isCapture, 2 * weight, ss.Depth);
                     
                     // there are both quiet and capture killer tables,
                     // which sort the move automatically, so don't worry
@@ -831,6 +818,17 @@ internal static unsafe class PVSearch {
             : (col == Color.WHITE 
                 ? ss.Window.Alpha 
                 : ss.Window.Beta, pv);
+    }
+
+    // modify quiet, capture and continuation histories by the provided bonus/weight
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void StoreMoveHistory(Move previous, Move move, bool capture, int weight, int contWeight) {
+        if (previous != default)
+            ContinuationHistory.Add(previous, move, contWeight);
+                    
+        // if the move caused a beta cutoff, it's history is increased
+        if (!capture) QuietHistory.ChangeRep(move,   weight);
+        else          CaptureHistory.ChangeRep(move, weight);
     }
 
     // print 'info currmove ...' once search iterations are a bit longer 

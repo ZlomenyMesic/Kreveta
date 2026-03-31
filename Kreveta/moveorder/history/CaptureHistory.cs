@@ -42,11 +42,11 @@ internal static class CaptureHistory {
         });
     }
     
-    internal static void ChangeRep(Move move, int weight, bool isGood) {
+    internal static void ChangeRep(Move move, int weight) {
         int start = move.Start;
         int end   = move.End;
         
-        CaptureScores[start][end] += weight * weight * (isGood ? 1 : -1);
+        CaptureScores[start][end] += weight * Math.Abs(weight);
         ButterflyBoard[start][end]++;
     }
 
