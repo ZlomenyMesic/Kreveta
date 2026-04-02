@@ -69,7 +69,7 @@ internal static class PVSControl {
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
         PVSearch.MinNMPPly = Math.Max(
             Math.Max(3, (32 - pieceCount) / 6),
-            Game.Ply / 20
+            Game.Ply / 25
         );
 
         // we still have time and are allowed to search deeper

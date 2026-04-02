@@ -148,7 +148,7 @@ internal static class Eval {
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawnMalus);
             eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus 
                                                       * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3)
-                                                      * (isProtected ? 2 : 1));
+                                                      * (isProtected ? 20 : 10) / 10);
 
             // also check if there's a friendly piece blocking the pawn
             if (col == Color.WHITE ? (1UL << sq - 8 & friendlyPieces) != 0UL

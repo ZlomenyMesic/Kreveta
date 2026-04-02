@@ -167,8 +167,8 @@ internal static class TimeManager {
         expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
         
         // use the game ply to further approximate remaining moves
-        float plyTerm = MathF.Max(13f, (150f - Game.Ply) / 5f);
-        expected = (5f * expected + 3f * plyTerm) / 8f;
+        float plyTerm = MathF.Max(13.1f, (150.0f - Game.Ply) / 5.0f);
+        expected = (5.0f * expected + 3.0f * plyTerm) / 8.0f;
         
         // add a level of complexity into the result - positions with more
         // available legal moves are more complex, and thus searched longer
