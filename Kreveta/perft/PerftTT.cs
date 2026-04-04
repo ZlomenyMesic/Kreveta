@@ -3,10 +3,10 @@
 // started 4-3-2025
 //
 
-using Kreveta.search.transpositions;
-
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.perft;
@@ -43,13 +43,14 @@ internal static unsafe partial class PerftTT {
 
     internal static void Init(int depth) {
         Clear();
+
+        // the table size grows in an odd way; all
+        // values are tested and perform very well
+        int d     = Math.Max(0, depth - 4);
+        int e     = 19 + d * (d + 1) / 2;
         
-        // these table sizes i have best experience with
-        TableSize = depth switch {
-            < 6 => 1_048_576,
-            6   => 8_388_608,
-            > 6 => 16_777_216
-        };
+        // the table size is always a power of 2
+        TableSize = 1 << Math.Min(e, 30);
         
         Table = (Entry*)NativeMemory.AlignedAlloc(
             byteCount: (nuint)TableSize * EntrySize,

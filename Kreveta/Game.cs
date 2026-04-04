@@ -18,8 +18,8 @@ using Kreveta.uci;
 
 using System;
 using System.Collections.Generic;
-// ReSharper disable StackAllocInsideLoop
 
+// ReSharper disable StackAllocInsideLoop
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
@@ -28,8 +28,6 @@ internal static class Game {
 
     // current chessboard state is saved here (root node)
     internal static Board Board = new();
-
-    // the side the engine plays on
     internal static Color EngineColor;
 
     // if the engine receives the "ucinewgame" command, we know we will be
@@ -208,11 +206,11 @@ internal static class Game {
     }
 
     private static void PlayMoves(ReadOnlySpan<string> tokens) {
-        // ReSharper disable once InvokeAsExtensionMethod
-        int moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves");
+        int moveSeqStart;
 
-        // no move sequence was found
-        if (moveSeqStart == -1) return;
+        // ReSharper disable once InvokeAsExtensionMethod
+        if ((moveSeqStart = MemoryExtensions.IndexOf(tokens, "moves")) == -1)
+            return;
 
         // we save all known previous positions as 3-fold repetition exists
         ThreeFold.AddAndCheck(Board.Hash);

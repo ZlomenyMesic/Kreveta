@@ -36,6 +36,7 @@ internal static unsafe partial class TranspositionTable {
         alignment: EntrySize);
 
     internal static ulong TTHits;
+    internal static bool  ShouldClear;
 
     // hashfull tells us how filled is the hash table in permill (entries
     // per thousand). this number is sent regularly to the GUI, which allows
@@ -45,7 +46,6 @@ internal static unsafe partial class TranspositionTable {
         (int)((float)Stored / (BucketCount * BucketSize) * 1000);
 
     // tt array size = mebibytes * bytes_in_mib / entry_size
-    // we also limit the size as per the maximum allowed array size (2 GB)
     private static int GetTableSize() {
         const long EntriesInMiB = 1_048_576 / EntrySize;
         int size = (int)(Options.Hash * EntriesInMiB / BucketSize);
@@ -91,6 +91,15 @@ internal static unsafe partial class TranspositionTable {
 
     // store a position in the table. the best move doesn't have to be specified
     internal static void Store(ulong hash, sbyte depth, int ply, Window window, short score, Move bestMove) {
+        
+        // the UCI option Clear Hash is supposed to clear the TT. since the engine
+        // runs on two threads, instead of clearing it just sets this flag, and
+        // TT is cleared as soon as possible to prevent threading collisions
+        if (ShouldClear) {
+            Init();
+            ShouldClear = false;
+        }
+        
         int index  = HashIndex(hash);
         var bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
 

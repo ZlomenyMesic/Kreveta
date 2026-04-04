@@ -507,7 +507,9 @@ internal unsafe struct Board {
             fen.Append(" " + Consts.Files[EnPassantSq & 7] + (8 - (EnPassantSq >> 3)));
         else fen.Append(" -");
         
+        // halfmove and fullmove clock
         fen.Append(' ' + HalfMoveClock.ToString());
+        fen.Append(' ' + Game.Ply.ToString());
         
         return fen.ToString();
     }

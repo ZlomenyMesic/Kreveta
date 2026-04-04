@@ -27,6 +27,7 @@ Development started on **March 3, 2025**.
 ### Elo Ratings
 
 Kreveta has been tested and rated on numerous sites using various time controls.
+Keep in mind these Elo ratings are relative to other engines, and comparing them to human ratings is useless.
 
 | Site                                                                                                          | Time Control                   | Tested Releases     |
 |---------------------------------------------------------------------------------------------------------------|--------------------------------|---------------------|
@@ -42,28 +43,25 @@ Kreveta has been tested and rated on numerous sites using various time controls.
 
 ### Move Generation
 
-- Bitboard representation of positions
+- Bitboard position representation
 - Precomputed slider tables with PEXT-based lookups
-- King star logic for check situations
 
 ### Search Features
 
-- Principal Variation Search with Alpha-Beta Pruning
+- Principal Variation Search framework
 - Quiescence search for leaf nodes
-- NMP, RFP, Razoring, FP and LMP
-- Delta Pruning and SEE Pruning for QSearch
-- Mate Distance Pruning (MDP)
-- Lazy move ordering
+- Various pruning techniques
+- Precise reductions and extensions
 - Killers, capture killers and countermoves
-- Quiet, capture and 2-ply continuation histories
-- Pawn, king, minor piece and major piece corrections
-- Resizable transposition table (1-1000 MiB)
+- Quiet, capture, static eval and 2-ply continuation histories
+- Pawn, king, minor and major piece corrections
+- Resizable transposition table (1-2047 MiB)
 - Rational time management
 
 ### Static Evaluation
 
-- **Classical part**
-  - PST with tapering evaluation
+- **Classical**
+  - PSTs with tapering evaluation
   - Pawn structure (doubling, isolation, blocking, passed pawns)
   - King safety based on friendly protection
 - **NNUE**
@@ -74,7 +72,9 @@ Kreveta has been tested and rated on numerous sites using various time controls.
 ### Others
 
 - Generic Polyglot opening book support
-- Fancy statistics printing
+- Adjustable playing strength based on CCRL-calibrated Elo
+- Ability to play worst possible moves
+- Fancy statistics printing & analysis mode
 - Custom [parameter tuning](https://github.com/ZlomenyMesic/Kreveta/tree/master/KrevetaTuning) project
 
 ---
@@ -91,7 +91,7 @@ Sent by the GUI to ensure the engine uses the UCI protocol. The engine responds 
 
 ### `isready`
 
-Used by the GUI to check whether the engine is ready to respond to further commands. If the engine is ready, it shall respond with `readyok`.
+Used by the GUI to check whether the engine is ready to respond to further commands. If the engine is ready, it responds with `readyok`.
 
 ### `ucinewgame`
 
@@ -103,38 +103,85 @@ Used to set up a chess position, which must be done prior to any search. The sta
 
 ### `go [depth n | movetime t | wtime x btime y ...]`
 
-Starts searching the current position. None of the arguments are mandatory, and if none are provided, the default time budget is used. `wtime` indicates white's time left, `btime` is black's time left, `winc` tells white's time increment after each move and `binc` is black's time increment. The search can also be run as `go movetime <x>`, which precisely specifies the time the search should take. `go depth <x>` runs a search with unrestricted time, but a strict maximum search depth. `go infinite` starts a neverending search. All time arguments shall be passed in milliseconds.
+Starts searching the best move from the current position. None of the arguments are mandatory, and if none are provided, the default time budget is used. All time arguments must be passed in milliseconds. Once the search terminates, the engine responds with `bestmove <m>`.
+
+For user analysis, `depth <d>` indicates how many moves to search ahead. Using `movetime <t>` starts a search with a specified time budget. `nodes <n>` may also be used to set an upper limit for the total number of searched positions. To evaluate a single move or a selection of moves, use `searchmoves <m1 m2 ...>`. The command `go infinite` starts an infinite search, ideal for long analysis.
+
+When playing a full game, other arguments may also be provided to specify the time control, such as `wtime <t>` and `btime <t>` indicating the time left for either side, `winc <t>` and `binc <t>` telling the time increment or `movestogo <n>` for restarting time controls.
 
 ### `stop`
 
 Interrupts search immediately. Works both for perft and regular search.
 
+### `quit`,`exit`
+
+Exits the program as soon as possible. Terminating the program this way is recommended to ensure all manually allocated memory is freed properly.
+
 ### `setoption name [option] value [value]`
 
-Changes engine configuration. Available options:
+Changes internal engine configuration. Supported options are:
 
 - **PolyglotUseBook** (check): enables/disables retrieving and playing moves from the specified Polyglot book
 - **PolyglotBook** (string): sets the path to the Polyglot book
 - **PolyglotRisk** (spin): decides how risky the engine acts when choosing from multiple differently weighted moves in the Polyglot book
 - **Hash** (spin): size of the TT in MiB (other tables are not affected)
-- **PrintStats** (check): enables/disables printing fancy statistics at the end of regular and perft searches
-
-### `quit`
-
-Exits the program as soon as possible.
+- **Clear Hash** (button): clears the TT during search
+- **UsePerftHash** (check): enables/disables usage of a secondary TT for perft
+- **UCI_Elo** (spin): sets an Elo rating at which the engine should perform
+- **UCI_LimitStrength** (check): enables/disables the Elo limit. Must be set to true to actually allow playing strength restrictions
+- **UCI_AnalyseMode** (check): enables/disables analysis mode
+- **UCI_EngineAbout** (string): just some short info
+- **PrintStats** (check): enables/disables prints of additional statistics at the end of search
+- **PlayWorst** (check): forces playing the worst possible moves
 
 ### `perft` (non-UCI)
 
-Stands for PERFormance Test. This command is used to measure the move generation algorithm's speed and correctness. The syntax is `perft <x>`, which specifies the depth at which the test shall be performed. The output is the number of nodes found exactly at the specified depth, and the total time spent to find this number.
+Stands for PERFormance Test. This command is used to measure the move generator speed and correctness. The syntax is `perft <d>`, which specifies the depth at which the test shall be performed. The output is the number of nodes found exactly at the specified depth, and the total time spent to find this number.
 
-### `d` (non-UCI)
+### `d`, `draw`, `display` (non-UCI)
 
-Prints the currently set position.
+Displays the currently set position, along with its FEN, internal TT hash and Polyglot hash.
 
-### `cls` (non UCI)
+### `moves` (non-UCI)
+
+Shows all legal moves from the set position sorted by piece type.
+
+### `eval` (non-UCI)
+
+Prints both the classical and NNUE evaluation for the current position. Keep in mind the score is obtained without any search, and thus is unreliable and unfit for any serious purpose.
+
+### `flip` (non-UCI)
+
+Flips the side to move on the currently set position.
+
+### `bench` (non-UCI)
+
+Runs a short search on a hard-coded set of positions to measure regular search speed and the number of searched nodes. `bench <d>` may be run to override the
+default search depth.
+
+### `cls` (non-UCI)
 
 Clears the console window.
 
-### `help` (non-UCI)
+### `tune <v1 v2 ...>` (non-UCI)
+
+Used for tuning internal parameters. This command is not required unless you're planning on making the engine better.
+
+### `license` (non-UCI)
+
+Displays the content of the MIT license.
+
+### `help`, `-help`, `--help`, `h`, `-h`, `--h` (non-UCI)
 
 Redirects you here.
+
+---
+
+## Build & Run
+
+On the [Releases page](https://github.com/ZlomenyMesic/Kreveta/releases) are available the latest stable releases of Kreveta. Download the executable, connect it to your GUI of choice and you're good to go. Kreveta performs the best on hardware supporting the BMI2 and AVX2 instruction sets, but implements fallbacks for older hardware as well.
+
+To build Kreveta yourself, .NET SDK 9.0 or 10.0 is recommended. Clone the repository using <br>
+`git clone https://github.com/ZlomenyMesic/Kreveta` <br>
+or download the source code directly. A self-contained executable may be built using <br>
+`dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true`

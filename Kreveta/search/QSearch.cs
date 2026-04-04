@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder;
+using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 
 using System;
@@ -45,7 +46,7 @@ internal static class QSearch {
         bool  inCheck  = board.IsCheck;
         short standPat = board.StaticEval;
 
-        // STAND PAT PRUNING:
+        // 1. STAND PAT PRUNING:
         // based on the null move observation, there is always at least one good move
         // in every position. since we're only searching captures, e.g. a subset of all
         // legal moves, we cannot return a bad score if we don't find a good move. so,
@@ -80,14 +81,24 @@ internal static class QSearch {
                 : Score.CreateMateScore(col, ply);
         }
 
-        // we aren't checked => sort the generated captures
+        // 2. SEE PRUNING:
+        // when not in check, only captures are generated. captures with
+        // negative are skipped directly in the SEE ordering function
         int[]         seeScores = [];
         if (!inCheck) moves     = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, true);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
             
-            // MOVECOUNT PRUNING:
+            // since all captures are only sorted by SEE, if we encounter two moves with the
+            // same SEE value, we check whether the following one has better capture history,
+            // and possibly swap them. this does NOT ensure correct ordering, as just swapping
+            // pairs simply doesn't guarantee perfect order
+            if (!inCheck && i != count - 1 && seeScores[i] == seeScores[i + 1]
+                && CaptureHistory.GetRep(moves[i]) < CaptureHistory.GetRep(moves[i + 1]))
+                (moves[i], moves[i + 1]) = (moves[i + 1], moves[i]);
+            
+            // 3. MOVECOUNT PRUNING:
             // late captures are simply skipped, unless being a recapture
             if (!inCheck && i > 3 && ply >= PVSearch.CurIterDepth + 4 && moves[i].End != prevSq
                 && !Score.IsMate(col == Color.WHITE ? window.Alpha : window.Beta)) {
@@ -96,7 +107,7 @@ internal static class QSearch {
                 continue;
             }
             
-            // DELTA PRUNING:
+            // 4. DELTA PRUNING:
             // very similar to futility pruning but makes use of the value of the currently
             // captured piece (or SEE score to be exact), which is added to the stand pat with
             // a margin, and if the eval still doesn't raise alpha, we prune this branch

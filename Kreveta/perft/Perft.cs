@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.uci;
+using Kreveta.uci.options;
 
 using System;
 using System.Diagnostics;
@@ -22,7 +23,8 @@ namespace Kreveta.perft;
 // a shallower depth aren't included
 internal static class Perft {
     internal static void Run(int depth) {
-        PerftTT.Init(depth);
+        if (Options.UsePerftHash)
+            PerftTT.Init(depth);
         
         // we probably could use something more sophisticated
         // than a stopwatch, but i'm too lazy to do so
@@ -40,7 +42,9 @@ internal static class Perft {
                 child.PlayMove(moves[i], false);
             
                 // the recursive search starts here
-                curNodes = CountNodes(ref child, (byte)(depth - 1));
+                curNodes = Options.UsePerftHash 
+                    ? CountNodes(      ref child, (byte)(depth - 1))
+                    : CountNodesVirgin(ref child, (byte)(depth - 1));
             }
             
             // print each move after 1 ply and its respective node count
@@ -69,7 +73,8 @@ internal static class Perft {
             ("Time spent",  sw.Elapsed),
             ("Average NPS", nps));
         
-        PerftTT.Clear();
+        if (Options.UsePerftHash)
+            PerftTT.Clear();
     }
 
     private static unsafe ulong CountNodes(ref Board board, byte depth) {
@@ -115,6 +120,32 @@ internal static class Perft {
 
         // store the new position in perftt
         PerftTT.Store(in board, ++depth, nodes);
+
+        return nodes;
+    }
+    
+    // the same method as above, but doesn't use PerftTT (this may be toggled
+    // using the UCI options UsePerftHash). a separate function is used to
+    // ensure maximum efficiency by avoiding if-checks
+    private static unsafe ulong CountNodesVirgin(ref Board board, byte depth) {
+        if (UCI.ShouldAbortSearch) return 0UL;
+        if (depth == 1)            return (ulong)Movegen.GetLegalMoves(ref board, stackalloc Move[128]);
+
+        ulong nodes = 0UL;
+        depth--;
+        
+        Span<Move> moves = stackalloc Move[Consts.MoveBufferSize];
+        int count = Movegen.GetPseudoLegalMoves(ref board, moves);
+        
+        for (byte i = 0; i < count; i++) {
+            Board child = board.Clone(false);
+            child.PlayMove(moves[i], false);
+            
+            if (Check.IsKingChecked(in child, board.SideToMove))
+                continue;
+
+            nodes += CountNodesVirgin(ref child, depth);
+        }
 
         return nodes;
     }

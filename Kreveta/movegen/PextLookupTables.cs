@@ -4,18 +4,19 @@
 //
 
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
 
-internal static class PextLookupTables {
-    internal static          ulong[] FlatBishopTable    = null!;
-    internal static          ulong[] FlatRookTable      = null!;
-    internal static readonly ulong[] BishopMask         = new ulong[64];
-    internal static readonly ulong[] RookMask           = new ulong[64];
-    internal static readonly int[]   BishopOffset       = new int[64];
-    internal static readonly int[]   RookOffset         = new int[64];
-    private  static readonly byte[]  BishopRelevantBits = new byte[64];
-    private  static readonly byte[]  RookRelevantBits   = new byte[64];
+internal static unsafe class PextLookupTables {
+    internal static readonly ulong* FlatBishopTable    = (ulong*)NativeMemory.AlignedAlloc(5_248   * sizeof(ulong), 64);
+    internal static readonly ulong* FlatRookTable      = (ulong*)NativeMemory.AlignedAlloc(102_400 * sizeof(ulong), 64);
+    internal static readonly ulong* BishopMask         = (ulong*)NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
+    internal static readonly ulong* RookMask           = (ulong*)NativeMemory.AlignedAlloc(64      * sizeof(ulong), 64);
+    internal static readonly int*   BishopOffset       = (int*)  NativeMemory.AlignedAlloc(64      * sizeof(int),   64);
+    internal static readonly int*   RookOffset         = (int*)  NativeMemory.AlignedAlloc(64      * sizeof(int),   64);
+    private  static readonly byte*  BishopRelevantBits = (byte*) NativeMemory.AlignedAlloc(64      * sizeof(byte),  64);
+    private  static readonly byte*  RookRelevantBits   = (byte*) NativeMemory.AlignedAlloc(64      * sizeof(byte),  64);
 
     internal static void Init() {
         GenerateMasks();
@@ -31,22 +32,19 @@ internal static class PextLookupTables {
             BishopRelevantBits[sq] = (byte)BitOperations.PopCount(BishopMask[sq]);
             RookRelevantBits[sq]   = (byte)BitOperations.PopCount(RookMask[sq]);
         }
-
-        FlatBishopTable = AllocateFlatTable(BishopRelevantBits, BishopOffset);
-        FlatRookTable   = AllocateFlatTable(RookRelevantBits, RookOffset);
+        
+        ComputeOffsets(BishopRelevantBits, BishopOffset);
+        ComputeOffsets(RookRelevantBits, RookOffset);
     }
 
     
-    // allocate flat contiguous memory for one slider table type
-    private static ulong[] AllocateFlatTable(byte[] relevantBitsPerSquare, int[] squareOffsets) {
-        int totalEntries = 0;
+    private static void ComputeOffsets(byte* relevantBits, int* offsets) {
+        int total = 0;
 
-        for (int square = 0; square < 64; square++) {
-            squareOffsets[square] = totalEntries;
-            totalEntries += 1 << relevantBitsPerSquare[square];
+        for (int sq = 0; sq < 64; sq++) {
+            offsets[sq] = total;
+            total += 1 << relevantBits[sq];
         }
-
-        return new ulong[totalEntries];
     }
 
     private static ulong ComputeRookRelevantMask(int square) {
@@ -91,10 +89,10 @@ internal static class PextLookupTables {
 
     private static void BuildBishopTables() {
         for (int sq = 0; sq < 64; sq++) {
-            ulong mask = BishopMask[sq];
-            int blockerCount = BishopRelevantBits[sq];
-            int maxBlockerCombinations = 1 << blockerCount;
-            int baseOffset = BishopOffset[sq];
+            ulong mask                  = BishopMask[sq];
+            int  blockerCount           = BishopRelevantBits[sq];
+            int  maxBlockerCombinations = 1 << blockerCount;
+            int  baseOffset             = BishopOffset[sq];
 
             for (int index = 0; index < maxBlockerCombinations; index++) {
                 ulong blockers = ExpandBlockerBitsToBoardMask(index, mask);
@@ -104,15 +102,15 @@ internal static class PextLookupTables {
     }
 
     private static void BuildRookTables() {
-        for (int square = 0; square < 64; square++) {
-            ulong mask = RookMask[square];
-            int blockerCount = RookRelevantBits[square];
-            int maxBlockerCombinations = 1 << blockerCount;
-            int baseOffset = RookOffset[square];
+        for (int sq = 0; sq < 64; sq++) {
+            ulong mask                  = RookMask[sq];
+            int  blockerCount           = RookRelevantBits[sq];
+            int  maxBlockerCombinations = 1 << blockerCount;
+            int  baseOffset             = RookOffset[sq];
 
             for (int index = 0; index < maxBlockerCombinations; index++) {
                 ulong blockers = ExpandBlockerBitsToBoardMask(index, mask);
-                FlatRookTable[baseOffset + index] = ComputeSlidingAttacks(square, blockers, bishop: false);
+                FlatRookTable[baseOffset + index] = ComputeSlidingAttacks(sq, blockers, bishop: false);
             }
         }
     }
@@ -160,5 +158,16 @@ internal static class PextLookupTables {
         }
 
         return attacks;
+    }
+    
+    internal static void Free() {
+        NativeMemory.AlignedFree(FlatBishopTable);
+        NativeMemory.AlignedFree(FlatRookTable);
+        NativeMemory.AlignedFree(BishopMask);
+        NativeMemory.AlignedFree(RookMask);
+        NativeMemory.AlignedFree(BishopOffset);
+        NativeMemory.AlignedFree(RookOffset);
+        NativeMemory.AlignedFree(BishopRelevantBits);
+        NativeMemory.AlignedFree(RookRelevantBits);
     }
 }

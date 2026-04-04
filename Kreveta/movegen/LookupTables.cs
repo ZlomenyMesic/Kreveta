@@ -5,7 +5,6 @@
 
 #pragma warning disable CA1810
 
-using System;
 using System.Runtime.InteropServices;
 
 namespace Kreveta.movegen;
@@ -17,7 +16,7 @@ internal static unsafe class LookupTables {
     internal static readonly ulong* KnightTargets   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong),      64);
     
     // when escaping check or ensuring move legality, these star shapes are used
-    internal static readonly ulong* KingStars   = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
+    internal static readonly ulong* KingStars = (ulong*)NativeMemory.AlignedAlloc(64 * sizeof(ulong), 64);
     
     private static bool _memoryFreed;
 
@@ -112,6 +111,8 @@ internal static unsafe class LookupTables {
         NativeMemory.AlignedFree(PawnCaptTargets);
         NativeMemory.AlignedFree(KingTargets);
         NativeMemory.AlignedFree(KnightTargets);
+        
+        PextLookupTables.Free();
         
         _memoryFreed = true;
     }

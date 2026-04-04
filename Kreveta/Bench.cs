@@ -6,6 +6,7 @@
 using System;
 using System.Diagnostics;
 using Kreveta.uci;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
@@ -28,6 +29,8 @@ internal static class Bench {
         "8/8/2k5/p1b1r2p/PrRR2pP/2K1B1P1/5P2/8 w - - 0 1",                       // endgame #2
     ];
 
+    private const int DefaultDepth = 12;
+
     // externally accessed node counter
     internal static ulong Nodes;
     internal static bool  Finished;
@@ -41,7 +44,7 @@ internal static class Bench {
         Nodes         = 0UL;
         
         // there can be either default or custom depth
-        int depth = 12;
+        int depth = DefaultDepth;
         if (tokens.Length >= 2) _ = int.TryParse(tokens[1], out depth);
 
         var sw = Stopwatch.StartNew();

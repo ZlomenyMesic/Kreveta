@@ -18,7 +18,7 @@ internal static class LazyMoveOrder {
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
     
-    internal static void AssignScores(in Board board, int ply, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
+    internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
         Color col         = board.SideToMove;
         bool  isEarlyGame = board.GamePhase() > 118;
         
@@ -32,8 +32,8 @@ internal static class LazyMoveOrder {
             
             PType promPiece = move.Promotion;
             bool  isCapture = move.Capture != PType.NONE || promPiece == PType.PAWN;
-            bool  isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
-            bool  isCounter = counterMove == move;
+            bool isKiller   = isCapture ? captKillers.Contains(move) : killers.Contains(move);
+            bool isCounter  = counterMove == move;
 
             if (!isCapture) {
                 PType movedPiece = move.Piece;
@@ -84,7 +84,6 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                // TODO - TEST CLAMPING
                 scores[i] += killer + see + cont + chist + prom;
             }
         }

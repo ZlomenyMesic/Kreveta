@@ -63,16 +63,31 @@ internal static partial class Options {
             Name         = nameof(Hash),
             Type         = OpType.SPIN,
             MinValue     = 1L, // always keep at least some memory
-            MaxValue     = 1024L, 
+            MaxValue     = 2047L, 
             DefaultValue = Default.DHash,
             Value        = Default.DHash
+        },
+        
+        // clear the TT
+        new() {
+            Name         = "Clear Hash",
+            Type         = OpType.BUTTON,
+            DefaultValue = 'N',
+            Value        = 'N'
+        },
+        
+        new() {
+            Name         = nameof(UsePerftHash),
+            Type         = OpType.CHECK,
+            DefaultValue = Default.DUsePerftHash,
+            Value        = Default.DUsePerftHash
         },
         
         // elo level
         new() {
             Name         = nameof(UCI_Elo),
             Type         = OpType.SPIN,
-            MinValue     = 1200L,
+            MinValue     = 800L,
             MaxValue     = 2200L,
             DefaultValue = Default.DUCI_Elo,
             Value        = Default.DUCI_Elo
@@ -84,6 +99,22 @@ internal static partial class Options {
             Type         = OpType.CHECK,
             DefaultValue = Default.DUCI_LimitStrength,
             Value        = Default.DUCI_LimitStrength
+        },
+        
+        // print additional info for position analysis
+        new() {
+            Name         = nameof(UCI_AnalyseMode),
+            Type         = OpType.CHECK,
+            DefaultValue = Default.DUCI_AnalyseMode,
+            Value        = Default.DUCI_AnalyseMode
+        },
+        
+        // just some info; this may not be overwritten
+        new() {
+            Name         = nameof(UCI_EngineAbout),
+            Type         = OpType.STRING,
+            DefaultValue = Default.DUCI_EngineAbout,
+            Value        = Default.DUCI_EngineAbout
         },
         
         // print fancy statistics after each finished search
@@ -111,10 +142,13 @@ internal static partial class Options {
     internal static string PolyglotBook      => (string)options[1].Value;
     internal static long   PolyglotRisk      => (long)  options[2].Value;
     internal static long   Hash              => (long)  options[3].Value;
-    internal static long   UCI_Elo           => (long)  options[4].Value;
-    internal static bool   UCI_LimitStrength => (bool)  options[5].Value;
-    internal static bool   PrintStats        => (bool)  options[6].Value;
-    internal static bool   PlayWorst         => (bool)  options[7].Value;
+    internal static bool   UsePerftHash      => (bool)  options[5].Value;
+    internal static long   UCI_Elo           => (long)  options[6].Value;
+    internal static bool   UCI_LimitStrength => (bool)  options[7].Value;
+    internal static bool   UCI_AnalyseMode   => (bool)  options[8].Value;
+    internal static string UCI_EngineAbout   => (string)options[9].Value;
+    internal static bool   PrintStats        => (bool)  options[10].Value;
+    internal static bool   PlayWorst         => (bool)  options[11].Value;
 
     // used to print the option types when 'uci' is entered
     private static string GetName(this OpType type)
@@ -167,22 +201,31 @@ internal static partial class Options {
     // this is called when the engine receives the "setoption"
     // command, which is used to modify the value of an option
     internal static void Set(ReadOnlySpan<string> tokens) {
-        // the syntax must be "setoption name <NAME> value <VALUE>"
-        if (tokens.Length < 3 || tokens[1] != "name") {
-            goto invalid_syntax;
+        
+        // all button type options are handled right here, as doing
+        // different checks later would just be unnecessarily complex
+        if (tokens is ["setoption", "name", "Clear", "Hash"]) {
+            TT.ShouldClear = true;
+            return;
         }
+        
+        // the syntax must be "setoption name <NAME> value <VALUE>"
+        if (tokens.Length < 3 || tokens[1] != "name")
+            goto invalid_syntax;
 
         var name = tokens[2];
+
+        if (name == nameof(UCI_EngineAbout)) {
+            UCI.Log("The value of this option may not be overwritten");
+            return;
+        }
+        
         var found = from option in options
             where option.Name == name select option;
         
         Option opt;
-        try {
-            opt = found.First();
-        } 
-        catch (InvalidOperationException) {
-            goto unsupported_opt;
-        }
+        try                               { opt = found.First();  } 
+        catch (InvalidOperationException) { goto unsupported_opt; }
         
         switch (opt.Type) {
             case OpType.BUTTON: { return; }

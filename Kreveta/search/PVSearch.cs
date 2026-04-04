@@ -435,7 +435,7 @@ internal static unsafe class PVSearch {
         if (ttMove == ss.ExcludedMove) ttMoveExists = false;
         
         // after this move index threshold all quiets are reduced
-        int reduceQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
+        int reduceQuietsThreshold = 41 + 3 * ss.Depth * ss.Depth
             + (inCheck      || !allNode        ? 1000 : 0)
             + (ttOptimistic || parentImproving ? 5    : 0);
         
@@ -464,7 +464,7 @@ internal static unsafe class PVSearch {
                 if (!scoresAssigned) {
                     moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
                     
-                    LazyMoveOrder.AssignScores(in board, ss.Ply, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
+                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it

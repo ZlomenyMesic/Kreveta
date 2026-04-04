@@ -26,8 +26,8 @@ using System.IO;
 using System.Threading;
 
 using System.Text;
-// ReSharper disable StackAllocInsideLoop
 
+// ReSharper disable StackAllocInsideLoop
 // ReSharper disable InvokeAsExtensionMethod
 // ReSharper disable InconsistentNaming
 
@@ -173,6 +173,10 @@ internal static partial class UCI {
                     break;
                 }
                 
+                case "license":
+                    Log($"\n{Consts.License}\n");
+                    break;
+                
                 case "help" or "-help" or "--help" or "h" or "-h" or "--h":
                     Log("Kreveta is an open-source chess engine, released under the MIT license. Please read the full documentation here: https://github.com/ZlomenyMesic/Kreveta");
                     break;
@@ -210,7 +214,7 @@ internal static partial class UCI {
     // to measure the speed and correctness of movegen
     private static void CmdPerft(ReadOnlySpan<string> tokens) {
         // first stop the potential already running search
-        StopSearch();
+        StopSearch(verbose: false);
 
         // position cannot be searched (mate or stalemate)
         if (Game.IsTerminalPosition(out string reason)) {
@@ -246,13 +250,16 @@ internal static partial class UCI {
     internal static void CmdGo(ReadOnlySpan<string> tokens, bool bench = false) {
         // abort the currently running search first in order to
         // run a new one, since there is a single search thread.
-        StopSearch();
+        StopSearch(verbose: false);
         
         // position cannot be searched (mate or stalemate)
         if (Game.IsTerminalPosition(out string error)) {
             CannotStartSearchCallback.Invoke(error);
             return;
         }
+
+        // no full game may be played when analysis mode is on
+        Game.FullGame &= !Options.UCI_AnalyseMode;
 
         if (Game.FullGame) {
             Span<Move> legal = stackalloc Move[Consts.MoveBufferSize];
@@ -334,7 +341,10 @@ internal static partial class UCI {
             }
         }
 
-        Log($"info string ideal time budget {TM.TimeBudget} ms");
+        Log($"info string NNUE evaluation using {Program.Network}");
+        Log($"info string ideal time budget: {(TM.TimeBudget != long.MaxValue
+            ? $"{TM.TimeBudget} ms" 
+            : "none")}");
 
         // the search itself runs as a separate thread to allow processing
         // other commands while the search is running - this usually isn't
@@ -346,16 +356,18 @@ internal static partial class UCI {
         SearchThread.Start();
     }
 
-    private static void StopSearch() {
+    private static void StopSearch(bool verbose = true) {
         // this also checks for null values
-        if (SearchThread is { IsAlive: false })
+        if (SearchThread is null or { IsAlive: false }) {
+            if (verbose) Log("No search thread active");
             return;
+        }
 
         ShouldAbortSearch = true;
 
         // the search is a separate thread, which we first
         // synchronize with this one and then terminate
-        SearchThread?.Join();
+        SearchThread.Join();
         SearchThread = null;
 
         ShouldAbortSearch = false;
@@ -369,18 +381,18 @@ internal static partial class UCI {
         int        count  = Movegen.GetLegalMoves(ref Game.Board, legal);
         var        output = new StringBuilder();
 
-        output.Append($"\nTotal legal moves: {count}\n");
+        output.Append($"Total legal moves: {count}\n");
 
         // sort the moves by piece
         for (int i = 0; i < 6; i++) {
 #pragma warning disable CS8509
             output.Append(i switch {
-                0 => "\nPawns:  ",
-                1 => "\nKnights:",
-                2 => "\nBishops:",
-                3 => "\nRooks:  ",
-                4 => "\nQueens: ",
-                5 => "\nKing:   "
+                0 => "\nPawn:  ",
+                1 => "\nKnight:",
+                2 => "\nBishop:",
+                3 => "\nRook:  ",
+                4 => "\nQueen: ",
+                5 => "\nKing:  "
             });
 #pragma warning restore CS8509
             
