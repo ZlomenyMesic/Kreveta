@@ -29,6 +29,8 @@ Development started on **March 3, 2025**.
 Kreveta has been tested and rated on numerous sites using various time controls.
 Keep in mind these Elo ratings are relative to other engines, and comparing them to human ratings is useless.
 
+<center>
+
 | Site                                                                                                          | Time Control                   | Tested Releases     |
 |---------------------------------------------------------------------------------------------------------------|--------------------------------|---------------------|
 | [Lichess](https://lichess.org/@/ZlomenyMesic)                                                                 | Bullet, Blitz, Rapid, Classical | all                 |
@@ -36,6 +38,8 @@ Keep in mind these Elo ratings are relative to other engines, and comparing them
 | [CCI](https://github.com/computer-chess-index/cci/blob/main/engines/Kreveta.md)                               | STC, LTC, VLTC                 | 1.2.4+              |
 | [CEDR](https://chessengines.blogspot.com/search?q=kreveta)                                                    | Unknown                        | 2.0.0+              |
 | [CCRAT](https://docs.google.com/spreadsheets/d/1AgE6EJw3JRBI6M4_TrdaWZcQjZy8DYqRYq71mAjNLsI/edit?gid=0#gid=0) | 80+1s                          | 1.2.3               |
+
+</center>
 
 ---
 
@@ -107,13 +111,13 @@ Starts searching the best move from the current position. None of the arguments 
 
 For user analysis, `depth <d>` indicates how many moves to search ahead. Using `movetime <t>` starts a search with a specified time budget. `nodes <n>` may also be used to set an upper limit for the total number of searched positions. To evaluate a single move or a selection of moves, use `searchmoves <m1 m2 ...>`. The command `go infinite` starts an infinite search, ideal for long analysis.
 
-When playing a full game, other arguments may also be provided to specify the time control, such as `wtime <t>` and `btime <t>` indicating the time left for either side, `winc <t>` and `binc <t>` telling the time increment or `movestogo <n>` for restarting time controls.
+When playing a full game, other arguments may also be provided to specify the time control, such as `wtime <t>` and `btime <t>` indicating the time left for either side, `winc <t>` and `binc <t>` denoting the time increment or `movestogo <n>` for restarting time controls.
 
 ### `stop`
 
 Interrupts search immediately. Works both for perft and regular search.
 
-### `quit`,`exit`
+### `quit`, `exit`
 
 Exits the program as soon as possible. Terminating the program this way is recommended to ensure all manually allocated memory is freed properly.
 
@@ -179,9 +183,9 @@ Redirects you here.
 
 ## Build & Run
 
-On the [Releases page](https://github.com/ZlomenyMesic/Kreveta/releases) are available the latest stable releases of Kreveta. Download the executable, connect it to your GUI of choice and you're good to go. Kreveta performs the best on hardware supporting the BMI2 and AVX2 instruction sets, but implements fallbacks for older hardware as well.
+All stable recent releases of Kreveta are available on the [Releases page](https://github.com/ZlomenyMesic/Kreveta/releases). Download the executable, connect it to your GUI of choice, and you're good to go. Kreveta performs the best on hardware supporting the BMI2 and AVX2 instruction sets, but implements fallbacks for older hardware as well.
 
-To build Kreveta yourself, .NET SDK 9.0 or 10.0 is recommended. Clone the repository using <br>
-`git clone https://github.com/ZlomenyMesic/Kreveta` <br>
-or download the source code directly. A self-contained executable may be built using <br>
+To build Kreveta yourself, .NET SDK 9.0 or 10.0 is recommended. Clone the repository using <br><br>
+`git clone https://github.com/ZlomenyMesic/Kreveta` <br><br>
+or download the source code directly. A self-contained executable may be built using <br><br>
 `dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true`
