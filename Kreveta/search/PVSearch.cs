@@ -56,7 +56,8 @@ internal static unsafe class PVSearch {
     
     internal static bool Abort 
         => UCI.ShouldAbortSearch
-           || PVSControl.Stopwatch.ElapsedMilliseconds >= AbortTimeThreshold;
+           || PVSControl.Stopwatch.ElapsedMilliseconds >= AbortTimeThreshold
+           || PVSControl.TotalNodes + CurNodes >= PVSControl.CurNodesLimit;
 
     // increase the depth and do a re-search
     internal static void SearchDeeper(Window aspiration) {
@@ -434,7 +435,7 @@ internal static unsafe class PVSearch {
         if (ttMove == ss.ExcludedMove) ttMoveExists = false;
         
         // after this move index threshold all quiets are reduced
-        int skipQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
+        int reduceQuietsThreshold = 37 + 3 * ss.Depth * ss.Depth
             + (inCheck      || !allNode        ? 1000 : 0)
             + (ttOptimistic || parentImproving ? 5    : 0);
         
@@ -599,7 +600,7 @@ internal static unsafe class PVSearch {
             // 7. QUIET REDUCTIONS
             // at very low depths, when there are way too many moves, and we aren't
             // optimistic about raising alpha, some of the late quiets are reduced
-            if (!isCapture && !givesCheck && !improving && expandedNodes >= skipQuietsThreshold)
+            if (!isCapture && !givesCheck && !improving && expandedNodes >= reduceQuietsThreshold)
                 reduction++;
             
             // 10. SINGULAR EXTENSIONS
@@ -669,7 +670,7 @@ internal static unsafe class PVSearch {
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
 
             // increase reduction for moves with bad history
-            //reduction -= Math.Min(curScore / 700, 0);
+            reduction -= Math.Min(curScore / (80 + CurIterDepth * (25 + CurIterDepth)), 0);
             
             // apply the reduction, make sure we don't extend more than one ply
             reduction = Math.Max(reduction, 0);
@@ -749,7 +750,7 @@ internal static unsafe class PVSearch {
 
                 // once search iterations start taking a bit longer, print intermediate
                 // results for each move: 'info ... currmove x ...'
-                if (PVSControl.TotalNodes >= 5_000_000 && !Abort)
+                if (PVSControl.TotalNodes >= 7_000_000 && !Abort)
                     PrintCurrMoveInfo(col, fullSearch.Score, ss.Window, curDepth, curMove, expandedNodes, fullSearch.PV);
             }
             

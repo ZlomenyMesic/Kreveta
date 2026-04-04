@@ -157,13 +157,19 @@ internal static partial class UCI {
 
                 // nicely print the static eval of the position
                 case "eval": {
-                    Eval.PrintAnalysis(in Game.Board);
+                    Eval.Trace(in Game.Board);
                     break;
                 }
 
                 // print all legal moves
                 case "moves": {
                     PrintLegalMoves();
+                    break;
+                }
+
+                // flip the side to move
+                case "flip": {
+                    Game.Flip();
                     break;
                 }
                 
@@ -294,8 +300,20 @@ internal static partial class UCI {
             return;
         }
 
-        if (tokens.Contains("nodes"))
-            Log("Node count restrictions are not supported");
+        long nodes           = long.MaxValue;
+        int  nodesTokenIndex = MemoryExtensions.IndexOf(tokens, "nodes");
+
+        // same as with depth, the node count has to actually be specified
+        if (nodesTokenIndex != -1) {
+            try {
+                if (!long.TryParse(tokens[nodesTokenIndex + 1], out nodes))
+                    throw new InvalidCastException();
+
+                TM.TimeBudget = long.MaxValue;
+            } catch {
+                Log("Invalid or missing nodes argument");
+            }
+        }
 
         // if the user/GUI sends the "searchmoves" argument, we expect a list of legal moves
         // available from the position, and the search will only berestricted to these moves
@@ -321,7 +339,7 @@ internal static partial class UCI {
         // the search itself runs as a separate thread to allow processing
         // other commands while the search is running - this usually isn't
         // needed, but the "stop" command is very important
-        SearchThread = new Thread(() => PVSControl.StartSearch(depth, bench)) {
+        SearchThread = new Thread(() => PVSControl.StartSearch(depth, nodes, bench)) {
             Name     = $"{Program.Name}-{Program.Version}_Search",
             Priority = ThreadPriority.Highest,
         };

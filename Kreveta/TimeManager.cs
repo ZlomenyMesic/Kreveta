@@ -166,6 +166,10 @@ internal static class TimeManager {
         // pawns can promote and prolong the game
         expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
         
+        // default: 13.1  150.0  5.2  5.0  3.0  8.0
+        //       1:       134.7  5.2
+        //       2:              4.6  4.2  3.8
+        
         // use the game ply to further approximate remaining moves
         float plyTerm = MathF.Max(13.1f, (150.0f - Game.Ply) / 5.0f);
         expected = (5.0f * expected + 3.0f * plyTerm) / 8.0f;

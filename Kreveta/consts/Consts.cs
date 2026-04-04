@@ -7,12 +7,14 @@
 global using TT = Kreveta.search.transpositions.TranspositionTable;
 global using TM = Kreveta.TimeManager;
 
+using System;
 using System.Runtime.Intrinsics.X86;
 
 // ReSharper disable InconsistentNaming
 namespace Kreveta.consts;
 
 internal static class Consts {
+    internal static readonly Random RNG = new(426051289);
 
     // CPU-dependent optimizations, we must check whether they are supported
     internal static readonly bool UseAVX2 = Avx2.IsSupported;

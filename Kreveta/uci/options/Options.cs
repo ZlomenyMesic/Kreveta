@@ -68,6 +68,24 @@ internal static partial class Options {
             Value        = Default.DHash
         },
         
+        // elo level
+        new() {
+            Name         = nameof(UCI_Elo),
+            Type         = OpType.SPIN,
+            MinValue     = 1200L,
+            MaxValue     = 2200L,
+            DefaultValue = Default.DUCI_Elo,
+            Value        = Default.DUCI_Elo
+        },
+        
+        // activate the elo limit
+        new() {
+            Name         = nameof(UCI_LimitStrength),
+            Type         = OpType.CHECK,
+            DefaultValue = Default.DUCI_LimitStrength,
+            Value        = Default.DUCI_LimitStrength
+        },
+        
         // print fancy statistics after each finished search
         new() {
             Name         = nameof(PrintStats),
@@ -89,12 +107,14 @@ internal static partial class Options {
     // the name of the actual option, which isn't great.
     // non-custom options (OwnBook and Hash) need to keep
     // their names in order to be used properly by the GUI
-    internal static bool   PolyglotUseBook => (bool)  options[0].Value;
-    internal static string PolyglotBook    => (string)options[1].Value;
-    internal static long   PolyglotRisk    => (long)  options[2].Value;
-    internal static long   Hash            => (long)  options[3].Value;
-    internal static bool   PrintStats      => (bool)  options[4].Value;
-    internal static bool   PlayWorst       => (bool)  options[5].Value;
+    internal static bool   PolyglotUseBook   => (bool)  options[0].Value;
+    internal static string PolyglotBook      => (string)options[1].Value;
+    internal static long   PolyglotRisk      => (long)  options[2].Value;
+    internal static long   Hash              => (long)  options[3].Value;
+    internal static long   UCI_Elo           => (long)  options[4].Value;
+    internal static bool   UCI_LimitStrength => (bool)  options[5].Value;
+    internal static bool   PrintStats        => (bool)  options[6].Value;
+    internal static bool   PlayWorst         => (bool)  options[7].Value;
 
     // used to print the option types when 'uci' is entered
     private static string GetName(this OpType type)

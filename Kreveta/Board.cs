@@ -124,7 +124,7 @@ internal unsafe struct Board {
         // switch the side to move
         Color col    = SideToMove;
         Color colOpp = 1 - col;
-        SideToMove   = 1 - SideToMove;
+        SideToMove  ^= (Color)1;
 
         // start and end squares
         byte start8 = (byte)move.Start;

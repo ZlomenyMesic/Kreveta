@@ -10,14 +10,17 @@ internal static partial class Options {
     private static class Default {
         
         // the default values for all UCI options (visible with 'uci')
-        internal const bool   DPolyglotUseBook = false;
-        internal const string DPolyglotBook    = "";
-        internal const long   DPolyglotRisk    = 0L;
+        internal const bool   DPolyglotUseBook   = false;
+        internal const string DPolyglotBook      = "";
+        internal const long   DPolyglotRisk      = 0L;
         
-        internal const long   DHash            = 32L;
+        internal const long   DHash              = 32L;
         
-        internal const bool   DPrintStats      = false;
+        internal const bool   DPrintStats        = false;
         
-        internal const bool   DPlayWorst       = false;
+        internal const bool   DPlayWorst         = false;
+
+        internal const long   DUCI_Elo           = 1500;
+        internal const bool   DUCI_LimitStrength = false;
     }
 }

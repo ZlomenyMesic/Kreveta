@@ -3,10 +3,13 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA5394
+
 using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
 using Kreveta.uci;
+using Kreveta.uci.options;
 
 using System.Runtime.CompilerServices;
 
@@ -28,6 +31,9 @@ internal static class Eval {
     
     private static readonly ulong[] AdjFiles = new ulong[8];
 
+    // static evaluation noise
+    internal static int EvalEntropy;
+
     internal static void Init() {
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
@@ -35,20 +41,6 @@ internal static class Eval {
                 | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0UL)
                 | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0UL);
         }
-
-        /*for (int i = 0; i < 64; i++) {
-            EvalTables.Middlegame[i]          += Tuning.x1;
-            EvalTables.Middlegame[i + 1 * 64] += Tuning.x2;
-            EvalTables.Middlegame[i + 2 * 64] += Tuning.x3;
-            EvalTables.Middlegame[i + 3 * 64] += Tuning.x4;
-            EvalTables.Middlegame[i + 4 * 64] += Tuning.x5;
-            
-            EvalTables.Endgame[i]          += Tuning.x6;
-            EvalTables.Endgame[i + 1 * 64] += Tuning.x7;
-            EvalTables.Endgame[i + 2 * 64] += Tuning.x8;
-            EvalTables.Endgame[i + 3 * 64] += Tuning.x9;
-            EvalTables.Endgame[i + 4 * 64] += Tuning.x10;
-        }*/
     }
 
     // returns the static evaluation of a position. static eval is used mainly in the leaf
@@ -67,6 +59,19 @@ internal static class Eval {
         combined -= combined * board.HalfMoveClock      / 201;
         combined -= combined * Math.Abs(nnue - classic) / 63_754;
 
+        // when UCI_LimitStrength is on, shift all scores randomly
+        // to produce worse play; lower UCI_Elo means more randomness
+        if (Options.UCI_LimitStrength) {
+            /*
+             * some example ranges and the respective Elo:
+             * 1500 Elo => +/- ~395
+             * 1700 Elo => +/- ~270
+             * 1915 Elo => +/- ~140
+             * 2287 Elo => +/- 0
+             */
+            combined += Consts.RNG.Next(-EvalEntropy, EvalEntropy + 1);
+        }
+        
         return (short)combined;
     }
     
@@ -213,7 +218,7 @@ internal static class Eval {
     // computation is heavily optimized, so adding this logic directly into it would be difficult,
     // and would also hurt performance. the logic is obviously kept the same, but written in a less
     // optimized and more readable way
-    internal static void PrintAnalysis(in Board board) {
+    internal static void Trace(in Board board) {
         int pcount = (int)ulong.PopCount(board.Occupied);
         
         // first calculate the material part using piece-square tables
@@ -254,3 +259,5 @@ internal static class Eval {
         UCI.Log($"{Score.ToRegular(board.StaticEval)}\n");
     }
 }
+
+#pragma warning restore CA5394

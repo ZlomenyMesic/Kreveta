@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.uci;
+using Kreveta.uci.options;
 
 using System;
 using System.Collections.Generic;
@@ -22,7 +23,8 @@ internal static class PVSControl {
     internal const int DefaultMaxDepth = 100;
 
     // maximum search depth allowed in this search
-    private static int CurMaxDepth;
+    private static int    CurMaxDepth;
+    internal static ulong CurNodesLimit;
         
     // best move found so far
     private static Move BestMove;
@@ -44,8 +46,9 @@ internal static class PVSControl {
 
     internal static Stopwatch Stopwatch = null!;
 
-    internal static void StartSearch(int depth = DefaultMaxDepth, bool bench = false) {
-        CurMaxDepth = depth;
+    internal static void StartSearch(int depth = DefaultMaxDepth, long NodesLimit = long.MaxValue, bool bench = false) {
+        CurMaxDepth   = depth;
+        CurNodesLimit = (ulong)NodesLimit;
 
         // start iterative deepening
         IterativeDeepeningLoop(bench);
@@ -71,10 +74,16 @@ internal static class PVSControl {
             Math.Max(3, (32 - pieceCount) / 6),
             Game.Ply / 25
         );
+        
+        // evaluation noise
+        Eval.EvalEntropy = (int)(
+            0.119f * MathF.Pow(2227.0f - Options.UCI_Elo, 1.225f)
+        );
 
         // we still have time and are allowed to search deeper
-        while (PVSearch.CurIterDepth < CurMaxDepth 
-               && Stopwatch.ElapsedMilliseconds < TM.TimeBudget) {
+        while (PVSearch.CurIterDepth            < CurMaxDepth
+               && Stopwatch.ElapsedMilliseconds < TM.TimeBudget
+               && TotalNodes                    < CurNodesLimit) {
 
             PVSearch.NextBestMove = default;
 
@@ -179,6 +188,17 @@ internal static class PVSControl {
         if (PVSearch.NextBestMove != default && AspirationFail == 0)
             BestMove = PVSearch.NextBestMove;
 
+        // in very rare cases if the search is so short that not even a depth
+        // 1 iteration could be finished (such as 'go nodes 1' on startpos),
+        // the resulting move is selected randomly to not use on illegal play
+        if (BestMove == default) {
+            Span<Move> buffer = stackalloc Move[Consts.MoveBufferSize];
+            _ = Movegen.GetLegalMoves(ref Game.Board, buffer);
+
+            BestMove = buffer[0];
+            UCI.Log("info string best move selected randomly");
+        }
+
         // the final response of the engine to the GUI
         UCI.Log($"bestmove {BestMove.ToLAN()}");
         
@@ -199,6 +219,7 @@ internal static class PVSControl {
         PVChanges  = 0;
         PrevScore  = 0;
         ScoreDiffs = 0;
+        BestMove   = default;
 
         if (bench) Bench.Finished = true;
     }

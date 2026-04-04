@@ -10,8 +10,8 @@ namespace Kreveta.uci.options;
 internal static partial class Options {
     [StructLayout(LayoutKind.Sequential)]
     private sealed record Option {
-        public required string Name { get; init; }
-        public required OpType Type { get; init; }
+        internal required string Name { get; init; }
+        internal required OpType Type { get; init; }
 
         // min and max values are only used with the
         // "spin" option type

@@ -331,6 +331,22 @@ internal static class Game {
         return Board.Hash == _recaptPosHash 
             ? _recapture : default;
     }
+
+    // flip the side to move on the current position
+    internal static void Flip() {
+        if (Board.IsCheck) {
+            UCI.Log("The side to move may not be flipped, as the currently checked king would be exposed");
+            return;
+        }
+        
+        Board.SideToMove ^= (Color)1;
+        EngineColor      ^= (Color)1;
+                    
+        Board.NNUEEval   = new NNUEEvaluator(in Board);
+        Board.StaticEval = Eval.StaticEval(in Board);
+        Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);
+        Board.Hash       = ZobristHash.GetHash(in Board);
+    }
 }
 
 #pragma warning restore CA2014
