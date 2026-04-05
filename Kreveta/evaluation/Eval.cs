@@ -219,6 +219,9 @@ internal static class Eval {
     // and would also hurt performance. the logic is obviously kept the same, but written in a less
     // optimized and more readable way
     internal static void Trace(in Board board) {
+        UCI.Log($"info string NNUE evaluation using {Program.Network}");
+        UCI.Log( "info string all scores are side-to-move-relative");
+        
         int pcount = (int)ulong.PopCount(board.Occupied);
         
         // first calculate the material part using piece-square tables
@@ -240,23 +243,41 @@ internal static class Eval {
         int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
                     + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
 
+        // other factors
+        int other = (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+
         // and combined this makes the classical part of evaluation
-        int total = material + pawns + kings + (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        int total = material + pawns + kings + other;
         
-        UCI.Log("\nClassical (hand-crafted): ", nl: false);
-        UCI.Log($"{Score.ToRegular(total)}\n"
-                + $"  Material (PST): {Score.ToRegular(material)}\n"
-                + $"  Pawn structure: {Score.ToRegular(pawns)}\n"
-                + $"  King safety:    {Score.ToRegular(kings)}\n");
+        int colMult = Game.EngineColor == Color.WHITE ? 1 : -1;
+        material *= colMult;
+        pawns    *= colMult;
+        kings    *= colMult;
+        other    *= colMult;
+        total    *= colMult;
+        
+        UCI.Log("\n +--------------------------+-------+");
+        UCI.Log(  " | Component                | Value |");
+        UCI.Log(  " +--------------------------+-------+");
+        
+        UCI.Log(  " | Classical (hand-crafted) | ", nl: false);
+        UCI.Log($"{Score.ToRegular(total)} |\n"
+               + $" |  ├─ Material (PSTs)      | {Score.ToRegular(material)} |\n"
+               + $" |  ├─ Pawn structure       | {Score.ToRegular(pawns)} |\n"
+               + $" |  ├─ King safety          | {Score.ToRegular(kings)} |\n"
+               + $" |  └─ Other                | {Score.ToRegular(other)} |");
         
         // then there's the NNUE part, which is already calculated inside the board
-        UCI.Log("NNUE (trained network):   ", nl: false);
-        UCI.Log($"{Score.ToRegular(board.NNUEEval.Score)}\n");
+        UCI.Log(  " |                          |       |", nl: true);
+        UCI.Log(  " | NNUE (trained network):  | ",        nl: false);
+        UCI.Log($"{Score.ToRegular(board.NNUEEval.Score * colMult)} |");
+        UCI.Log(  " +--------------------------+-------+");
         
         // and for the final output we also use the eval stored in the board, as it uses the
         // same factors already mentioned, but scales them and applies 50-move rule diminishing
-        UCI.Log("Combined & scaled:        ", nl: false);
-        UCI.Log($"{Score.ToRegular(board.StaticEval)}\n");
+        UCI.Log(  " | Combined & scaled:       | ", nl: false);
+        UCI.Log($"{Score.ToRegular(board.StaticEval * colMult)} |");
+        UCI.Log(  " +--------------------------+-------+\n");
     }
 }
 

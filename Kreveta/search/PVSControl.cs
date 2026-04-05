@@ -242,14 +242,9 @@ internal static class PVSControl {
         // returns the number of plies until mate, but the conventional way to
         // note mate scores is actually the number of full moves.
         int mateScore = Score.GetMateInX(PVSearch.PVScore);
-
-        // first we add one to the found mate score - this is because
-        // we have not added the first ply into this score
-        mateScore += Math.Sign(mateScore);
-
-        // after that we subtract one if the score is odd to make
-        // it properly divisible by two
-        mateScore -= Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
+        
+        // add one if the score is odd to make it divisible by two
+        mateScore += Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
 
         // and then we divide the score by two to get the conventional "mate in X",
         // while also multiplying it to make it relative to the engine, not color

@@ -23,6 +23,7 @@ using Kreveta.uci.options;
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 using System.Text;
@@ -69,7 +70,16 @@ internal static partial class UCI {
             if (input is "quit" or "exit")
                 return;
 
-            ReadOnlySpan<string> tokens = input.Split(' ');
+// Normalize strings to uppercase? Why the fuck would I do that??
+#pragma warning disable CA1308
+            var semiProcessed = input
+                .Trim()
+                .Split(' ')
+                .ToList();
+#pragma warning restore CA1308
+            
+            semiProcessed.RemoveAll(string.IsNullOrWhiteSpace);
+            ReadOnlySpan<string> tokens = semiProcessed.ToArray();
 
             // the first token is obviously the command itself
             switch (tokens[0].ToLower(null)) {
@@ -138,7 +148,8 @@ internal static partial class UCI {
                     
                     Log($"FEN:           {Game.Board.FEN()}");
                     Log($"TT hash:       {Game.Board.Hash}");
-                    Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}\n");
+                    Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}");
+                    Log($"Is check:      {Game.Board.IsCheck.ToString().ToLower(null)}\n");
                     break;
                 
                 // stop any running searches

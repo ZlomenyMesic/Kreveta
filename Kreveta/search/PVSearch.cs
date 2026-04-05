@@ -845,8 +845,7 @@ internal static unsafe class PVSearch {
 
             // this magic is explained in PVSControl
             int mateScore = Score.GetMateInX(score);
-            mateScore += Math.Sign(mateScore);
-            mateScore -= Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
+            mateScore += Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
             mateScore /= Game.EngineColor == Color.WHITE ? 2 : -2;
                     
             string correctedScore = Score.IsMate(score) 

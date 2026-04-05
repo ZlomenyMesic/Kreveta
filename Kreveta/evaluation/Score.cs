@@ -55,7 +55,11 @@ internal static class Score {
     // converts a centipawn score to pawns, adds +/- signs, returns as string
     internal static string ToRegular(int score) {
         string sign = score > 0 ? "+" : score < 0 ? "" : " ";
-        return $"{sign}{MathF.Round(score / 100f, 2):F2}";
+        
+        // make negative scores red and positive scores green
+        return $"{score switch { < 0 => "\e[91m", 0 => "", > 0 => "\e[92m"}}" 
+             + $"{sign}{MathF.Round(score / 100f, 2):F2}"
+             + $"\e[0m";
     }
 }
 

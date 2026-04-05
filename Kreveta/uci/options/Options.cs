@@ -177,7 +177,7 @@ internal static partial class Options {
                 case OpType.CHECK:
                     // boolean converts to "True" or "False", so we
                     // must also convert it to the lowercase variant
-                    sb.Append($" default {((bool)opt.DefaultValue).ToString().ToLowerInvariant()}");
+                    sb.Append($" default {((bool)opt.DefaultValue).ToString().ToLower(null)}");
                     break;
 
                 case OpType.STRING:

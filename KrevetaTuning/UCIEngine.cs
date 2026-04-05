@@ -46,7 +46,7 @@ internal sealed class UCIEngine {
     internal (int eval, string bestMove) EvaluateFEN(string fen, int depth, Program.EvalMode mode) {
         try {
             Send("position fen " + fen);
-        } catch (Exception e) {
+        } catch (Exception) {
             Console.Write($"skip fen: {fen}");
         }
 
