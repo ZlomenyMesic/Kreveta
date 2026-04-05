@@ -5,12 +5,12 @@
 
 #pragma warning disable CA5394
 
-using System;
 using Kreveta.consts;
 using Kreveta.movegen.pieces;
 using Kreveta.uci;
 using Kreveta.uci.options;
 
+using System;
 using System.Runtime.CompilerServices;
 
 // ReSharper disable InconsistentNaming
@@ -50,9 +50,12 @@ internal static class Eval {
     internal static short StaticEval(in Board board) {
         int nnue    = board.NNUEEval.Score;
         int classic = Classical(in board);
+        
+        int d  = Math.Abs(nnue) - Math.Abs(classic);
+        int nw = 17 + (d > 0 ? d / 116 : 0);
 
         // both terms are carefully combined
-        int combined = (17 * nnue + 15 * classic) / 32;
+        int combined = (nw * nnue + (32 - nw) * classic) / 32;
 
         // ideas taken from Stockfish. if the position is close to 50 move
         // draw, or the evaluation might be vague, eval is pulled toward zero
@@ -83,6 +86,7 @@ internal static class Eval {
         ulong bOccupied = board.BOccupied;
 
         byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
+        byte phase      = (byte)board.GamePhase();
         
         ReadOnlySpan<ulong> pieces = board.Pieces;
         
@@ -112,11 +116,16 @@ internal static class Eval {
 
         short eval = (short)(wEval - bEval);
 
+        // pawn structure
         eval += (short)((PawnEval(pieces[0], pieces[6], Color.WHITE, wOccupied)
                        - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
 
+        // king safety
         eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
         eval += KingEval(pieces, wOccupied, bOccupied);
+        
+        // bishops
+        eval += (short)((BishopEval(pieces[2]) - BishopEval(pieces[8])) * phase / 150);
 
         // side to move should also get a slight advantage
         eval += (short)(board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
@@ -150,10 +159,10 @@ internal static class Eval {
             // if no friendly pawns are adjacent, the pawn is isolated
             // and penalized. similarly, if there are no enemy pawns,
             // the pawn is passed, and a bonus is added, scaled by rank
-            eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawnMalus);
-            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus 
-                                                      * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3)
-                                                      * (isProtected ? 20 : 10) / 10);
+            eval += (short)(fileOcc != adjOcc   ? 0 : IsolatedPawnMalus);
+            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus
+                * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3) // bonus scales with rank
+                * (isProtected ? 20 : 10) / 10);                 // increase bonus if the pawn is protected
 
             // also check if there's a friendly piece blocking the pawn
             if (col == Color.WHITE ? (1UL << sq - 8 & friendlyPieces) != 0UL
@@ -161,6 +170,14 @@ internal static class Eval {
                 eval += BlockedPawnMalus;
         }
 
+        return (short)eval;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static short BishopEval(ulong bishops) {
+        int eval = 0;
+        eval += ulong.PopCount(bishops) < 2 ? 0 : 10;
+        
         return (short)eval;
     }
 
@@ -237,7 +254,7 @@ internal static class Eval {
 
         // then pawn structure evaluation
         int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied)
-                     - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
+                   - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
 
         // king safety evaluation
         int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
