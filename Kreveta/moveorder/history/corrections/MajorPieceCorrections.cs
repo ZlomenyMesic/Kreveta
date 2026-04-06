@@ -13,17 +13,19 @@ using System;
 namespace Kreveta.moveorder.history.corrections;
 
 internal static class MajorPieceCorrections {
+    private const int TableSize = 16_384;
+    
     private static readonly short[] WhiteCorrections;
     private static readonly short[] BlackCorrections;
 
     static MajorPieceCorrections() {
-        WhiteCorrections = new short[16384];
-        BlackCorrections = new short[16384];
+        WhiteCorrections = new short[TableSize];
+        BlackCorrections = new short[TableSize];
     }
 
     internal static void Clear() {
-        Array.Clear(WhiteCorrections, 0, 16384);
-        Array.Clear(BlackCorrections, 0, 16384);
+        Array.Clear(WhiteCorrections, 0, TableSize);
+        Array.Clear(BlackCorrections, 0, TableSize);
     }
     
     internal static void Update(in Board board, short shift) {
@@ -32,14 +34,14 @@ internal static class MajorPieceCorrections {
         ulong bHash = ZobristHash.GetMajorPieceHash(in board, Color.BLACK);
 
         if (wHash != 0UL) {
-            int wIndex = (int)(wHash & 16383);
+            int wIndex = (int)(wHash & (TableSize - 1));
             
             WhiteCorrections[wIndex] += shift;
             WhiteCorrections[wIndex] = (short)Math.Clamp((int)WhiteCorrections[wIndex], -1024, 1024);
         }
 
         if (bHash != 0UL) {
-            int bIndex = (int)(bHash & 16383);
+            int bIndex = (int)(bHash & (TableSize - 1));
         
             BlackCorrections[bIndex] += shift;
             BlackCorrections[bIndex] = (short)Math.Clamp((int)BlackCorrections[bIndex], -1024, 1024);
@@ -52,8 +54,8 @@ internal static class MajorPieceCorrections {
         
         if (wHash == 0UL || bHash == 0UL) return 0;
 
-        int wIndex = (int)(wHash & 16383);
-        int bIndex = (int)(bHash & 16383);
+        int wIndex = (int)(wHash & (TableSize - 1));
+        int bIndex = (int)(bHash & (TableSize - 1));
         
         return (short)((WhiteCorrections[wIndex] + BlackCorrections[bIndex]) / 124);
     }

@@ -142,6 +142,8 @@ internal static class QSearch {
                 // but to retrieve the best move for better move ordering
                 if (ply <= PVSearch.CurIterDepth + 2)
                     TT.Store(board.Hash, -1, ply, window, score, moves[i]);
+                
+                CaptureHistory.ChangeRep(moves[i], weight: 1);
 
                 // exit the loop
                 break;

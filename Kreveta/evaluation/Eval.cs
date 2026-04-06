@@ -125,7 +125,7 @@ internal static class Eval {
         eval += KingEval(pieces, wOccupied, bOccupied);
         
         // bishops
-        eval += (short)((BishopEval(pieces[2]) - BishopEval(pieces[8])) * phase / 150);
+        eval += Miscellaneous(pieces, phase);
 
         // side to move should also get a slight advantage
         eval += (short)(board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
@@ -174,9 +174,12 @@ internal static class Eval {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static short BishopEval(ulong bishops) {
+    private static short Miscellaneous(ReadOnlySpan<ulong> pieces, int phase) {
         int eval = 0;
-        eval += ulong.PopCount(bishops) < 2 ? 0 : 10;
+        
+        // bishop pairs - evaluated less in endgames
+        eval += ulong.PopCount(pieces[2]) < 2 ? 0 : 10 * phase / 150;
+        eval -= ulong.PopCount(pieces[8]) < 2 ? 0 : 10 * phase / 150;
         
         return (short)eval;
     }
@@ -261,7 +264,8 @@ internal static class Eval {
                     + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
 
         // other factors
-        int other = (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        int other = (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus)
+            + Miscellaneous(board.Pieces, board.GamePhase());
 
         // and combined this makes the classical part of evaluation
         int total = material + pawns + kings + other;

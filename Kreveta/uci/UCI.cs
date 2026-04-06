@@ -16,7 +16,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.moveorder.history;
-using Kreveta.openings;
+using Kreveta.polyglot;
 using Kreveta.perft;
 using Kreveta.search;
 using Kreveta.uci.options;
@@ -347,7 +347,7 @@ internal static partial class UCI {
             Move bookMove = Polyglot.GetBookMove(in Game.Board);
             
             if (bookMove != default) {
-                Log($"bestmove {bookMove.ToLAN()}");
+                Log($"\nbestmove {bookMove.ToLAN()}");
                 return;
             }
         }

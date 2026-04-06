@@ -24,7 +24,7 @@ internal static unsafe class PawnCorrections {
 
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
-    private const int CorrTableSize   = 131_072;
+    private const int CorrTableSize   = 65_536;
 
     // maximum correction that can be stored. this needs
     // to stay in range of "short", as the whole table

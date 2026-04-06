@@ -25,9 +25,8 @@ internal static class CounterMoveHistory {
 
     // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Clear() {
-        Array.Clear(CounterMoves, 0, CounterMoves.Length);
-    }
+    internal static void Clear()
+        => Array.Clear(CounterMoves, 0, CounterMoves.Length);
 
     // store a new counter - we don't give higher priority to counters
     // found at higher depths (might change this later), so when there's

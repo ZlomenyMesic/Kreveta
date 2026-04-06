@@ -80,8 +80,9 @@ internal static unsafe class PVSearch {
         CaptureHistory.Shrink();
         ContinuationHistory.Age();
 
-        // these need to be erased, though
-        Corrections.Clear();
+        // only initialize correction tables
+        if (CurIterDepth == 1)
+            Corrections.Clear();
 
         // store the pv from the previous iteration in tt
         // this should hopefully allow some faster lookups
@@ -271,10 +272,10 @@ internal static unsafe class PVSearch {
         if (ttMoveExists && (ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
                              || ttScore > staticEval && ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND)
                              || ttScore < staticEval && ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND))
-            && !Score.IsMate(ttScore)) {
+                         && !Score.IsMate(ttScore)) {
 
             staticEval = ttScore;
-        }
+        } else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
         // 2. RAZORING (~18 Elo)
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is

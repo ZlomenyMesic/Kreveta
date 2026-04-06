@@ -15,7 +15,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
-namespace Kreveta.openings;
+namespace Kreveta.polyglot;
 
 // polyglot is one of the most popular formats for opening books.
 // these books usually have a .bin (binary) file extension, and
@@ -43,8 +43,12 @@ internal static partial class Polyglot {
         // this probably shouldn't happen but better safe than sorry
         if (selection == default)
             return default;
+
+        for (int i = 0; i < possible.Length; i++) {
+            UCI.Log($"info string move {DecodeMove(board, possible[i]).ToLAN()} weight {possible[i].Weight}"
+                  + $"{(possible[i].Move == selection.Move ? " <- selected" : string.Empty)}");
+        }
         
-        UCI.Log($"info string selected move's weight: {selection.Weight}");
         return DecodeMove(board, selection);
     }
 

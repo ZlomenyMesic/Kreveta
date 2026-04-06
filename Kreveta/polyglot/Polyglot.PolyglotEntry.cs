@@ -5,7 +5,7 @@
 
 using System.Runtime.InteropServices;
 
-namespace Kreveta.openings;
+namespace Kreveta.polyglot;
 
 internal static partial class Polyglot {
     // each of the polyglot entries contains the key (zobrist

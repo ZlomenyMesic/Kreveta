@@ -6,7 +6,7 @@
 using Kreveta.consts;
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.openings;
+namespace Kreveta.polyglot;
 
 // Polyglot indexes positions with their Zobrist hash, which
 // although is already implemented in this engine, needs its
