@@ -78,6 +78,7 @@ internal static unsafe class PVSearch {
         // erasing them completely would, however, slow down the search
         QuietHistory.Shrink();
         CaptureHistory.Shrink();
+        PieceToHistory.Shrink();
         ContinuationHistory.Age();
 
         // only initialize correction tables
@@ -121,6 +122,7 @@ internal static unsafe class PVSearch {
         Killers.Clear();
         QuietHistory.Clear();
         CaptureHistory.Clear();
+        PieceToHistory.Clear();
         CounterMoveHistory.Clear();
         ContinuationHistory.Clear();
         Corrections.Clear();
@@ -465,7 +467,7 @@ internal static unsafe class PVSearch {
                 if (!scoresAssigned) {
                     moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
                     
-                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
+                    LazyMoveOrder.AssignScores(in board, rootNode, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it
@@ -718,7 +720,7 @@ internal static unsafe class PVSearch {
 
                     // penalize the move in histories
                     int lmWeight = weight + Math.Max(0, ss.Depth - R);
-                    StoreMoveHistory(ss.LastMove, curMove, isCapture, -lmWeight, -ss.Depth + R);
+                    StoreMoveHistory(col, ss.LastMove, curMove, isCapture, -lmWeight, -ss.Depth + R);
                         
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     continue;
@@ -753,6 +755,16 @@ internal static unsafe class PVSearch {
                 // results for each move: 'info ... currmove x ...'
                 if (PVSControl.TotalNodes >= 7_000_000 && !Abort)
                     PrintCurrMoveInfo(col, fullSearch.Score, ss.Window, curDepth, curMove, expandedNodes, fullSearch.PV);
+
+                // when an elo level is set, limit deep mate paths
+                if (Options.UCI_LimitStrength && Score.IsMate(fullSearch.Score)) {
+                    int x = Math.Abs(Score.GetMateInX(fullSearch.Score));
+
+#pragma warning disable CA5394
+                    if (x > Math.Max(3, 10 - (2000 - Options.UCI_Elo) / 100))
+                        fullSearch.Score = (short)Consts.RNG.Next(-1000, 1000);
+#pragma warning restore CA5394
+                }
             }
             
             // if the position turned out to be a draw earlier, the search
@@ -766,7 +778,7 @@ internal static unsafe class PVSearch {
                     ? fullSearch.Score <= ss.Window.Alpha
                     : fullSearch.Score >= ss.Window.Beta) {
                 
-                StoreMoveHistory(ss.LastMove, curMove, isCapture, weight, curDepth);
+                StoreMoveHistory(col, ss.LastMove, curMove, isCapture, weight, curDepth);
             }
 
             // we went through all the pruning and didn't fail low
@@ -790,7 +802,7 @@ internal static unsafe class PVSearch {
                 // than beta, so we can stop searching this branch, because
                 // the other side wouldn't allow us to get here at all
                 if (ss.Window.TryCutoff(fullSearch.Score, col)) {
-                    StoreMoveHistory(ss.LastMove, curMove, isCapture, 2 * weight, ss.Depth);
+                    StoreMoveHistory(col, ss.LastMove, curMove, isCapture, 2 * weight, ss.Depth);
                     
                     // there are both quiet and capture killer tables,
                     // which sort the move automatically, so don't worry
@@ -824,13 +836,16 @@ internal static unsafe class PVSearch {
 
     // modify quiet, capture and continuation histories by the provided bonus/weight
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void StoreMoveHistory(Move previous, Move move, bool capture, int weight, int contWeight) {
+    private static void StoreMoveHistory(Color col, Move previous, Move move, bool capture, int weight, int contWeight) {
         if (previous != default)
             ContinuationHistory.Add(previous, move, contWeight);
                     
         // if the move caused a beta cutoff, it's history is increased
-        if (!capture) QuietHistory.ChangeRep(move,   weight);
-        else          CaptureHistory.ChangeRep(move, weight);
+        if (!capture) {
+            QuietHistory.ChangeRep(move, weight);
+            PieceToHistory.Store(col, move, weight);
+        }
+        else CaptureHistory.ChangeRep(move, weight);
     }
 
     // print 'info currmove ...' once search iterations are a bit longer 

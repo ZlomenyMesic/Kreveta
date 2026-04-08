@@ -45,7 +45,7 @@ internal static partial class Polyglot {
             return default;
 
         for (int i = 0; i < possible.Length; i++) {
-            UCI.Log($"info string move {DecodeMove(board, possible[i]).ToLAN()} weight {possible[i].Weight}"
+            UCI.Log($"info string bookmove {DecodeMove(board, possible[i]).ToLAN()} weight {possible[i].Weight}"
                   + $"{(possible[i].Move == selection.Move ? " <- selected" : string.Empty)}");
         }
         

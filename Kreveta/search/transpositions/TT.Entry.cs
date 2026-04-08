@@ -17,29 +17,25 @@ internal static partial class TranspositionTable {
 
         // we store the board hash, because different hashes can
         // result in the same table index due to its size.
-        // (8 bytes)
         [field: FieldOffset(0)]
-        internal ulong Hash;
+        internal ulong Hash; // 8 bytes
 
         // the best move found in this position - used for move ordering
-        // (4 bytes)
         [field: FieldOffset(8)]
-        internal Move BestMove;
+        internal Move BestMove; // 4 bytes
 
         // the score of the position
-        // (2 bytes)
         [field: FieldOffset(8 + 4)]
-        internal short Score;
+        internal short Score; // 2 bytes
 
         // the depth at which the search was performed
         // => higher depth means a more truthful score
-        // (1 byte)
         [field: FieldOffset(8 + 4 + 2)]
-        internal sbyte Depth;
+        internal sbyte Depth; // 1 byte
 
-        // (1 byte)
+        // exact/lowerbound/upperbound score
         [field: FieldOffset(8 + 4 + 2 + 1)]
-        internal ScoreFlags Flags;
+        internal ScoreFlags Flags; // 1 byte
     }
 
     // size of a single hash entry

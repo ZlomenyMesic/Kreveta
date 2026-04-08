@@ -19,17 +19,21 @@ namespace Kreveta.evaluation;
 
 internal static class Eval {
     
-    private const int SideToMoveBonus = 6;
-    private const int InCheckMalus    = -31;
+    private const int Tempo        = 6;
+    private const int KingInCheck  = -31;
+    private const int BishopPair   = 10;
+    private const int KPDistance   = 16;
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
-    private const int DoubledPawnMalus  = -25;
-    private const int IsolatedPawnMalus = -152;
-    private const int PassedPawnBonus   = 73;
-    private const int BlockedPawnMalus  = -67;
+    private const int DoubledPawn  = -25;
+    private const int IsolatedPawn = -152;
+    private const int PassedPawn   = 73;
+    private const int BlockedPawn  = -67;
+    private const int BackwardPawn = -40;
     
-    private static readonly ulong[] AdjFiles = new ulong[8];
+    private static readonly ulong[]  AdjFiles = new ulong[8];
+    private static readonly byte[][] Distance = new byte[64][];
 
     // static evaluation noise
     internal static int EvalEntropy;
@@ -38,8 +42,20 @@ internal static class Eval {
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
             AdjFiles[i] = Consts.RelevantFileMask[i]
-                | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0UL)
-                | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0UL);
+              | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0UL)
+              | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0UL);
+        }
+        
+        // compute the chebyshev distance between any two squares
+        for (int i = 0; i < 64; i++) {
+            Distance[i] = new byte[64];
+
+            for (int j = 0; j < 64; j++) {
+                int dx = Math.Abs((i  & 7) - (j  & 7));
+                int dy = Math.Abs((i >> 3) - (j >> 3));
+                
+                Distance[i][j] = (byte)Math.Max(dx, dy);
+            }
         }
     }
 
@@ -59,7 +75,7 @@ internal static class Eval {
 
         // ideas taken from Stockfish. if the position is close to 50 move
         // draw, or the evaluation might be vague, eval is pulled toward zero
-        combined -= combined * board.HalfMoveClock      / 201;
+        combined -= combined * board.HalfMoveClock      / 199;
         combined -= combined * Math.Abs(nnue - classic) / 63_754;
 
         // when UCI_LimitStrength is on, shift all scores randomly
@@ -117,38 +133,38 @@ internal static class Eval {
         short eval = (short)(wEval - bEval);
 
         // pawn structure
-        eval += (short)((PawnEval(pieces[0], pieces[6], Color.WHITE, wOccupied)
-                       - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied)) / 10);
+        eval += (short)((PawnEval(pieces[0], pieces[6], Color.WHITE, wOccupied, phase)
+                       - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied, phase)) / 10);
 
         // king safety
-        eval += (short)(board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
+        eval += (short)(board.IsCheck ? KingInCheck * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
         eval += KingEval(pieces, wOccupied, bOccupied);
         
         // bishops
         eval += Miscellaneous(pieces, phase);
 
         // side to move should also get a slight advantage
-        eval += (short)(board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus);
+        eval += (short)(board.SideToMove == Color.WHITE ? Tempo : -Tempo);
         return eval;
     }
     
     // bonuses or penalties for pawn structure. the central evaluation function
     // calls this function twice, once for each color, and handles proper signs.
     // this means we don't need to evaluate color-relative here
-    private static short PawnEval(ulong pawns, ulong enemyPawns, Color col, ulong friendlyPieces) {
+    private static short PawnEval(ulong pawns, ulong enemyPawns, Color col, ulong friendlyPieces, int phase) {
         int eval = 0;
+        int forw = col == Color.WHITE ? -8 : 8;
         
         ulong copy = pawns;
         while (copy != 0UL) {
-            byte  sq   = BB.LS1BReset(ref copy);
-            ulong file = Consts.RelevantFileMask[sq & 7];
+            byte  sq      = BB.LS1BReset(ref copy);
+            ulong file    = Consts.RelevantFileMask[sq & 7];
+            int   relRank = col == Color.BLACK ? sq >> 3 : 8 - (sq >> 3);
             
-            // calculate the number of pawns on the current file,
-            // and for each one more than 1 add a small penalty
-            int fileOcc = (int)ulong.PopCount(file & pawns);
-            eval += (short)((fileOcc - 1) * DoubledPawnMalus);
-
-            bool isProtected = Pawn.GetPawnCaptureTargets(sq, 0, 1 - col, pawns) != 0UL;
+            bool supported  = Pawn.GetPawnCaptureTargets(sq, 0, 1 - col, pawns)                 != 0UL;
+            bool canAdvance = Pawn.GetPawnCaptureTargets((byte)(sq + forw), 0, col, enemyPawns) == 0UL;
+            bool phalanx    = Pawn.GetPawnCaptureTargets((byte)(sq - forw), 0, col, pawns)      != 0UL;
+            bool opposed    = (enemyPawns & file) != 0UL; // this doesn't check whether the pawn is behind us
             
             // calculate the number of friendly and enemy pawns
             // on the two adjacent files (and the current one)
@@ -156,18 +172,48 @@ internal static class Eval {
             int   adjOcc    = (int)ulong.PopCount(adjFiles & pawns);
             int   oppAdjOcc = (int)ulong.PopCount(adjFiles & enemyPawns);
             
+            // calculate the number of pawns on the current file,
+            // and for each one more than 1 add a small penalty
+            int fileOcc = (int)ulong.PopCount(file & pawns);
+            eval += (short)((fileOcc - 1) * DoubledPawn);
+            
             // if no friendly pawns are adjacent, the pawn is isolated
             // and penalized. similarly, if there are no enemy pawns,
             // the pawn is passed, and a bonus is added, scaled by rank
-            eval += (short)(fileOcc != adjOcc   ? 0 : IsolatedPawnMalus);
-            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawnBonus
-                * (col == Color.WHITE ? 8 - (sq >> 3) : sq >> 3) // bonus scales with rank
-                * (isProtected ? 20 : 10) / 10);                 // increase bonus if the pawn is protected
+            eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawn);
+            eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawn
+                * relRank               // bonus scales with rank
+                * (supported ? 2 : 1)); // increase bonus if the pawn is protected
 
             // also check if there's a friendly piece blocking the pawn
-            if (col == Color.WHITE ? (1UL << sq - 8 & friendlyPieces) != 0UL
-                                   : (1UL << sq + 8 & friendlyPieces) != 0UL)
-                eval += BlockedPawnMalus;
+            if (((1UL << (sq + forw)) & friendlyPieces) != 0UL)
+                eval += BlockedPawn;
+            
+            // backward pawns - a pawn that cannot advance due to enemy pawns
+            // threatening capture, and whose adjacent friendly pawns have
+            // either already advanced or had been captured
+            if (!canAdvance && !supported) {
+                ulong adj = (adjFiles ^ file) & pawns;
+                
+                // find the most behind adjacent pawn
+                int minRank = 8;
+                while (adj != 0UL) {
+                    int nsq  = BB.LS1BReset(ref adj);
+                    int rank = col == Color.WHITE ? 8 - (nsq >> 3) : nsq >> 3;
+                    minRank  = Math.Min(minRank, rank);
+                }
+
+                if (relRank + 1 < minRank)
+                    eval += BackwardPawn;
+            }
+            
+            // overextended pawns in the opening/middlegame that cannot be protected
+            if (!supported && relRank > 4 && phase > 100)
+                eval -= 4 * relRank * phase * phase / 22_500;
+
+            // bonus for unopposed supported or phalanx pawns
+            if (!opposed && (supported || phalanx))
+                eval += 3 * relRank;
         }
 
         return (short)eval;
@@ -178,8 +224,8 @@ internal static class Eval {
         int eval = 0;
         
         // bishop pairs - evaluated less in endgames
-        eval += ulong.PopCount(pieces[2]) < 2 ? 0 : 10 * phase / 150;
-        eval -= ulong.PopCount(pieces[8]) < 2 ? 0 : 10 * phase / 150;
+        eval += ulong.PopCount(pieces[2]) < 2 ? 0 : BishopPair * phase / 150;
+        eval -= ulong.PopCount(pieces[8]) < 2 ? 0 : BishopPair * phase / 150;
         
         return (short)eval;
     }
@@ -204,6 +250,25 @@ internal static class Eval {
         eval -= (int)ulong.PopCount(bProtection) * 2;
         eval -= (int)ulong.PopCount(wEvil)       * 4;
         eval += (int)ulong.PopCount(bEvil)       * 4;
+        
+        // find the closest friendly pawn to each king
+        int   wMinDist = 8;
+        int   bMinDist = 8;
+        ulong wPawns   = pieces[0];
+        ulong bPawns   = pieces[6];
+
+        while (wPawns != 0UL) {
+            byte dist = Distance[wKing][BB.LS1BReset(ref wPawns)];
+            wMinDist  = Math.Min(wMinDist, dist);
+        }
+        
+        while (bPawns != 0UL) {
+            byte dist = Distance[bKing][BB.LS1BReset(ref bPawns)];
+            bMinDist  = Math.Min(bMinDist, dist);
+        }
+        
+        // the penalty is quite large but works well
+        eval += KPDistance * (bMinDist - wMinDist);
         
         return (short)eval;
     }
@@ -256,15 +321,15 @@ internal static class Eval {
         }
 
         // then pawn structure evaluation
-        int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied)
-                   - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied)) / 10;
+        int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied, board.GamePhase())
+                   - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied, board.GamePhase())) / 10;
 
         // king safety evaluation
         int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
-                    + (board.IsCheck ? InCheckMalus * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
+                    + (board.IsCheck ? KingInCheck * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
 
         // other factors
-        int other = (board.SideToMove == Color.WHITE ? SideToMoveBonus : -SideToMoveBonus)
+        int other = (board.SideToMove == Color.WHITE ? Tempo : -Tempo)
             + Miscellaneous(board.Pieces, board.GamePhase());
 
         // and combined this makes the classical part of evaluation
