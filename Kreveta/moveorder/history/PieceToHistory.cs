@@ -10,8 +10,9 @@ using Kreveta.movegen;
 namespace Kreveta.moveorder.history;
 
 // unlike QuietHistory and/or CaptureHistory, PieceToHistory stores scores not using from-to
-// squares, but piece-to. it also combines all moves regardless of whether they are captures.
-// in most cases, from-to histories are more reliable, but often it helps to use both
+// squares, but piece-to. it only stores values from quiet moves, but retrieves values only
+// for captures. this helps determine which piece placement is optimal without the noise of
+// captures, and then helps reorder captures a bit more reliably
 internal static class PieceToHistory {
     private static readonly short[] Table = new short[2 * 6 * 64];
     

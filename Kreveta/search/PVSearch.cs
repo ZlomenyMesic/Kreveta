@@ -38,6 +38,7 @@ internal static unsafe class PVSearch {
     internal static short PVScore;
 
     internal static int MinNMPPly;
+    internal static int NullMovePly = -66;
     
     // PRINCIPAL VARIATION
     // in pvsearch, the pv represents a variation (sequence of moves),
@@ -374,6 +375,8 @@ internal static unsafe class PVSearch {
                 : ss.Window.Alpha - staticEval) / 365;
 
             if (cutNode || ttBetaCutoff) R++;
+
+            NullMovePly = ss.Ply;
             
             // perform the reduced search
             short nmpScore = SearchNext<NonPVNode>(
@@ -390,6 +393,8 @@ internal static unsafe class PVSearch {
                 ignore3Fold: true,
                 cutNode:     false
             ).Score;
+            
+            NullMovePly = -66;
 
             // if we failed high, prune this node
             if (col == Color.WHITE
@@ -420,6 +425,15 @@ internal static unsafe class PVSearch {
                         : nmpScore <= ss.Window.Alpha)
                     return (nmpScore, []);
             }
+        }
+        
+        // X. ANTI-NULL MOVE PRUNING
+        if (ss.Ply - 2 == NullMovePly && ss.Depth >= 2 && (col == Color.WHITE
+                ? staticEval <= ss.Window.Alpha - 35 - 25 * ss.Depth
+                : staticEval >= ss.Window.Beta  + 35 + 25 * ss.Depth)) {
+
+            ss.PriorReductions++;
+            ss.Depth--;
         }
         
         // 6. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
@@ -564,8 +578,7 @@ internal static unsafe class PVSearch {
             // futility margin represents the largest possible score gain through a single move.
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can prune this branch
-            if (!skipFP && ss.Ply >= 4 && ss.Depth <= 5) {
-                int windowSize = Math.Min(Math.Abs(ss.Window.Alpha - ss.Window.Beta) / 128, 11);
+            if (!skipFP && ss.Ply >= 4 && ss.Depth <= 5 + (allNode ? 1 : 0)) {
                 int childCorr  = Math.Abs(Corrections.Get(in child));
                 
                 // as taken from CPW:
@@ -575,8 +588,7 @@ internal static unsafe class PVSearch {
                 int margin = 100 + 92 * ss.Depth 
                     + (improving ? 0 : -23)   // not improving nodes => prune more
                     + see / 65                // tweak the margin based on SEE
-                    + (allNode ? -10 : 0)     // all nodes prune more aggressively
-                    + childCorr + windowSize; // measures of uncertainty
+                    + childCorr; // measure of uncertainty
                 
                 // find the difference between alpha and static eval + margin
                 int diff = col == Color.WHITE 
