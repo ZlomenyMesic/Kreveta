@@ -218,7 +218,7 @@ internal static class Eval {
         }
         
         // collapse pawns into file occupancy
-        pawns |= pawns >> 8;
+        /*pawns |= pawns >> 8;
         pawns |= pawns >> 16;
         pawns |= pawns >> 32;
 
@@ -229,7 +229,7 @@ internal static class Eval {
         // pawn islands - although we already penalize isolated pawns, those
         // do not account for pawns split into isolated islands. these bitwise
         // tricks count the number of pawn islands and give a quadratic malus
-        eval -= (short)(Math.Max(0, islands - 2) * 5);
+        eval -= (short)(Math.Max(0, islands - 2) * 5);*/
 
         return (short)eval;
     }
@@ -288,7 +288,7 @@ internal static class Eval {
         // pawn storm danger - a pawn storm is an attack of a bunch of pawns onto
         // the king's pawn shelter. if the shelter consists of fewer pawns than
         // the opponent has on the same files, there is danger
-        ulong wKingAdj = AdjFiles[wKing & 7];
+        /*ulong wKingAdj = AdjFiles[wKing & 7];
         ulong bKingAdj = AdjFiles[bKing & 7];
 
         {
@@ -307,7 +307,7 @@ internal static class Eval {
 
         // tiny penalty for kings on open files
         if ((Consts.RelevantFileMask[wKing & 7] & (pieces[0] | pieces[6])) == 0UL) eval--;
-        if ((Consts.RelevantFileMask[bKing & 7] & (pieces[0] | pieces[6])) == 0UL) eval++;
+        if ((Consts.RelevantFileMask[bKing & 7] & (pieces[0] | pieces[6])) == 0UL) eval++;*/
         
         return (short)eval;
     }

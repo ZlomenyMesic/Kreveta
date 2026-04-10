@@ -428,13 +428,13 @@ internal static unsafe class PVSearch {
         }
         
         // X. ANTI-NULL MOVE PRUNING
-        if (ss.Ply - 2 == NullMovePly && ss.Depth >= 2 && (col == Color.WHITE
+        /*if (ss.Ply - 2 == NullMovePly && ss.Depth >= 2 && (col == Color.WHITE
                 ? staticEval <= ss.Window.Alpha - 35 - 25 * ss.Depth
                 : staticEval >= ss.Window.Beta  + 35 + 25 * ss.Depth)) {
 
             ss.PriorReductions++;
             ss.Depth--;
-        }
+        }*/
         
         // 6. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
@@ -588,7 +588,7 @@ internal static unsafe class PVSearch {
                 int margin = 100 + 92 * ss.Depth 
                     + (improving ? 0 : -23)   // not improving nodes => prune more
                     + see / 65                // tweak the margin based on SEE
-                    + childCorr; // measure of uncertainty
+                    + childCorr;              // measure of uncertainty
                 
                 // find the difference between alpha and static eval + margin
                 int diff = col == Color.WHITE 
