@@ -23,7 +23,6 @@ internal static class Eval {
     private const int KingInCheck  = -31;
     private const int BishopPair   = 10;
     private const int KPDistance   = 16;
-    private const int StormDanger  = -3;
 
     // pawn structure bonuses and maluses. all are scaled in mp
     // and later rescaled to centipawns to allow higher accuracy
@@ -183,8 +182,8 @@ internal static class Eval {
             // the pawn is passed, and a bonus is added, scaled by rank
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawn);
             eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawn
-                * relRank               // bonus scales with rank
-                * (supported ? 2 : 1)); // increase bonus if the pawn is protected
+                * relRank                      // bonus scales with rank
+                * (supported ? 16 : 10) / 10); // increase bonus if the pawn is protected
 
             // also check if there's a friendly piece blocking the pawn
             if (((1UL << (sq + forw)) & friendlyPieces) != 0UL)
@@ -216,20 +215,6 @@ internal static class Eval {
             if (!opposed && (supported || phalanx))
                 eval += 3 * relRank;
         }
-        
-        // collapse pawns into file occupancy
-        /*pawns |= pawns >> 8;
-        pawns |= pawns >> 16;
-        pawns |= pawns >> 32;
-
-        // bottom rank contains per file occupancy
-        ulong files   = pawns & 0xFF;
-        ulong islands = ulong.PopCount(files & ~(files << 1));
-        
-        // pawn islands - although we already penalize isolated pawns, those
-        // do not account for pawns split into isolated islands. these bitwise
-        // tricks count the number of pawn islands and give a quadratic malus
-        eval -= (short)(Math.Max(0, islands - 2) * 5);*/
 
         return (short)eval;
     }
@@ -284,30 +269,6 @@ internal static class Eval {
         
         // the penalty is quite large but works well
         eval += KPDistance * (bMinDist - wMinDist);
-        
-        // pawn storm danger - a pawn storm is an attack of a bunch of pawns onto
-        // the king's pawn shelter. if the shelter consists of fewer pawns than
-        // the opponent has on the same files, there is danger
-        /*ulong wKingAdj = AdjFiles[wKing & 7];
-        ulong bKingAdj = AdjFiles[bKing & 7];
-
-        {
-            int wwp = (int)ulong.PopCount(wKingAdj & pieces[0]);
-            int wbp = (int)ulong.PopCount(wKingAdj & pieces[6]);
-
-            // subtract some value if black has more pawns than white
-            eval += StormDanger * Math.Max(0, wbp - wwp);
-        }
-        {
-            int bwp = (int)ulong.PopCount(bKingAdj & pieces[0]);
-            int bbp = (int)ulong.PopCount(bKingAdj & pieces[6]);
-
-            eval -= StormDanger * Math.Max(0, bwp - bbp);
-        }
-
-        // tiny penalty for kings on open files
-        if ((Consts.RelevantFileMask[wKing & 7] & (pieces[0] | pieces[6])) == 0UL) eval--;
-        if ((Consts.RelevantFileMask[bKing & 7] & (pieces[0] | pieces[6])) == 0UL) eval++;*/
         
         return (short)eval;
     }

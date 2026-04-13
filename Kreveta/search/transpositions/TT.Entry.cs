@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 namespace Kreveta.search.transpositions;
 
 internal static partial class TranspositionTable {
+    
     // this entry is stored for every position
     [StructLayout(LayoutKind.Explicit, Size = EntrySize)]
     private record struct Entry {
@@ -38,6 +39,6 @@ internal static partial class TranspositionTable {
         internal ScoreFlags Flags; // 1 byte
     }
 
-    // size of a single hash entry
+    // size of a single hash entry in bytes
     private const int EntrySize = 16;
 }

@@ -66,6 +66,7 @@ internal static class Program {
         
         // adjacent files
         Eval.Init();
+        SETT.Realloc();
         
         string buildTime = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()
@@ -93,6 +94,7 @@ internal static class Program {
         // codebase, so different freeing methods are being called
         static void FreeMemory(object? sender, EventArgs e) {
             TT.Clear();
+            SETT.Clear();
             PerftTT.Clear();
             PawnCorrections.Clear();
             LookupTables.Clear();

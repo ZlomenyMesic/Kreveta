@@ -19,6 +19,7 @@ using Kreveta.moveorder.history;
 using Kreveta.polyglot;
 using Kreveta.perft;
 using Kreveta.search;
+using Kreveta.search.transpositions;
 using Kreveta.uci.options;
 
 using System;
@@ -97,6 +98,7 @@ internal static partial class UCI {
                     StaticEvalDiffHistory.Clear();
                     
                     TT.Clear();
+                    SETT.Realloc();
                     break;
                 
                 // "uci" tells the GUI that UCI is supported, and also lists available options

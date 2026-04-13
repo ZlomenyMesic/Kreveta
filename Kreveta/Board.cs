@@ -286,8 +286,14 @@ internal unsafe struct Board {
         // in some cases, such as Perft, the static eval is useless, and
         // would only slow the engine down.
         if (updateStaticEval) {
-            NNUEEval.Update(in this, move, col);
-            StaticEval = Eval.StaticEval(in this);
+            bool foundEval = SETT.TryGetEval(Hash, out short eval);
+            NNUEEval.Update(in this, move, col, !foundEval);
+            
+            StaticEval = foundEval 
+                ? eval : Eval.StaticEval(in this);
+            
+            if (!foundEval)
+                SETT.Store(Hash, StaticEval);
         }
     }
 

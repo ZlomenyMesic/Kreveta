@@ -57,7 +57,7 @@ internal sealed unsafe class NNUEEvaluator {
         UpdateEvaluation(board.SideToMove, count + 2);
     }
     
-    internal void Update(in Board board, Move move, Color moved) {
+    internal void Update(in Board board, Move move, Color moved, bool updateEval) {
         var wAdd = stackalloc int[2];
         var wRem = stackalloc int[2];
         var bAdd = stackalloc int[2];
@@ -163,7 +163,8 @@ internal sealed unsafe class NNUEEvaluator {
         if (piece == PType.KING)
             RebuildAccumulator(in board, moved);
         
-        UpdateEvaluation(opp, (int)ulong.PopCount(board.Occupied));
+        if (updateEval)
+            UpdateEvaluation(opp, (int)ulong.PopCount(board.Occupied));
     }
 
     private void RebuildAccumulator(in Board board, Color col) {

@@ -278,7 +278,7 @@ internal static unsafe class PVSearch {
                          && !Score.IsMate(ttScore)) {
 
             staticEval = ttScore;
-        } else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
+        } else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -4, 4);
 
         // 2. RAZORING (~18 Elo)
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
@@ -305,7 +305,7 @@ internal static unsafe class PVSearch {
         // 3. STATIC NULL MOVE PRUNING (~4 Elo)
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode) && ss.ExcludedMove == default) {
+        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
@@ -325,7 +325,7 @@ internal static unsafe class PVSearch {
         
         // make sure the tt score is the correct bound
         if (ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
-            && ss.ExcludedMove == default && (col == Color.WHITE 
+            && (col == Color.WHITE 
                 ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= probcutBeta
                 : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= probcutBeta)) {
 
@@ -343,7 +343,6 @@ internal static unsafe class PVSearch {
         if (ss.Ply >= MinNMPPly // minimum ply for nmp
             && !inCheck         // don't prune when in check
             && nonPawnMat       // don't prune in absolute endgames
-            && ss.ExcludedMove == default
             
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
@@ -683,9 +682,6 @@ internal static unsafe class PVSearch {
             reduction += (lateRootMove                           ? 1 : 0)  // first few root moves are extended
                        + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
-
-            // increase reduction for moves with bad history
-            reduction -= Math.Min(curScore / (80 + CurIterDepth * (25 + CurIterDepth)), 0);
             
             // apply the reduction, make sure we don't extend more than one ply
             reduction = Math.Max(reduction, 0);

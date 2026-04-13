@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.search.transpositions;
 using Kreveta.uci;
 using Kreveta.uci.options;
 
@@ -67,6 +68,8 @@ internal static class PVSControl {
         // might have changed the hash size settings, so we
         // need to update the table before the search
         TT.Init();
+        if (!Game.FullGame)
+            SETT.Realloc();
         
         // null move pruning starts at later plies when closer to endgame
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
