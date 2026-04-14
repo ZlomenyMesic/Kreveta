@@ -14,14 +14,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search;
 
 internal static class PVSControl {
-
-    internal const int DefaultMaxDepth = 100;
+    internal const int DefaultMaxDepth = 128;
 
     // maximum search depth allowed in this search
     private static int    CurMaxDepth;
@@ -36,7 +36,7 @@ internal static class PVSControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    private static float  PVChanges;
+    private static float  PVChanges;       // number of changes of the best move
     private static float  ScoreDiffs;
     private static int    PrevScore;
     internal static float LastInstability;
@@ -50,6 +50,8 @@ internal static class PVSControl {
     internal static void StartSearch(int depth = DefaultMaxDepth, long NodesLimit = long.MaxValue, bool bench = false) {
         CurMaxDepth   = depth;
         CurNodesLimit = (ulong)NodesLimit;
+        
+        Console.WriteLine(BestMove.ToLAN());
 
         // start iterative deepening
         IterativeDeepeningLoop(bench);
@@ -79,7 +81,7 @@ internal static class PVSControl {
         );
         
         // evaluation noise
-        Eval.EvalEntropy = (int)(
+        Eval.NoiseAmplitude = (int)(
             0.119f * MathF.Pow(2227.0f - Options.UCI_Elo, 1.225f)
         );
 
@@ -99,7 +101,7 @@ internal static class PVSControl {
             
             // calculate the instability of the best move, and the score
             float pvInstability    = PVChanges * PVChanges * PVChanges * 1.46f;
-            float scoreInstability = PVSearch.CurIterDepth != 0 
+            float scoreInstability = PVSearch.CurIterDepth != 0
                 ? ScoreDiffs / PVSearch.CurIterDepth : 0f;
 
             // somehow combine the two into a total search instability metric.

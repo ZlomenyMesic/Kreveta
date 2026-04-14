@@ -19,17 +19,18 @@ internal static class LazyMoveOrder {
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
     
     internal static void AssignScores(in Board board, bool rootNode, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
-        Color col         = board.SideToMove;
-        bool  isEarlyGame = board.GamePhase() > 118;
+        Color color     = board.SideToMove;
+        int   earlyGame = Math.Max(0, board.GamePhase() - 110);
         
         // find killers and a potential countermove
         var captKillers = Killers.GetCluster(depth, captures: true);
         var killers     = Killers.GetCluster(depth, captures: false);
-        var counterMove = depth <= 2 ? CounterMoveHistory.Get(col, previous) : default;
+        var counterMove = depth <= 2 ? CounterMoveHistory.Get(color, previous) : default;
         
         for (int i = 0; i < count; i++) {
             Move move = moves[i];
             
+            // some stuff for evaluating more easily
             PType promPiece = move.Promotion;
             bool  isCapture = move.Capture != PType.NONE || promPiece == PType.PAWN;
             bool  isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
@@ -44,14 +45,14 @@ internal static class LazyMoveOrder {
                 int counter = isCounter ? 103 : 0;
                 
                 // then quiet and continuation history is applied
-                int qhist = QuietHistory.GetRep(move) * 35 / 94;
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 38 / 102 : 0;
-                int se    = StaticEvalDiffHistory.Get(move) * 93 / 320;
+                int qhist = QuietHistory.GetRep(move);
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) : 0;
+                int se    = StaticEvalDiffHistory.Get(move);
                 
                 // punish queen and king moves in the opening or early
                 // middlegame, of course except for castling
-                int queen = movedPiece == PType.QUEEN && isEarlyGame                            ? -83  : 0;
-                int king  = movedPiece == PType.KING  && isEarlyGame && promPiece != PType.KING ? -211 : 0;
+                int queen = (movedPiece == PType.QUEEN                           ? -83  : 0) * earlyGame / 40;
+                int king  = (movedPiece == PType.KING && promPiece != PType.KING ? -211 : 0) * earlyGame / 40;
 
                 // promotions and castling get placed higher
                 int prom = promPiece switch {
@@ -61,8 +62,8 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] = qhist + cont + se
-                          + (!rootNode ? killer + counter + queen + king + prom : 0);
+                scores[i] = (!rootNode ? killer + counter + queen + king + prom : 0)
+                            + (95 * qhist + 95 * cont + 74 * se) / 256;
             }
 
             else {
@@ -70,14 +71,17 @@ internal static class LazyMoveOrder {
                 // higher scores are applied to push captures above quiets
                 int killer = isKiller ? 3102 : 1648;
                 
-                // static exchange evaluation and continuation history. it is
-                // often said that conthist doesn't work well with captures,
-                // but here it seems like it does. i've also tried combining
-                // SEE with additional MVV-LVA, but that didn't work at all
-                int see   = SEE.GetCaptureScore(in board, col, move);
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) * 16 / 99 : 0;
-                int chist = CaptureHistory.GetRep(move) / 111;
-                int pt    = PieceToHistory.GetRep(col, move) / 35;
+                // Static Exchange Evaluation (SEE) has the most effect on ordering captures, as it
+                // is the most reliable. en passant has always an SEE of zero, which means the eval
+                // can be skipped (despite it being unintentional and wrong behaviour)
+                int see   = SEE.GetCaptureScore(in board, color, move);
+                
+                // then we have some history heuristics. it is often said that conthist doesn't do well
+                // with captures, but here it does. pieceto history stores data from quiets only, and thus
+                // learns, which squares should be occupied, which can then enhance capture ordering
+                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) : 0;
+                int chist = CaptureHistory.GetRep(move);
+                int pt    = PieceToHistory.GetRep(color, move);
                 
                 // once again promotions get placed higher
                 int prom = promPiece switch {
@@ -86,8 +90,8 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] = cont + chist + pt
-                          + (!rootNode ? killer + see + prom : 0);
+                scores[i] = (!rootNode ? killer + see + prom : 0)
+                            + (165 * cont + 9 * chist + 29 * pt) / 1024;
             }
         }
     }

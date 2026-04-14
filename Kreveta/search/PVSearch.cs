@@ -37,8 +37,8 @@ internal static unsafe class PVSearch {
     // evaluated final score of the principal variation
     internal static short PVScore;
 
+    // in endgames, we prefer not to use NMP at high depths
     internal static int MinNMPPly;
-    internal static int NullMovePly = -66;
     
     // PRINCIPAL VARIATION
     // in pvsearch, the pv represents a variation (sequence of moves),
@@ -135,6 +135,7 @@ internal static unsafe class PVSearch {
         else                StaticEvalDiffHistory.Age();
         
         TT.Clear();
+        if (!Game.FullGame) SETT.Clear();
     }
 
     // stores the pv in the transposition table.
@@ -159,8 +160,14 @@ internal static unsafe class PVSearch {
         
         // did we find the position and score?
         // also repeating positions cannot occur under 4 plies
-        if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore)) {
+        if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore, out Move ttMove)) {
             CurNodes++;
+            
+            /*if (board.SideToMove == Color.WHITE ? ttScore >= ss.Window.Beta : ttScore <= ss.Window.Alpha) {
+                bool ttCapture = ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN;
+                
+                StoreMoveHistory(board.SideToMove, ss.LastMove, ttMove, ttCapture, ss.Depth / 2, ss.Depth / 3);
+            }*/
             
             // return just the score
             return (ttScore, []);
@@ -249,6 +256,17 @@ internal static unsafe class PVSearch {
             ||  ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha
             ||  ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta)) {
 
+            // increase history values for the tt move if it cuts beta
+            if (cutNode && ttMoveExists) {
+                
+                // the weight is higher when the score is much over beta
+                int delta  = col == Color.WHITE ? ttScore - ss.Window.Beta : ss.Window.Alpha - ttScore;
+                int weight = 1 + Math.Min(
+                        ss.Depth / 3,
+                        ss.Depth / 7 + delta / 70);
+                StoreMoveHistory(col, ss.LastMove, ttMove, ttCapture, weight, weight * 2 / 3);
+            }
+
             return (ttScore, []);
         }
         
@@ -278,7 +296,7 @@ internal static unsafe class PVSearch {
                          && !Score.IsMate(ttScore)) {
 
             staticEval = ttScore;
-        } else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -4, 4);
+        } else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
         // 2. RAZORING (~18 Elo)
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
@@ -367,15 +385,16 @@ internal static unsafe class PVSearch {
             nullChild.IsCheck     = false;
             nullChild.Hash       ^= ZobristHash.WhiteToMove;
             nullChild.Hash       ^= board.EnPassantSq != 64 ? ZobristHash.EnPassant[board.EnPassantSq & 7] : 0UL;
+
+            // scale reduction when eval is much over beta
+            int delta = col == Color.WHITE
+                ? staticEval - ss.Window.Beta
+                : ss.Window.Alpha - staticEval;
             
-            // the depth reduction
-            int R = 7 + ss.Depth / 3 + (col == Color.WHITE 
-                ? staticEval - ss.Window.Beta 
-                : ss.Window.Alpha - staticEval) / 365;
-
-            if (cutNode || ttBetaCutoff) R++;
-
-            NullMovePly = ss.Ply;
+            // the actual depth reduction
+            int R = 7 + ss.Depth / 3 
+                      + delta / 365
+                      + (cutNode || ttBetaCutoff ? 1 : 0);
             
             // perform the reduced search
             short nmpScore = SearchNext<NonPVNode>(
@@ -393,8 +412,6 @@ internal static unsafe class PVSearch {
                 cutNode:     false
             ).Score;
             
-            NullMovePly = -66;
-
             // if we failed high, prune this node
             if (col == Color.WHITE
                     ? nmpScore >= ss.Window.Beta
@@ -425,15 +442,6 @@ internal static unsafe class PVSearch {
                     return (nmpScore, []);
             }
         }
-        
-        // X. ANTI-NULL MOVE PRUNING
-        /*if (ss.Ply - 2 == NullMovePly && ss.Depth >= 2 && (col == Color.WHITE
-                ? staticEval <= ss.Window.Alpha - 35 - 25 * ss.Depth
-                : staticEval >= ss.Window.Beta  + 35 + 25 * ss.Depth)) {
-
-            ss.PriorReductions++;
-            ss.Depth--;
-        }*/
         
         // 6. INTERNAL ITERATIVE REDUCTIONS (~54 Elo)
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth

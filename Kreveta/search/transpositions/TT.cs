@@ -87,6 +87,7 @@ internal static unsafe partial class TranspositionTable {
         Table = (Entry*)NativeMemory.AlignedAlloc(
             byteCount: byteCount,
             alignment: EntrySize);
+        NativeMemory.Clear(Table, byteCount);
     }
 
     // store a position in the table. the best move doesn't have to be specified
@@ -236,8 +237,9 @@ internal static unsafe partial class TranspositionTable {
         return true;
     }
     
-    internal static bool TryGetScore(ulong hash, int depth, int ply, Window window, out short score) {
-        score = 0;
+    internal static bool TryGetScore(ulong hash, int depth, int ply, Window window, out short ttScore, out Move ttMove) {
+        ttScore = 0;
+        ttMove  = default;
 
         // find the corresponding bucket
         int   index  = HashIndex(hash);
@@ -257,13 +259,14 @@ internal static unsafe partial class TranspositionTable {
         if (entry.Hash == 0UL || entry.Depth < depth)
             return false;
 
-        score = entry.Score;
+        ttScore = entry.Score;
+        ttMove  = entry.BestMove;
         
         // when retrieving the eval, we do the opposite of what is
         // described above - we add the current ply to the "mate in X"
         // to make it relative to the root node once again
-        if (Score.IsMate(score)) {
-            score -= (short)(Math.Sign(score) * ply);
+        if (Score.IsMate(ttScore)) {
+            ttScore -= (short)(Math.Sign(ttScore) * ply);
 
             TTHits++;
             return true;
@@ -272,8 +275,8 @@ internal static unsafe partial class TranspositionTable {
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
         if (entry.Flags.HasFlag(ScoreFlags.SCORE_EXACT)
-            || entry.Flags.HasFlag(ScoreFlags.UPPER_BOUND) && score <= window.Alpha
-            || entry.Flags.HasFlag(ScoreFlags.LOWER_BOUND) && score >= window.Beta) {
+            || entry.Flags.HasFlag(ScoreFlags.UPPER_BOUND) && ttScore <= window.Alpha
+            || entry.Flags.HasFlag(ScoreFlags.LOWER_BOUND) && ttScore >= window.Beta) {
 
             TTHits++;
             return true;

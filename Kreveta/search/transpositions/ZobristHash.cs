@@ -47,13 +47,10 @@ internal static unsafe class ZobristHash {
             for (int p = 0; p < 12; p++)
                 Pieces[sq * 12 + p] = NextUInt64(rand);
 
-        for (int file = 0; file < 8; file++)
-            EnPassant[file] = NextUInt64(rand);
-
+        for (int i = 0; i <  8; i++) EnPassant[i] = NextUInt64(rand);
+        for (int i = 0; i < 16; i++) Castling[i]  = NextUInt64(rand);
+        
         WhiteToMove = NextUInt64(rand);
-
-        for (int i = 0; i < 16; i++)
-            Castling[i] = NextUInt64(rand);
     }
 
     internal static ulong GetHash(in Board board) {

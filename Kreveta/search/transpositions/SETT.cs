@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using System;
 using System.Runtime.InteropServices;
 
 // ReSharper disable InconsistentNaming
@@ -40,6 +41,7 @@ internal static unsafe class SETT {
     internal static void Realloc() {
         Clear();
         Table = (Entry*)NativeMemory.AlignedAlloc(EntryCount * EntrySize, 64);
+        NativeMemory.Clear(Table, EntryCount * EntrySize);
     }
 
     // store a new static evaluation

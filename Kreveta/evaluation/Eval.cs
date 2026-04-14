@@ -36,7 +36,7 @@ internal static class Eval {
     private static readonly byte[][] Distance = new byte[64][];
 
     // static evaluation noise
-    internal static int EvalEntropy;
+    internal static int NoiseAmplitude;
 
     internal static void Init() {
         // adjacent files for isolated pawn eval
@@ -88,7 +88,7 @@ internal static class Eval {
              * 1915 Elo => +/- ~140
              * 2287 Elo => +/- 0
              */
-            combined += Consts.RNG.Next(-EvalEntropy, EvalEntropy + 1);
+            combined += Consts.RNG.Next(-NoiseAmplitude, NoiseAmplitude + 1);
         }
         
         return (short)combined;
