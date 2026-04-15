@@ -24,7 +24,7 @@ internal static class PieceToHistory {
     }
 
     private static int GetIndex(Color col, PType piece, int sq) 
-        => (int)col * 6 * 64 + (int)piece * 64 + sq;
+        => ((int)col * 6 + (int)piece) * 64 + sq;
 
     internal static void Store(Color col, Move move, int weight) {
         var index = GetIndex(col, move.Piece, move.End);

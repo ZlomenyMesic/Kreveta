@@ -33,19 +33,13 @@ internal static class ContinuationHistory {
         if (weight == 0) return;
         
         int i = Index((int)previous.Piece, previous.End, (int)current.Piece, current.End);
-        int v = _table[i] + weight * Math.Abs(weight) / 8;
-
-        if ((uint)(v + 2048) > 4096)
-            v = v > 0 ? 2048 : -2048;
-
-        _table[i] = (short)v;
+        _table[i] += (short)(weight * Math.Abs(weight) / 8);
     }
 
     // try to retrieve the continuation
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int GetScore(Move previous, Move current) {
-        return _table[Index((int)previous.Piece, previous.End, (int)current.Piece, current.End)];
-    }
+    internal static int GetScore(Move previous, Move current)
+        => _table[Index((int)previous.Piece, previous.End, (int)current.Piece, current.End)];
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Index(int p1, int to1, int p2, int to2)

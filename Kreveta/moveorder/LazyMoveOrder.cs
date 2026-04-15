@@ -74,7 +74,7 @@ internal static class LazyMoveOrder {
                 // Static Exchange Evaluation (SEE) has the most effect on ordering captures, as it
                 // is the most reliable. en passant has always an SEE of zero, which means the eval
                 // can be skipped (despite it being unintentional and wrong behaviour)
-                int see   = SEE.GetCaptureScore(in board, color, move);
+                int see = promPiece == PType.PAWN ? 0 : SEE.GetCaptureScore(in board, color, move);
                 
                 // then we have some history heuristics. it is often said that conthist doesn't do well
                 // with captures, but here it does. pieceto history stores data from quiets only, and thus

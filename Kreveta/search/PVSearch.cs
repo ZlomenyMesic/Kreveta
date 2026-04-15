@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA5394
+
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
@@ -163,11 +165,9 @@ internal static unsafe class PVSearch {
         if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore, out Move ttMove)) {
             CurNodes++;
             
-            /*if (board.SideToMove == Color.WHITE ? ttScore >= ss.Window.Beta : ttScore <= ss.Window.Alpha) {
-                bool ttCapture = ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN;
-                
-                StoreMoveHistory(board.SideToMove, ss.LastMove, ttMove, ttCapture, ss.Depth / 2, ss.Depth / 3);
-            }*/
+            // increase the TT move's history if it cuts beta
+            if (ttMove != default)
+                StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, ss.Window);
             
             // return just the score
             return (ttScore, []);
@@ -248,24 +248,17 @@ internal static unsafe class PVSearch {
         // if tt score is reliable enough, it may be used for early cutoffs in
         // non-pv nodes, but only in case that it strongly supports the node type
         int  cm = 26 + 18 * ss.Depth;
-        bool shouldCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= ss.Window.Alpha : ttScore - cm >= ss.Window.Beta) 
-                         || cutNode && (col == Color.WHITE ? ttScore - cm >= ss.Window.Beta  : ttScore + cm <= ss.Window.Alpha);
+        bool shouldCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= ss.Window.Alpha : ttScore - cm >= ss.Window.Beta)
+                         || cutNode && (col == Color.WHITE ? ttScore - cm >= ss.Window.Beta : ttScore + cm <= ss.Window.Alpha);
         
         if (ttHit && ttDepth >= ss.Depth - 2 && shouldCutoff
             && (ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
             ||  ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha
             ||  ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta)) {
-
-            // increase history values for the tt move if it cuts beta
-            if (cutNode && ttMoveExists) {
-                
-                // the weight is higher when the score is much over beta
-                int delta  = col == Color.WHITE ? ttScore - ss.Window.Beta : ss.Window.Alpha - ttScore;
-                int weight = 1 + Math.Min(
-                        ss.Depth / 3,
-                        ss.Depth / 7 + delta / 70);
-                StoreMoveHistory(col, ss.LastMove, ttMove, ttCapture, weight, weight * 2 / 3);
-            }
+            
+            // we know from the previous conditions that beta is only cut in allnodes
+            if (cutNode && ttMoveExists)
+                StoreTTMoveHistory(col, ss.LastMove, ttMove, ss.Depth, false, ttScore, ss.Window);
 
             return (ttScore, []);
         }
@@ -282,7 +275,7 @@ internal static unsafe class PVSearch {
         improvStack.UpdateStaticEval(staticEval, ss.Ply);
         bool parentImproving = improvStack.IsImproving(ss.Ply, col);
         
-        // a fairly solid improving idea
+        // fairly solid improving ideas
         parentImproving |= col == Color.WHITE 
             ? staticEval >= ss.Window.Beta 
             : staticEval <= ss.Window.Alpha;
@@ -563,9 +556,11 @@ internal static unsafe class PVSearch {
             // but this time after the move has been already played
             improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1);
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
+            
             improving |= col == Color.WHITE 
                 ? childStaticEval >= ss.Window.Beta 
                 : childStaticEval <= ss.Window.Alpha;
+            
             improving &= !inCheck;
 
             // base reduction for this move, can be turned into an extension
@@ -776,10 +771,8 @@ internal static unsafe class PVSearch {
                 if (Options.UCI_LimitStrength && Score.IsMate(fullSearch.Score)) {
                     int x = Math.Abs(Score.GetMateInX(fullSearch.Score));
 
-#pragma warning disable CA5394
                     if (x > Math.Max(3, 10 - (2000 - Options.UCI_Elo) / 100))
                         fullSearch.Score = (short)Consts.RNG.Next(-1000, 1000);
-#pragma warning restore CA5394
                 }
             }
             
@@ -850,18 +843,46 @@ internal static unsafe class PVSearch {
                 : ss.Window.Beta, pv);
     }
 
-    // modify quiet, capture and continuation histories by the provided bonus/weight
+    // modify quiet, capture, pieceto, and continuation histories for a certain
+    // move by the provided bonus/weight. negative weight means the move is bad,
+    // and its history values should be lowered
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void StoreMoveHistory(Color col, Move previous, Move move, bool capture, int weight, int contWeight) {
+        // conthist requires the previous move to be present
         if (previous != default)
             ContinuationHistory.Add(previous, move, contWeight);
-                    
-        // if the move caused a beta cutoff, it's history is increased
+        
+        // modify the respective histories
         if (!capture) {
             QuietHistory.ChangeRep(move, weight);
             PieceToHistory.Store(col, move, weight);
         }
         else CaptureHistory.ChangeRep(move, weight);
+    }
+
+    // when a TT cutoff occurs, and the TT score cuts beta, the history of the TT move
+    // is modified. although no search was conducted, if the cutoff hadn't happened,
+    // the move would be searched, and the history would be changed either way
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void StoreTTMoveHistory(Color col, Move previous, Move ttMove, int depth, bool pvNode, int ttScore, Window window) {
+        
+        // as opposed to regular history weights, for the TT move
+        // the weight scales with by how much beta was exceeded
+        int delta = col == Color.WHITE
+            ? ttScore - window.Beta 
+            : window.Alpha - ttScore;
+        
+        // of course don't bother with histories unless beta was cut
+        if (delta >= 0) {
+            bool ttCapture = ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN;
+                
+            // the weight is also increased for PV nodes
+            int weight = 1 + Math.Min(
+                depth / 3 + (pvNode ? 1 : 0),
+                depth / 7 + delta / 70);
+            
+            StoreMoveHistory(col, previous, ttMove, ttCapture, weight, weight * 2 / 3);
+        }
     }
 
     // print 'info currmove ...' once search iterations are a bit longer 
@@ -905,3 +926,5 @@ internal static unsafe class PVSearch {
         UCI.Log(info);
     }
 }
+
+#pragma warning restore CA5394

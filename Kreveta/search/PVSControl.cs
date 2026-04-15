@@ -36,8 +36,8 @@ internal static class PVSControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    private static float  PVChanges;       // number of changes of the best move
-    private static float  ScoreDiffs;
+    private static float  PVChanges;  // number of changes of the best move
+    private static float  ScoreDiffs; // sum of differences of scores between iterations
     private static int    PrevScore;
     internal static float LastInstability;
 
@@ -51,8 +51,6 @@ internal static class PVSControl {
         CurMaxDepth   = depth;
         CurNodesLimit = (ulong)NodesLimit;
         
-        Console.WriteLine(BestMove.ToLAN());
-
         // start iterative deepening
         IterativeDeepeningLoop(bench);
     }
