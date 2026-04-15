@@ -17,7 +17,6 @@ internal static class LazyMoveOrder {
     // move ordering is used, where first all moves are assigned different scores,
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
-    
     internal static void AssignScores(in Board board, bool rootNode, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, int count) {
         Color color     = board.SideToMove;
         int   earlyGame = Math.Max(0, board.GamePhase() - 110);
@@ -71,10 +70,8 @@ internal static class LazyMoveOrder {
                 // higher scores are applied to push captures above quiets
                 int killer = isKiller ? 3102 : 1648;
                 
-                // Static Exchange Evaluation (SEE) has the most effect on ordering captures, as it
-                // is the most reliable. en passant has always an SEE of zero, which means the eval
-                // can be skipped (despite it being unintentional and wrong behaviour)
-                int see = promPiece == PType.PAWN ? 0 : SEE.GetCaptureScore(in board, color, move);
+                // Static Exchange Evaluation (SEE) has the most effect, as it is quite reliable
+                int see = SEE.GetMoveScore(in board, color, move);
                 
                 // then we have some history heuristics. it is often said that conthist doesn't do well
                 // with captures, but here it does. pieceto history stores data from quiets only, and thus

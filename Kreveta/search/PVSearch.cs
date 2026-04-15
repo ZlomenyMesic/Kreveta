@@ -137,7 +137,7 @@ internal static unsafe class PVSearch {
         else                StaticEvalDiffHistory.Age();
         
         TT.Clear();
-        if (!Game.FullGame) SETT.Clear();
+        if (!Game.FullGame) SETT.Realloc();
     }
 
     // stores the pv in the transposition table.
@@ -549,7 +549,7 @@ internal static unsafe class PVSearch {
                 || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount))
                 goto skipPVS;
             
-            int  see        = isCapture ? SEE.GetCaptureScore(in board, col, curMove) : 0;
+            int  see        = isCapture ? SEE.GetMoveScore(in board, col, curMove) : 0;
             bool givesCheck = child.IsCheck;
             
             // once again update the static eval in the improving stack,

@@ -39,7 +39,7 @@ internal static class Check {
             return true;
 
         // pawn check
-        if ((Pawn.GetPawnCaptureTargets(kingSq, 0, kingCol, oppOccupied) & board.Pieces[oppBase]) != 0UL)
+        if ((Pawn.GetPawnCaptureTargets(kingSq, 64, kingCol, oppOccupied) & board.Pieces[oppBase]) != 0UL)
             return true;
 
         // opposing king

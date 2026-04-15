@@ -1,9 +1,15 @@
+//
+// Kreveta chess engine by ZlomenyMesic
+// started 4-3-2025
+//
+
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.movegen.pieces;
 
 using System;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.moveorder;
@@ -25,7 +31,7 @@ internal static class SEE {
         
         // if there is a single capture
         if (capts.Length == 1) {
-            seeScores = [GetCaptureScore(in board, board.SideToMove, capts[0])];
+            seeScores = [GetMoveScore(in board, board.SideToMove, capts[0])];
             
             // check if this move should be pruned
             if (seeScores[0] >= pruneThreshold)
@@ -41,7 +47,7 @@ internal static class SEE {
 
         // add each capture and its score into a list
         for (int i = 0; i < capts.Length; i++) {
-            int score = GetCaptureScore(in board, board.SideToMove, capts[i]);
+            int score = GetMoveScore(in board, board.SideToMove, capts[i]);
             
             if (score >= pruneThreshold)
                 scores[cur++] = (capts[i], score);
@@ -82,102 +88,118 @@ internal static class SEE {
 
     // returns material gain/loss on a single square after evaluating captures
     // from both sides. positive score is a good capture for the specified color
-    internal static int GetCaptureScore(in Board board, Color col, Move move) {
-        if (move.Capture == PType.NONE) return 0;
+    internal static int GetMoveScore(in Board board, Color col, Move move) {
+        
+        // the square at which the exchange chain is to be evaluated
+        byte target    = (byte)move.End;
+        bool enPassant = move.Promotion == PType.PAWN;
 
-        byte target = (byte)move.End;
-
-        // occupancy after our move (we removed the attacker from its origin)
-        ulong occ = board.Occupied & ~(1UL << move.Start);
-
-        // copy piece bitboards, so we can remove attackers as we simulate captures
+        // copy piece bitboards, so attackers may be removed
         Span<ulong> pieces = stackalloc ulong[12];
         board.Pieces.AsSpan().CopyTo(pieces);
-
-        // captured piece values in order (no heap alloc)
-        Span<int> captures = stackalloc int[MaxCaptures];
-        int depth = 0;
-
-        // initial capture
-        captures[0] = EvalTables.PieceValues[(byte)move.Capture];
-
-        // piece currently on the target square
-        PType pieceOnTarget = move.Piece;
-
-        // opponent moves next
-        Color side = col == Color.WHITE
-            ? Color.BLACK
-            : Color.WHITE;
-
-        // simulate recaptures
-        while (true) {
-            var attacker = FindLVA(pieces, occ, target, side, board);
-            if (attacker.square == -1) break;
-
-            depth++;
-            if (depth >= MaxCaptures) break;
-
-            // this attacker captures the current piece on target
-            captures[depth] = EvalTables.PieceValues[(byte)pieceOnTarget];
-
-            // remove attacker from origin square
-            ulong mask = 1UL << attacker.square;
-            occ &= ~mask;
-
-            // remove attacker from its piece bitboard
-            int idx = (side == Color.WHITE ? 0 : 6) + (int)attacker.type;
-            pieces[idx] &= ~mask;
-
-            // attacker becomes the piece on target
-            pieceOnTarget = attacker.type;
-
-            // alternate side
-            side = side == Color.WHITE
-                ? Color.BLACK
-                : Color.WHITE;
+        
+        // occupancy after the first move (attacker removed from its origin)
+        ulong occupied = board.Occupied & ~(1UL << move.Start);
+        pieces[(int)col * 6 + (int)move.Piece] &= ~(1UL << move.Start);
+        
+        // in the special case of en passant, the capture square isn't the
+        // same as landing square, so although we still use the ending square
+        // as the target, the initial captured pawn must be handled separately
+        if (enPassant) {
+            ulong captureSq = col == Color.WHITE
+                ? 1UL << target << 8
+                : 1UL << target >> 8;
+            
+            occupied             ^= captureSq;
+            pieces[(int)col * 6] ^= captureSq;
         }
 
-        // backwards minimax reduction (indexes > 0 only)
-        for (int i = depth - 1; i > 0; --i)
-            captures[i] = Math.Max(0, captures[i] - captures[i + 1]);
+        // captured piece values in order
+        Span<int> captures = stackalloc int[MaxCaptures];
+
+        // value of the initial captured piece
+        captures[0] = enPassant ? EvalTables.PieceValues[0]
+                                : EvalTables.PieceValues[(byte)move.Capture];
+
+        // set up targeted piece and side to move for the next capture
+        PType pieceOnTarget = move.Piece;
+        Color side          = 1 - col;
+        int   depth         = 0;
+
+        while (true) {
+            
+            // find the next least valuable attacker, and if none exist, break the loop
+            (int Square, PType Type) attacker = FindLVA(pieces, occupied, target, side, board);
+            if (attacker.Square == -1) break;
+
+            // this probably won't ever happen
+            if (++depth >= MaxCaptures) break;
+
+            // add the value of the currently captured piece
+            captures[depth] = EvalTables.PieceValues[(byte)pieceOnTarget];
+
+            // remove attacker from origin square in the occupancy
+            // bitboard and also in the piece bitboard array
+            occupied                                  &= ~(1UL << attacker.Square);
+            pieces[(int)col * 6 + (int)attacker.Type] &= ~(1UL << attacker.Square);
+
+            // attacker becomes the new piece on target
+            pieceOnTarget = attacker.Type;
+
+            // swap the side to move
+            side = 1 - side;
+        }
 
         // no recapture existed => we simply won material
         if (depth == 0)
             return captures[0];
+        
+        // backwards minimax - not all captures had to be played so
+        // make sure we account for exchange chains terminating early
+        for (int i = depth - 1; i > 0; --i)
+            captures[i] = Math.Max(0, captures[i] - captures[i + 1]);
 
         // initial capture is real and must be counted
         return captures[0] - captures[1];
     }
     
-    private static (int square, PType type) FindLVA(Span<ulong> pieces, ulong occ, byte targetSq, Color stm, in Board board) {
-        Color opp     = stm == Color.BLACK ? Color.WHITE : Color.BLACK;
-        int   colBase = stm == Color.WHITE ? 0 : 6;
+    // during the exchange chain evaluation loop, we constantly look
+    // for new attackers on the target square. an important thing is,
+    // that we always look for the least valuable attacker
+    private static (int Square, PType Type) FindLVA(Span<ulong> pieces, ulong occupied, byte targetSq, Color col, in Board board) {
+        int colBase = (int)col * 6;
 
-        ulong occupied    = occ & board.Occupied;
-        ulong ourOccupied = occ & (stm == Color.WHITE ? board.WOccupied : board.BOccupied);
+        // our pieces except for the ones we have already used in the chain
+        ulong ourOccupied = occupied & (col == Color.WHITE 
+            ? board.WOccupied : board.BOccupied);
 
-        ulong pawns = Pawn.GetPawnCaptureTargets(targetSq, 0, opp, ourOccupied);
-        pawns      &= pieces[colBase + 0];
+        // go from the least valuable to most valuable piece type, and check
+        // whether we have such a piece that attacks the current target square
+        ulong pawns = Pawn.GetPawnCaptureTargets(targetSq, 64, 1 - col, ourOccupied) & pieces[colBase];
         if (pawns != 0UL) return (BB.LS1B(pawns), PType.PAWN);
 
-        ulong knightRays = Knight.GetKnightTargets(targetSq, ourOccupied);
-        knightRays      &= pieces[colBase + 1];
-        if (knightRays != 0UL) return (BB.LS1B(knightRays), PType.KNIGHT);
+        ulong knights = Knight.GetKnightTargets(targetSq, ourOccupied) & pieces[colBase + 1];
+        if (knights != 0UL) return (BB.LS1B(knights), PType.KNIGHT);
 
-        ulong bishopRays  = Pext.GetBishopTargets(targetSq, ourOccupied, occupied);
-        ulong bishopRays2 = bishopRays & pieces[colBase + 2];
-        if (bishopRays2 != 0UL) return (BB.LS1B(bishopRays2), PType.BISHOP);
+        // bishop and rook rays are also used for the queen, so we cannot
+        // directly check with AND, instead we must create a separate BB.
+        ulong bishops  = Pext.GetBishopTargets(targetSq, ourOccupied, occupied);
+        ulong bishops2 = bishops & pieces[colBase + 2];
+        if (bishops2 != 0UL) return (BB.LS1B(bishops2), PType.BISHOP);
 
-        ulong rookRays  = Pext.GetRookTargets(targetSq, ourOccupied, occupied);
-        ulong rookRays2 = rookRays & pieces[colBase + 3];
-        if (rookRays2 != 0UL) return (BB.LS1B(rookRays2), PType.ROOK);
+        ulong rooks  = Pext.GetRookTargets(targetSq, ourOccupied, occupied);
+        ulong rooks2 = rooks & pieces[colBase + 3];
+        if (rooks2 != 0UL) return (BB.LS1B(rooks2), PType.ROOK);
 
-        ulong queenRays = (rookRays | bishopRays) & pieces[colBase + 4];
-        if (queenRays != 0UL) return (BB.LS1B(queenRays), PType.QUEEN);
+        // as already said, queen simply reuses bishop and rook rays
+        ulong queens = (rooks | bishops) & pieces[colBase + 4];
+        if (queens != 0UL) return (BB.LS1B(queens), PType.QUEEN);
 
-        ulong kings = King.GetKingTargets(targetSq, 0xFFFFFFFFFFFFFFFF) & pieces[colBase + 5];
-        if (kings != 0UL) return (BB.LS1B(kings), PType.KING);
-
-        return (-1, PType.NONE);
+        // kings are also taken into account, but we must ensure
+        // no recapture exists, otherwise such move would be illegal
+        ulong kings = King.GetKingTargets(targetSq, pieces[colBase + 5]);
+        return kings != 0UL 
+            ? (BB.LS1B(kings), PType.KING) 
+            : (-1,             PType.NONE);
     }
 }

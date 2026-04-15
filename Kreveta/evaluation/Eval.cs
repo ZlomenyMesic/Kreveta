@@ -160,9 +160,9 @@ internal static class Eval {
             ulong file    = Consts.RelevantFileMask[sq & 7];
             int   relRank = col == Color.BLACK ? sq >> 3 : 8 - (sq >> 3);
             
-            bool supported  = Pawn.GetPawnCaptureTargets(sq, 0, 1 - col, pawns)                 != 0UL;
-            bool canAdvance = Pawn.GetPawnCaptureTargets((byte)(sq + forw), 0, col, enemyPawns) == 0UL;
-            bool phalanx    = Pawn.GetPawnCaptureTargets((byte)(sq - forw), 0, col, pawns)      != 0UL;
+            bool supported  = Pawn.GetPawnCaptureTargets(sq, 64, 1 - col, pawns)                 != 0UL;
+            bool canAdvance = Pawn.GetPawnCaptureTargets((byte)(sq + forw), 64, col, enemyPawns) == 0UL;
+            bool phalanx    = Pawn.GetPawnCaptureTargets((byte)(sq - forw), 64, col, pawns)      != 0UL;
             bool opposed    = (enemyPawns & file) != 0UL; // this doesn't check whether the pawn is behind us
             
             // calculate the number of friendly and enemy pawns
