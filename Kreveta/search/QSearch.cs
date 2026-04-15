@@ -46,7 +46,7 @@ internal static class QSearch {
         bool  inCheck  = board.IsCheck;
         short standPat = board.StaticEval;
 
-        // 1. STAND PAT PRUNING:
+        // 1. STAND-PAT PRUNING
         // based on the null move observation, there is always at least one good move
         // in every position. since we're only searching captures, e.g. a subset of all
         // legal moves, we cannot return a bad score if we don't find a good move. so,
@@ -81,11 +81,13 @@ internal static class QSearch {
                 : Score.CreateMateScore(col, ply);
         }
 
-        // 2. SEE PRUNING:
-        // when not in check, only captures are generated. captures with
-        // negative are skipped directly in the SEE ordering function
+        // 2. SEE PRUNING
+        // when not in check, only captures are generated. the capture ordering
+        // function takes a threshold, below which all captures are directly skipped.
+        int seeThreshold = (ply - PVSearch.CurIterDepth) / 8;
+        
         int[]         seeScores = [];
-        if (!inCheck) moves     = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, true);
+        if (!inCheck) moves     = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, seeThreshold);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
@@ -98,7 +100,7 @@ internal static class QSearch {
                 && CaptureHistory.GetRep(moves[i]) < CaptureHistory.GetRep(moves[i + 1]))
                 (moves[i], moves[i + 1]) = (moves[i + 1], moves[i]);
             
-            // 3. MOVECOUNT PRUNING:
+            // 3. MOVECOUNT PRUNING
             // late captures are simply skipped, unless being a recapture
             if (!inCheck && i > 3 && ply >= PVSearch.CurIterDepth + 4 && moves[i].End != prevSq
                 && !Score.IsMate(col == Color.WHITE ? window.Alpha : window.Beta)) {
@@ -107,7 +109,7 @@ internal static class QSearch {
                 continue;
             }
             
-            // 4. DELTA PRUNING:
+            // 4. DELTA PRUNING
             // very similar to futility pruning but makes use of the value of the currently
             // captured piece (or SEE score to be exact), which is added to the stand pat with
             // a margin, and if the eval still doesn't raise alpha, we prune this branch

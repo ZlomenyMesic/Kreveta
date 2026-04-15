@@ -11,36 +11,46 @@ namespace Kreveta.moveorder;
 internal static class SEE {
     private const int MaxCaptures = 32;
     
-    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, out int[] seeScores, bool prune = false) {
+    // this function takes a list of captures and orders it by SEE from best to
+    // worst. pruning threshold may also be used to automatically prune all moves
+    // of which the SEE score is below the provided threshold
+    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, out int[] seeScores, int pruneThreshold) {
         count = capts.Length;
         
-        // if there's only a single available capture,
-        // don't bother wasting time on this thing
+        // if the list is empty for some reason
         if (capts.Length == 0) {
             seeScores = [];
             return [];
         }
+        
+        // if there is a single capture
         if (capts.Length == 1) {
             seeScores = [GetCaptureScore(in board, board.SideToMove, capts[0])];
-            return new Span<Move>([capts[0]]);
+            
+            // check if this move should be pruned
+            if (seeScores[0] >= pruneThreshold)
+                return new Span<Move>([capts[0]]);
+            
+            count     = 0;
+            seeScores = [];
+            return      [];
         }
 
-        // add each capture and its score into a list
         var scores = new (Move, int)[capts.Length];
-        int cur = 0;
+        int cur    = 0;
 
+        // add each capture and its score into a list
         for (int i = 0; i < capts.Length; i++) {
             int score = GetCaptureScore(in board, board.SideToMove, capts[i]);
             
-            if (!prune || score >= 0)
+            if (score >= pruneThreshold)
                 scores[cur++] = (capts[i], score);
         }
 
         count = cur;
 
-        // here we once again have a very naive and primitive
-        // sorting algorithm, but it shouldn't slow anything
-        // down due to the usual low amount of captures
+        // here we once again have a very naive and primitive sorting algorithm,
+        // but it shouldn't slow anything down due to the usual low amount of captures
         bool sortsMade = true;
         while (sortsMade) {
 
@@ -127,51 +137,44 @@ internal static class SEE {
                 : Color.WHITE;
         }
 
-        // Backwards minimax reduction (indexes > 0 only)
+        // backwards minimax reduction (indexes > 0 only)
         for (int i = depth - 1; i > 0; --i)
             captures[i] = Math.Max(0, captures[i] - captures[i + 1]);
 
-        // No recapture existed => we simply won material
+        // no recapture existed => we simply won material
         if (depth == 0)
             return captures[0];
 
-        // Initial capture is real and must be counted
+        // initial capture is real and must be counted
         return captures[0] - captures[1];
     }
     
-    private static (int square, PType type) FindLVA(
-        Span<ulong> pieces, ulong occ, byte targetSq, Color stm, in Board board) {
-        Color opp = stm == Color.BLACK ? Color.WHITE : Color.BLACK;
-        int colBase = stm == Color.WHITE ? 0 : 6;
+    private static (int square, PType type) FindLVA(Span<ulong> pieces, ulong occ, byte targetSq, Color stm, in Board board) {
+        Color opp     = stm == Color.BLACK ? Color.WHITE : Color.BLACK;
+        int   colBase = stm == Color.WHITE ? 0 : 6;
 
         ulong occupied    = occ & board.Occupied;
         ulong ourOccupied = occ & (stm == Color.WHITE ? board.WOccupied : board.BOccupied);
 
-        // Pawn attackers
         ulong pawns = Pawn.GetPawnCaptureTargets(targetSq, 0, opp, ourOccupied);
-        pawns &= pieces[colBase + 0];
+        pawns      &= pieces[colBase + 0];
         if (pawns != 0UL) return (BB.LS1B(pawns), PType.PAWN);
 
-        // Knight attackers
         ulong knightRays = Knight.GetKnightTargets(targetSq, ourOccupied);
-        knightRays &= pieces[colBase + 1];
+        knightRays      &= pieces[colBase + 1];
         if (knightRays != 0UL) return (BB.LS1B(knightRays), PType.KNIGHT);
 
-        // Bishop
         ulong bishopRays  = Pext.GetBishopTargets(targetSq, ourOccupied, occupied);
         ulong bishopRays2 = bishopRays & pieces[colBase + 2];
         if (bishopRays2 != 0UL) return (BB.LS1B(bishopRays2), PType.BISHOP);
 
-        // Rook
         ulong rookRays  = Pext.GetRookTargets(targetSq, ourOccupied, occupied);
         ulong rookRays2 = rookRays & pieces[colBase + 3];
         if (rookRays2 != 0UL) return (BB.LS1B(rookRays2), PType.ROOK);
 
-        // Queen
         ulong queenRays = (rookRays | bishopRays) & pieces[colBase + 4];
         if (queenRays != 0UL) return (BB.LS1B(queenRays), PType.QUEEN);
 
-        // King
         ulong kings = King.GetKingTargets(targetSq, 0xFFFFFFFFFFFFFFFF) & pieces[colBase + 5];
         if (kings != 0UL) return (BB.LS1B(kings), PType.KING);
 

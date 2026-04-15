@@ -21,7 +21,7 @@ internal static class Eval {
     
     private const int Tempo        = 6;
     private const int KingInCheck  = -31;
-    private const int BishopPair   = 10;
+    private const int BishopPair   = 7;
     private const int KPDistance   = 16;
 
     // pawn structure bonuses and maluses. all are scaled in mp
@@ -30,7 +30,7 @@ internal static class Eval {
     private const int IsolatedPawn = -152;
     private const int PassedPawn   = 73;
     private const int BlockedPawn  = -67;
-    private const int BackwardPawn = -40;
+    private const int BackwardPawn = -42;
     
     private static readonly ulong[]  AdjFiles = new ulong[8];
     private static readonly byte[][] Distance = new byte[64][];
@@ -86,7 +86,6 @@ internal static class Eval {
              * 1500 Elo => +/- ~395
              * 1700 Elo => +/- ~270
              * 1915 Elo => +/- ~140
-             * 2287 Elo => +/- 0
              */
             combined += Consts.RNG.Next(-NoiseAmplitude, NoiseAmplitude + 1);
         }
@@ -137,7 +136,7 @@ internal static class Eval {
                        - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied, phase)) / 10);
 
         // king safety
-        eval += (short)(board.IsCheck ? KingInCheck * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
+        eval += (short)(board.IsCheck ? board.SideToMove == Color.WHITE ? KingInCheck : -KingInCheck : 0);
         eval += KingEval(pieces, wOccupied, bOccupied);
         
         // bishops
