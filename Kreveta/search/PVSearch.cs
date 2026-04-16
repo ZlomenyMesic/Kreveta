@@ -163,7 +163,6 @@ internal static unsafe class PVSearch {
         // did we find the position and score?
         // also repeating positions cannot occur under 4 plies
         if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore, out Move ttMove)) {
-            CurNodes++;
             
             // increase the TT move's history if it cuts beta
             if (ttMove != default)
@@ -235,16 +234,20 @@ internal static unsafe class PVSearch {
         bool ttMoveExists = ttHit && ttMove != default;
         bool ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
         
+        // figure out the tt score type
+        bool ttExact      = ttHit && ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT);
+        bool ttLowerBound = ttHit && ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND);
+        bool ttUpperBound = ttHit && ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND);
+        
         // if tt score is reliable enough, it may be used for early cutoffs in
         // non-PV nodes, but only in case it strongly supports the node type
         int  cm = 26 + 18 * ss.Depth;
-        bool shouldCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= ss.Window.Alpha : ttScore - cm >= ss.Window.Beta)
-                         || cutNode && (col == Color.WHITE ? ttScore - cm >= ss.Window.Beta  : ttScore + cm <= ss.Window.Alpha);
+        bool canCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= ss.Window.Alpha : ttScore - cm >= ss.Window.Beta)
+                      || cutNode && (col == Color.WHITE ? ttScore - cm >= ss.Window.Beta  : ttScore + cm <= ss.Window.Alpha);
         
-        if (ttHit && ttDepth >= ss.Depth - 2 && shouldCutoff
-            && (ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
-            ||  ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha
-            ||  ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta)) {
+        if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact 
+                || ttUpperBound && ttScore <= ss.Window.Alpha
+                || ttLowerBound && ttScore >= ss.Window.Beta)) {
             
             // we know from the previous conditions that beta is only cut in allnodes
             if (cutNode && ttMoveExists)
@@ -254,14 +257,14 @@ internal static unsafe class PVSearch {
         }
         
         // is the tt score optimistic that we can raise alpha or cause a beta cutoff
-        bool ttOptimistic = ttMoveExists && (col == Color.WHITE 
-            ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore > ss.Window.Alpha
-            : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore < ss.Window.Beta);
+        bool ttOptimistic = ttHit && (col == Color.WHITE 
+            ? ttLowerBound && ttScore > ss.Window.Alpha
+            : ttUpperBound && ttScore < ss.Window.Beta);
         
         // is the tt score optimistic that we can cause a beta cutoff?
-        bool ttBetaCutoff = ttMoveExists && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
-            ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= ss.Window.Beta
-            : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= ss.Window.Alpha);
+        bool ttBetaCutoff = ttHit && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
+            ? ttLowerBound && ttScore >= ss.Window.Beta
+            : ttUpperBound && ttScore <= ss.Window.Alpha);
         
         // check whether we are still following the previous principal variation
         ss.FollowPV = ss.FollowPV && (rootNode || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
@@ -281,26 +284,30 @@ internal static unsafe class PVSearch {
             : staticEval <= ss.Window.Alpha;
         
         parentImproving &= !inCheck;
+
+        //bool ttScoreAdjusted = false;
         
         // if tt score is reliable, adjust the static eval used for pruning
-        if (ttMoveExists && (ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
-                             || ttScore > staticEval && ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND)
-                             || ttScore < staticEval && ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND))
-                         && !Score.IsMate(ttScore)) {
+        if (ttHit && (ttExact
+                      || ttScore > staticEval && ttLowerBound 
+                      || ttScore < staticEval && ttUpperBound)
+                  && !Score.IsMate(ttScore)) {
 
-            staticEval = ttScore;
-        } else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
+            staticEval      = ttScore;
+            //ttScoreAdjusted = true;
+        } 
+        else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
         // 2. RAZORING
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
         // returned instead. this cannot be done when in check, and the qsearch score must be validated
         if (!ss.FollowPV && !inCheck && (ss.Depth <= 3 || !ttCapture)) {
-            // this margin is really just magic, but it feels right
             int margin = 539 + 375 * ss.Depth * ss.Depth;
 
             // some additional margin tuning
             if (parentImproving) margin += 33;
             if (allNode)         margin -= 27;
+            //if (ttScoreAdjusted) margin  = margin * 15 / 16;
 
             if (col == Color.WHITE
                     ? staticEval + margin < ss.Window.Alpha
@@ -318,6 +325,7 @@ internal static unsafe class PVSearch {
         // nodes fails high despite subtracting a margin, prune this branch
         if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
+            //if (ttScoreAdjusted) margin  = margin * 11 / 12;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
                 return ((short)((2 * ss.Window.Beta + staticEval) / 3), []);
@@ -335,10 +343,10 @@ internal static unsafe class PVSearch {
             : ss.Window.Alpha - probcutMargin;
         
         // make sure the tt score is the correct bound
-        if (ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
+        if (ttHit && ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
             && (col == Color.WHITE 
-                ? ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= probcutBeta
-                : ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= probcutBeta)) {
+                ? ttLowerBound && ttScore >= probcutBeta
+                : ttUpperBound && ttScore <= probcutBeta)) {
 
             // drop into quiescence search
             return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, 64), []);
@@ -459,7 +467,8 @@ internal static unsafe class PVSearch {
         // was moveorder score assigning already performed?
         bool       scoresAssigned = false;
         Span<Move> legalMoves     = stackalloc Move[Consts.MoveBufferSize];
-        Span<int>  moveScores     = stackalloc int[Consts.MoveBufferSize];
+        Span<int>  moveScores     = stackalloc  int[Consts.MoveBufferSize];
+        Span<int>  seeScores      = stackalloc  int[Consts.MoveBufferSize];
         int        moveCount      = 0;
         int        expandedNodes  = 0;
 
@@ -469,19 +478,21 @@ internal static unsafe class PVSearch {
         // loop through possible moves
         while (true) {
             Move curMove;
-            int  curScore = 0;
+            int  see, curScore = 0;
 
             // when in the first iteration, check if there's a known
             // tt move and potentially place it as the first move
-            if (expandedNodes == 0 && ttMoveExists)
+            if (expandedNodes == 0 && ttMoveExists) {
                 curMove = ttMove;
+                see     = SEE.GetMoveScore(in board, col, ttMove);
+            }
             
             // otherwise use regular moveorder
             else {
                 if (!scoresAssigned) {
                     moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
                     
-                    LazyMoveOrder.AssignScores(in board, rootNode, ss.Depth, ss.LastMove, legalMoves, moveScores, moveCount);
+                    LazyMoveOrder.AssignScores(in board, rootNode, ss.Depth, ss.LastMove, legalMoves, moveScores, seeScores, moveCount);
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it
@@ -497,7 +508,7 @@ internal static unsafe class PVSearch {
                     }
                 }
                 
-                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, moveCount, out curScore);
+                curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, seeScores, moveCount, out curScore, out see);
 
                 // when moveorder returns default, there aren't any moves left
                 if (curMove == default) break;
@@ -519,6 +530,7 @@ internal static unsafe class PVSearch {
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
             bool  isCapture       = curMove.Capture != PType.NONE || curMove.Promotion == PType.PAWN;
+            bool  givesCheck      = child.IsCheck;
             int   weight          = pvNode ? 1 : 0;
 
             // update this move's static eval difference history
@@ -549,8 +561,9 @@ internal static unsafe class PVSearch {
                 || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount))
                 goto skipPVS;
             
-            int  see        = isCapture ? SEE.GetMoveScore(in board, col, curMove) : 0;
-            bool givesCheck = child.IsCheck;
+            // apply the correction to the static eval
+            int childCorr    = Corrections.Get(in child);
+            childStaticEval += (short)Math.Clamp(childCorr, -5, 5);
             
             // once again update the static eval in the improving stack,
             // but this time after the move has been already played
@@ -581,7 +594,6 @@ internal static unsafe class PVSearch {
             // if we add this margin to the static eval of the position and still don't raise
             // alpha, we can prune this branch
             if (!skipFP && ss.Ply >= 4 && ss.Depth <= 5 + (allNode ? 1 : 0)) {
-                int childCorr  = Math.Abs(Corrections.Get(in child));
                 
                 // as taken from CPW:
                 // "If at depth 1 the margin does not exceed the value of a minor piece, at
@@ -590,7 +602,7 @@ internal static unsafe class PVSearch {
                 int margin = 100 + 92 * ss.Depth 
                     + (improving ? 0 : -23)   // not improving nodes => prune more
                     + see / 65                // tweak the margin based on SEE
-                    + childCorr;              // measure of uncertainty
+                    + Math.Abs(childCorr);    // a measure of uncertainty
                 
                 // find the difference between alpha and static eval + margin
                 int diff = col == Color.WHITE 
@@ -625,7 +637,7 @@ internal static unsafe class PVSearch {
             // doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
             // e.g. the only reasonable move, and it is extended
             if ((pvNode || cutNode) && ss.Depth >= 6 && ttMoveExists && expandedNodes == 1 && ttDepth >= ss.Depth - 3
-                && ttFlags.HasFlag(col == Color.WHITE ? TT.ScoreFlags.LOWER_BOUND : TT.ScoreFlags.UPPER_BOUND)
+                && (col == Color.WHITE ? ttLowerBound : ttUpperBound)
                 && !Score.IsMate(ttScore)) {
 
                 // the singular beta is the tt score minus a small margin
