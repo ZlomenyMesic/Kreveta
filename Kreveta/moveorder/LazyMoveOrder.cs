@@ -67,8 +67,8 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] = (!rootNode ? killer + counter + queen + king + prom : 0)
-                            + (95 * qhist + 95 * cont + 74 * se/* + 16 * see*/) / 256;
+                scores[i] = killer + counter + queen + king + prom 
+                          + (95 * qhist + 95 * cont + 74 * se + 16 * see) / 256;
             }
 
             else {
@@ -90,8 +90,8 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
 
-                scores[i] = (!rootNode ? killer + see + prom : 0)
-                            + (165 * cont + 9 * chist + 29 * pt) / 1024;
+                scores[i] = killer + see + prom
+                          + (165 * cont + 9 * chist + 29 * pt) / 1024;
             }
         }
     }

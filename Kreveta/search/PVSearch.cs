@@ -245,7 +245,7 @@ internal static unsafe class PVSearch {
         bool canCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= ss.Window.Alpha : ttScore - cm >= ss.Window.Beta)
                       || cutNode && (col == Color.WHITE ? ttScore - cm >= ss.Window.Beta  : ttScore + cm <= ss.Window.Alpha);
         
-        if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact 
+        if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact
                 || ttUpperBound && ttScore <= ss.Window.Alpha
                 || ttLowerBound && ttScore >= ss.Window.Beta)) {
             
@@ -258,13 +258,13 @@ internal static unsafe class PVSearch {
         
         // is the tt score optimistic that we can raise alpha or cause a beta cutoff
         bool ttOptimistic = ttHit && (col == Color.WHITE 
-            ? ttLowerBound && ttScore > ss.Window.Alpha
-            : ttUpperBound && ttScore < ss.Window.Beta);
+            ? (ttLowerBound || ttExact) && ttScore > ss.Window.Alpha
+            : (ttUpperBound || ttExact) && ttScore < ss.Window.Beta);
         
         // is the tt score optimistic that we can cause a beta cutoff?
         bool ttBetaCutoff = ttHit && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
-            ? ttLowerBound && ttScore >= ss.Window.Beta
-            : ttUpperBound && ttScore <= ss.Window.Alpha);
+            ? (ttLowerBound || ttExact) && ttScore >= ss.Window.Beta
+            : (ttUpperBound || ttExact) && ttScore <= ss.Window.Alpha);
         
         // check whether we are still following the previous principal variation
         ss.FollowPV = ss.FollowPV && (rootNode || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
@@ -285,7 +285,7 @@ internal static unsafe class PVSearch {
         
         parentImproving &= !inCheck;
 
-        //bool ttScoreAdjusted = false;
+        bool ttScoreAdjusted = false;
         
         // if tt score is reliable, adjust the static eval used for pruning
         if (ttHit && (ttExact
@@ -294,7 +294,7 @@ internal static unsafe class PVSearch {
                   && !Score.IsMate(ttScore)) {
 
             staticEval      = ttScore;
-            //ttScoreAdjusted = true;
+            ttScoreAdjusted = true;
         } 
         else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
@@ -307,7 +307,7 @@ internal static unsafe class PVSearch {
             // some additional margin tuning
             if (parentImproving) margin += 33;
             if (allNode)         margin -= 27;
-            //if (ttScoreAdjusted) margin  = margin * 15 / 16;
+            if (ttScoreAdjusted) margin  = margin * 19 / 20;
 
             if (col == Color.WHITE
                     ? staticEval + margin < ss.Window.Alpha
@@ -325,7 +325,7 @@ internal static unsafe class PVSearch {
         // nodes fails high despite subtracting a margin, prune this branch
         if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
-            //if (ttScoreAdjusted) margin  = margin * 11 / 12;
+            if (ttScoreAdjusted) margin  = margin * 15 / 16;
 
             if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
                 return ((short)((2 * ss.Window.Beta + staticEval) / 3), []);
@@ -345,8 +345,8 @@ internal static unsafe class PVSearch {
         // make sure the tt score is the correct bound
         if (ttHit && ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
             && (col == Color.WHITE 
-                ? ttLowerBound && ttScore >= probcutBeta
-                : ttUpperBound && ttScore <= probcutBeta)) {
+                ? (ttLowerBound || ttExact) && ttScore >= probcutBeta
+                : (ttUpperBound || ttExact) && ttScore <= probcutBeta)) {
 
             // drop into quiescence search
             return (QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, 64), []);
@@ -401,7 +401,7 @@ internal static unsafe class PVSearch {
             short nmpScore = SearchNext<NonPVNode>(
                 ref nullChild,
                 new SearchState(
-                    ply:             (sbyte)(ss.Ply + 1),
+                    ply:             (sbyte)(ss.Ply   + 1),
                     depth:           (sbyte)(ss.Depth - R),
                     priorReductions: ss.PriorReductions,
                     window:          nullWindowBeta,

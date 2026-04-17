@@ -7,6 +7,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.movegen.pieces;
+using Kreveta.moveorder.history;
 
 using System;
 
@@ -47,10 +48,12 @@ internal static class SEE {
 
         // add each capture and its score into a list
         for (int i = 0; i < capts.Length; i++) {
-            int score = GetMoveScore(in board, board.SideToMove, capts[i]);
-            
-            if (score >= pruneThreshold)
-                scores[cur++] = (capts[i], score);
+            int see = GetMoveScore(in board, board.SideToMove, capts[i]);
+
+            if (see >= pruneThreshold) {
+                int hist      = Math.Clamp(CaptureHistory.GetRep(capts[i]) / 10, -50, 50);
+                scores[cur++] = (capts[i], see + hist); 
+            }
         }
 
         count = cur;
@@ -74,7 +77,7 @@ internal static class SEE {
             }
         }
 
-        //add the sorted captures to the final list
+        // add the sorted captures to the final list
         var sorted = new Move[cur];
         seeScores  = new int[cur];
         

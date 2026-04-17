@@ -84,21 +84,13 @@ internal static class QSearch {
         // 2. SEE PRUNING
         // when not in check, only captures are generated. the capture ordering
         // function takes a threshold, below which all captures are directly skipped.
-        int seeThreshold = (ply - PVSearch.CurIterDepth) / 4;
+        int seeThreshold = (ply - PVSearch.CurIterDepth) / 8;
         
         int[]         seeScores = [];
         if (!inCheck) moves     = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, seeThreshold);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
-            
-            // since all captures are only sorted by SEE, if we encounter two moves with the
-            // same SEE value, we check whether the following one has better capture history,
-            // and possibly swap them. this does NOT ensure correct ordering, as just swapping
-            // pairs simply doesn't guarantee perfect order
-            if (!inCheck && i != count - 1 && seeScores[i] == seeScores[i + 1]
-                && CaptureHistory.GetRep(moves[i]) < CaptureHistory.GetRep(moves[i + 1]))
-                (moves[i], moves[i + 1]) = (moves[i + 1], moves[i]);
             
             // 3. MOVECOUNT PRUNING
             // late captures are simply skipped, unless being a recapture
