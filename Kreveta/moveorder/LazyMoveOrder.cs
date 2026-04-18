@@ -66,7 +66,7 @@ internal static class LazyMoveOrder {
                     PType.KING  => 78,
                     _           => 0
                 };
-
+                
                 scores[i] = killer + counter + queen + king + prom 
                           + (95 * qhist + 95 * cont + 74 * se + 16 * see) / 256;
             }
@@ -89,7 +89,7 @@ internal static class LazyMoveOrder {
                     PType.ROOK  => 199,
                     _           => 0
                 };
-
+                
                 scores[i] = killer + see + prom
                           + (165 * cont + 9 * chist + 29 * pt) / 1024;
             }

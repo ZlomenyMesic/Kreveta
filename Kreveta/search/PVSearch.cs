@@ -576,6 +576,13 @@ internal static unsafe class PVSearch {
             
             improving &= !inCheck;
 
+            // is the current alpha bound a losing mate score?
+            //bool isLosing = Score.IsMate(col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta)
+            //                && (col == Color.WHITE ? ss.Window.Alpha < 0 : ss.Window.Beta > 0);
+
+            // uninteresting quiet moves that probably hang a piece
+            bool hangsPiece = !isCapture && !givesCheck && curScore < -100 && see < 0;
+
             // base reduction for this move, can be turned into an extension
             int reduction = 1;
 
@@ -583,9 +590,10 @@ internal static unsafe class PVSearch {
             // a node. any nodes where the side to move is in check, or that follow the previous
             // principal variation also have FP disabled
             bool skipFP = expandedNodes == 1 
-                          || ss.FollowPV
+                          || ss.FollowPV && !hangsPiece
                           || inCheck 
                           || givesCheck
+                          //|| isLosing
                           || !nonPawnMat;
             
             // 8. FUTILITY PRUNING
@@ -708,7 +716,12 @@ internal static unsafe class PVSearch {
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
             int  maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
-            bool skipLMP     = expandedNodes <= maxExpNodes || inCheck || givesCheck || rootNode || see >= 100;
+            bool skipLMP     = expandedNodes <= maxExpNodes
+                               || inCheck
+                               || givesCheck
+                               || rootNode
+                               //|| isLosing
+                               || see >= 100;
 
             // late move pruning and common PVS logic are merged here. expected fail-low moves are
             // searched with a null alpha window at a reduced depth, and only if they somehow raise
