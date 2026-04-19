@@ -577,8 +577,8 @@ internal static unsafe class PVSearch {
             improving &= !inCheck;
 
             // is the current alpha bound a losing mate score?
-            //bool isLosing = Score.IsMate(col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta)
-            //                && (col == Color.WHITE ? ss.Window.Alpha < 0 : ss.Window.Beta > 0);
+            bool isLosing = Score.IsMate(col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta)
+                            && (col == Color.WHITE ? ss.Window.Alpha < 0 : ss.Window.Beta > 0);
 
             // uninteresting quiet moves that probably hang a piece
             bool hangsPiece = !isCapture && !givesCheck && curScore < -100 && see < 0;
@@ -593,7 +593,7 @@ internal static unsafe class PVSearch {
                           || ss.FollowPV && !hangsPiece
                           || inCheck 
                           || givesCheck
-                          //|| isLosing
+                          || isLosing
                           || !nonPawnMat;
             
             // 8. FUTILITY PRUNING
@@ -644,7 +644,7 @@ internal static unsafe class PVSearch {
             // based on the tt score we set the singular beta bound, and perform a reduced search that
             // doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
             // e.g. the only reasonable move, and it is extended
-            if ((pvNode || cutNode) && ss.Depth >= 6 && ttMoveExists && expandedNodes == 1 && ttDepth >= ss.Depth - 3
+            if (expandedNodes == 1 && (pvNode || cutNode) && ttMoveExists && ss.Depth >= 6 && ttDepth >= ss.Depth - 3
                 && (col == Color.WHITE ? ttLowerBound : ttUpperBound)
                 && !Score.IsMate(ttScore)) {
 
@@ -720,7 +720,7 @@ internal static unsafe class PVSearch {
                                || inCheck
                                || givesCheck
                                || rootNode
-                               //|| isLosing
+                               || isLosing
                                || see >= 100;
 
             // late move pruning and common PVS logic are merged here. expected fail-low moves are
@@ -736,7 +736,8 @@ internal static unsafe class PVSearch {
                     + (curScore < scoreThreshold ? 1 : 0)
                     - (improving  || see > 94    ? 1 : 0)
                     + (!improving && see < 0     ? 1 : 0)
-                    + (ttCapture                 ? 1 : 0);
+                    + (ttCapture                 ? 1 : 0)
+                    + (hangsPiece                ? 1 : 0);
                 
                 // null window around alpha
                 var nullWindowAlpha = col == Color.WHITE

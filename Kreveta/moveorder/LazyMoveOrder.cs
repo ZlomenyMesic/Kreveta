@@ -90,8 +90,10 @@ internal static class LazyMoveOrder {
                     _           => 0
                 };
                 
+                int totalHist = (165 * cont + 9 * chist + 29 * pt) / 1024;
+
                 scores[i] = killer + see + prom
-                          + (165 * cont + 9 * chist + 29 * pt) / 1024;
+                          + Math.Clamp(totalHist, -50, 50);
             }
         }
     }
