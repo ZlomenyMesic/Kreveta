@@ -59,8 +59,8 @@ and therefore are not to be compared with human ratings.
 - Precise reductions and extensions
 - Killers, capture killers and countermoves
 - Quiet, capture, piece-to, static eval and 2-ply continuation histories
-- Pawn, king, minor and major piece corrections
-- Resizable transposition table (1-2047 MiB)
+- Pawn, minor and major piece corrections
+- Resizable transposition table (1-1024 MiB)
 - Rational time management
 
 ### Static Evaluation

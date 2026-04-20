@@ -678,6 +678,10 @@ internal static unsafe class PVSearch {
                 }, ignore3Fold, cutNode);
                 
                 ss.ExcludedMove = default;
+                
+                // the singular extension search ran at the same ply and may have written
+                // to _pvLen[ss.Ply]. restore it to 0 so the parent's childLen read is clean
+                _pvLen[ss.Ply] = 0;
 
                 // the score is below alpha, the tt move is singular, and is extended
                 if (col == Color.WHITE 

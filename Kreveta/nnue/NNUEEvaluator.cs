@@ -68,7 +68,9 @@ internal unsafe sealed class NNUEEvaluator {
         _accWhite = new short[EmbedDims];
         _accBlack = new short[EmbedDims];
 
-        int count = ExtractFeatures(in board, out var whiteFeat, out var blackFeat);
+        Span<int> whiteFeat = stackalloc int[30];
+        Span<int> blackFeat = stackalloc int[30];
+        int count = ExtractFeatures(in board, whiteFeat, blackFeat);
 
         for (int i = 0; i < count; i++) {
             AddEmbedding(whiteFeat[i], _accWhite);
@@ -188,7 +190,10 @@ internal unsafe sealed class NNUEEvaluator {
     }
 
     private void RebuildAccumulator(in Board board, Color col) {
-        int count = ExtractFeatures(in board, out var whiteFeat, out var blackFeat);
+        
+        Span<int> whiteFeat = stackalloc int[30];
+        Span<int> blackFeat = stackalloc int[30];
+        int count = ExtractFeatures(in board, whiteFeat, blackFeat);
 
         if (col == Color.WHITE) {
             Array.Clear(_accWhite);
@@ -202,17 +207,13 @@ internal unsafe sealed class NNUEEvaluator {
         }
     }
 
-    private static int ExtractFeatures(in Board board, out Span<int> whiteFeat, out Span<int> blackFeat) {
+    private static int ExtractFeatures(in Board board, Span<int> whiteFeat, Span<int> blackFeat) {
         int wKing = BB.LS1B(board.Pieces[5]);
         int bKing = BB.LS1B(board.Pieces[11]);
         
-        int count = (int)ulong.PopCount(board.Occupied) - 2;
         ReadOnlySpan<ulong> pieces = board.Pieces;
-        
-        whiteFeat = new int[count];
-        blackFeat = new int[count];
 
-        count = 0;
+        int count = 0;
 
         for (byte pt = 0; pt < 5; pt++) {
             ulong w = pieces[pt];

@@ -202,16 +202,11 @@ internal static unsafe partial class TranspositionTable {
         Table[index + overwriteIndex] = entry;
     }
 
-    internal static bool TryGetBestMove(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
-        ttMove  = default;
-        ttScore = 0;
-        ttFlags = default;
-        ttDepth = 0;
-
+    private static bool TryGetEntry(ulong hash, out Entry entry) {
         // find the corresponding bucket
-        int   index  = HashIndex(hash);
-        var   bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
-        Entry entry  = default;
+        int index  = HashIndex(hash);
+        var bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
+        entry      = default;
 
         // look through the bucket and try to find this position
         for (int i = 0; i < BucketSize; i++) {
@@ -221,8 +216,17 @@ internal static unsafe partial class TranspositionTable {
             }
         }
 
-        // the position isn't stored in the bucket
-        if (entry.Hash == 0UL)
+        // check whether the position is actually stored
+        return entry.Hash != 0UL;
+    }
+
+    internal static bool TryGetBestMove(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
+        ttMove  = default;
+        ttScore = 0;
+        ttFlags = default;
+        ttDepth = 0;
+
+        if (!TryGetEntry(hash, out var entry))
             return false;
 
         ttMove  = entry.BestMove;
@@ -244,22 +248,11 @@ internal static unsafe partial class TranspositionTable {
         ttScore = 0;
         ttMove  = default;
 
-        // find the corresponding bucket
-        int   index  = HashIndex(hash);
-        var   bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
-        Entry entry  = default;
+        if (!TryGetEntry(hash, out var entry))
+            return false;
 
-        // look through the bucket and try to find this position
-        for (int i = 0; i < BucketSize; i++) {
-            if (bucket[i].Hash == hash) {
-                entry = bucket[i];
-                break;
-            }
-        }
-
-        // don't return a score if the position doesn't exist, or
-        // the evaluation stored is a result of a shallower search
-        if (entry.Hash == 0UL || entry.Depth < depth)
+        // don't return a score if the eval stored is a result of a shallower search
+        if (entry.Depth < depth)
             return false;
 
         ttScore = entry.Score;

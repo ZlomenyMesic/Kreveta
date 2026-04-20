@@ -32,8 +32,8 @@ internal static class Eval {
     private const int BlockedPawn  = -67;
     private const int BackwardPawn = -42;
     
-    private static readonly ulong[]  AdjFiles = new ulong[8];
-    private static readonly byte[][] Distance = new byte[64][];
+    private static readonly ulong[] AdjFiles = new ulong[8];
+    private static readonly byte[]  Distance = new byte[64 * 64];
 
     // static evaluation noise
     internal static int NoiseAmplitude;
@@ -48,13 +48,11 @@ internal static class Eval {
         
         // compute the chebyshev distance between any two squares
         for (int i = 0; i < 64; i++) {
-            Distance[i] = new byte[64];
-
             for (int j = 0; j < 64; j++) {
                 int dx = Math.Abs((i  & 7) - (j  & 7));
                 int dy = Math.Abs((i >> 3) - (j >> 3));
                 
-                Distance[i][j] = (byte)Math.Max(dx, dy);
+                Distance[i * 64 + j] = (byte)Math.Max(dx, dy);
             }
         }
     }
@@ -157,7 +155,8 @@ internal static class Eval {
         ulong copy = pawns;
         while (copy != 0UL) {
             byte  sq      = BB.LS1BReset(ref copy);
-            ulong file    = Consts.RelevantFileMask[sq & 7];
+            int   file_i  = sq & 7;
+            ulong file    = Consts.RelevantFileMask[file_i];
             int   relRank = col == Color.BLACK ? sq >> 3 : 8 - (sq >> 3);
             
             bool supported  = Pawn.GetPawnCaptureTargets(sq, 64, 1 - col, pawns)                 != 0UL;
@@ -167,7 +166,7 @@ internal static class Eval {
             
             // calculate the number of friendly and enemy pawns
             // on the two adjacent files (and the current one)
-            ulong adjFiles  = AdjFiles[sq & 7];
+            ulong adjFiles  = AdjFiles[file_i];
             int   adjOcc    = (int)ulong.PopCount(adjFiles & pawns);
             int   oppAdjOcc = (int)ulong.PopCount(adjFiles & enemyPawns);
             
@@ -257,12 +256,12 @@ internal static class Eval {
         ulong bPawns   = pieces[6];
 
         while (wPawns != 0UL) {
-            byte dist = Distance[wKing][BB.LS1BReset(ref wPawns)];
+            byte dist = Distance[wKing * 64 + BB.LS1BReset(ref wPawns)];
             wMinDist  = Math.Min(wMinDist, dist);
         }
         
         while (bPawns != 0UL) {
-            byte dist = Distance[bKing][BB.LS1BReset(ref bPawns)];
+            byte dist = Distance[bKing * 64 + BB.LS1BReset(ref bPawns)];
             bMinDist  = Math.Min(bMinDist, dist);
         }
         
@@ -286,7 +285,7 @@ internal static class Eval {
         
         // pieces that prevent inssuficient material draw - pawns, rooks and queens
         ulong matingPieces = pieces[0] | pieces[3] | pieces[4] | pieces[6] | pieces[9] | pieces[10];
-        if (ulong.PopCount(matingPieces) != 0UL)
+        if (matingPieces != 0UL) 
             return false;
         
         // two kings
@@ -295,7 +294,7 @@ internal static class Eval {
 
         // both white and black have 0 or 1 knights or bishops
         return ulong.PopCount(pieces[1] | pieces[2]) < 2UL
-               && ulong.PopCount(pieces[7] | pieces[8]) < 2UL;
+            && ulong.PopCount(pieces[7] | pieces[8]) < 2UL;
     }
     
     // this is used to print the static evaluation using the "eval" command. the actual static eval
@@ -307,6 +306,7 @@ internal static class Eval {
         UCI.Log( "info string all scores are side-to-move-relative");
         
         int pcount = (int)ulong.PopCount(board.Occupied);
+        int phase  = board.GamePhase();
         
         // first calculate the material part using piece-square tables
         int material = 0;
@@ -320,8 +320,8 @@ internal static class Eval {
         }
 
         // then pawn structure evaluation
-        int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied, board.GamePhase())
-                   - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied, board.GamePhase())) / 10;
+        int pawns = (PawnEval(board.Pieces[0], board.Pieces[6], Color.WHITE, board.WOccupied, phase)
+                   - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied, phase)) / 10;
 
         // king safety evaluation
         int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
@@ -329,7 +329,7 @@ internal static class Eval {
 
         // other factors
         int other = (board.SideToMove == Color.WHITE ? Tempo : -Tempo)
-            + Miscellaneous(board.Pieces, board.GamePhase());
+            + Miscellaneous(board.Pieces, phase);
 
         // and combined this makes the classical part of evaluation
         int total = material + pawns + kings + other;
