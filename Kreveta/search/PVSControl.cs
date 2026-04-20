@@ -309,7 +309,7 @@ internal static class PVSControl {
     
     // try to find the pv outside the stored array
     private static IEnumerable<Move> ElongatePV(Move[] pv) {
-        Board       board  = Game.Board.Clone();
+        Board       board  = Game.Board.CloneNoNNUE();
         List<ulong> remove = [];
         
         // play along the principal variation.

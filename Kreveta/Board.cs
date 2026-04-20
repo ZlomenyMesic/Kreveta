@@ -386,7 +386,7 @@ internal unsafe struct Board {
     
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal Board Clone(bool includeNNUE = true) {
+    internal Board Clone(int childPly = -1) {
         
         var newPieces = new ulong[12];
         Unsafe.CopyBlockUnaligned(
@@ -396,7 +396,27 @@ internal unsafe struct Board {
         
         return this with {
             Pieces   = newPieces,
-            NNUEEval = includeNNUE ? new NNUEEvaluator(NNUEEval) : null!
+            NNUEEval = childPly >= 0
+                // try to get pre-allocated accumulators from the pool
+                ? NNUEEvaluator.GetFromPool(in NNUEEval, childPly)
+                : new NNUEEvaluator(in NNUEEval)
+        };
+    }
+    
+    // used for Perft, clones the board the same way as the method
+    // above, but leaves out accumulator copies and pool lookups
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Board CloneNoNNUE() {
+        var newPieces = new ulong[12];
+        Unsafe.CopyBlockUnaligned(
+            destination: ref Unsafe.As<ulong, byte>(ref newPieces[0]),
+            source:      ref Unsafe.As<ulong, byte>(ref Pieces[0]),
+            byteCount:   96);
+        
+        return this with {
+            Pieces   = newPieces,
+            NNUEEval = null!
         };
     }
 

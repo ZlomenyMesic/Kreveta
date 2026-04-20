@@ -38,7 +38,7 @@ internal static class Perft {
             ulong curNodes = 1UL;
             
             if (depth > 1) {
-                Board child = Game.Board.Clone(false);
+                Board child = Game.Board.CloneNoNNUE();
                 child.PlayMove(moves[i], false);
             
                 // the recursive search starts here
@@ -107,7 +107,7 @@ internal static class Perft {
         for (byte i = 0; i < count; i++) {
 
             // create a copy of the board and play the move
-            Board child = board.Clone(false);
+            Board child = board.CloneNoNNUE();
             child.PlayMove(moves[i], false);
 
             // the move is illegal (we moved to or stayed in check)
@@ -138,7 +138,7 @@ internal static class Perft {
         int count = Movegen.GetPseudoLegalMoves(ref board, moves);
         
         for (byte i = 0; i < count; i++) {
-            Board child = board.Clone(false);
+            Board child = board.CloneNoNNUE();
             child.PlayMove(moves[i], false);
             
             if (Check.IsKingChecked(in child, board.SideToMove))

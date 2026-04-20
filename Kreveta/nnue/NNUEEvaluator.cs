@@ -3,6 +3,8 @@
 // started 4-3-2025
 //
 
+#pragma warning disable CA1810
+
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.nnue.approx;
@@ -29,17 +31,35 @@ internal unsafe sealed class NNUEEvaluator {
 
     internal short Score;
     
+    // pre-allocated pool of evaluators - one slot per ply.
+    // avoids repeated heap allocations during board clones
+    private const int PoolSize = 130;
+    private static readonly NNUEEvaluator[] _pool;
+
+    static NNUEEvaluator() {
+        _pool = new NNUEEvaluator[PoolSize];
+        
+        for (int i = 0; i < PoolSize; i++)
+            _pool[i] = new NNUEEvaluator();
+    }
+    
+    // private default constructor used to populate the pool
+    private NNUEEvaluator() {
+        _accWhite = new short[EmbedDims];
+        _accBlack = new short[EmbedDims];
+    }
+    
     internal NNUEEvaluator(in NNUEEvaluator other) {
         _accWhite = new short[EmbedDims];
         _accBlack = new short[EmbedDims];
         
         fixed (short* src = other._accWhite)
         fixed (short* dst = _accWhite)
-            Unsafe.CopyBlock(dst, src, NNUEWeights.EmbedDims * 2);
+            Unsafe.CopyBlock(dst, src, EmbedDims * 2);
         
         fixed (short* src = other._accBlack)
         fixed (short* dst = _accBlack)
-            Unsafe.CopyBlock(dst, src, NNUEWeights.EmbedDims * 2);
+            Unsafe.CopyBlock(dst, src, EmbedDims * 2);
         
         Score = other.Score;
     }
@@ -56,6 +76,22 @@ internal unsafe sealed class NNUEEvaluator {
         }
 
         UpdateEvaluation(board.SideToMove, count + 2);
+    }
+
+    // copy evaluator data from src to the pool, and return the pool entry
+    internal static NNUEEvaluator GetFromPool(in NNUEEvaluator src, int ply) {
+        NNUEEvaluator inst = _pool[ply];
+        
+        fixed (short* s = src._accWhite)
+        fixed (short* d = inst._accWhite)
+            Unsafe.CopyBlock(d, s, EmbedDims * 2);
+        
+        fixed (short* s = src._accBlack)
+        fixed (short* d = inst._accBlack)
+            Unsafe.CopyBlock(d, s, EmbedDims * 2);
+        
+        inst.Score = src.Score;
+        return inst;
     }
     
     // update both accumulators based on a move played on the board. directly
@@ -383,3 +419,5 @@ internal unsafe sealed class NNUEEvaluator {
             ? Vector128.Sum(Sse2.Add(v.GetLower(), Avx2.ExtractVector128(v, 1))) 
             : Vector128.Sum(v.GetLower() + v.GetUpper());
 }
+
+#pragma warning restore CA1810

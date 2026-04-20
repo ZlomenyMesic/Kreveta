@@ -143,7 +143,7 @@ internal static unsafe class PVSearch {
     // stores the pv in the transposition table.
     // needs the starting depth in order to store trustworthy entries
     private static void StorePVinTT(Move[] pv, int depth) {
-        Board board = Game.Board.Clone();
+        Board board = Game.Board.CloneNoNNUE();
 
         // loop all pv-nodes
         for (int i = 0; i < pv.Length; i++) {
@@ -524,7 +524,8 @@ internal static unsafe class PVSearch {
             
             expandedNodes++;
             
-            Board child = board.Clone();
+            // use the pool slot unless we are in a singular extension search
+            Board child = board.Clone(ss.ExcludedMove != default ? -1 : ss.Ply + 1);
             child.PlayMove(curMove, updateStaticEval: true);
             
             ulong pieceCount      = ulong.PopCount(child.Occupied);

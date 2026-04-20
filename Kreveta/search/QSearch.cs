@@ -123,7 +123,7 @@ internal static class QSearch {
                 }
             }
             
-            Board child = board.Clone();
+            Board child = board.Clone(ply + 1);
             child.PlayMove(moves[i], true);
 
             // full search
