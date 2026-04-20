@@ -46,8 +46,8 @@ internal static unsafe partial class PerftTT {
 
         // the table size grows in an odd way; all
         // values are tested and perform very well
-        int d     = Math.Max(0, depth - 4);
-        int e     = 19 + d * (d + 1) / 2;
+        int d = Math.Max(0, depth - 4);
+        int e = 19 + d * (d + 1) / 2;
         
         // the table size is always a power of 2
         TableSize = 1 << Math.Min(e, 30);
@@ -86,6 +86,6 @@ internal static unsafe partial class PerftTT {
         int index = HashIndex(hash);
 
         nodes = (*(Table + index)).Nodes;
-        return (*(Table + index)).Hash == hash && (*(Table + index)).Depth == depth;
+        return  (*(Table + index)).Hash == hash && (*(Table + index)).Depth == depth;
     }
 }

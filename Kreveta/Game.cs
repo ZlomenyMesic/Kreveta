@@ -5,7 +5,6 @@
 
 // Specify CultureInfo
 #pragma warning disable CA1304
-
 #pragma warning disable CA2014
 
 using Kreveta.consts;

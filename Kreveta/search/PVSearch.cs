@@ -581,17 +581,17 @@ internal static unsafe class PVSearch {
                             && (col == Color.WHITE ? ss.Window.Alpha < 0 : ss.Window.Beta > 0);
 
             // uninteresting quiet moves that probably hang a piece
-            bool hangsPiece = !isCapture && !givesCheck && curScore < -100 && see < 0;
-
+            bool hangsPiece = !isCapture && !givesCheck && curScore < -125 && see < 0;
+            
             // base reduction for this move, can be turned into an extension
             int reduction = 1;
 
             // futility pruning is avoided for moves that give check, and for any first move in
-            // a node. any nodes where the side to move is in check, or that follow the previous
+            // a node any nodes where the side to move is in check, or that follow the previous
             // principal variation also have FP disabled
-            bool skipFP = expandedNodes == 1 
+            bool skipFP = expandedNodes == 1
                           || ss.FollowPV && !hangsPiece
-                          || inCheck 
+                          || inCheck
                           || givesCheck
                           || isLosing
                           || !nonPawnMat;
@@ -608,9 +608,9 @@ internal static unsafe class PVSearch {
                 // depth 2 it should be more like the value of a rook."
                 // we don't really follow this exactly, but our approach is kind of similar
                 int margin = 100 + 92 * ss.Depth 
-                    + (improving ? 0 : -23)   // not improving nodes => prune more
-                    + see / 65                // tweak the margin based on SEE
-                    + Math.Abs(childCorr);    // a measure of uncertainty
+                    + (improving ? 0 : -23) // not improving nodes => prune more
+                    + see / 65              // tweak the margin based on SEE
+                    + Math.Abs(childCorr);  // a measure of uncertainty
                 
                 // find the difference between alpha and static eval + margin
                 int diff = col == Color.WHITE 

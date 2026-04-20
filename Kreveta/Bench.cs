@@ -26,7 +26,7 @@ internal static class Bench {
         "3b1r2/1p1q2kp/1n1p1pp1/2rPp1P1/4P2P/P1NQ4/1PRN1P2/1K4R1 w - - 0 1",     // middlegame #3
         
         "4r3/1b4p1/p4k1p/1p1p4/3N3P/P2B2P1/1PP2K2/8 b - - 0 1",                  // endgame #1
-        "8/8/2k5/p1b1r2p/PrRR2pP/2K1B1P1/5P2/8 w - - 0 1",                       // endgame #2
+        "8/8/2k5/p1b1r2p/PrRR2pP/2K1B1P1/5P2/8 w - - 0 1"                        // endgame #2
     ];
 
     private const int DefaultDepth = 12;

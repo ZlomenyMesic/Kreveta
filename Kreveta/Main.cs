@@ -24,7 +24,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "2.2.6";
+    internal const string Version = "2.3.0";
     internal const string Author  = "ZlomenyMesic";
     internal const string Network = "nnue-128-16-16-v4.bin";
 
@@ -62,7 +62,6 @@ internal static class Program {
         // history tables
         QuietHistory.Init();
         CaptureHistory.Init();
-        ContinuationHistory.Init();
         
         // adjacent files
         Eval.Init();

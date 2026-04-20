@@ -8,7 +8,6 @@
 
 // Initialize reference type static fields inline    
 #pragma warning disable CA1810
-
 #pragma warning disable CA1305
 #pragma warning disable CA1031
 
@@ -25,9 +24,8 @@ using Kreveta.uci.options;
 using System;
 using System.IO;
 using System.Linq;
-using System.Threading;
-
 using System.Text;
+using System.Threading;
 
 // ReSharper disable StackAllocInsideLoop
 // ReSharper disable InvokeAsExtensionMethod

@@ -21,12 +21,12 @@ internal static class CounterMoveHistory {
     
     // !!! the color is of the side that is to play the counter, while
     // the starting and targets squares are of the other side's move !!!
-    private static readonly Move[] CounterMoves = new Move[2 * 64 * 64];
+    private static readonly Move[] _table = new Move[2 * 64 * 64];
 
     // clear the table
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear()
-        => Array.Clear(CounterMoves, 0, CounterMoves.Length);
+        => Array.Clear(_table, 0, _table.Length);
 
     // store a new counter - we don't give higher priority to counters
     // found at higher depths (might change this later), so when there's
@@ -36,7 +36,7 @@ internal static class CounterMoveHistory {
         int end   = previous.End;
 
         // as already mentioned, we always overwrite old counters
-        CounterMoves[((uint)col << 12) + start * 64 + end] = counter;
+        _table[((uint)col << 12) + start * 64 + end] = counter;
     }
 
     // try to retrieve a counter using the previously played move,
@@ -46,6 +46,6 @@ internal static class CounterMoveHistory {
         int end   = previous.End;
 
         // if the counter isn't present, this returns default
-        return CounterMoves[((uint)col << 12) + start * 64 + end];
+        return _table[((uint)col << 12) + start * 64 + end];
     }
 }

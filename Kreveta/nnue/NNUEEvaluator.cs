@@ -11,11 +11,12 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.nnue;
 
-internal sealed unsafe class NNUEEvaluator {
+internal unsafe sealed class NNUEEvaluator {
     private const int EmbedDims = NNUEWeights.EmbedDims;
     private const int H1Neurons = NNUEWeights.H1Neurons;
     private const int H2Neurons = NNUEWeights.H2Neurons;
@@ -57,14 +58,9 @@ internal sealed unsafe class NNUEEvaluator {
         UpdateEvaluation(board.SideToMove, count + 2);
     }
     
+    // update both accumulators based on a move played on the board. directly
+    // computing the forward pass and updating the evaluation is also possible
     internal void Update(in Board board, Move move, Color moved, bool updateEval) {
-        var wAdd = stackalloc int[2];
-        var wRem = stackalloc int[2];
-        var bAdd = stackalloc int[2];
-        var bRem = stackalloc int[2];
-
-        int wac = 0, wrc = 0, bac = 0, brc = 0;
-        
         int wKing = BB.LS1B(board.Pieces[5]);
         int bKing = BB.LS1B(board.Pieces[11]);
 
@@ -75,94 +71,82 @@ internal sealed unsafe class NNUEEvaluator {
         PType capt  = move.Capture;
         PType prom  = move.Promotion;
 
-        Color opp = moved == Color.WHITE 
-            ? Color.BLACK : Color.WHITE;
+        Color opp = 1 - moved;
         
         if (piece != PType.KING) {
-            // deactivate source (except for king moves,
-            // kings are not stored in the accumulator)
-            wRem[wrc++] = FeatureIndex(Color.WHITE, wKing, (int)piece, moved, start);
-            bRem[brc++] = FeatureIndex(Color.BLACK, bKing, (int)piece, moved, start);
+            
+            // deactivate source (except for king moves, kings are not stored in the accumulator)
+            SubEmbedding(FeatureIndex(Color.WHITE, wKing, (int)piece, moved, start), _accWhite);
+            SubEmbedding(FeatureIndex(Color.BLACK, bKing, (int)piece, moved, start), _accBlack);
 
-            // activate the piece on the destination square
-            // (once again except for king moves and this
-            // time for promotions as well)
+            // activate the piece on the destination square (once again except
+            // for king moves, and this time for promotions as well)
             if (prom == PType.NONE) {
-                wAdd[wac++] = FeatureIndex(Color.WHITE, wKing, (int)piece, moved, end);
-                bAdd[bac++] = FeatureIndex(Color.BLACK, bKing, (int)piece, moved, end);
+                AddEmbedding(FeatureIndex(Color.WHITE, wKing, (int)piece, moved, end), _accWhite);
+                AddEmbedding(FeatureIndex(Color.BLACK, bKing, (int)piece, moved, end), _accBlack);
             }
         }
 
         // deactivate the captured piece
         if (capt != PType.NONE) {
-            wRem[wrc++] = FeatureIndex(Color.WHITE, wKing, (int)capt, opp, end);
-            bRem[brc++] = FeatureIndex(Color.BLACK, bKing, (int)capt, opp, end);
+            SubEmbedding(FeatureIndex(Color.WHITE, wKing, (int)capt, opp, end), _accWhite);
+            SubEmbedding(FeatureIndex(Color.BLACK, bKing, (int)capt, opp, end), _accBlack);
         }
         
         switch (prom) {
             // actual promotion - activate new piece
             case PType.KNIGHT or PType.BISHOP or PType.ROOK or PType.QUEEN: {
-                wAdd[wac++] = FeatureIndex(Color.WHITE, wKing, (int)prom, moved, end);
-                bAdd[bac++] = FeatureIndex(Color.BLACK, bKing, (int)prom, moved, end);
+                AddEmbedding(FeatureIndex(Color.WHITE, wKing, (int)prom, moved, end), _accWhite);
+                AddEmbedding(FeatureIndex(Color.BLACK, bKing, (int)prom, moved, end), _accBlack);
+                
                 break;
             }
 
-            // en passant - deactivate the oddly captured pawn
-            // and activate the moved pawn on its new square
+            // en passant
             case PType.PAWN: {
                 int capSq = moved == Color.WHITE 
                     ? end + 8 : end - 8;
                 
-                wAdd[wac++] = FeatureIndex(Color.WHITE, wKing, 0, moved, end);
-                bAdd[bac++] = FeatureIndex(Color.BLACK, bKing, 0, moved, end);
-                wRem[wrc++] = FeatureIndex(Color.WHITE, wKing, 0, opp, capSq);
-                bRem[brc++] = FeatureIndex(Color.BLACK, bKing, 0, opp, capSq);
+                // add the diagonally moved pawn
+                AddEmbedding(FeatureIndex(Color.WHITE, wKing, 0, moved, end), _accWhite);
+                AddEmbedding(FeatureIndex(Color.BLACK, bKing, 0, moved, end), _accBlack);
+                
+                // remove the oddly captured pawn
+                SubEmbedding(FeatureIndex(Color.WHITE, wKing, 0, opp, capSq), _accWhite);
+                SubEmbedding(FeatureIndex(Color.BLACK, bKing, 0, opp, capSq), _accBlack);
                 
                 break;
             }
 
-            // castling - the king is ignored, but the
-            // rook has to be updated accordingly
+            // castling - the king is ignored, but the rook must be updated accordingly
             case PType.KING:
                 
-                // start and end square of the rook
-                (int, int) squares = end switch {
+                // start and end squares of the rook
+                (int S, int E) sq = end switch {
                     62 => (63, 61),
                     58 => (56, 59),
-                    6  => (7, 5),
-                    _  => (0, 3)
+                    6  => (7,  5),
+                    _  => (0,  3)
                 };
 
                 // only update for the opposite side. the side that has
                 // just castled will have its accumulator fully rebuilt
                 if (moved == Color.WHITE) {
-                    bRem[brc++] = FeatureIndex(Color.BLACK, bKing, 3, moved, squares.Item1);
-                    bAdd[bac++] = FeatureIndex(Color.BLACK, bKing, 3, moved, squares.Item2);
+                    SubEmbedding(FeatureIndex(Color.BLACK, bKing, 3, moved, sq.S), _accBlack);
+                    AddEmbedding(FeatureIndex(Color.BLACK, bKing, 3, moved, sq.E), _accBlack);
                 } else {
-                    wRem[wrc++] = FeatureIndex(Color.WHITE, wKing, 3, moved, squares.Item1);
-                    wAdd[wac++] = FeatureIndex(Color.WHITE, wKing, 3, moved, squares.Item2);
+                    SubEmbedding(FeatureIndex(Color.WHITE, wKing, 3, moved, sq.S), _accWhite);
+                    AddEmbedding(FeatureIndex(Color.WHITE, wKing, 3, moved, sq.E), _accWhite);
                 }
                 
                 break;
         }
 
-        for (int i = 0; i < wac; i++)
-            AddEmbedding(wAdd[i], _accWhite);
-        
-        for (int i = 0; i < bac; i++)
-            AddEmbedding(bAdd[i], _accBlack);
-        
-        for (int i = 0; i < wrc; i++)
-            SubEmbedding(wRem[i], _accWhite);
-        
-        for (int i = 0; i < brc; i++)
-            SubEmbedding(bRem[i], _accBlack);
-
-        // king moves require accumulator rebuild
-        // (only for the color that moved the king)
+        // king moves require accumulator rebuild (only for the moving color)
         if (piece == PType.KING)
             RebuildAccumulator(in board, moved);
         
+        // compute the forward pass and update the evaluation
         if (updateEval)
             UpdateEvaluation(opp, (int)ulong.PopCount(board.Occupied));
     }
@@ -219,12 +203,14 @@ internal sealed unsafe class NNUEEvaluator {
         fixed (short* accPtr = acc)
         fixed (short* embPtr = NNUEWeights.Embedding) {
             int baseIdx = f * EmbedDims;
+            
             for (int i = 0; i <= EmbedDims - 16; i += 16) {
                 if (Consts.UseAVX2) {
                     var va = Avx.LoadVector256(accPtr + i);
                     var vb = Avx.LoadVector256(embPtr + baseIdx + i);
                     Avx.Store(accPtr + i, Avx2.Add(va, vb));
-                } else {
+                }
+                else {
                     var va = Vector256.Load(accPtr + i);
                     var vb = Vector256.Load(embPtr + baseIdx + i);
                     (va + vb).Store(accPtr + i);
@@ -238,12 +224,14 @@ internal sealed unsafe class NNUEEvaluator {
         fixed (short* accPtr = acc)
         fixed (short* embPtr = NNUEWeights.Embedding) {
             int baseIdx = f * EmbedDims;
+            
             for (int i = 0; i <= EmbedDims - 16; i += 16) {
                 if (Consts.UseAVX2) {
                     var va = Avx.LoadVector256(accPtr + i);
                     var vb = Avx.LoadVector256(embPtr + baseIdx + i);
                     Avx.Store(accPtr + i, Avx2.Subtract(va, vb));
-                } else {
+                }
+                else {
                     var va = Vector256.Load(accPtr + i);
                     var vb = Vector256.Load(embPtr + baseIdx + i);
                     (va - vb).Store(accPtr + i);
@@ -359,10 +347,10 @@ internal sealed unsafe class NNUEEvaluator {
         if (Consts.UseAVX2)
             return Avx2.MultiplyAddAdjacent(va, vb);
 
-        (var v0, var v1) = Vector256.Widen(va);
-        (var v2, var v3) = Vector256.Widen(vb);
-        var p0 = v0 * v2;
-        var p1 = v1 * v3;
+        var (v0, v1) = Vector256.Widen(va);
+        var (v2, v3) = Vector256.Widen(vb);
+        var p0       = v0 * v2;
+        var p1       = v1 * v3;
 
         return Vector256.Create(
             p0[0] + p0[1], p0[2] + p0[3], p0[4] + p0[5], p0[6] + p0[7],
@@ -371,10 +359,8 @@ internal sealed unsafe class NNUEEvaluator {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int VectorSum(Vector256<int> v) {
-        if (Consts.UseAVX2)
-            return Vector128.Sum(Sse2.Add(v.GetLower(), Avx2.ExtractVector128(v, 1)));
-
-        return Vector128.Sum(v.GetLower() + v.GetUpper());
-    }
+    private static int VectorSum(Vector256<int> v)
+        => Consts.UseAVX2 
+            ? Vector128.Sum(Sse2.Add(v.GetLower(), Avx2.ExtractVector128(v, 1))) 
+            : Vector128.Sum(v.GetLower() + v.GetUpper());
 }

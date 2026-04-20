@@ -30,12 +30,6 @@ internal static class Consts {
     internal const string Files  = "abcdefgh";
     internal const string Pieces = "pnbrqk";
     
-    internal static readonly ulong[] FileMask = [
-        0x0101010101010101, 0x0202020202020202, 0x0404040404040404, 
-        0x0808080808080808, 0x1010101010101010, 0x2020202020202020, 
-        0x4040404040404040, 0x8080808080808080
-    ];
-    
     // chessboard files excluding edge squares
     internal static readonly ulong[] RelevantFileMask = [
         0x0001010101010100, 0x0002020202020200, 0x0004040404040400, 

@@ -11,19 +11,16 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.moveorder.history;
 
 internal static class ContinuationHistory {
-    private static short[] _table = null!;
-
-    internal static void Init()
-        => _table = new short[6 * 64 * 6 * 64];
+    private static readonly short[] Table = new short[6 * 64 * 6 * 64];
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear()
-        => Array.Clear(_table, 0, _table.Length);
+        => Array.Clear(Table, 0, Table.Length);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Age() {
         for (int i = 0; i < 6 * 64 * 6 * 64; i++)
-            _table[i] /= 2;
+            Table[i] /= 2;
     }
 
     // store a new continuation - same as with counters, there
@@ -33,13 +30,13 @@ internal static class ContinuationHistory {
         if (weight == 0) return;
         
         int i = Index((int)previous.Piece, previous.End, (int)current.Piece, current.End);
-        _table[i] += (short)(weight * Math.Abs(weight) / 8);
+        Table[i] += (short)(weight * Math.Abs(weight) / 8);
     }
 
     // try to retrieve the continuation
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetScore(Move previous, Move current)
-        => _table[Index((int)previous.Piece, previous.End, (int)current.Piece, current.End)];
+        => Table[Index((int)previous.Piece, previous.End, (int)current.Piece, current.End)];
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Index(int p1, int to1, int p2, int to2)
