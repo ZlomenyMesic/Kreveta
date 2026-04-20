@@ -203,14 +203,16 @@ internal unsafe sealed class NNUEEvaluator {
         fixed (short* accPtr = acc)
         fixed (short* embPtr = NNUEWeights.Embedding) {
             int baseIdx = f * EmbedDims;
-            
-            for (int i = 0; i <= EmbedDims - 16; i += 16) {
-                if (Consts.UseAVX2) {
+        
+            if (Consts.UseAVX2) {
+                for (int i = 0; i <= EmbedDims - 16; i += 16) {
                     var va = Avx.LoadVector256(accPtr + i);
                     var vb = Avx.LoadVector256(embPtr + baseIdx + i);
                     Avx.Store(accPtr + i, Avx2.Add(va, vb));
                 }
-                else {
+            }
+            else {
+                for (int i = 0; i <= EmbedDims - 16; i += 16) {
                     var va = Vector256.Load(accPtr + i);
                     var vb = Vector256.Load(embPtr + baseIdx + i);
                     (va + vb).Store(accPtr + i);
@@ -224,14 +226,16 @@ internal unsafe sealed class NNUEEvaluator {
         fixed (short* accPtr = acc)
         fixed (short* embPtr = NNUEWeights.Embedding) {
             int baseIdx = f * EmbedDims;
-            
-            for (int i = 0; i <= EmbedDims - 16; i += 16) {
-                if (Consts.UseAVX2) {
+        
+            if (Consts.UseAVX2) {
+                for (int i = 0; i <= EmbedDims - 16; i += 16) {
                     var va = Avx.LoadVector256(accPtr + i);
                     var vb = Avx.LoadVector256(embPtr + baseIdx + i);
                     Avx.Store(accPtr + i, Avx2.Subtract(va, vb));
                 }
-                else {
+            }
+            else {
+                for (int i = 0; i <= EmbedDims - 16; i += 16) {
                     var va = Vector256.Load(accPtr + i);
                     var vb = Vector256.Load(embPtr + baseIdx + i);
                     (va - vb).Store(accPtr + i);
@@ -243,16 +247,16 @@ internal unsafe sealed class NNUEEvaluator {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int FeatureIndex(Color perspective, int kingSq, int pieceType, Color col, int sq) {
         int colBit = (int)col;
-        
+    
         if (perspective == Color.WHITE) {
             kingSq ^= 56;
             sq     ^= 56;
-        } 
+        }
         else colBit ^= 1;
-        
+    
         return kingSq * 640 + (pieceType * 2 + colBit << 6) + sq;
     }
-    
+
     private void UpdateEvaluation(Color active, int pcnt) {
         Span<short> concat = stackalloc short[H1Input];
 
@@ -265,7 +269,6 @@ internal unsafe sealed class NNUEEvaluator {
         }
 
         int bucket = Math.Min(7, pcnt / 4);
-        //int bucket = BucketTable[pcnt];
 
         ReadOnlySpan<short> h1biases = NNUEWeights.H1Biases[bucket];
         ReadOnlySpan<short> h2biases = NNUEWeights.H2Biases[bucket];
@@ -273,53 +276,69 @@ internal unsafe sealed class NNUEEvaluator {
 
         Span<short> h1activation = stackalloc short[H1Neurons];
         Span<short> h2activation = stackalloc short[H2Neurons];
-        
+    
         fixed (short* concatPtr    = concat)
         fixed (short* h1kernelPtr  = NNUEWeights.H1Kernels[bucket])
         fixed (short* h2kernelPtr  = NNUEWeights.H2Kernels[bucket])
         fixed (short* outKernelPtr = NNUEWeights.OutputKernels[bucket])
         fixed (short* h1ActPtr     = h1activation)
         fixed (short* h2ActPtr     = h2activation) {
-            
-            // 1st hidden layer
-            for (int j = 0; j < H1Neurons; j++) {
-                int wBase = j * H1Input;
-                var vs    = Vector256<int>.Zero;
+        
+            if (Consts.UseAVX2) {
+                // 1st hidden layer
+                for (int j = 0; j < H1Neurons; j++) {
+                    int wBase = j * H1Input;
+                    var vs    = Vector256<int>.Zero;
 
-                for (int i = 0; i <= H1Input - 16; i += 16) {
-                    if (Consts.UseAVX2) {
+                    for (int i = 0; i <= H1Input - 16; i += 16) {
                         var va = Avx.LoadVector256(concatPtr + i);
                         var vb = Avx.LoadVector256(h1kernelPtr + wBase + i);
                         vs     = Avx2.Add(vs, Avx2.MultiplyAddAdjacent(va, vb));
-                    } else {
+                    }
+
+                    int sum = (VectorSum(vs) >> 10) + h1biases[j];
+                    h1ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
+                }
+            } else {
+                for (int j = 0; j < H1Neurons; j++) {
+                    int wBase = j * H1Input;
+                    var vs    = Vector256<int>.Zero;
+
+                    for (int i = 0; i <= H1Input - 16; i += 16) {
                         var va = Vector256.Load(concatPtr + i);
                         var vb = Vector256.Load(h1kernelPtr + wBase + i);
                         vs    += MultiplyAddAdjacent(va, vb);
                     }
-                }
 
-                int sum = (VectorSum(vs) >> 10) + h1biases[j];
-                h1ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
+                    int sum = (VectorSum(vs) >> 10) + h1biases[j];
+                    h1ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
+                }
             }
 
+            var va2 = Avx.LoadVector256(h1ActPtr);
+            Vector256<int> prod;
+
             // 2nd hidden layer
-            for (int j = 0; j < H2Neurons; j++) {
-                int wBase = j * H1Neurons;
+            if (Consts.UseAVX2) {
+                for (int j = 0; j < H2Neurons; j++) {
+                    int wBase = j * H1Neurons;
 
-                Vector256<int> prod;
-
-                if (Consts.UseAVX2) {
-                    var va = Avx.LoadVector256(h1ActPtr);
                     var vb = Avx.LoadVector256(h2kernelPtr + wBase);
-                    prod   = Avx2.MultiplyAddAdjacent(va, vb);
-                } else {
-                    var va = Vector256.Load(h1ActPtr);
-                    var vb = Vector256.Load(h2kernelPtr + wBase);
-                    prod   = MultiplyAddAdjacent(va, vb);
-                }
+                    prod   = Avx2.MultiplyAddAdjacent(va2, vb);
 
-                int sum = (VectorSum(prod) >> 10) + h2biases[j];
-                h2ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
+                    int sum = (VectorSum(prod) >> 10) + h2biases[j];
+                    h2ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
+                }
+            } else {
+                for (int j = 0; j < H2Neurons; j++) {
+                    int wBase = j * H1Neurons;
+                    
+                    var vb = Vector256.Load(h2kernelPtr + wBase);
+                    prod   = MultiplyAddAdjacent(va2, vb);
+
+                    int sum = (VectorSum(prod) >> 10) + h2biases[j];
+                    h2ActPtr[j] = (short)Math.Clamp(sum, 0, QScale);
+                }
             }
 
             // output layer
@@ -334,10 +353,10 @@ internal unsafe sealed class NNUEEvaluator {
                 var vb_o = Vector256.Load(outKernelPtr);
                 prod_o   = MultiplyAddAdjacent(va_o, vb_o);
             }
-            
+        
             int   pred = (VectorSum(prod_o) >> 10) + outBias;
             short act  = MathApprox.FastSigmoid(pred);
-            
+        
             Score = (short)(MathApprox.FastPtCP(act) * (active == Color.WHITE ? 1 : -1));
         }
     }

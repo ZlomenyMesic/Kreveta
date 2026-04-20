@@ -58,10 +58,6 @@ internal static class Program {
         // pre-compute move lookup tables
         PextLookupTables.Init();
         LookupTables.Init();
-
-        // history tables
-        QuietHistory.Init();
-        CaptureHistory.Init();
         
         // adjacent files
         Eval.Init();

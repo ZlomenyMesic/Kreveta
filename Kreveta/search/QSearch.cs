@@ -85,9 +85,9 @@ internal static class QSearch {
         // when not in check, only captures are generated. the capture ordering
         // function takes a threshold, below which all captures are directly skipped.
         int seeThreshold = (ply - PVSearch.CurIterDepth) / 8;
-        
-        int[]         seeScores = [];
-        if (!inCheck) moves     = SEE.OrderCaptures(in board, moves[..count], out count, out seeScores, seeThreshold);
+
+        Span<int> seeScores = stackalloc int[count];
+        if (!inCheck) moves = SEE.OrderCaptures(in board, moves[..count], out count, seeScores, seeThreshold);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {

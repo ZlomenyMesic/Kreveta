@@ -15,35 +15,31 @@ using System;
 
 namespace Kreveta.moveorder;
 
-internal static class SEE {
+internal static unsafe class SEE {
     private const int MaxCaptures = 32;
     
     // this function takes a list of captures and orders it by SEE from best to
     // worst. pruning threshold may also be used to automatically prune all moves
     // of which the SEE score is below the provided threshold
-    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, out int[] seeScores, int pruneThreshold) {
+    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, Span<int> seeScores, int pruneThreshold) {
         count = capts.Length;
         
         // if the list is empty for some reason
-        if (capts.Length == 0) {
-            seeScores = [];
-            return [];
-        }
+        if (capts.Length == 0) return [];
         
         // if there is a single capture
         if (capts.Length == 1) {
-            seeScores = [GetMoveScore(in board, board.SideToMove, capts[0])];
+            seeScores[0] = GetMoveScore(in board, board.SideToMove, capts[0]);
             
             // check if this move should be pruned
             if (seeScores[0] >= pruneThreshold)
                 return new Span<Move>([capts[0]]);
             
-            count     = 0;
-            seeScores = [];
-            return      [];
+            count = 0;
+            return [];
         }
 
-        var scores = new (Move, int)[capts.Length];
+        var scores = stackalloc (Move, int)[capts.Length];
         int cur    = 0;
 
         // add each capture and its score into a list
@@ -65,7 +61,6 @@ internal static class SEE {
 
             // once we haven't switched any moves, break the loop
             sortsMade = false;
-
             for (int i = 1; i < cur; i++) {
 
                 // if the current item's SEE score is higher
@@ -79,7 +74,6 @@ internal static class SEE {
 
         // add the sorted captures to the final list
         var sorted = new Move[cur];
-        seeScores  = new int[cur];
         
         for (int i = 0; i < cur; i++) {
             sorted[i]    = scores[i].Item1;
@@ -102,7 +96,7 @@ internal static class SEE {
         board.Pieces.AsSpan().CopyTo(pieces);
         
         // occupancy after the first move (attacker removed from its origin)
-        ulong occupied = board.Occupied & ~(1UL << move.Start);
+        ulong occupied = board.Occupied        &  ~(1UL << move.Start);
         pieces[(int)col * 6 + (int)move.Piece] &= ~(1UL << move.Start);
         
         // in the special case of en passant, the capture square isn't the
@@ -143,8 +137,8 @@ internal static class SEE {
 
             // remove attacker from origin square in the occupancy
             // bitboard and also in the piece bitboard array
-            occupied                                  &= ~(1UL << attacker.Square);
-            pieces[(int)col * 6 + (int)attacker.Type] &= ~(1UL << attacker.Square);
+            occupied                                   &= ~(1UL << attacker.Square);
+            pieces[(int)side * 6 + (int)attacker.Type] &= ~(1UL << attacker.Square);
 
             // attacker becomes the new piece on target
             pieceOnTarget = attacker.Type;
@@ -178,10 +172,10 @@ internal static class SEE {
 
         // go from the least valuable to most valuable piece type, and check
         // whether we have such a piece that attacks the current target square
-        ulong pawns = Pawn.GetPawnCaptureTargets(targetSq, 64, 1 - col, ourOccupied) & pieces[colBase];
+        ulong pawns = Pawn.GetPawnCaptureTargets(targetSq, 64, 1 - col, pieces[colBase]);
         if (pawns != 0UL) return (BB.LS1B(pawns), PType.PAWN);
 
-        ulong knights = Knight.GetKnightTargets(targetSq, ourOccupied) & pieces[colBase + 1];
+        ulong knights = Knight.GetKnightTargets(targetSq, pieces[colBase + 1]);
         if (knights != 0UL) return (BB.LS1B(knights), PType.KNIGHT);
 
         // bishop and rook rays are also used for the queen, so we cannot

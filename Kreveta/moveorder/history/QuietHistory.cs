@@ -21,7 +21,7 @@ namespace Kreveta.moveorder.history;
 internal static class QuietHistory {
 
     // this array stores history values of quiet moves - no captures
-    private static readonly int[][] QuietScores = new int[64][];
+    private static readonly int[] QuietScores = new int[64 * 64];
 
     // idea taken from Chess Programming Wiki:
     // the main disadvantage of the history heuristic is that it tends to
@@ -32,35 +32,24 @@ internal static class QuietHistory {
     // the history scores also stores the number of times a move has been
     // visited (ButterflyScores). when retrieving the quiet score, it is
     // then divided by this number to get the average.
-    private static readonly int[][] ButterflyBoard = new int[64][];
-
-    internal static void Init() {
-        for (int i = 0; i < 64; i++) {
-            QuietScores[i]    = new int[64];
-            ButterflyBoard[i] = new int[64];
-        }
-    }
+    private static readonly int[] ButterflyBoard = new int[64 * 64];
 
     // before each new iterated depth, we "shrink" the stored values.
     // they are still quite relevant, but the newcoming values are
     // more important, so we want them to have a stronger effect
     internal static void Shrink() {
-        Parallel.For(0, 64, i => {
-            Parallel.For(0, 64, j => {
-                // this for an unexplainable reason works
-                // out to be the best option available
-                QuietScores[i][j]    /= 2;
-                ButterflyBoard[i][j] /= 3;
-            });
-        });
+        for (int i = 0; i < 64 * 64; i++) {
+            // this for an unexplainable reason works
+            // out to be the best option available
+            QuietScores[i]    /= 2;
+            ButterflyBoard[i] /= 3;
+        }
     }
 
     // clear all history data
     internal static void Clear() {
-        Parallel.For(0, 64, i => {
-            Array.Clear(QuietScores[i]);
-            Array.Clear(ButterflyBoard[i]);
-        });
+        Array.Clear(QuietScores,    0, QuietScores.Length);
+        Array.Clear(ButterflyBoard, 0, ButterflyBoard.Length);
     }
     
     // modify the history reputation of a move. isMoveGood tells us how
@@ -71,10 +60,10 @@ internal static class QuietHistory {
         // how much should the move affect the reputation (moves at higher depths are
         // probably more reliable, so their impact should be stronger). also, if the
         // sign of the bonus is different from the existing value, the bonus is scaled
-        QuietScores[start][end] += weight * Math.Abs(weight);
+        QuietScores[start * 64 + end] += weight * Math.Abs(weight);
 
         // add the move as visited, too
-        ButterflyBoard[start][end]++;
+        ButterflyBoard[start * 64 + end]++;
     }
 
     // retrieve the reputation of a move
@@ -83,8 +72,8 @@ internal static class QuietHistory {
         int end   = move.End;
 
         // quiet score and butterfly score
-        int q  = QuietScores[start][end];
-        int bf = ButterflyBoard[start][end];
+        int q  = QuietScores   [start * 64 + end];
+        int bf = ButterflyBoard[start * 64 + end];
         
         // and now, as already mentioned, we divide the quiet score
         // by the number of times the move has been visited to get

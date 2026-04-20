@@ -19,6 +19,7 @@ internal static class Consts {
     );
 
     // CPU-dependent optimizations, we must check whether they are supported
+    internal static readonly bool UseSSE2 = Sse2.IsSupported;
     internal static readonly bool UseAVX2 = Avx2.IsSupported;
     internal static readonly bool UseBMI2 = Bmi2.IsSupported;
 

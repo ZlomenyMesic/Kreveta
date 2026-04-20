@@ -16,46 +16,35 @@ namespace Kreveta.moveorder.history;
 // except it's applied to captures. the logic is truly the same, so
 // look at quiet history instead to understand it
 internal static class CaptureHistory {
-    private static readonly int[][] CaptureScores  = new int[64][];
-    private static readonly int[][] ButterflyBoard = new int[64][];
-
-    internal static void Init() {
-        for (int i = 0; i < 64; i++) {
-            CaptureScores[i]  = new int[64];
-            ButterflyBoard[i] = new int[64];
-        }
-    }
+    private static readonly int[] CaptureScores  = new int[64 * 64];
+    private static readonly int[] ButterflyBoard = new int[64 * 64];
     
     internal static void Shrink() {
-        Parallel.For(0, 64, i => {
-            Parallel.For(0, 64, j => {
-                CaptureScores[i][j]  /= 2;
-                ButterflyBoard[i][j] /= 3;
-            });
-        });
+        for (int i = 0; i < 64 * 64; i++) {
+            CaptureScores[i]  /= 2;
+            ButterflyBoard[i] /= 3;
+        }
     }
 
     internal static void Clear() {
-        Parallel.For(0, 64, i => {
-            Array.Clear(CaptureScores[i]);
-            Array.Clear(ButterflyBoard[i]);
-        });
+        Array.Clear(CaptureScores,  0, CaptureScores.Length);
+        Array.Clear(ButterflyBoard, 0, ButterflyBoard.Length);
     }
     
     internal static void ChangeRep(Move move, int weight) {
         int start = move.Start;
         int end   = move.End;
         
-        CaptureScores[start][end] += weight * Math.Abs(weight);
-        ButterflyBoard[start][end]++;
+        CaptureScores [start * 64 + end] += weight * Math.Abs(weight);
+        ButterflyBoard[start * 64 + end]++;
     }
 
     internal static int GetRep(Move move) {
         int start = move.Start;
         int end   = move.End;
 
-        int q  = CaptureScores[start][end];
-        int bf = ButterflyBoard[start][end];
+        int q  = CaptureScores [start * 64 + end];
+        int bf = ButterflyBoard[start * 64 + end];
         
         return bf == 0 ? 0 : 10 * q / bf;
     }

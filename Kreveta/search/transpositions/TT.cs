@@ -47,8 +47,10 @@ internal static unsafe partial class TranspositionTable {
 
     // tt array size = mebibytes * bytes_in_mib / entry_size
     private static int GetTableSize() {
+        int hash = BB.RoundToNearestPow2((int)Options.Hash, 1024);
+        
         const long EntriesInMiB = 1_048_576 / EntrySize;
-        int size = (int)(Options.Hash * EntriesInMiB / BucketSize);
+        int size = (int)(hash * EntriesInMiB / BucketSize);
         
         // to avoid potential indices pointing outside
         // the table, the size is adjusted accordingly
@@ -64,7 +66,7 @@ internal static unsafe partial class TranspositionTable {
         // method suggested somewhere online - to make the indices
         // more evenly dispersed, XOR the two hash halves first
         uint hash32 = (uint)hash ^ (uint)(hash >> 32);
-        return (int)(hash32 % BucketCount) * BucketSize;
+        return (int)(hash32 & BucketCount - 1) * BucketSize;
     }
 
     // delete all entries and free the memory
@@ -144,6 +146,7 @@ internal static unsafe partial class TranspositionTable {
 
         // there is an empty slot left
         if (emptyIndex != -1) {
+            
             // increase the stored entries counter
             Stored++;
             

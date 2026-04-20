@@ -64,7 +64,7 @@ internal static unsafe class Movegen {
 
         // promotion ranks as masks for quick check
         ulong promotionRank = col == Color.WHITE
-            ? 0xFFUL : 0xFF00000000000000UL;
+            ? 0x00000000000000FFUL : 0xFF00000000000000UL;
 
         // generate per piece type
         for (int pt = 0; pt < 6; pt++) {
@@ -104,7 +104,7 @@ internal static unsafe class Movegen {
             moveDestMask &= LookupTables.KingStars[BB.LS1B(board.Pieces[col == Color.WHITE ? 5 : 11])];
         
         ulong promotionRank = col == Color.WHITE 
-            ? 0xFFUL : 0xFF00000000000000UL;
+            ? 0x00000000000000FFUL : 0xFF00000000000000UL;
 
         for (int pt = 0; pt < 6; pt++) {
             ulong pieces = board.Pieces[baseIndex + pt];
@@ -136,12 +136,12 @@ internal static unsafe class Movegen {
             ulong targets = pieceType switch {
                 PType.PAWN   => (onlyCaptures ? 0UL : Pawn.GetPawnPushTargets(start, col, empty))
                               | Pawn.GetPawnCaptureTargets(start, enPassantSq, col, opponentOccupied),
-                PType.KNIGHT => Knight.GetKnightTargets(start, destMask),
-                PType.BISHOP => Pext.GetBishopTargets(start, destMask, occupied),
-                PType.ROOK   => Pext.GetRookTargets(start, destMask, occupied),
-                PType.QUEEN  => Pext.GetBishopTargets(start, destMask, occupied)
-                              | Pext.GetRookTargets(start, destMask, occupied),
-                PType.KING   => King.GetKingTargets(start, destMask),
+                PType.KNIGHT => Knight.GetKnightTargets(   start, destMask),
+                PType.BISHOP => Pext.GetBishopTargets(     start, destMask, occupied),
+                PType.ROOK   => Pext.GetRookTargets(       start, destMask, occupied),
+                PType.QUEEN  => Pext.GetBishopTargets(     start, destMask, occupied)
+                              | Pext.GetRookTargets(       start, destMask, occupied),
+                PType.KING   => King.GetKingTargets(       start, destMask),
                 _ => 0UL
             };
 

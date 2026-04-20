@@ -503,10 +503,10 @@ internal unsafe struct Board {
             fen.Append('-');
         else {
             int cr = (int)CastRights;
-            if (cr >> 0 != 0) fen.Append('K');
-            if (cr >> 1 != 0) fen.Append('Q');
-            if (cr >> 2 != 0) fen.Append('k');
-            if (cr >> 3 != 0) fen.Append('q');
+            if ((cr & 1) != 0) fen.Append('K');
+            if ((cr & 2) != 0) fen.Append('Q');
+            if ((cr & 4) != 0) fen.Append('k');
+            if ((cr & 8) != 0) fen.Append('q');
         }
 
         if (EnPassantSq != 64)

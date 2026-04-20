@@ -12,7 +12,7 @@ namespace Kreveta.moveorder.history.corrections;
 // scores of positions. the inconsistencies are mapped to certain patterns on
 // the board, and when a different position with same patterns appears in the
 // future, its evaluation may be corrected.
-//
+
 // here we use 4 correction histories. pawn corrections map pawn structure, and
 // are generally the most reliable correction type. minor and major pieces are
 // also mapped. king corrections work quite good as well, but instead of mapping
@@ -34,7 +34,6 @@ internal static class Corrections {
         if (shift == 0) return;
         
         PawnCorrections.Update(in board, shift);
-        KingCorrections.Update(in board, shift);
         MinorPieceCorrections.Update(in board, shift);
         MajorPieceCorrections.Update(in board, shift);
     }
@@ -44,16 +43,14 @@ internal static class Corrections {
         
         // these weights show, which corrections are most reliable
         int pawn  = 73 * PawnCorrections.Get(in board);
-        int king  =  6 * KingCorrections.Get(in board);
         int minor = 12 * MinorPieceCorrections.Get(in board);
         int major = 10 * MajorPieceCorrections.Get(in board);
-
-        return (short)((pawn + king + minor + major) / 100);
+        
+        return (short)((pawn + minor + major) / 100);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear() {
-        KingCorrections.Clear();
         PawnCorrections.Realloc();
         MinorPieceCorrections.Clear();
         MajorPieceCorrections.Clear();

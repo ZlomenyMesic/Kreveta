@@ -153,7 +153,7 @@ internal static unsafe class ZobristHash {
     }
 
     private static ulong NextUInt64(in Random rand) {
-        byte[] bytes = new byte[
+        Span<byte> bytes = stackalloc byte[
             sizeof(ulong) / sizeof(byte)
         ];
 

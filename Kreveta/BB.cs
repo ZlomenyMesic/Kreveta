@@ -26,4 +26,23 @@ internal static class BB {
         bb &= bb - 1;
         return index;
     }
+    
+    // used to round user input hash size to the nearest power of two
+    // to allow bitwise masking instead of modulo in TT entry indexing
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int RoundToNearestPow2(int n, int max) {
+        if (n <= 1) return 1;
+
+        // closest smaller and higher power of two
+        int lower = 1 << 31 - int.LeadingZeroCount(n);
+        int upper = lower << 1;
+
+        // pick closest
+        int nearest = n - lower <= upper - n 
+            ? lower : upper;
+
+        return nearest > max
+            ? max : nearest;
+
+    }
 }

@@ -9,7 +9,8 @@
 using Kreveta.consts;
 using System;
 using System.Runtime.InteropServices;
-using System.Text;
+
+// ReSharper disable InconsistentNaming
 
 namespace Kreveta.movegen;
 
@@ -130,24 +131,20 @@ internal static class MoveExtenstions {
 
     // converts a move back to the long algebraic notation
     // format, see the next method for more information
-    // ReSharper disable once InconsistentNaming
     internal static string ToLAN(this Move move) {
-
         int start  = move.Start;
         int end    = move.End;
         PType prom = move.Promotion;
 
-        StringBuilder sb = new();
-
         // convert starting and ending squares to the standard format, e.g. "e4"
-        sb.Append(Consts.Files[start & 7] + (8 - (start >> 3)).ToString());
-        sb.Append(Consts.Files[end   & 7] + (8 - (end   >> 3)).ToString());
+        string s = $"{Consts.Files[start & 7]}{8 - (start >> 3)}";
+        s       += $"{Consts.Files[end   & 7]}{8 - (end   >> 3)}";
 
         // if no promotion => empty string
         if (prom != PType.PAWN && prom != PType.KING && prom != PType.NONE)
-            sb.Append(prom.ToChar());
+            s += prom.ToChar();
 
-        return sb.ToString();
+        return s;
     }
 
     // converts a string to a move object

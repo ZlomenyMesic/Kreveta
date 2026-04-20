@@ -3,24 +3,52 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.movegen;
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 
 namespace Kreveta.moveorder.history;
 
-internal static class ContinuationHistory {
-    private static readonly short[] Table = new short[6 * 64 * 6 * 64];
+internal static unsafe class ContinuationHistory {
+    private const int TableSize = 6 * 64 * 6 * 64;
+    private static readonly short[] Table = new short[TableSize];
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear()
-        => Array.Clear(Table, 0, Table.Length);
+        => Array.Clear(Table, 0, TableSize);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Age() {
-        for (int i = 0; i < 6 * 64 * 6 * 64; i++)
-            Table[i] /= 2;
+        fixed (short* ptr = Table) {
+            int i = 0;
+
+            if (Consts.UseAVX2) {
+                int width = Vector256<short>.Count;
+
+                for (; i <= TableSize - width; i += width) {
+                    var v = Avx.LoadVector256(ptr + i); 
+                    v     = Avx2.ShiftRightArithmetic(v, 1);
+                    
+                    Avx.Store(ptr + i, v);
+                }
+            }
+            else if (Consts.UseSSE2) {
+                int width = Vector128<short>.Count;
+
+                for (; i <= TableSize - width; i += width) {
+                    var v = Sse2.LoadVector128(ptr + i);
+                    v     = Sse2.ShiftRightArithmetic(v, 1);
+                    
+                    Sse2.Store(ptr + i, v);
+                }
+            }
+
+            for (; i < TableSize; i++)
+                ptr[i] >>= 1;
+        }
     }
 
     // store a new continuation - same as with counters, there

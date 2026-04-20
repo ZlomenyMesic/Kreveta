@@ -63,7 +63,7 @@ internal static partial class Options {
             Name         = nameof(Hash),
             Type         = OpType.SPIN,
             MinValue     = 1L, // always keep at least some memory
-            MaxValue     = 2047L, 
+            MaxValue     = 1024L, 
             DefaultValue = Default.DHash,
             Value        = Default.DHash
         },

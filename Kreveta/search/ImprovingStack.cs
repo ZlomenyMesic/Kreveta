@@ -23,10 +23,6 @@ internal sealed class ImprovingStack {
             return;
 
         _stack[ply] = se;
-
-        for (int i = ply + 1; i < _stack.Length; i++) {
-            _stack[i] = 0;
-        }
     }
 
     internal bool IsImproving(int ply, Color col) {
@@ -35,12 +31,6 @@ internal sealed class ImprovingStack {
 
         short prevSE = _stack[ply - 2];
         short curSE  = _stack[ply    ];
-
-        // the static eval might actually be zero in both cases,
-        // but it'd be very rare, and we need this to prevent false
-        // improving returns when the eval hasn't been set yet
-        if (curSE == 0 || prevSE == 0) 
-            return false;
 
         // is the current se better than the one from 2 plies ago?
         return col == Color.WHITE 

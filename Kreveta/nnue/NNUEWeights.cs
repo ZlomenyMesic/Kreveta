@@ -10,6 +10,7 @@ using Kreveta.uci;
 using System;
 using System.IO;
 using System.Reflection;
+
 // ReSharper disable InconsistentNaming
 
 #pragma warning disable CS8618
@@ -56,94 +57,40 @@ internal static class NNUEWeights {
             Embedding[i] = all[offset++];
 
         // allocate subnet buffers
-        short[] s1H1Kernel     = new short[H1Neurons * EmbedDims * 2];
-        short[] s1H1Bias       = new short[H1Neurons];
-        short[] s1H2Kernel     = new short[H2Neurons * H1Neurons];
-        short[] s1H2Bias       = new short[H2Neurons];
-        short[] s1OutputKernel = new short[H2Neurons];
+        const int subnetCount = 8;
 
-        short[] s2H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s2H1Bias       = new short[s1H1Bias.Length];
-        short[] s2H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s2H2Bias       = new short[s1H2Bias.Length];
-        short[] s2OutputKernel = new short[H2Neurons];
+        short[][] H1K = new short[subnetCount][];
+        short[][] H1B = new short[subnetCount][];
+        short[][] H2K = new short[subnetCount][];
+        short[][] H2B = new short[subnetCount][];
+        short[][] OK  = new short[subnetCount][];
 
-        short[] s3H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s3H1Bias       = new short[s1H1Bias.Length];
-        short[] s3H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s3H2Bias       = new short[s1H2Bias.Length];
-        short[] s3OutputKernel = new short[H2Neurons];
+        const int h1KernelSize = H1Neurons * EmbedDims * 2;
+        const int h2KernelSize = H2Neurons * H1Neurons;
 
-        short[] s4H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s4H1Bias       = new short[s1H1Bias.Length];
-        short[] s4H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s4H2Bias       = new short[s1H2Bias.Length];
-        short[] s4OutputKernel = new short[H2Neurons];
-
-        short[] s5H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s5H1Bias       = new short[s1H1Bias.Length];
-        short[] s5H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s5H2Bias       = new short[s1H2Bias.Length];
-        short[] s5OutputKernel = new short[H2Neurons];
-
-        short[] s6H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s6H1Bias       = new short[s1H1Bias.Length];
-        short[] s6H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s6H2Bias       = new short[s1H2Bias.Length];
-        short[] s6OutputKernel = new short[H2Neurons];
-
-        short[] s7H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s7H1Bias       = new short[s1H1Bias.Length];
-        short[] s7H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s7H2Bias       = new short[s1H2Bias.Length];
-        short[] s7OutputKernel = new short[H2Neurons];
-
-        short[] s8H1Kernel     = new short[s1H1Kernel.Length];
-        short[] s8H1Bias       = new short[s1H1Bias.Length];
-        short[] s8H2Kernel     = new short[s1H2Kernel.Length];
-        short[] s8H2Bias       = new short[s1H2Bias.Length];
-        short[] s8OutputKernel = new short[H2Neurons];
-
-        short[][] H1K = [
-            s1H1Kernel, s2H1Kernel, s3H1Kernel, s4H1Kernel,
-            s5H1Kernel, s6H1Kernel, s7H1Kernel, s8H1Kernel
-        ];
-
-        short[][] H1B = [
-            s1H1Bias, s2H1Bias, s3H1Bias, s4H1Bias,
-            s5H1Bias, s6H1Bias, s7H1Bias, s8H1Bias
-        ];
-
-        short[][] H2K = [
-            s1H2Kernel, s2H2Kernel, s3H2Kernel, s4H2Kernel,
-            s5H2Kernel, s6H2Kernel, s7H2Kernel, s8H2Kernel
-        ];
-
-        short[][] H2B = [
-            s1H2Bias, s2H2Bias, s3H2Bias, s4H2Bias,
-            s5H2Bias, s6H2Bias, s7H2Bias, s8H2Bias
-        ];
-
-        short[][] OK = [
-            s1OutputKernel, s2OutputKernel, s3OutputKernel, s4OutputKernel,
-            s5OutputKernel, s6OutputKernel, s7OutputKernel, s8OutputKernel
-        ];
+        for (int s = 0; s < subnetCount; s++) {
+            H1K[s] = new short[h1KernelSize];
+            H1B[s] = new short[H1Neurons];
+            H2K[s] = new short[h2KernelSize];
+            H2B[s] = new short[H2Neurons];
+            OK[s]  = new short[H2Neurons];
+        }
 
         // load subnets
-        for (int subnet = 0; subnet < 8; subnet++) {
+        for (int subnet = 0; subnet < subnetCount; subnet++) {
             LoadH1Kernel(all, H1K[subnet], ref offset);
             LoadH1Bias  (all, H1B[subnet], ref offset);
         }
 
-        for (int subnet = 0; subnet < 8; subnet++) {
+        for (int subnet = 0; subnet < subnetCount; subnet++) {
             LoadH2Kernel(all, H2K[subnet], ref offset);
             LoadH2Bias  (all, H2B[subnet], ref offset);
         }
 
-        short[] OB = new short[8];
+        short[] OB = new short[subnetCount];
 
         // load outputs per subnet
-        for (int subnet = 0; subnet < 8; subnet++) {
+        for (int subnet = 0; subnet < subnetCount; subnet++) {
             for (int i = 0; i < H2Neurons; i++)
                 OK[subnet][i] = all[offset++];
 
