@@ -19,40 +19,24 @@ internal static unsafe class SEE {
     private const int MaxCaptures = 32;
     
     // this function takes a list of captures and orders it by SEE from best to
-    // worst. pruning threshold may also be used to automatically prune all moves
-    // of which the SEE score is below the provided threshold
-    internal static Span<Move> OrderCaptures(in Board board, ReadOnlySpan<Move> capts, out int count, Span<int> seeScores, int pruneThreshold) {
-        count = capts.Length;
+    // worst in-place. captures below the pruning threshold are removed. returns
+    // the number of captures that survived pruning
+    internal static int OrderCaptures(in Board board, Span<Move> capts, Span<int> seeScores, int pruneThreshold) {
         
         // if the list is empty for some reason
-        if (capts.Length == 0) return [];
-        
-        // if there is a single capture
-        if (capts.Length == 1) {
-            seeScores[0] = GetMoveScore(in board, board.SideToMove, capts[0]);
-            
-            // check if this move should be pruned
-            if (seeScores[0] >= pruneThreshold)
-                return new Span<Move>([capts[0]]);
-            
-            count = 0;
-            return [];
-        }
+        if (capts.Length == 0) return 0;
 
-        var scores = stackalloc (Move, int)[capts.Length];
-        int cur    = 0;
-
-        // add each capture and its score into a list
+        // compute SEE scores and compact - bad captures are overwritten in-place
+        int good = 0;
         for (int i = 0; i < capts.Length; i++) {
             int see = GetMoveScore(in board, board.SideToMove, capts[i]);
 
             if (see >= pruneThreshold) {
-                int hist      = Math.Clamp(CaptureHistory.GetRep(capts[i]) / 10, -50, 50);
-                scores[cur++] = (capts[i], see + hist); 
+                int hist          = Math.Clamp(CaptureHistory.GetRep(capts[i]) / 10, -50, 50);
+                capts    [good]   = capts[i];
+                seeScores[good++] = see + hist;
             }
         }
-
-        count = cur;
 
         // here we once again have a very naive and primitive sorting algorithm,
         // but it shouldn't slow anything down due to the usual low amount of captures
@@ -61,26 +45,19 @@ internal static unsafe class SEE {
 
             // once we haven't switched any moves, break the loop
             sortsMade = false;
-            for (int i = 1; i < cur; i++) {
+            for (int i = 1; i < good; i++) {
 
                 // if the current item's SEE score is higher
                 // than the previous one's, switch their places
-                if (scores[i].Item2 > scores[i - 1].Item2) {
-                    (scores[i], scores[i - 1]) = (scores[i - 1], scores[i]);
+                if (seeScores[i] > seeScores[i - 1]) {
+                    (capts    [i], capts    [i - 1]) = (capts    [i - 1], capts    [i]);
+                    (seeScores[i], seeScores[i - 1]) = (seeScores[i - 1], seeScores[i]);
                     sortsMade = true;
                 }
             }
         }
 
-        // add the sorted captures to the final list
-        var sorted = new Move[cur];
-        
-        for (int i = 0; i < cur; i++) {
-            sorted[i]    = scores[i].Item1;
-            seeScores[i] = scores[i].Item2;
-        }
-
-        return new Span<Move>(sorted);
+        return good;
     }
 
     // returns material gain/loss on a single square after evaluating captures

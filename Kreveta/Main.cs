@@ -10,6 +10,7 @@ using Kreveta.moveorder.history.corrections;
 using Kreveta.nnue;
 using Kreveta.nnue.approx;
 using Kreveta.perft;
+using Kreveta.search;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 
@@ -74,9 +75,13 @@ internal static class Program {
         
         UCI.Log($"by {Author} (built {buildTime})");
         
-        // load the embedded nnue weights
+        // load the embedded nnue weights and pre-allocate the accumulator pool
         NNUEWeights.Load();
+        NNUEEvaluator.Init();
         MathApprox.Init();
+        
+        // pre-allocate PV tables
+        PVSearch.Init();
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position

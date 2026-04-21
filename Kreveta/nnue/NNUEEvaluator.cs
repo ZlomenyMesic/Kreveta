@@ -3,8 +3,6 @@
 // started 4-3-2025
 //
 
-#pragma warning disable CA1810
-
 using Kreveta.consts;
 using Kreveta.movegen;
 using Kreveta.nnue.approx;
@@ -33,10 +31,10 @@ internal unsafe sealed class NNUEEvaluator {
     
     // pre-allocated pool of evaluators - one slot per ply.
     // avoids repeated heap allocations during board clones
-    private const int PoolSize = 130;
-    private static readonly NNUEEvaluator[] _pool;
+    private const int PoolSize = 128;
+    private static NNUEEvaluator[] _pool = null!;
 
-    static NNUEEvaluator() {
+    internal static void Init() {
         _pool = new NNUEEvaluator[PoolSize];
         
         for (int i = 0; i < PoolSize; i++)
@@ -68,8 +66,8 @@ internal unsafe sealed class NNUEEvaluator {
         _accWhite = new short[EmbedDims];
         _accBlack = new short[EmbedDims];
 
-        Span<int> whiteFeat = stackalloc int[30];
-        Span<int> blackFeat = stackalloc int[30];
+        Span<int> whiteFeat = stackalloc int[32];
+        Span<int> blackFeat = stackalloc int[32];
         int count = ExtractFeatures(in board, whiteFeat, blackFeat);
 
         for (int i = 0; i < count; i++) {
@@ -191,8 +189,8 @@ internal unsafe sealed class NNUEEvaluator {
 
     private void RebuildAccumulator(in Board board, Color col) {
         
-        Span<int> whiteFeat = stackalloc int[30];
-        Span<int> blackFeat = stackalloc int[30];
+        Span<int> whiteFeat = stackalloc int[32];
+        Span<int> blackFeat = stackalloc int[32];
         int count = ExtractFeatures(in board, whiteFeat, blackFeat);
 
         if (col == Color.WHITE) {
@@ -208,11 +206,11 @@ internal unsafe sealed class NNUEEvaluator {
     }
 
     private static int ExtractFeatures(in Board board, Span<int> whiteFeat, Span<int> blackFeat) {
-        int wKing = BB.LS1B(board.Pieces[5]);
-        int bKing = BB.LS1B(board.Pieces[11]);
-        
         ReadOnlySpan<ulong> pieces = board.Pieces;
 
+        int wKing = BB.LS1B(pieces[5]);
+        int bKing = BB.LS1B(pieces[11]);
+        
         int count = 0;
 
         for (byte pt = 0; pt < 5; pt++) {

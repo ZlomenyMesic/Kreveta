@@ -49,11 +49,14 @@ internal static unsafe class PVSearch {
     internal static Move[] PV = [];
     internal static Move   NextBestMove;
 
-    private const int MaxPVDepth = 130;
-    private static readonly Move[][] _pvTable = new Move[MaxPVDepth][];
-    private static readonly int[]    _pvLen   = new int [MaxPVDepth];
+    private const  int      MaxPVDepth = 128;
+    private static Move[][] _pvTable   = null!;
+    private static int[]    _pvLen     = null!;
 
-    static PVSearch() {
+    internal static void Init() {
+        _pvLen   = new int[MaxPVDepth];
+        _pvTable = new Move[MaxPVDepth][];
+        
         for (int i = 0; i < MaxPVDepth; i++)
             _pvTable[i] = new Move[MaxPVDepth];
     }

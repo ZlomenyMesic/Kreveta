@@ -20,7 +20,7 @@ using System.Linq;
 namespace Kreveta.search;
 
 internal static class PVSControl {
-    internal const int DefaultMaxDepth = 128;
+    internal const int DefaultMaxDepth = 100;
 
     // maximum search depth allowed in this search
     private static int    CurMaxDepth;
@@ -46,9 +46,12 @@ internal static class PVSControl {
 
     internal static Stopwatch Stopwatch = null!;
 
-    internal static void StartSearch(int depth = DefaultMaxDepth, long NodesLimit = long.MaxValue, bool bench = false) {
-        CurMaxDepth   = depth;
-        CurNodesLimit = (ulong)NodesLimit;
+    internal static void StartSearch(int depth = DefaultMaxDepth, long nodesLimit = long.MaxValue, bool bench = false) {
+        CurMaxDepth   = Math.Min(depth, DefaultMaxDepth);
+        CurNodesLimit = (ulong)nodesLimit;
+        
+        if (depth > CurMaxDepth)
+            UCI.Log("info string depth may not exceed 100: using the DefaultMaxDepth limit");
         
         // start iterative deepening
         IterativeDeepeningLoop(bench);

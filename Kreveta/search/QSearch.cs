@@ -87,7 +87,7 @@ internal static class QSearch {
         int seeThreshold = (ply - PVSearch.CurIterDepth) / 8;
 
         Span<int> seeScores = stackalloc int[count];
-        if (!inCheck) moves = SEE.OrderCaptures(in board, moves[..count], out count, seeScores, seeThreshold);
+        if (!inCheck) count = SEE.OrderCaptures(in board, moves[..count], seeScores, seeThreshold);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
