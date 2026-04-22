@@ -184,7 +184,7 @@ internal static class TimeManager {
     // depending on whether the position seems to be stable or unstable,
     // the time budget may be altered. instability is based on score
     // differences and best move changes between iterations
-    internal static void AccountForInstability(float instability, int depth) {
+    internal static void AccountForInstability(double instability, int depth) {
         // if we have a precise time the search has to
         // take, the time budget obviously won't be touched
         if (MoveTime != 0) return;
@@ -195,8 +195,8 @@ internal static class TimeManager {
         if (timeLeft < 247) return;
 
         long bonus = (long)(instability < 0
-            ? instability * depth / 3.2f
-            : instability * depth / 8.9f);
+            ? instability * depth / 3.2d
+            : instability * depth / 8.9d);
 
         TimeBudget += Math.Clamp(bonus, -1 - timeLeft / 403, 1 + timeLeft / 397);
     }

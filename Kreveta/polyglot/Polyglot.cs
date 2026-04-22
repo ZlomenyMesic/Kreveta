@@ -124,7 +124,7 @@ internal static partial class Polyglot {
          * so moves with higher weights forever keep a higher probability of being chosen
          */
         float sum        = normalized.Select(i => i.Weight).Sum();
-        float random     = new Random().NextSingle() * sum;
+        float random     = Consts.RNG.NextSingle() * sum;
         float sumCounter = 0f;
 
         for (int i = 0; i < normalized.Length; i++) {
@@ -134,7 +134,7 @@ internal static partial class Polyglot {
                 return normalized[i] 
                     // un-normalize the selected move's weight,
                     // so we can then print its origin state
-                    with {Weight = max * normalized[i].Weight};
+                    with { Weight = max * normalized[i].Weight };
         }
         
         return default;

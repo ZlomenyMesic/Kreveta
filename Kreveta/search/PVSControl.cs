@@ -35,10 +35,10 @@ internal static class PVSControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    private static float  PVChanges;  // number of changes of the best move
-    private static float  ScoreDiffs; // sum of differences of scores between iterations
-    private static int    PrevScore;
-    internal static float LastInstability;
+    private static double  PVChanges;  // number of changes of the best move
+    private static double  ScoreDiffs; // sum of differences of scores between iterations
+    private static int     PrevScore;
+    internal static double LastInstability;
 
     // -1 = aspiration window search failed low
     //  1 = failed high
@@ -64,7 +64,7 @@ internal static class PVSControl {
     private static void IterativeDeepeningLoop(bool bench = false) {
         PrevElapsed     = 0L;
         Stopwatch       = Stopwatch.StartNew();
-        LastInstability = 0L;
+        LastInstability = 0.0;
             
         // we have to call tt clear here, because the user
         // might have changed the hash size settings, so we
@@ -96,26 +96,26 @@ internal static class PVSControl {
             bool   isAspiration = false;
             
             // these have to be aged out to allow new information to be considered
-            PVChanges  *= 0.69f;
-            ScoreDiffs *= 1.05f;
+            PVChanges  *= 0.69;
+            ScoreDiffs *= 1.05;
             
             // calculate the instability of the best move, and the score
-            float pvInstability    = PVChanges * PVChanges * PVChanges * 1.46f;
-            float scoreInstability = PVSearch.CurIterDepth != 0
-                ? ScoreDiffs / PVSearch.CurIterDepth : 0f;
+            double pvInstability    = PVChanges * PVChanges * PVChanges * 1.46;
+            double scoreInstability = PVSearch.CurIterDepth != 0
+                ? ScoreDiffs / PVSearch.CurIterDepth : 0.0;
 
             // somehow combine the two into a total search instability metric.
             // it starts negative, as when the search is stable, the time budget
             // and aspiration window deltas have to be reduced
-            float totalInstability = -5.42f + 0.96f * scoreInstability + 0.99f * pvInstability;
-            LastInstability        = totalInstability;
+            double totalInstability = -5.42 + 0.96 * scoreInstability + 0.99 * pvInstability;
+            LastInstability         = totalInstability;
             
             // try to reduce or increase the time budget based on instability
-            if (PVSearch.CurIterDepth > 3 && totalInstability != 0f) 
+            if (PVSearch.CurIterDepth > 3 && totalInstability != 0.0) 
                 TM.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
             
-            if (PVSearch.CurIterDepth > 3 && totalInstability <= -2.49f) {
-                int delta = 38 - (int)(totalInstability * 0.97f)
+            if (PVSearch.CurIterDepth > 3 && totalInstability <= -2.49) {
+                int delta = 38 - (int)(totalInstability * 0.97)
                                + Math.Abs(PrevScore) / 52;
 
                 aspiration = new Window(
@@ -220,11 +220,12 @@ internal static class PVSControl {
         // (not the next iteration of the current one)
         PVSearch.Reset();
         
-        TotalNodes = 0UL;
-        PVChanges  = 0;
-        PrevScore  = 0;
-        ScoreDiffs = 0;
-        BestMove   = default;
+        TotalNodes     = 0UL;
+        PVChanges      = 0;
+        PrevScore      = 0;
+        ScoreDiffs     = 0;
+        BestMove       = default;
+        AspirationFail = 0;
 
         if (bench) Bench.Finished = true;
     }

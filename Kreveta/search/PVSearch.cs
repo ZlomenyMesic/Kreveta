@@ -131,6 +131,10 @@ internal static unsafe class PVSearch {
         PVScore       = 0;
         PV            = [];
         NextBestMove  = default;
+        
+        Array.Clear(_pvLen, 0, _pvLen.Length);
+        for (int i = 0; i < MaxPVDepth; i++)
+            Array.Clear(_pvTable[i], 0, _pvTable[i].Length);
 
         improvStack.Expand(0);
 
@@ -179,6 +183,9 @@ internal static unsafe class PVSearch {
             // increase the TT move's history if it cuts beta
             if (ttMove != default)
                 StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, ss.Window);
+            
+            // reset so the parent doesn't read a stale childLen from a previous sibling's search
+            _pvLen[ss.Ply] = 0;
             
             // return just the score
             return ttScore;
@@ -673,6 +680,7 @@ internal static unsafe class PVSearch {
                 // it is important to exclude the tt move, as the following
                 // search is supposed to evaluate the position without it
                 ss.ExcludedMove = ttMove;
+                if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                 
                 // do the reduced, null-window search
                 short singScore = Search<NonPVNode>(ref board, ss with {
@@ -680,6 +688,7 @@ internal static unsafe class PVSearch {
                     Window = singularWindow,
                 }, ignore3Fold, cutNode);
                 
+                if (!ignore3Fold) ThreeFold.AddAndCheck(child.Hash);
                 ss.ExcludedMove = default;
                 
                 // the singular extension search ran at the same ply and may have written
