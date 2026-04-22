@@ -185,7 +185,7 @@ internal static unsafe class PVSearch {
                 StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, ss.Window);
             
             // reset so the parent doesn't read a stale childLen from a previous sibling's search
-            _pvLen[ss.Ply] = 0;
+            //_pvLen[ss.Ply] = 0;
             
             // return just the score
             return ttScore;
