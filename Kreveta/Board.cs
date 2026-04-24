@@ -8,7 +8,6 @@
 
 // Specify CultureInfo
 #pragma warning disable CA1304
-
 #pragma warning disable CA1305
 
 using Kreveta.consts;
@@ -23,6 +22,7 @@ using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta;
@@ -370,10 +370,9 @@ internal unsafe struct Board {
         else                    BOccupied ^= start | end;
     }
     
-    // checks whether a move is legal from this position.
-    // this is done by using the reversible XOR-only play
-    // move function, which turns out to be faster than
-    // cloning this board and playing the move regularly
+    // checks whether a move is legal from this position. this is done by using
+    // the reversible XOR-only play move function, which turns out to be faster
+    // than cloning this board and playing the move regularly
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool IsMoveLegal(Move move, Color col) {
@@ -423,14 +422,9 @@ internal unsafe struct Board {
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal int GamePhase() {
-        /*int phase =
-            // 1 for every knight or bishop
-            (int)(ulong.PopCount(Pieces[1] | Pieces[2] | Pieces[7] | Pieces[8]) 
-                  // 2 for every rook
-                  + 2 * ulong.PopCount(Pieces[3] | Pieces[9])
-                  // 4 for every queen
-                  + 4 * ulong.PopCount(Pieces[4] | Pieces[10]));*/
-
+        // calculates the current game phase based on piece count and type.
+        // the value ranges between 0 and 70, with 0 signifying absolute
+        // endgames and 70 being the initial opening state
         ulong phase = ulong.PopCount(Pieces[0] | Pieces[6])
                 + 3 * ulong.PopCount(Pieces[1] | Pieces[2] | Pieces[7] | Pieces[8])
                 + 5 * ulong.PopCount(Pieces[3] | Pieces[9])

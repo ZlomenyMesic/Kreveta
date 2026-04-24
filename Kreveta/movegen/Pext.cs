@@ -17,7 +17,7 @@ internal static unsafe class Pext {
     // from a source bitboard based on a given mask to lower bit positions,
     // creating a dense index used for move lookups
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong PEXT(ulong val, ulong mask) {
+    internal static ulong PEXT(ulong val, ulong mask) {
         if (Consts.UseBMI2)
             return Bmi2.X64.ParallelBitExtract(val, mask);
 
@@ -40,7 +40,7 @@ internal static unsafe class Pext {
         // extract relevant occupancy bits into dense index using PEXT
         int index = (int)PEXT(occupied, relevantMask);
         
-        return *(PextLookupTables.FlatBishopTable 
+        return *(PextLookupTables.BishopTable 
                  + PextLookupTables.BishopOffset[sq] + index) & free;
     }
 
@@ -49,6 +49,6 @@ internal static unsafe class Pext {
         // the same goes for the rook
         ulong relevantMask = PextLookupTables.RookMask[sq];
         int   index        = (int)PEXT(occupied, relevantMask);
-        return *(PextLookupTables.FlatRookTable + PextLookupTables.RookOffset[sq] + index) & free;
+        return *(PextLookupTables.RookTable + PextLookupTables.RookOffset[sq] + index) & free;
     }
 }
