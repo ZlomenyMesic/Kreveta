@@ -184,9 +184,6 @@ internal static unsafe class PVSearch {
             if (ttMove != default)
                 StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, ss.Window);
             
-            // reset so the parent doesn't read a stale childLen from a previous sibling's search
-            //_pvLen[ss.Ply] = 0;
-            
             // return just the score
             return ttScore;
         }
@@ -511,7 +508,7 @@ internal static unsafe class PVSearch {
                 if (!scoresAssigned) {
                     moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
                     
-                    LazyMoveOrder.AssignScores(in board, rootNode, ss.Depth, ss.LastMove, legalMoves, moveScores, seeScores, moveCount);
+                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, seeScores, moveCount);
                     scoresAssigned = true;
 
                     // very important - if we've already checked a tt move, it
@@ -542,6 +539,13 @@ internal static unsafe class PVSearch {
                 continue;
             
             expandedNodes++;
+
+            // once all candidate cutoff moves have been searched, the cut node turns
+            // into an all node, as none of the following moves are expected to be good
+            if (cutNode && curScore < 0) {
+                cutNode = false;
+                allNode = true;
+            }
             
             // use the pool slot unless we are in a singular extension search
             Board child = board.Clone(ss.ExcludedMove != default ? -1 : ss.Ply + 1);

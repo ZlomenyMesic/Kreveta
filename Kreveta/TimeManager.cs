@@ -125,68 +125,66 @@ internal static class TimeManager {
             return;
         }
         
+        (long ourTime, long oppTime, long inc) = Game.EngineColor == Color.WHITE
+            ? (_whiteTime, _blackTime, _whiteInc)
+            : (_blackTime, _whiteTime, _blackInc);
+        
         // if movestogo isn't present, estimate the remaining move count
         // based on the game phase (endgame => fewer moves left expected)
         int movesToGo = _movesToGo == 0 
-            ? EstimateMovesToGo(Game.Board)
+            ? EstimateMovesToGo(Game.Board, ourTime, oppTime)
             : _movesToGo;
-
-        long timeLeft    = Game.EngineColor == Color.WHITE ? _whiteTime : _blackTime;
-        long oppTimeLeft = Game.EngineColor == Color.WHITE ? _blackTime : _whiteTime;
-        long inc         = Game.EngineColor == Color.WHITE ? _whiteInc  : _blackInc;
-        
-        // calculate how many times more time do we have left than the opponent, and
-        // based on that potentially reduce movestogo, which makes us think longer
-        float timeAdvantage = Math.Clamp((float)timeLeft / oppTimeLeft, 1f, 5f);
-        movesToGo -= (int)((timeAdvantage - 1) * (movesToGo / 6.5f));
-        movesToGo  = Math.Max(6, movesToGo);
         
         // taking time increments in low remaining time scenarios is dangerous
-        bool lowTime      = timeLeft < 3 * inc + 2 * moveOverhead;
-        long effectiveInc = (long)(lowTime ? 0 : inc * 0.8f);
+        bool lowTime   = ourTime < 3 * inc + 2 * moveOverhead;
+        long increment = (long)(lowTime ? 0 : inc * 0.8f);
 
-        // base time per move
-        long baseTime = (timeLeft + effectiveInc) / (movesToGo + 1);
+        // divide time left by moves to go to get time per move
+        long budget = (ourTime + increment) / (movesToGo + 1);
 
-        // never allow zero search time
-        long budget = Math.Max(moveOverhead / 2, baseTime - moveOverhead);
-
-        // cap extremely long thinks
-        budget     = Math.Min(budget, (long)(timeLeft * 0.4f));
-        TimeBudget = Math.Max(20, budget);
+        // clamp extremely short or long searches
+        budget = Math.Max(moveOverhead / 2, budget - moveOverhead);
+        budget = Math.Min(budget, (long)(ourTime * 0.4f));
+        
+        TimeBudget = budget;
     }
     
-    private static int EstimateMovesToGo(Board board) {
-        float p = board.GamePhase() / 150f;
-
+    private static int EstimateMovesToGo(Board board, long ourTime, long oppTime) {
+        double p = board.GamePhase() / 70.0;
+        double s = Math.Abs(Game.PreviousScore);
+        double m = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
+        
         // smooth base expected moves interpolation
-        float expected =       p  * 37.2f  // middlegame
-                       + (1f - p) * 11.8f; // endgame
-
-        // pawns can promote and prolong the game
-        expected += 0.13f * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
-        expected -= Math.Abs(Game.PreviousScore) / 320f;
+        double material =        p  * 37.2  // middlegame
+                        + (1.0 - p) * 11.8; // endgame
         
         // use the game ply to further approximate remaining moves
-        float plyTerm = MathF.Max(13.1f, (150.0f - Game.Ply) / 5.0f);
-        expected = (5.0f * expected + 3.0f * plyTerm) / 8.0f;
+        double ply      = Math.Max(13.1, (150.0 - Game.Ply) / 5.0);
+        double expected = (5.0 * material + 3.0 * ply) / 8.0;
         
-        // add a level of complexity into the result - positions with more
-        // available legal moves are more complex, and thus searched longer
-        int   moveCount      = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
-        float complexityMult = Math.Clamp(1.03f + (moveCount - 19.7f) * 0.022f, 0.76f, 1.34f);
-        int   result         = (int)(expected * complexityMult);
+        /* add layers of complexity into the result:
+         *  1. pawns can promote and prolong the game (add)
+         *  2. larger scores generally mean the game will end soon (add)
+         *  3. when there are many legal moves, search deeper (mult)
+         *  4. spend more time if we have more time than the opponent (mult)
+         */
+        double pawns    = 0.13 * ulong.PopCount(board.Pieces[0] | board.Pieces[6]);
+        double score    = -s * Math.Pow(1.04, s / 100.0) / 320.0;
+        double mobility = Math.Clamp(1.03 + (m - 19.7) * 0.022, 0.76, 1.34);
+        double time     = 1.0 + (1.0 - Math.Clamp((double)ourTime / oppTime, 1.0, 5.0)) / 6.5;
+        
+        // multiply the base remaining moves with all multipliers
+        double result = expected * mobility * time + pawns + score;
 
         // clamp to reasonable range
-        return Math.Clamp(result, 11, 45);
+        return Math.Clamp((int)result, 11, 45);
     }
 
     // depending on whether the position seems to be stable or unstable,
     // the time budget may be altered. instability is based on score
     // differences and best move changes between iterations
     internal static void AccountForInstability(double instability, int depth) {
-        // if we have a precise time the search has to
-        // take, the time budget obviously won't be touched
+        // don't touch the user-set budgets
         if (MoveTime != 0) return;
 
         long timeLeft = Game.EngineColor == Color.WHITE
@@ -194,6 +192,9 @@ internal static class TimeManager {
 
         if (timeLeft < 247) return;
 
+        // for some reason it works well to have the shifts assymmetric.
+        // if the instability is negative, we want to terminate the search
+        // sooner, but if it's positive, we want to make the search longer
         long bonus = (long)(instability < 0
             ? instability * depth / 3.2d
             : instability * depth / 8.9d);

@@ -25,6 +25,7 @@ internal static class PTypeExtensions {
     internal static PType ToPType(this char c)
         => (PType)Consts.Pieces.IndexOf(c, StringComparison.Ordinal);
 
+    // return the piece type in lowercase (pnbrqk)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static char ToChar(this PType type)
         => Consts.Pieces[(byte)type];

@@ -17,14 +17,14 @@ internal static class LazyMoveOrder {
     // move ordering is used, where first all moves are assigned different scores,
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
-    internal static void AssignScores(in Board board, bool rootNode, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, Span<int> seeScores, int count) {
+    internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, Span<int> seeScores, int count) {
         Color color     = board.SideToMove;
-        int   earlyGame = Math.Max(0, board.GamePhase() - 110);
+        int   earlyGame = Math.Max(0, board.GamePhase() - 51);
         
         // find killers and a potential countermove
-        var captKillers = Killers.GetCluster(depth, captures: true);
-        var killers     = Killers.GetCluster(depth, captures: false);
-        var counterMove = depth <= 2 ? CounterMoveHistory.Get(color, previous) : default;
+        var ck = Killers.GetCluster(depth, captures: true);
+        var qk = Killers.GetCluster(depth, captures: false);
+        var c  = depth <= 2 ? CounterMoveHistory.Get(color, previous) : default;
         
         for (int i = 0; i < count; i++) {
             Move move = moves[i];
@@ -32,8 +32,10 @@ internal static class LazyMoveOrder {
             // some stuff for evaluating more easily
             PType promPiece = move.Promotion;
             bool  isCapture = move.Capture != PType.NONE || promPiece == PType.PAWN;
-            bool  isKiller  = isCapture ? captKillers.Contains(move) : killers.Contains(move);
-            bool  isCounter = counterMove == move;
+            bool  isCounter = c == move;
+            bool  isKiller  = isCapture // we could use .Contains(), but this is faster
+                ? ck[0] == move || ck[1] == move || ck[2] == move || ck[3] == move || ck[4] == move || ck[5] == move || ck[6] == move
+                : qk[0] == move || qk[1] == move || qk[2] == move || qk[3] == move || qk[4] == move || qk[5] == move || qk[6] == move;
 
             // Static Exchange Evaluation (SEE) has the most effect on captures, as it is
             // quite reliable, but is used for quiets as well. all SEE scores are stored
@@ -56,8 +58,8 @@ internal static class LazyMoveOrder {
                 
                 // punish queen and king moves in the opening or early
                 // middlegame, of course except for castling
-                int queen = (movedPiece == PType.QUEEN                           ? -83  : 0) * earlyGame / 40;
-                int king  = (movedPiece == PType.KING && promPiece != PType.KING ? -211 : 0) * earlyGame / 40;
+                int queen = (movedPiece == PType.QUEEN                           ? -83  : 0) * earlyGame / 19;
+                int king  = (movedPiece == PType.KING && promPiece != PType.KING ? -211 : 0) * earlyGame / 19;
 
                 // promotions and castling get placed higher
                 int prom = promPiece switch {

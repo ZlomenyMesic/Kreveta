@@ -98,7 +98,7 @@ internal static class Eval {
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
 
-        byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
+        //byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
         byte phase      = (byte)board.GamePhase();
         
         ReadOnlySpan<ulong> pieces = board.Pieces;
@@ -118,12 +118,12 @@ internal static class Eval {
             // the color into a loop as well
             while (wCopy != 0UL) {
                 byte sq = BB.LS1BReset(ref wCopy);
-                wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, pieceCount);
+                wEval += EvalTables.GetTableValue(i, Color.WHITE, sq, phase);
             }
 
             while (bCopy != 0UL) {
                 byte sq = BB.LS1BReset(ref bCopy);
-                bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, pieceCount);
+                bEval += EvalTables.GetTableValue(i, Color.BLACK, sq, phase);
             }
         }
 
@@ -206,8 +206,8 @@ internal static class Eval {
             }
             
             // overextended pawns in the opening/middlegame that cannot be protected
-            if (!supported && relRank > 4 && phase > 100)
-                eval -= 4 * relRank * phase * phase / 22_500;
+            if (!supported && relRank > 4 && phase > 35)
+                eval -= 4 * relRank * phase * phase / 4900;
 
             // bonus for unopposed supported or phalanx pawns
             if (!opposed && (supported || phalanx))
@@ -222,8 +222,8 @@ internal static class Eval {
         int eval = 0;
         
         // bishop pairs - evaluated less in endgames
-        eval += ulong.PopCount(pieces[2]) < 2 ? 0 : BishopPair * phase / 150;
-        eval -= ulong.PopCount(pieces[8]) < 2 ? 0 : BishopPair * phase / 150;
+        eval += ulong.PopCount(pieces[2]) < 2 ? 0 : BishopPair * phase / 70;
+        eval -= ulong.PopCount(pieces[8]) < 2 ? 0 : BishopPair * phase / 70;
         
         return (short)eval;
     }
@@ -305,7 +305,7 @@ internal static class Eval {
         UCI.Log($"info string NNUE evaluation using {Program.Network}");
         UCI.Log( "info string all scores are side-to-move-relative");
         
-        int pcount = (int)ulong.PopCount(board.Occupied);
+        //int pcount = (int)ulong.PopCount(board.Occupied);
         int phase  = board.GamePhase();
         
         // first calculate the material part using piece-square tables
@@ -315,7 +315,7 @@ internal static class Eval {
             Color color = (board.WOccupied & 1UL << sq) != 0 ? Color.WHITE : Color.BLACK;
 
             if (piece != PType.NONE)
-                material += EvalTables.GetTableValue((byte)piece, color, sq, pcount)
+                material += EvalTables.GetTableValue((byte)piece, color, sq, phase)
                             * (color == Color.WHITE ? 1 : -1);
         }
 

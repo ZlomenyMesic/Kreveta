@@ -423,17 +423,20 @@ internal unsafe struct Board {
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal int GamePhase() {
-        // calculate game phase (0 = absolute endgame, 24 = start pos)
-        int phase =
+        /*int phase =
             // 1 for every knight or bishop
             (int)(ulong.PopCount(Pieces[1] | Pieces[2] | Pieces[7] | Pieces[8]) 
                   // 2 for every rook
                   + 2 * ulong.PopCount(Pieces[3] | Pieces[9])
                   // 4 for every queen
-                  + 4 * ulong.PopCount(Pieces[4] | Pieces[10]));
+                  + 4 * ulong.PopCount(Pieces[4] | Pieces[10]));*/
 
-        // clamp to 0-150 scale
-        return phase * 25 / 4;
+        ulong phase = ulong.PopCount(Pieces[0] | Pieces[6])
+                + 3 * ulong.PopCount(Pieces[1] | Pieces[2] | Pieces[7] | Pieces[8])
+                + 5 * ulong.PopCount(Pieces[3] | Pieces[9])
+                + 9 * ulong.PopCount(Pieces[4] | Pieces[10]);
+
+        return Math.Max(0, (int)phase - 8);
     }
 
     internal void Print() {
