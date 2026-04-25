@@ -131,7 +131,7 @@ internal static class TimeManager {
         
         // if movestogo isn't present, estimate the remaining move count
         // based on the game phase (endgame => fewer moves left expected)
-        int movesToGo = _movesToGo == 0 
+        double movesToGo = _movesToGo == 0 
             ? EstimateMovesToGo(Game.Board, ourTime, oppTime)
             : _movesToGo;
         
@@ -140,7 +140,9 @@ internal static class TimeManager {
         long increment = (long)(lowTime ? 0 : inc * 0.8f);
 
         // divide time left by moves to go to get time per move
-        long budget = (ourTime + increment) / (movesToGo + 1);
+        long budget = (long)(
+            (ourTime + increment) / (1 + movesToGo)
+        );
 
         // clamp extremely short or long searches
         budget = Math.Max(moveOverhead / 2, budget - moveOverhead);
@@ -149,7 +151,7 @@ internal static class TimeManager {
         TimeBudget = budget;
     }
     
-    private static int EstimateMovesToGo(Board board, long ourTime, long oppTime) {
+    private static double EstimateMovesToGo(Board board, long ourTime, long oppTime) {
         double p = board.GamePhase() / 70.0;
         double s = Math.Abs(Game.PreviousScore);
         double m = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
@@ -177,7 +179,7 @@ internal static class TimeManager {
         double result = expected * mobility * time + pawns + score;
 
         // clamp to reasonable range
-        return Math.Clamp((int)result, 11, 45);
+        return Math.Clamp(result, 11.0, 45.0);
     }
 
     // depending on whether the position seems to be stable or unstable,

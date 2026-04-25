@@ -198,13 +198,13 @@
     p {
       color: var(--light-text);
       line-height: 1.6;
-      max-width: 700px;
+      max-width: 940px;
     }
 
     ul {
       color: var(--light-text);
       line-height: 1.6;
-      max-width: 700px;
+      max-width: 940px;
     }
     
     .semi-bold {
@@ -263,7 +263,7 @@
       padding: 0rem 1rem;
       border-radius: 6px;
       overflow-x: auto;
-      max-width: 700px;
+      max-width: 980px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
     }
 
@@ -313,7 +313,7 @@
       <h1>About Kreveta</h1>
       <p>
         An open-source UCI-compliant chess engine written <span class="semi-bold">entirely in C#</span>.
-        Designed to be fast, strong and reliable, while still aiming for code clarity
+        Designed to be fast, strong and reliable, while still aiming for readability, code clarity
         and proper documentation, making it ideal for others to study, experiment with,
         or use as a foundation for new engines.
         <br/>
@@ -325,7 +325,7 @@
       </p>
       <h2>Contributions</h2>
       <p>
-        So far, I am the only contributor to the engine and the author of this website. However,
+        So far, I am almost the only contributor to the engine and the author of this website. However,
         any contributions, bug reports, and feature ideas are always welcome. If you'd like to help,
         open an issue or pull request on <a href="https://github.com/ZlomenyMesic/Kreveta">Github</a>,
         or star the project to support its development.
@@ -341,14 +341,25 @@
       <p>
         Each version is tested against its predecessor,
         using <a href="https://cutechess.com/">Cutechess-cli</a>.
-        A small custom opening book is used, featuring equally evaluated positions.
-        No draw and/or resign adjudications are arranged.
+        <br/>
+        <br/>
+        Older tests utilized a custom, equal opening book. However, this book comprised a very limited
+        number of unique opening lines, making rating precision not scale well with larger tests.
+        For this reason, since version 2.2.5, the opening book
+        <a href="https://github.com/official-stockfish/books/blob/master/UHO_4060_v4.epd.zip">UHO_4060_v4.epd</a>
+        at depth = 16 is used, featuring some highly unbalanced positions. All openings are played in pairs,
+        ensuring random noise is minimal, though ratings may now be squashed due to strongly biased positions
+        being present.
+        <br/>
+        <br/>
+        No draw adjudications are used, and resign adjudications are set to reasonable evaluation
+        thresholds not to stop games prematurely (usually, a winning score of at least 500 cp is required).
       </p>
 
-      <!-- KREVETA 2.2.6 -->
+      <!-- KREVETA 2.3.1 -->
       <div class="tests-version">
         <div class="tests-header">
-          <h2>Kreveta 2.2.6</h2>
+          <h2>Kreveta 2.3.1</h2>
           <span class="version-badge prerelease">PRE-RELEASE</span>
         </div>
 
@@ -367,17 +378,44 @@ no tests carried out yet
         </div>
       </div>
 
-      <!-- KREVETA 2.2.5 -->
+      <!-- KREVETA 2.3.0 -->
       <div class="tests-version">
         <div class="tests-header">
-          <h2>Kreveta 2.2.5</h2>
+          <h2>Kreveta 2.3.0</h2>
           <span class="version-badge latest">LATEST</span>
         </div>
 
         <div class="test-block">
-          <div class="test-title">STC 8+0.05s</div>
+          <div class="test-title">STC 8+0.15s</div>
           <pre class="test-code"><code>
-no tests carried out yet
+Elo   | 72.8 +/- 8.4
+Games | total: 5000, W: 2391, L: 1358, D: 1251
+Score | 0.603, LOS: 100.0 %, draw ratio: 25.0 %
+          </code></pre>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">LTC 60+0.05s</div>
+          <pre class="test-code"><code>
+Elo   | 30.6 +/- 8.0
+Games | total: 5000, W: 1928, L: 1489, D: 1583
+Score | 0.544, LOS: 100.0 %, draw ratio: 31.7 %
+        </code></pre>
+        </div>
+      </div>
+
+      <!-- KREVETA 2.2.5 -->
+      <div class="tests-version">
+        <div class="tests-header">
+          <h2>Kreveta 2.2.5</h2>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">STC 8+0.15s</div>
+          <pre class="test-code"><code>
+Elo   | 24.0 +/- 10.9
+Games | total: 3000, W: 1249, L: 1042, D: 709
+Score | 0.534, LOS: 100.0 %, draw ratio: 23.6 %
           </code></pre>
         </div>
 
@@ -399,7 +437,7 @@ no tests carried out yet
         <div class="test-block">
           <div class="test-title"></div>
           <pre class="test-code"><code>
-This release seems to be slightly regressing. I am working on the issue.
+This release seems to be slightly regressing. No large-scale tests have been conducted.
           </code></pre>
         </div>
       </div>
