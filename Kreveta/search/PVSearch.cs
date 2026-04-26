@@ -812,6 +812,9 @@ internal static unsafe class PVSearch {
                 LastMove        = curMove
             };
             
+            // reset the child pv
+            _pvLen[ss.Ply + 1] = 0;
+            
             // perform the full search. if we are in a pv node, the full search is also pv. in non pv nodes
             // the search is non pv. we can also get here after LMP fails, but even then the rules apply
             fullSearchScore = pvNode
