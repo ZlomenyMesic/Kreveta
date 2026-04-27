@@ -19,7 +19,14 @@ using System.Linq;
 
 namespace Kreveta.search;
 
+// this class doesn't perform any searches, but it controls the actual search, that is
+// present in PVSearch.cs. this class controls the time spent, search depth, aspiration
+// windows, etc., and prints search info periodically. it also gathers and outputs the
+// search results, such as the best move, or different statistics
 internal static class PVSControl {
+    
+    // searching deeper than this hard-coded depth is not allowed, as the
+    // PV and accumulator stacks don't support plies higher than circa 128
     internal const int DefaultMaxDepth = 100;
 
     // maximum search depth allowed in this search
@@ -29,20 +36,22 @@ internal static class PVSControl {
     // best move found so far
     private static Move BestMove;
 
+    // time spent during the current iteration, and the
+    // total time spent excluding the current iteration
     private static long CurElapsed;
     private static long PrevElapsed;
 
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    private static double  PVChanges;  // number of changes of the best move
-    private static double  ScoreDiffs; // sum of differences of scores between iterations
-    private static int     PrevScore;
+    // some stuff we measure for aspiration windows
+    private  static double PVChanges;  // number of changes of the best move
+    private  static double ScoreDiffs; // sum of differences of scores between iterations
+    private  static int    PrevScore;
     internal static double LastInstability;
 
-    // -1 = aspiration window search failed low
-    //  1 = failed high
-    private static int AspirationFail;
+    // the result of the previous aspiration search
+    private static AspirationFail AspFail;
 
     internal static Stopwatch Stopwatch = null!;
 
@@ -51,7 +60,7 @@ internal static class PVSControl {
         CurNodesLimit = (ulong)nodesLimit;
         
         if (depth > CurMaxDepth)
-            UCI.Log("info string depth may not exceed 100: using the DefaultMaxDepth limit");
+            UCI.Log($"info string depth may not exceed {DefaultMaxDepth}: using the {nameof(DefaultMaxDepth)} limit");
         
         // start iterative deepening
         IterativeDeepeningLoop(bench);
@@ -92,8 +101,9 @@ internal static class PVSControl {
 
             PVSearch.NextBestMove = default;
 
-            Window aspiration   = Window.Infinite;
-            bool   isAspiration = false;
+            int  aspirationAlpha = short.MinValue;
+            int  aspirationBeta  = short.MaxValue;
+            bool isAspiration    = false;
             
             // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.69;
@@ -118,44 +128,40 @@ internal static class PVSControl {
                 int delta = 38 - (int)(totalInstability * 0.97)
                                + Math.Abs(PrevScore) / 52;
 
-                aspiration = new Window(
-                    alpha: (short)(PVSearch.PVScore - delta),
-                    beta:  (short)(PVSearch.PVScore + delta));
+                aspirationAlpha = PVSearch.PVScore - delta;
+                aspirationBeta  = PVSearch.PVScore + delta;
 
-                switch (AspirationFail) {
-                    case -1: aspiration.Alpha = short.MinValue; break;
-                    case  1: aspiration.Beta  = short.MaxValue; break;
+                // if the previous aspiration search failed outside bounds,
+                // make the respective bound infinite not to repeat such error
+                switch (AspFail) {
+                    case AspirationFail.FAIL_LOW:  aspirationAlpha = short.MinValue; break;
+                    case AspirationFail.FAIL_HIGH: aspirationBeta  = short.MaxValue; break;
                 }
 
                 isAspiration = true;
             }
             
             // search at a larger depth
-            PVSearch.SearchDeeper(aspiration);
+            PVSearch.SearchDeeper(aspirationAlpha, aspirationBeta);
 
             // search aborted - don't print current iteration result
-            if (PVSearch.Abort)
-                break;
+            if (PVSearch.Abort) break;
                 
-            CurElapsed     = Stopwatch.ElapsedMilliseconds - PrevElapsed;
-            AspirationFail = 0;
+            CurElapsed = Stopwatch.ElapsedMilliseconds - PrevElapsed;
+            AspFail    = AspirationFail.NONE;
 
-            // aspiration window search failed low
-            if (isAspiration && PVSearch.PVScore <= aspiration.Alpha) 
-                AspirationFail = -1;
-            
-            // failed high
-            if (isAspiration && PVSearch.PVScore >= aspiration.Beta)
-                AspirationFail = 1;
+            // aspiration window search failed low/high
+            if (isAspiration && PVSearch.PVScore <= aspirationAlpha) AspFail = AspirationFail.FAIL_LOW;
+            if (isAspiration && PVSearch.PVScore >= aspirationBeta)  AspFail = AspirationFail.FAIL_HIGH;
 
-            if (AspirationFail != 0) {
+            if (AspFail != AspirationFail.NONE) {
                 PrevScore   = PVSearch.PVScore;
                 PrevElapsed = Stopwatch.ElapsedMilliseconds;
 
                 continue;
             }
 
-            // print the results to the console and save the first pv node
+            // print the results to the console and save the first pv move
             GetResult();
             
             ScoreDiffs += Math.Min(1000, Math.Abs(PVSearch.PVScore - PrevScore));
@@ -190,7 +196,7 @@ internal static class PVSControl {
         
         // even if the search was aborted during the latest iteration,
         // as long as we have found a good move, it can be trusted
-        if (PVSearch.NextBestMove != default && AspirationFail == 0)
+        if (PVSearch.NextBestMove != default && AspFail == AspirationFail.NONE)
             BestMove = PVSearch.NextBestMove;
 
         // in very rare cases if the search is so short that not even a depth
@@ -220,13 +226,14 @@ internal static class PVSControl {
         // (not the next iteration of the current one)
         PVSearch.Reset();
         
-        TotalNodes     = 0UL;
-        PVChanges      = 0;
-        PrevScore      = 0;
-        ScoreDiffs     = 0;
-        BestMove       = default;
-        AspirationFail = 0;
+        TotalNodes = 0UL;
+        PVChanges  = 0;
+        PrevScore  = 0;
+        ScoreDiffs = 0;
+        BestMove   = default;
+        AspFail    = AspirationFail.NONE;
 
+        // let bench know the search is finished
         if (bench) Bench.Finished = true;
     }
 

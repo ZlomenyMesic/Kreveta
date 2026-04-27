@@ -93,7 +93,7 @@ internal static unsafe partial class TranspositionTable {
     }
 
     // store a position in the table. the best move doesn't have to be specified
-    internal static void Store(ulong hash, sbyte depth, int ply, Window window, short score, Move bestMove) {
+    internal static void Store(ulong hash, sbyte depth, int ply, int alpha, int beta, short score, Move bestMove) {
         
         // the UCI option Clear Hash is supposed to clear the TT. since the engine
         // runs on two threads, instead of clearing it just sets this flag, and
@@ -185,13 +185,13 @@ internal static unsafe partial class TranspositionTable {
             entry.Flags |= ScoreFlags.SCORE_EXACT;
         }
 
-        else if (score >= window.Beta) {
+        else if (score >= beta) {
             entry.Flags |= ScoreFlags.LOWER_BOUND;
-            entry.Score = window.Beta;
+            entry.Score = (short)beta;
 
-        } else if (score <= window.Alpha) {
+        } else if (score <= alpha) {
             entry.Flags |= ScoreFlags.UPPER_BOUND;
-            entry.Score = window.Alpha;
+            entry.Score = (short)alpha;
 
         } else {
             entry.Flags |= ScoreFlags.SCORE_EXACT;
@@ -244,7 +244,7 @@ internal static unsafe partial class TranspositionTable {
         return true;
     }
     
-    internal static bool TryGetScore(ulong hash, int depth, int ply, Window window, out short ttScore, out Move ttMove) {
+    internal static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out short ttScore, out Move ttMove) {
         ttScore = 0;
         ttMove  = default;
 
@@ -271,8 +271,8 @@ internal static unsafe partial class TranspositionTable {
         // lower and upper bound scores are only returned when
         // they fall outside the search window as labeled
         if (entry.Flags.HasFlag(ScoreFlags.SCORE_EXACT)
-            || entry.Flags.HasFlag(ScoreFlags.UPPER_BOUND) && ttScore <= window.Alpha
-            || entry.Flags.HasFlag(ScoreFlags.LOWER_BOUND) && ttScore >= window.Beta) {
+            || entry.Flags.HasFlag(ScoreFlags.UPPER_BOUND) && ttScore <= alpha
+            || entry.Flags.HasFlag(ScoreFlags.LOWER_BOUND) && ttScore >= beta) {
 
             TTHits++;
             return true;

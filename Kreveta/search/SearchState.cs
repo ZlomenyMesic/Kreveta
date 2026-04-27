@@ -23,9 +23,6 @@ internal ref struct SearchState {
     // used to restrict certain reductions/extensions
     internal sbyte PriorReductions;
     
-    // the current alpha-beta score bounds
-    internal Window Window;
-    
     // the previous move played
     internal Move LastMove;
 
@@ -35,11 +32,10 @@ internal ref struct SearchState {
     // is this position a part of the previous principal variation?
     internal bool FollowPV;
 
-    internal SearchState(sbyte ply, sbyte depth, sbyte priorReductions, Window window, Move lastMove, Move excludedMove, bool followPv) {
+    internal SearchState(sbyte ply, sbyte depth, sbyte priorReductions, Move lastMove, Move excludedMove, bool followPv) {
         Ply             = ply;
         Depth           = depth;
         PriorReductions = priorReductions;
-        Window          = window;
         LastMove        = lastMove;
         ExcludedMove    = excludedMove;
         FollowPV        = followPv;

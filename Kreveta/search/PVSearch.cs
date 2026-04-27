@@ -74,7 +74,7 @@ internal static unsafe class PVSearch {
            || PVSControl.TotalNodes + CurNodes >= PVSControl.CurNodesLimit;
 
     // increase the depth and do a re-search
-    internal static void SearchDeeper(Window aspiration) {
+    internal static void SearchDeeper(int aspirationAlpha, int aspirationBeta) {
         CurIterDepth++;
 
         // reset total nodes
@@ -110,14 +110,13 @@ internal static unsafe class PVSearch {
             ply:             0, 
             depth:           (sbyte)CurIterDepth,
             priorReductions: 0,
-            window:          aspiration,
             lastMove:        default,
             excludedMove:    default,
             followPv:        true
         );
 
         // actual start of the search tree
-        PVScore = Search<RootNode>(ref Game.Board, defaultSS, false, false);
+        PVScore = Search<RootNode>(ref Game.Board, aspirationAlpha, aspirationBeta, defaultSS, false, false);
         PV      = _pvLen[0] > 0 ? _pvTable[0][.. _pvLen[0]] : [];
 
         PVSControl.TotalNodes += CurNodes;
@@ -164,7 +163,7 @@ internal static unsafe class PVSearch {
         // loop all pv-nodes
         for (int i = 0; i < pv.Length; i++) {
             // store the pv-node
-            TT.Store(board.Hash, (sbyte)depth--, i, new Window(short.MinValue, short.MaxValue), PVScore, pv[i]);
+            TT.Store(board.Hash, (sbyte)depth--, i, short.MinValue, short.MaxValue, PVScore, pv[i]);
 
             // play along the pv to store correct positions as well
             board.PlayMove(pv[i], false);
@@ -173,27 +172,27 @@ internal static unsafe class PVSearch {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    private static short SearchNext<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode) 
+    private static short SearchNext<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool ignore3Fold, bool cutNode) 
         where NodeType : ISearchNodeType {
         
         // did we find the position and score?
         // also repeating positions cannot occur under 4 plies
-        if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, ss.Window, out short ttScore, out Move ttMove)) {
+        if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, alpha, beta, out short ttScore, out Move ttMove)) {
             
             // increase the TT move's history if it cuts beta
             if (ttMove != default)
-                StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, ss.Window);
+                StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, alpha, beta);
             
             // return just the score
             return ttScore;
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        short score    = Search<NodeType>(ref board, ss, ignore3Fold, cutNode);
+        short score    = Search<NodeType>(ref board, alpha, beta, ss, ignore3Fold, cutNode);
         Move  bestMove = _pvLen[ss.Ply] > 0 ? _pvTable[ss.Ply][0] : default;
         
         // store the found score and best move in tt
-        TT.Store(board.Hash, ss.Depth, ss.Ply, ss.Window, score, bestMove);
+        TT.Store(board.Hash, ss.Depth, ss.Ply, alpha, beta, score, bestMove);
         
         // store the current two-move sequence in countermove history - the previously
         // played move, and the best response (counter) to this move found by the search
@@ -202,7 +201,7 @@ internal static unsafe class PVSearch {
         
         // update this position's score in pawncorrhist. bounds have to be checked,
         // as a bound score is certainly not reliable enough to correct the eval
-        if (score > ss.Window.Alpha && score < ss.Window.Beta)
+        if (score > alpha && score < beta)
             Corrections.Update(board, score, ss.Depth);
 
         return score;
@@ -214,7 +213,7 @@ internal static unsafe class PVSearch {
     // of "tree" of possible future positions, and tracks the best possible path to
     // go. computing all positions is impossible, so different pruning and reduction
     // techniques are used to skip likely irrelevant branches
-    private static short Search<NodeType>(ref Board board, SearchState ss, bool ignore3Fold, bool cutNode)
+    private static short Search<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool ignore3Fold, bool cutNode)
         where NodeType : ISearchNodeType {
         
         bool rootNode = typeof(NodeType) == typeof(RootNode);
@@ -230,7 +229,7 @@ internal static unsafe class PVSearch {
         
         // we reached depth zero or lower => evaluate the leaf node though qsearch
         if (ss.Depth <= 0)
-            return QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, 64);
+            return QSearch.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
         
         // increase the nodes searched counter
         CurNodes++;
@@ -241,9 +240,9 @@ internal static unsafe class PVSearch {
         // 1. MATE DISTANCE PRUNING (~0 Elo)
         // if there's already an ensured mate found, we don't have to search
         // past the mate ply. this is applied to both winning and losing mates
-        int alpha = col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta;
-        if (Score.IsMate(alpha) && (col == Color.WHITE ? alpha > 0 : alpha < 0)) {
-            int matePly = Math.Abs(Score.GetMateInX(alpha));
+        int mdpAlpha = col == Color.WHITE ? alpha : beta;
+        if (Score.IsMate(mdpAlpha) && (col == Color.WHITE ? mdpAlpha > 0 : mdpAlpha < 0)) {
+            int matePly = Math.Abs(Score.GetMateInX(mdpAlpha));
             if (ss.Ply >= matePly)
                 return 0;
         }
@@ -261,29 +260,29 @@ internal static unsafe class PVSearch {
         // if tt score is reliable enough, it may be used for early cutoffs in
         // non-PV nodes, but only in case it strongly supports the node type
         int  cm = 26 + 18 * ss.Depth;
-        bool canCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= ss.Window.Alpha : ttScore - cm >= ss.Window.Beta)
-                      || cutNode && (col == Color.WHITE ? ttScore - cm >= ss.Window.Beta  : ttScore + cm <= ss.Window.Alpha);
+        bool canCutoff = allNode && (col == Color.WHITE ? ttScore + cm <= alpha : ttScore - cm >= beta)
+                      || cutNode && (col == Color.WHITE ? ttScore - cm >= beta  : ttScore + cm <= alpha);
         
         if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact
-                || ttUpperBound && ttScore <= ss.Window.Alpha
-                || ttLowerBound && ttScore >= ss.Window.Beta)) {
+                || ttUpperBound && ttScore <= alpha
+                || ttLowerBound && ttScore >= beta)) {
             
             // we know from the previous conditions that beta is only cut in allnodes
             if (cutNode && ttMoveExists)
-                StoreTTMoveHistory(col, ss.LastMove, ttMove, ss.Depth, false, ttScore, ss.Window);
+                StoreTTMoveHistory(col, ss.LastMove, ttMove, ss.Depth, false, ttScore, alpha, beta);
 
             return ttScore;
         }
         
         // is the tt score optimistic that we can raise alpha or cause a beta cutoff
         bool ttOptimistic = ttHit && (col == Color.WHITE 
-            ? (ttLowerBound || ttExact) && ttScore > ss.Window.Alpha
-            : (ttUpperBound || ttExact) && ttScore < ss.Window.Beta);
+            ? (ttLowerBound || ttExact) && ttScore > alpha
+            : (ttUpperBound || ttExact) && ttScore < beta);
         
         // is the tt score optimistic that we can cause a beta cutoff?
         bool ttBetaCutoff = ttHit && ttDepth >= ss.Depth - 2 && (col == Color.WHITE 
-            ? (ttLowerBound || ttExact) && ttScore >= ss.Window.Beta
-            : (ttUpperBound || ttExact) && ttScore <= ss.Window.Alpha);
+            ? (ttLowerBound || ttExact) && ttScore >= beta
+            : (ttUpperBound || ttExact) && ttScore <= alpha);
         
         // check whether we are still following the previous principal variation
         ss.FollowPV = ss.FollowPV && (rootNode || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
@@ -299,8 +298,8 @@ internal static unsafe class PVSearch {
         
         // fairly solid improving ideas
         parentImproving |= col == Color.WHITE 
-            ? staticEval >= ss.Window.Beta 
-            : staticEval <= ss.Window.Alpha;
+            ? staticEval >= beta 
+            : staticEval <= alpha;
         
         parentImproving &= !inCheck;
 
@@ -329,12 +328,12 @@ internal static unsafe class PVSearch {
             if (ttScoreAdjusted) margin  = margin * 19 / 20;
 
             if (col == Color.WHITE
-                    ? staticEval + margin < ss.Window.Alpha
-                    : staticEval - margin > ss.Window.Beta) {
+                    ? staticEval + margin < alpha
+                    : staticEval - margin > beta) {
 
                 // perform the quiescence search and ensure it actually fails low
-                short qEval = QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, 64);
-                if (col == Color.WHITE ? qEval <= ss.Window.Alpha : qEval >= ss.Window.Beta)
+                short qEval = QSearch.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
+                if (col == Color.WHITE ? qEval <= alpha : qEval >= beta)
                     return qEval;
             }
         }
@@ -346,11 +345,11 @@ internal static unsafe class PVSearch {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
             if (ttScoreAdjusted) margin  = margin * 15 / 16;
 
-            if (col == Color.WHITE && staticEval - margin > ss.Window.Beta)
-                return (short)((2 * ss.Window.Beta + staticEval) / 3);
+            if (col == Color.WHITE && staticEval - margin > beta)
+                return (short)((2 * beta + staticEval) / 3);
 
-            if (col == Color.BLACK && staticEval + margin < ss.Window.Alpha)
-                return (short)((2 * ss.Window.Alpha + staticEval) / 3);
+            if (col == Color.BLACK && staticEval + margin < alpha)
+                return (short)((2 * alpha + staticEval) / 3);
         }
         
         // 4. SMALL PROBCUT IDEA
@@ -358,8 +357,8 @@ internal static unsafe class PVSearch {
         // to cause the search to be skipped completely, we drop into quiescence search
         int probcutMargin = 523 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
         int probcutBeta   = col == Color.WHITE 
-            ? ss.Window.Beta  + probcutMargin 
-            : ss.Window.Alpha - probcutMargin;
+            ? beta  + probcutMargin 
+            : alpha - probcutMargin;
         
         // make sure the tt score is the correct bound
         if (ttHit && ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
@@ -368,7 +367,7 @@ internal static unsafe class PVSearch {
                 : (ttUpperBound || ttExact) && ttScore <= probcutBeta)) {
 
             // drop into quiescence search
-            return QSearch.Search(ref board, ss.Ply, ss.Window, CurIterDepth + 12, 64);
+            return QSearch.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
         }
         
         // 5. NULL MOVE PRUNING
@@ -385,13 +384,13 @@ internal static unsafe class PVSearch {
             // make sure static eval is over or at least close to beta to not
             // waste time searching positions, which probably won't fail high
             && (col == Color.WHITE
-                ? staticEval >= ss.Window.Beta  - nmpEvalMargin
-                : staticEval <= ss.Window.Alpha + nmpEvalMargin)) {
+                ? staticEval >= beta  - nmpEvalMargin
+                : staticEval <= alpha + nmpEvalMargin)) {
             
             // null window around beta
-            Window nullWindowBeta = col == Color.WHITE 
-                ? new Window((short)(ss.Window.Beta - 1), ss.Window.Beta)
-                : new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1));
+            var (nullAlpha, nullBeta) = col == Color.WHITE
+                ? (beta - 1, beta)
+                : (alpha, alpha + 1);
             
             // child with a move skipped
             var nullChild = board.Clone() with {
@@ -408,8 +407,8 @@ internal static unsafe class PVSearch {
 
             // scale reduction when eval is much over beta
             int delta = col == Color.WHITE
-                ? staticEval - ss.Window.Beta
-                : ss.Window.Alpha - staticEval;
+                ? staticEval - beta
+                : alpha - staticEval;
             
             // the actual depth reduction
             int R = 7 + ss.Depth / 3 
@@ -419,11 +418,11 @@ internal static unsafe class PVSearch {
             // perform the reduced search
             short nmpScore = SearchNext<NonPVNode>(
                 ref nullChild,
+                nullAlpha, nullBeta,
                 new SearchState(
                     ply:             (sbyte)(ss.Ply   + 1),
                     depth:           (sbyte)(ss.Depth - R),
                     priorReductions: ss.PriorReductions,
-                    window:          nullWindowBeta,
                     lastMove:        default,
                     excludedMove:    ss.ExcludedMove,
                     followPv:        false
@@ -434,8 +433,8 @@ internal static unsafe class PVSearch {
             
             // if we failed high, prune this node
             if (col == Color.WHITE
-                    ? nmpScore >= ss.Window.Beta
-                    : nmpScore <= ss.Window.Alpha) {
+                    ? nmpScore >= beta
+                    : nmpScore <= alpha) {
                 
                 // if verification search isn't needed, return the score
                 if (ss.Depth <= 22)
@@ -446,19 +445,20 @@ internal static unsafe class PVSearch {
                 MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;
 
                 // do the verification search
-                nmpScore = SearchNext<NonPVNode>(ref board,
+                nmpScore = SearchNext<NonPVNode>(
+                    ref board,
+                    nullAlpha, nullBeta,
                     ss with {
                         Depth  = (sbyte)(ss.Depth - R),
                         Ply    = (sbyte)(ss.Ply + 1),
-                        Window = nullWindowBeta,
                     }, ignore3Fold: false, cutNode: false);
 
                 MinNMPPly = temp;
 
                 // check once again
                 if (col == Color.WHITE
-                        ? nmpScore >= ss.Window.Beta
-                        : nmpScore <= ss.Window.Alpha)
+                        ? nmpScore >= beta
+                        : nmpScore <= alpha)
                     return nmpScore;
             }
         }
@@ -468,7 +468,7 @@ internal static unsafe class PVSearch {
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
         // the early iterations produces very wrong outputs
-        if (!ttMoveExists && !inCheck && ss.Window.Alpha + 1 < ss.Window.Beta
+        if (!ttMoveExists && !inCheck && alpha + 1 < beta
             && !ss.FollowPV && (pvNode && ss.Depth >= 5 || cutNode && ss.Depth >= 7) && ss.Ply >= 3) {
 
             ss.PriorReductions++;
@@ -598,14 +598,14 @@ internal static unsafe class PVSearch {
             bool improving = improvStack.IsImproving(ss.Ply + 1, col);
             
             improving |= col == Color.WHITE 
-                ? childStaticEval >= ss.Window.Beta 
-                : childStaticEval <= ss.Window.Alpha;
+                ? childStaticEval >= beta
+                : childStaticEval <= alpha;
             
             improving &= !inCheck;
 
             // is the current alpha bound a losing mate score?
-            bool isLosing = Score.IsMate(col == Color.WHITE ? ss.Window.Alpha : ss.Window.Beta)
-                            && (col == Color.WHITE ? ss.Window.Alpha < 0 : ss.Window.Beta > 0);
+            bool isLosing = Score.IsMate(col == Color.WHITE ? alpha : beta)
+                            && (col == Color.WHITE ? alpha < 0 : beta > 0);
 
             // uninteresting quiet moves that probably hang a piece
             bool hangsPiece = !isCapture && !givesCheck && curScore < -125 && see < 0;
@@ -641,8 +641,8 @@ internal static unsafe class PVSearch {
                 
                 // find the difference between alpha and static eval + margin
                 int diff = col == Color.WHITE 
-                    ? childStaticEval + margin - ss.Window.Alpha
-                    : ss.Window.Beta - childStaticEval + margin;
+                    ? childStaticEval + margin - alpha
+                    : beta - childStaticEval + margin;
 
                 weight++;
                 
@@ -676,10 +676,11 @@ internal static unsafe class PVSearch {
                 && !Score.IsMate(ttScore)) {
 
                 // the singular beta is the tt score minus a small margin
-                int sbOffset       = 47 + (ss.Depth - ttDepth);
-                var singularWindow = col == Color.WHITE
-                    ? new Window((short)(ttScore - sbOffset - 1), (short)(ttScore - sbOffset)) 
-                    : new Window((short)(ttScore + sbOffset),     (short)(ttScore + sbOffset + 1));
+                int sbOffset = 47 + (ss.Depth - ttDepth);
+                
+                var (singAlpha, singBeta) = col == Color.WHITE
+                    ? (ttScore - sbOffset - 1, ttScore - sbOffset)
+                    : (ttScore + sbOffset, ttScore + sbOffset + 1);
 
                 // it is important to exclude the tt move, as the following
                 // search is supposed to evaluate the position without it
@@ -687,10 +688,12 @@ internal static unsafe class PVSearch {
                 if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                 
                 // do the reduced, null-window search
-                short singScore = Search<NonPVNode>(ref board, ss with {
-                    Depth  = (sbyte)(ss.Depth * 2 / 5),
-                    Window = singularWindow,
-                }, ignore3Fold, cutNode);
+                short singScore = Search<NonPVNode>(
+                    ref board,
+                    singAlpha, singBeta,
+                    ss with { Depth  = (sbyte)(ss.Depth * 2 / 5) },
+                    ignore3Fold, cutNode
+                );
                 
                 if (!ignore3Fold) ThreeFold.AddAndCheck(child.Hash);
                 ss.ExcludedMove = default;
@@ -717,7 +720,7 @@ internal static unsafe class PVSearch {
                 // over the current beta, the node is pruned, as despite not having access to
                 // the best move (tt move), we still failed high
                 else if (!Score.IsMate(singScore) 
-                         && (col == Color.WHITE ? singScore >= ss.Window.Beta : singScore <= ss.Window.Alpha)) {
+                         && (col == Color.WHITE ? singScore >= beta : singScore <= alpha)) {
                     
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     return singScore;
@@ -773,20 +776,22 @@ internal static unsafe class PVSearch {
                     + (hangsPiece                ? 1 : 0);
                 
                 // null window around alpha
-                var nullWindowAlpha = col == Color.WHITE
-                    ? new Window(ss.Window.Alpha, (short)(ss.Window.Alpha + 1)) 
-                    : new Window((short)(ss.Window.Beta - 1), ss.Window.Beta);
+                var (nullAlpha, nullBeta) = col == Color.WHITE
+                    ? (alpha, alpha + 1)
+                    : (beta - 1, beta);
 
                 // once again a reduced depth search
-                int score = SearchNext<NonPVNode>(ref child, 
-                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.PriorReductions, nullWindowAlpha, ss.LastMove, ss.ExcludedMove, false),
-                    ignore3Fold,
-                    cutNode: true
+                int score = SearchNext<NonPVNode>(
+                    ref child,
+                    nullAlpha, nullBeta,
+                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.PriorReductions, ss.LastMove, ss.ExcludedMove, false),
+                    ignore3Fold, cutNode: true
                 );
                 
+                // the late move indeed failed low as expected
                 if (col == Color.WHITE
-                        ? score <= ss.Window.Alpha
-                        : score >= ss.Window.Beta) {
+                        ? score <= alpha
+                        : score >= beta) {
 
                     // penalize the move in histories
                     int lmWeight = weight + Math.Max(0, ss.Depth - R);
@@ -818,8 +823,8 @@ internal static unsafe class PVSearch {
             // perform the full search. if we are in a pv node, the full search is also pv. in non pv nodes
             // the search is non pv. we can also get here after LMP fails, but even then the rules apply
             fullSearchScore = pvNode
-                ? SearchNext<PVNode>(   ref child, newSS, ignore3Fold, cutNode: false)
-                : SearchNext<NonPVNode>(ref child, newSS, ignore3Fold, cutNode: !cutNode);
+                ? SearchNext<PVNode>(   ref child, alpha, beta, newSS, ignore3Fold, cutNode: false)
+                : SearchNext<NonPVNode>(ref child, alpha, beta, newSS, ignore3Fold, cutNode: !cutNode);
             
             if (rootNode) {
                 if (Options.PlayWorst) fullSearchScore *= -1;
@@ -827,7 +832,7 @@ internal static unsafe class PVSearch {
                 // once search iterations start taking a bit longer, print intermediate
                 // results for each move: 'info ... currmove x ...'
                 if (PVSControl.TotalNodes >= 7_000_000 && !Abort)
-                    PrintCurrMoveInfo(col, fullSearchScore, ss.Window, curDepth, curMove, expandedNodes, ss.Ply + 1);
+                    PrintCurrMoveInfo(col, fullSearchScore, alpha, beta, curDepth, curMove, expandedNodes, ss.Ply + 1);
 
                 // when an elo level is set, limit deep mate paths
                 if (Options.UCI_LimitStrength && Score.IsMate(fullSearchScore)) {
@@ -845,9 +850,9 @@ internal static unsafe class PVSearch {
             if (!ignore3Fold) ThreeFold.Remove(child.Hash);
 
             // we somehow still failed low
-            if (col == Color.WHITE
-                    ? fullSearchScore <= ss.Window.Alpha
-                    : fullSearchScore >= ss.Window.Beta) {
+            if (col == Color.WHITE 
+                    ? fullSearchScore <= alpha
+                    : fullSearchScore >= beta) {
                 
                 StoreMoveHistory(col, ss.LastMove, curMove, isCapture, weight, curDepth);
             }
@@ -871,10 +876,15 @@ internal static unsafe class PVSearch {
                 if (ss.LastMove != default)
                     ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth / 2);
                 
-                // beta cutoff (see alpha-beta pruning); alpha is larger
-                // than beta, so we can stop searching this branch, because
-                // the other side wouldn't allow us to get here at all
-                if (ss.Window.TryCutoff(fullSearchScore, col)) {
+                // raise alpha, as the current score is higher than the previous alpha.
+                // we've already filtered away fail-lows in the previous if-statement
+                if (col == Color.WHITE) alpha = fullSearchScore;
+                else                    beta  = fullSearchScore;
+                
+                // beta cutoff (see alpha-beta pruning); alpha is larger than beta, so we
+                // can stop searching this branch, because the other side wouldn't allow
+                // us to get here at all
+                if (alpha >= beta) {
                     StoreMoveHistory(col, ss.LastMove, curMove, isCapture, 2 * weight, ss.Depth);
                     
                     // there are both quiet and capture killer tables,
@@ -904,9 +914,7 @@ internal static unsafe class PVSearch {
         }
         
         // otherwise return the bound score as usual
-        return col == Color.WHITE 
-            ? ss.Window.Alpha 
-            : ss.Window.Beta;
+        return (short)(col == Color.WHITE ? alpha : beta);
     }
 
     // modify quiet, capture, pieceto, and continuation histories for a certain
@@ -930,13 +938,13 @@ internal static unsafe class PVSearch {
     // is modified. although no search was conducted, if the cutoff hadn't happened,
     // the move would be searched, and the history would be changed either way
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void StoreTTMoveHistory(Color col, Move previous, Move ttMove, int depth, bool pvNode, int ttScore, Window window) {
+    private static void StoreTTMoveHistory(Color col, Move previous, Move ttMove, int depth, bool pvNode, int ttScore, int alpha, int beta) {
         
         // as opposed to regular history weights, for the TT move
         // the weight scales with by how much beta was exceeded
         int delta = col == Color.WHITE
-            ? ttScore - window.Beta 
-            : window.Alpha - ttScore;
+            ? ttScore - beta 
+            : alpha - ttScore;
         
         // of course don't bother with histories unless beta was cut
         if (delta >= 0) {
@@ -952,35 +960,33 @@ internal static unsafe class PVSearch {
     }
 
     // print 'info currmove ...' once search iterations are a bit longer 
-    private static void PrintCurrMoveInfo(Color col, short score, Window window, int depth, Move curMove, int expandedNodes, int childPly) {
+    private static void PrintCurrMoveInfo(Color col, short score, int alpha, int beta, int depth, Move curMove, int expandedNodes, int childPly) {
         var info = $"info depth {depth + 1} currmove {curMove.ToLAN()} currmovenumber {expandedNodes}";
                 
         // for the first move, we print the score every time, and also
         // its bound (lowerbound/upperbound) or no bound if exact. later
         // moves only print a score if they raise alpha or cause a cutoff
         if (expandedNodes == 1 || (col == Color.WHITE 
-                ? score > window.Alpha 
-                : score < window.Beta)) {
+                ? score > alpha
+                : score < beta)) {
+            
+            bool engineWhite = Game.EngineColor == Color.WHITE;
 
             // this magic is explained in PVSControl
             int mateScore = Score.GetMateInX(score);
             mateScore += Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
-            mateScore /= Game.EngineColor == Color.WHITE ? 2 : -2;
+            mateScore /= engineWhite ? 2 : -2;
                     
             string correctedScore = Score.IsMate(score) 
                 ? $"mate {mateScore}"
-                : $"cp {Score.LimitScore(score) 
-                        * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
+                : $"cp {Score.LimitScore(score) * (engineWhite ? 1 : -1)}";
                     
             info += $" score {correctedScore}";
                     
             // add lowerbound/upperbound. this has to be corrected based on engine
             // color, as we are in a minimax framework, meaning it's color-relative
-            if (score <= window.Alpha)
-                info += Game.EngineColor == Color.WHITE ? " upperbound" : " lowerbound";
-                    
-            else if (score >= window.Beta)
-                info += Game.EngineColor == Color.WHITE ? " lowerbound" : " upperbound";
+            if      (score <= alpha) info += engineWhite ? " upperbound" : " lowerbound";
+            else if (score >= beta)  info += engineWhite ? " lowerbound" : " upperbound";
             
             // if there is a PV, print it as well
             if (_pvLen[childPly] > 0) {

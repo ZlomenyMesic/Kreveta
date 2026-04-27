@@ -23,7 +23,7 @@ internal static class QSearch {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where there's for instancea hanging queen (horizon effect)
-    internal static short Search(ref Board board, int ply, Window window, int curQSDepth, int prevSq) {
+    internal static short Search(ref Board board, int ply, int alpha, int beta, int curQSDepth, int prevSq) {
         
         // exit the search if we should abort
         if (PVSearch.Abort && PVSearch.CurIterDepth > 1)
@@ -54,16 +54,15 @@ internal static class QSearch {
         // static evaluation and only then search. we cannot do this when in check, as
         // we would be searching all evasions, breaking the initial assumption
         if (!inCheck) {
-            short corr = Corrections.Get(in board);
-            
-            int newAlpha = standPat + corr;
+            short corr     = Corrections.Get(in board);
+            int   newAlpha = standPat + corr;
             
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
-            if (window.TryCutoff((short)newAlpha, col))
-                return col == Color.WHITE
-                    ? window.Alpha
-                    : window.Beta;
+            if (col == Color.WHITE) alpha = Math.Max(alpha, newAlpha);
+            else                    beta  = Math.Min(beta,  newAlpha);
+
+            if (alpha >= beta) return (short)newAlpha;
         }
 
         // if we aren't in check we only generate captures
@@ -95,7 +94,7 @@ internal static class QSearch {
             // 3. MOVECOUNT PRUNING
             // late captures are simply skipped, unless being a recapture
             if (!inCheck && i > 3 && ply >= PVSearch.CurIterDepth + 4 && moves[i].End != prevSq
-                && !Score.IsMate(col == Color.WHITE ? window.Alpha : window.Beta)) {
+                && !Score.IsMate(col == Color.WHITE ? alpha : beta)) {
                 
                 PVSearch.CurNodes++;
                 continue;
@@ -115,8 +114,8 @@ internal static class QSearch {
 
                 // did we fail low?
                 if (col == Color.WHITE
-                        ? standPat + delta <= window.Alpha
-                        : standPat - delta >= window.Beta) {
+                        ? standPat + delta <= alpha
+                        : standPat - delta >= beta) {
                     
                     PVSearch.CurNodes++;
                     continue;
@@ -127,15 +126,19 @@ internal static class QSearch {
             child.PlayMove(moves[i], true);
 
             // full search
-            short score = Search(ref child, ply + 1, window, curQSDepth, moves[i].End);
+            short score = Search(ref child, ply + 1, alpha, beta, curQSDepth, moves[i].End);
+            
+            // raise alpha if new score is higher than previous alpha
+            if (col == Color.WHITE) alpha = Math.Max(alpha, score);
+            else                    beta  = Math.Min(beta,  score);
 
             // try to get a beta cutoff
-            if (window.TryCutoff(score, col)) {
+            if (alpha >= beta) {
                 
                 // we want to store this in the tt not to retrieve the score,
                 // but to retrieve the best move for better move ordering
                 if (ply <= PVSearch.CurIterDepth + 2)
-                    TT.Store(board.Hash, -1, ply, window, score, moves[i]);
+                    TT.Store(board.Hash, -1, ply, alpha, beta, score, moves[i]);
                 
                 CaptureHistory.ChangeRep(moves[i], weight: 1);
 
@@ -144,9 +147,7 @@ internal static class QSearch {
             }
         }
 
-        // return the bound score
-        return col == Color.WHITE
-            ? window.Alpha
-            : window.Beta;
+        // return the alpha bound score
+        return (short)(col == Color.WHITE ? alpha : beta);
     }
 }
