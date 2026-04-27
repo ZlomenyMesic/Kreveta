@@ -87,6 +87,9 @@ internal static class Eval {
              */
             combined += Consts.RNG.Next(-NoiseAmplitude, NoiseAmplitude + 1);
         }
+
+        // negamax requires the static eval to be side-to-move-relative
+        combined *= board.SideToMove == Color.WHITE ? 1 : -1;
         
         return (short)combined;
     }
@@ -303,7 +306,7 @@ internal static class Eval {
     // optimized and more readable way
     internal static void Trace(in Board board) {
         UCI.Log($"info string NNUE evaluation using {Program.Network}");
-        UCI.Log( "info string all scores are side-to-move-relative");
+        UCI.Log( "info string all scores are white-relative");
         
         //int pcount = (int)ulong.PopCount(board.Occupied);
         int phase  = board.GamePhase();
@@ -334,13 +337,6 @@ internal static class Eval {
         // and combined this makes the classical part of evaluation
         int total = material + pawns + kings + other;
         
-        int colMult = Game.EngineColor == Color.WHITE ? 1 : -1;
-        material *= colMult;
-        pawns    *= colMult;
-        kings    *= colMult;
-        other    *= colMult;
-        total    *= colMult;
-        
         UCI.Log("\n +--------------------------+-------+");
         UCI.Log(  " | Component                | Value |");
         UCI.Log(  " +--------------------------+-------+");
@@ -355,13 +351,13 @@ internal static class Eval {
         // then there's the NNUE part, which is already calculated inside the board
         UCI.Log(  " |                          |       |", nl: true);
         UCI.Log(  " | NNUE (trained network):  | ",        nl: false);
-        UCI.Log($"{Score.ToRegular(board.NNUEEval.Score * colMult)} |");
+        UCI.Log($"{Score.ToRegular(board.NNUEEval.Score)} |");
         UCI.Log(  " +--------------------------+-------+");
         
         // and for the final output we also use the eval stored in the board, as it uses the
         // same factors already mentioned, but scales them and applies 50-move rule diminishing
         UCI.Log(  " | Combined & scaled:       | ", nl: false);
-        UCI.Log($"{Score.ToRegular(board.StaticEval * colMult)} |");
+        UCI.Log($"{Score.ToRegular(board.StaticEval * (board.SideToMove == Color.WHITE ? 1 : -1))} |");
         UCI.Log(  " +--------------------------+-------+\n");
     }
 }

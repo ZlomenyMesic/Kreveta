@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.search;
+namespace Kreveta.search.helpers;
 
 internal static class ThreeFold {
     private static readonly Dictionary<ulong, byte> _positions = [];

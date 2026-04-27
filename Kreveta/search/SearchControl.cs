@@ -6,6 +6,7 @@
 using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
+using Kreveta.search.helpers;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 using Kreveta.uci.options;
@@ -23,7 +24,7 @@ namespace Kreveta.search;
 // present in PVSearch.cs. this class controls the time spent, search depth, aspiration
 // windows, etc., and prints search info periodically. it also gathers and outputs the
 // search results, such as the best move, or different statistics
-internal static class PVSControl {
+internal static class SearchControl {
     
     // searching deeper than this hard-coded depth is not allowed, as the
     // PV and accumulator stacks don't support plies higher than circa 128
@@ -84,7 +85,7 @@ internal static class PVSControl {
         
         // null move pruning starts at later plies when closer to endgame
         int pieceCount = (int)ulong.PopCount(Game.Board.Occupied);
-        PVSearch.MinNMPPly = Math.Max(
+        PVS.MinNMPPly = Math.Max(
             Math.Max(3, (32 - pieceCount) / 6),
             Game.Ply / 25
         );
@@ -95,15 +96,15 @@ internal static class PVSControl {
         );
 
         // we still have time and are allowed to search deeper
-        while (PVSearch.CurIterDepth            < CurMaxDepth
+        while (PVS.CurIterDepth            < CurMaxDepth
                && Stopwatch.ElapsedMilliseconds < TM.TimeBudget
                && TotalNodes                    < CurNodesLimit) {
 
-            PVSearch.NextBestMove = default;
+            PVS.NextBestMove = default;
 
             int  aspirationAlpha = short.MinValue;
             int  aspirationBeta  = short.MaxValue;
-            bool isAspiration    = false;
+            bool useAspiration   = false;
             
             // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.69;
@@ -111,8 +112,8 @@ internal static class PVSControl {
             
             // calculate the instability of the best move, and the score
             double pvInstability    = PVChanges * PVChanges * PVChanges * 1.46;
-            double scoreInstability = PVSearch.CurIterDepth != 0
-                ? ScoreDiffs / PVSearch.CurIterDepth : 0.0;
+            double scoreInstability = PVS.CurIterDepth != 0
+                ? ScoreDiffs / PVS.CurIterDepth : 0.0;
 
             // somehow combine the two into a total search instability metric.
             // it starts negative, as when the search is stable, the time budget
@@ -121,15 +122,15 @@ internal static class PVSControl {
             LastInstability         = totalInstability;
             
             // try to reduce or increase the time budget based on instability
-            if (PVSearch.CurIterDepth > 3 && totalInstability != 0.0) 
-                TM.AccountForInstability(totalInstability, PVSearch.CurIterDepth);
+            if (PVS.CurIterDepth > 3 && totalInstability != 0.0) 
+                TM.AccountForInstability(totalInstability, PVS.CurIterDepth);
             
-            if (PVSearch.CurIterDepth > 3 && totalInstability <= -2.49) {
+            if (PVS.CurIterDepth > 3 && totalInstability <= -2.49) {
                 int delta = 38 - (int)(totalInstability * 0.97)
                                + Math.Abs(PrevScore) / 52;
 
-                aspirationAlpha = PVSearch.PVScore - delta;
-                aspirationBeta  = PVSearch.PVScore + delta;
+                aspirationAlpha = PVS.PVScore - delta;
+                aspirationBeta  = PVS.PVScore + delta;
 
                 // if the previous aspiration search failed outside bounds,
                 // make the respective bound infinite not to repeat such error
@@ -138,24 +139,24 @@ internal static class PVSControl {
                     case AspirationFail.FAIL_HIGH: aspirationBeta  = short.MaxValue; break;
                 }
 
-                isAspiration = true;
+                useAspiration = true;
             }
             
             // search at a larger depth
-            PVSearch.SearchDeeper(aspirationAlpha, aspirationBeta);
+            PVS.SearchDeeper(aspirationAlpha, aspirationBeta);
 
             // search aborted - don't print current iteration result
-            if (PVSearch.Abort) break;
+            if (PVS.Abort) break;
                 
             CurElapsed = Stopwatch.ElapsedMilliseconds - PrevElapsed;
             AspFail    = AspirationFail.NONE;
 
             // aspiration window search failed low/high
-            if (isAspiration && PVSearch.PVScore <= aspirationAlpha) AspFail = AspirationFail.FAIL_LOW;
-            if (isAspiration && PVSearch.PVScore >= aspirationBeta)  AspFail = AspirationFail.FAIL_HIGH;
+            if (useAspiration && PVS.PVScore <= aspirationAlpha) AspFail = AspirationFail.FAIL_LOW;
+            if (useAspiration && PVS.PVScore >= aspirationBeta)  AspFail = AspirationFail.FAIL_HIGH;
 
             if (AspFail != AspirationFail.NONE) {
-                PrevScore   = PVSearch.PVScore;
+                PrevScore   = PVS.PVScore;
                 PrevElapsed = Stopwatch.ElapsedMilliseconds;
 
                 continue;
@@ -164,22 +165,22 @@ internal static class PVSControl {
             // print the results to the console and save the first pv move
             GetResult();
             
-            ScoreDiffs += Math.Min(1000, Math.Abs(PVSearch.PVScore - PrevScore));
-            PrevScore   = PVSearch.PVScore;
+            ScoreDiffs += Math.Min(1000, Math.Abs(PVS.PVScore - PrevScore));
+            PrevScore   = PVS.PVScore;
 
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we
             // can stop the search to avoid wasting time
-            if (Game.FullGame && Score.IsMate(PVSearch.PVScore))
+            if (Game.FullGame && Score.IsMate(PVS.PVScore))
                 break;
             
             PrevElapsed = Stopwatch.ElapsedMilliseconds;
         }
 
         // fastchess wants us to print last info when force-stopping a search
-        if (PVSearch.Abort) {
-            if (PVSearch.PVScore == 0)
-                PVSearch.PVScore = (short)PrevScore;
+        if (PVS.Abort) {
+            if (PVS.PVScore == 0)
+                PVS.PVScore = (short)PrevScore;
             
             GetResult();
         }
@@ -196,8 +197,8 @@ internal static class PVSControl {
         
         // even if the search was aborted during the latest iteration,
         // as long as we have found a good move, it can be trusted
-        if (PVSearch.NextBestMove != default && AspFail == AspirationFail.NONE)
-            BestMove = PVSearch.NextBestMove;
+        if (PVS.NextBestMove != default && AspFail == AspirationFail.NONE)
+            BestMove = PVS.NextBestMove;
 
         // in very rare cases if the search is so short that not even a depth
         // 1 iteration could be finished (such as 'go nodes 1' on startpos),
@@ -215,7 +216,7 @@ internal static class PVSControl {
         
         // store this score for the next turn when playing a full game
         if (Game.FullGame)
-            Game.PreviousScore = PVSearch.PVScore;
+            Game.PreviousScore = PVS.PVScore;
 
         // bench needs the node count
         if (bench) Bench.Nodes += TotalNodes;
@@ -224,7 +225,7 @@ internal static class PVSControl {
         
         // reset all counters for the next search
         // (not the next iteration of the current one)
-        PVSearch.Reset();
+        PVS.Reset();
         
         TotalNodes = 0UL;
         PVChanges  = 0;
@@ -240,56 +241,54 @@ internal static class PVSControl {
     private static void GetResult() {
 
         // save the first pv node as the current best move
-        if (BestMove != default && PVSearch.PV.Length != 0 && BestMove != PVSearch.PV[0])
+        if (BestMove != default && PVS.PV.Length != 0 && BestMove != PVS.PV[0])
             PVChanges++;
         
         // PV becomes unreliable when aborting the search
-        if (!PVSearch.Abort && PVSearch.PV.Length != 0)
-            BestMove = PVSearch.PV[0];
+        if (!PVS.Abort && PVS.PV.Length != 0)
+            BestMove = PVS.PV[0];
         
         // check if we expect the opponent to capture one of
         // our pieces, and have an immediate obvious recapture
-        Game.TryStoreRecapture(PVSearch.PV, PVSearch.CurIterDepth);
+        Game.TryStoreRecapture(PVS.PV, PVS.CurIterDepth);
 
         // now there's a bit of magic with mate scores. our "mate in X" function
         // returns the number of plies until mate, but the conventional way to
         // note mate scores is actually the number of full moves.
-        int mateScore = Score.GetMateInX(PVSearch.PVScore);
+        int mateScore = Score.GetMateInX(PVS.PVScore);
         
         // add one if the score is odd to make it divisible by two
         mateScore += Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
 
-        // and then we divide the score by two to get the conventional "mate in X",
-        // while also multiplying it to make it relative to the engine, not color
-        mateScore /= Game.EngineColor == Color.WHITE ? 2 : -2;
+        // and then we divide the score by two to get the conventional "mate in X"
+        mateScore /= 2;
 
         // all the stuff above is done even if the score isn't mate. i'm just
         // too lazy to care, but i might modify it a bit in the future. so here
         // we just check whether the pv score is mate or not, and based on that
         // we either print the "mate in X" or the score in centipawns
-        string score = Score.IsMate(PVSearch.PVScore) 
+        string score = Score.IsMate(PVS.PVScore) 
             ? $"mate {mateScore}"
-            : $"cp {Score.LimitScore(PVSearch.PVScore) 
-                    * (Game.EngineColor == Color.WHITE ? 1 : -1)}";
+            : $"cp {Score.LimitScore(PVS.PVScore)}";
 
         // nodes per second (searched) - a widely used measure to approximate
         // an engine's strength or efficiency. we need to maximize these. in
         // early iterations the time may actually be less than a millisecond,
         // so we handle that by setting in to 1
         long time = CurElapsed != 0L ? CurElapsed : 1L;
-        int  nps  = (int)((float)PVSearch.CurNodes / time * 1000);
+        int  nps  = (int)((float)PVS.CurNodes / time * 1000);
 
         // we print the search info to the console
         string info = "info " +
 
                       // full search depth
-                      $"depth {PVSearch.CurIterDepth} " +
+                      $"depth {PVS.CurIterDepth} " +
 
                       // selective search depth - full search + qsearch
-                      $"seldepth {PVSearch.AchievedDepth} " +
+                      $"seldepth {PVS.AchievedDepth} " +
 
                       // nodes searched this iteration
-                      $"nodes {PVSearch.CurNodes} " +
+                      $"nodes {PVS.CurNodes} " +
 
                       // nodes per second
                       $"nps {nps} " +
@@ -308,8 +307,8 @@ internal static class PVSControl {
                       "pv";
 
         // print the actual moves in the pv
-        if (!PVSearch.Abort)
-            info = ElongatePV(PVSearch.PV).Aggregate(info,
+        if (!PVS.Abort)
+            info = ElongatePV(PVS.PV).Aggregate(info,
                 (current, move) => current + $" {move.ToLAN()}");
         else info += $" {BestMove.ToLAN()}";
 
@@ -341,7 +340,7 @@ internal static class PVSControl {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable
-            if (depth++ > PVSearch.CurIterDepth || ttMove == default)
+            if (depth++ > PVS.CurIterDepth || ttMove == default)
                 goto clearThreeFold;
                 
             board.PlayMove(ttMove, false);

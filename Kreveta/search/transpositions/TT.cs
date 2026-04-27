@@ -115,6 +115,7 @@ internal static unsafe partial class TranspositionTable {
 
         // go through the bucket content
         for (int i = 0; i < BucketSize; i++) {
+            
             // 1. if the exact same position is already stored, it's only overwritten
             // in case its evaluation is the result of a shallower search. we must
             // make sure to return if this is false to avoid storing it twice

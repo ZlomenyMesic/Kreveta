@@ -81,7 +81,7 @@ internal static class Program {
         MathApprox.Init();
         
         // pre-allocate PV tables
-        PVSearch.Init();
+        PVS.Init();
         
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position

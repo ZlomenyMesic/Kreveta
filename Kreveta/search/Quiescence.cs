@@ -16,7 +16,7 @@ using System;
 
 namespace Kreveta.search;
 
-internal static class QSearch {
+internal static class Quiescence {
 
     // QUIESCENCE SEARCH:
     // instead of immediately returning the static eval of leaf nodes in the main
@@ -26,23 +26,22 @@ internal static class QSearch {
     internal static short Search(ref Board board, int ply, int alpha, int beta, int curQSDepth, int prevSq) {
         
         // exit the search if we should abort
-        if (PVSearch.Abort && PVSearch.CurIterDepth > 1)
+        if (PVS.Abort && PVS.CurIterDepth > 1)
             return 0;
 
         // increment the node counter
-        PVSearch.CurNodes++;
+        PVS.CurNodes++;
 
         // this stores the highest achieved search depth in this
         // iteration. if we surpassed it, store it as the new one
-        if (ply > PVSearch.AchievedDepth)
-            PVSearch.AchievedDepth = ply;
+        if (ply > PVS.AchievedDepth)
+            PVS.AchievedDepth = ply;
 
         // we reached the maximum allowed depth, return the static eval
         if (ply >= curQSDepth)
             return board.StaticEval;
 
         // stand pat is just a fancy word for static eval
-        Color col      = board.SideToMove;
         bool  inCheck  = board.IsCheck;
         short standPat = board.StaticEval;
 
@@ -59,10 +58,10 @@ internal static class QSearch {
             
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
-            if (col == Color.WHITE) alpha = Math.Max(alpha, newAlpha);
-            else                    beta  = Math.Min(beta,  newAlpha);
-
-            if (alpha >= beta) return (short)newAlpha;
+            alpha = Math.Max(alpha, newAlpha);
+            
+            if (alpha >= beta)
+                return (short)alpha;
         }
 
         // if we aren't in check we only generate captures
@@ -77,13 +76,13 @@ internal static class QSearch {
             // but such cases shouldn't hurt the evaluation
             return !inCheck 
                 ? standPat
-                : Score.CreateMateScore(col, ply);
+                : Score.CreateMateScore(ply);
         }
 
         // 2. SEE PRUNING
         // when not in check, only captures are generated. the capture ordering
         // function takes a threshold, below which all captures are directly skipped.
-        int seeThreshold = (ply - PVSearch.CurIterDepth) / 8;
+        int seeThreshold = (ply - PVS.CurIterDepth) / 8;
 
         Span<int> seeScores = stackalloc int[count];
         if (!inCheck) count = SEE.OrderCaptures(in board, moves[..count], seeScores, seeThreshold);
@@ -93,10 +92,8 @@ internal static class QSearch {
             
             // 3. MOVECOUNT PRUNING
             // late captures are simply skipped, unless being a recapture
-            if (!inCheck && i > 3 && ply >= PVSearch.CurIterDepth + 4 && moves[i].End != prevSq
-                && !Score.IsMate(col == Color.WHITE ? alpha : beta)) {
-                
-                PVSearch.CurNodes++;
+            if (!inCheck && i > 3 && ply >= PVS.CurIterDepth + 4 && moves[i].End != prevSq && !Score.IsMate(alpha)) {
+                PVS.CurNodes++;
                 continue;
             }
             
@@ -104,7 +101,7 @@ internal static class QSearch {
             // very similar to futility pruning but makes use of the value of the currently
             // captured piece (or SEE score to be exact), which is added to the stand pat with
             // a margin, and if the eval still doesn't raise alpha, we prune this branch
-            if (!inCheck && ply >= PVSearch.CurIterDepth + 4) {
+            if (!inCheck && ply >= PVS.CurIterDepth + 4) {
                 int captured    = EvalTables.PieceValues[(int)moves[i].Capture];
                 int captureTerm = (2 * seeScores[i] + captured) / 3;
 
@@ -113,11 +110,8 @@ internal static class QSearch {
                 int delta = (curQSDepth - ply) * 77 + captureTerm;
 
                 // did we fail low?
-                if (col == Color.WHITE
-                        ? standPat + delta <= alpha
-                        : standPat - delta >= beta) {
-                    
-                    PVSearch.CurNodes++;
+                if (standPat + delta <= alpha) {
+                    PVS.CurNodes++;
                     continue;
                 }
             }
@@ -125,19 +119,18 @@ internal static class QSearch {
             Board child = board.Clone(ply + 1);
             child.PlayMove(moves[i], true);
 
-            // full search
-            short score = Search(ref child, ply + 1, alpha, beta, curQSDepth, moves[i].End);
+            // full child search
+            var score = (short)-Search(ref child, ply + 1, -beta, -alpha, curQSDepth, moves[i].End);
             
             // raise alpha if new score is higher than previous alpha
-            if (col == Color.WHITE) alpha = Math.Max(alpha, score);
-            else                    beta  = Math.Min(beta,  score);
+            alpha = Math.Max(alpha, score);
 
             // try to get a beta cutoff
             if (alpha >= beta) {
                 
                 // we want to store this in the tt not to retrieve the score,
                 // but to retrieve the best move for better move ordering
-                if (ply <= PVSearch.CurIterDepth + 2)
+                if (ply <= PVS.CurIterDepth + 2)
                     TT.Store(board.Hash, -1, ply, alpha, beta, score, moves[i]);
                 
                 CaptureHistory.ChangeRep(moves[i], weight: 1);
@@ -148,6 +141,6 @@ internal static class QSearch {
         }
 
         // return the alpha bound score
-        return (short)(col == Color.WHITE ? alpha : beta);
+        return (short)alpha;
     }
 }

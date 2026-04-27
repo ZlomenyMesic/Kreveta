@@ -4,7 +4,7 @@
 //
 
 // ReSharper disable InconsistentNaming
-namespace Kreveta.search;
+namespace Kreveta.search.helpers;
 
 internal interface ISearchNodeType;
 

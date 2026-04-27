@@ -5,7 +5,7 @@
 
 // ReSharper disable InconsistentNaming
 
-namespace Kreveta.search;
+namespace Kreveta.search.helpers;
 
 // when an aspiration window search is completed, the possibilities
 // are represented using this (whether the score exceeded bounds)

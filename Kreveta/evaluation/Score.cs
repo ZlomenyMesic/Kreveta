@@ -5,8 +5,6 @@
 
 #pragma warning disable CA1305
 
-using Kreveta.consts;
-
 using System;
 using System.Runtime.CompilerServices;
 
@@ -23,8 +21,8 @@ internal static class Score {
 
     // creates a new mate score relative to the number of plies
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short CreateMateScore(Color col, int ply)
-        => (short)((MateScoreDefault - ply) * (col == Color.WHITE ? -1 : 1));
+    internal static short CreateMateScore(int ply)
+        => (short)(-MateScoreDefault + ply);
 
     // checks whether the score falls above the mate score threshold
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

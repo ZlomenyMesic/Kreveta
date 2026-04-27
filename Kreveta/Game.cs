@@ -11,7 +11,7 @@ using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.nnue;
-using Kreveta.search;
+using Kreveta.search.helpers;
 using Kreveta.search.transpositions;
 using Kreveta.uci;
 

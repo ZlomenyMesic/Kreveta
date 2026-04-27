@@ -295,7 +295,7 @@ internal static partial class UCI {
         // this sets the time budget
         TM.ProcessTimeTokens(tokens);
 
-        int depth           = PVSControl.DefaultMaxDepth;
+        int depth           = SearchControl.DefaultMaxDepth;
         int depthTokenIndex = MemoryExtensions.IndexOf(tokens, "depth");
 
         // the depth keyword should be directly followed by a parsable token
@@ -360,7 +360,7 @@ internal static partial class UCI {
         // the search itself runs as a separate thread to allow processing
         // other commands while the search is running - this usually isn't
         // needed, but the "stop" command is very important
-        SearchThread = new Thread(() => PVSControl.StartSearch(depth, nodes, bench)) {
+        SearchThread = new Thread(() => SearchControl.StartSearch(depth, nodes, bench)) {
             Name     = $"{Program.Name}-{Program.Version}_Search",
             Priority = ThreadPriority.Highest,
         };
@@ -383,7 +383,7 @@ internal static partial class UCI {
 
         ShouldAbortSearch = false;
         
-        PVSearch.Reset();
+        PVS.Reset();
     }
 
     // on command 'moves' all legal moves are printed, sorted by piece
