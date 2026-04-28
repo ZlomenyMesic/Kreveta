@@ -203,11 +203,16 @@ internal static unsafe partial class TranspositionTable {
         Table[index + overwriteIndex] = entry;
     }
 
-    private static bool TryGetEntry(ulong hash, out Entry entry) {
+    internal static bool TryGetBestMove(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
+        ttMove  = default;
+        ttScore = 0;
+        ttFlags = default;
+        ttDepth = 0;
+        
         // find the corresponding bucket
         int index  = HashIndex(hash);
         var bucket = new ReadOnlySpan<Entry>(Table + index, BucketSize);
-        entry      = default;
+        var entry  = default(Entry);
 
         // look through the bucket and try to find this position
         for (int i = 0; i < BucketSize; i++) {
@@ -218,16 +223,7 @@ internal static unsafe partial class TranspositionTable {
         }
 
         // check whether the position is actually stored
-        return entry.Hash != 0UL;
-    }
-
-    internal static bool TryGetBestMove(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
-        ttMove  = default;
-        ttScore = 0;
-        ttFlags = default;
-        ttDepth = 0;
-
-        if (!TryGetEntry(hash, out var entry))
+        if (entry.Hash == 0UL)
             return false;
 
         ttMove  = entry.BestMove;
@@ -243,42 +239,5 @@ internal static unsafe partial class TranspositionTable {
         
         TTHits++;
         return true;
-    }
-    
-    internal static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out short ttScore, out Move ttMove) {
-        ttScore = 0;
-        ttMove  = default;
-
-        if (!TryGetEntry(hash, out var entry))
-            return false;
-
-        // don't return a score if the eval stored is a result of a shallower search
-        if (entry.Depth < depth)
-            return false;
-
-        ttScore = entry.Score;
-        ttMove  = entry.BestMove;
-        
-        // when retrieving the eval, we do the opposite of what is
-        // described above - we add the current ply to the "mate in X"
-        // to make it relative to the root node once again
-        if (Score.IsMate(ttScore)) {
-            ttScore -= (short)(Math.Sign(ttScore) * ply);
-
-            TTHits++;
-            return true;
-        }
-        
-        // lower and upper bound scores are only returned when
-        // they fall outside the search window as labeled
-        if (entry.Flags.HasFlag(ScoreFlags.SCORE_EXACT)
-            || entry.Flags.HasFlag(ScoreFlags.UPPER_BOUND) && ttScore <= alpha
-            || entry.Flags.HasFlag(ScoreFlags.LOWER_BOUND) && ttScore >= beta) {
-
-            TTHits++;
-            return true;
-        }
-        
-        return false;
     }
 }

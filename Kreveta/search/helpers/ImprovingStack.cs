@@ -19,6 +19,7 @@ internal sealed class ImprovingStack {
     internal void Expand(int depth) 
         => _stack = new short[depth];
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void UpdateStaticEval(short se, int ply, Color col) {
         if (ply >= _stack.Length)
             return;

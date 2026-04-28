@@ -74,6 +74,14 @@ internal static unsafe class PVS {
            || SearchControl.Stopwatch.ElapsedMilliseconds >= AbortTimeThreshold
            || SearchControl.TotalNodes + CurNodes >= SearchControl.CurNodesLimit;
 
+    // when a TT lookup is successful, but we for some reason cannot cut
+    // off, the entry information is stored here not to repeat the lookup
+    private static TTLookupState LookupTT;
+    private static Move          TTMove;
+    private static short         TTScore;
+    private static TT.ScoreFlags TTFlags;
+    private static int           TTDepth;
+
     // increase the depth and do a re-search
     internal static void SearchDeeper(int aspirationAlpha, int aspirationBeta) {
         CurIterDepth++;
@@ -106,9 +114,10 @@ internal static unsafe class PVS {
 
         // increase the number of plies we can hold
         improvStack.Expand(CurIterDepth);
+        improvStack.UpdateStaticEval(Game.Board.StaticEval, 0, Game.EngineColor);
 
         SearchState defaultSS = new(
-            ply:             0, 
+            ply:             0,
             depth:           (sbyte)CurIterDepth,
             priorReductions: 0,
             lastMove:        default,
@@ -116,44 +125,13 @@ internal static unsafe class PVS {
             followPv:        true
         );
 
+        LookupTT = TTLookupState.NOT_PERFORMED;
+
         // actual start of the search tree
         PVScore = Search<RootNode>(ref Game.Board, aspirationAlpha, aspirationBeta, defaultSS, false, false);
         PV      = _pvLen[0] > 0 ? _pvTable[0][.. _pvLen[0]] : [];
 
         SearchControl.TotalNodes += CurNodes;
-    }
-    
-    // completely reset everything
-    internal static void Reset() {
-        CurIterDepth  = 0;
-        AchievedDepth = 0;
-        CurNodes      = 0UL;
-        PVScore       = 0;
-        PV            = [];
-        NextBestMove  = default;
-        
-        Array.Clear(_pvLen, 0, _pvLen.Length);
-        for (int i = 0; i < MaxPVDepth; i++)
-            Array.Clear(_pvTable[i], 0, _pvTable[i].Length);
-
-        improvStack.Expand(0);
-
-        Killers.Clear();
-        QuietHistory.Clear();
-        CaptureHistory.Clear();
-        PieceToHistory.Clear();
-        CounterMoveHistory.Clear();
-        ContinuationHistory.Clear();
-        Corrections.Clear();
-        
-        // when playing a full game, storing the se diff history values helps
-        // moveorder in the next search. we want to age the values a lot, though,
-        // so they don't remain there forever
-        if (!Game.FullGame) StaticEvalDiffHistory.Clear();
-        else                StaticEvalDiffHistory.Age();
-        
-        TT.Clear();
-        if (!Game.FullGame) SETT.Realloc();
     }
 
     // stores the pv in the transposition table.
@@ -176,17 +154,30 @@ internal static unsafe class PVS {
     // just continue the search as usual. parameters need to be the same as in the search method itself
     private static short SearchNext<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool ignore3Fold, bool cutNode) 
         where NodeType : ISearchNodeType {
+
+        LookupTT = TTLookupState.NOT_PERFORMED;
         
         // did we find the position and score?
         // also repeating positions cannot occur under 4 plies
-        if (ss.Ply >= 4 && TT.TryGetScore(board.Hash, ss.Depth, ss.Ply, alpha, beta, out short ttScore, out Move ttMove)) {
+        if (ss.Ply >= 4) {
+            bool ttHit = TT.TryGetBestMove(board.Hash, ss.Ply, out TTMove, out TTScore, out TTFlags, out TTDepth);
             
-            // increase the TT move's history if it cuts beta
-            if (ttMove != default)
-                StoreTTMoveHistory(board.SideToMove, ss.LastMove, ttMove, ss.Depth, typeof(NodeType) == typeof(PVNode), ttScore, beta);
+            // check whether the TT score is usable
+            if (ttHit && TTDepth >= ss.Depth && (TTFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
+                                              || TTFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && TTScore <= alpha
+                                              || TTFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && TTScore >= beta)) {
+                
+                // increase the TT move's history if it cuts beta
+                if (TTMove != default)
+                    StoreTTMoveHistory(board.SideToMove, ss.LastMove, TTMove, ss.Depth, typeof(NodeType) == typeof(PVNode), TTScore, beta);
             
-            // return just the score
-            return ttScore;
+                return TTScore;
+            }
+            
+            // save entry data not to repeat the lookup
+            LookupTT = ttHit
+                ? TTLookupState.FOUND
+                : TTLookupState.DOES_NOT_EXIST;
         }
 
         // in case the position is not yet stored, we fully search it and then store it
@@ -230,8 +221,11 @@ internal static unsafe class PVS {
             return 0;
         
         // we reached depth zero or lower => evaluate the leaf node though qsearch
-        if (ss.Depth <= 0)
+        if (ss.Depth <= 0) {
+            LookupTT = TTLookupState.NOT_PERFORMED;
+            
             return Quiescence.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
+        }
         
         // increase the nodes searched counter
         CurNodes++;
@@ -244,12 +238,33 @@ internal static unsafe class PVS {
         // past the mate ply. this is applied to both winning and losing mates
         if (Score.IsMate(alpha) && alpha > 0) {
             int matePly = Math.Abs(Score.GetMateInX(alpha));
-            if (ss.Ply >= matePly)
+            if (ss.Ply >= matePly) {
+                LookupTT = TTLookupState.NOT_PERFORMED;
+                
                 return 0;
+            }
         }
         
-        // try to retrieve a known best move from the transposition table
-        bool ttHit        = TT.TryGetBestMove(board.Hash, ss.Ply, out Move ttMove, out short ttScore, out TT.ScoreFlags ttFlags, out int ttDepth);
+        // data from the transposition table
+        bool          ttHit   = false;
+        Move          ttMove  = default;
+        short         ttScore = 0;
+        TT.ScoreFlags ttFlags = default;
+        int           ttDepth = 0;
+
+        // if we have retrieved TT data previously, use it
+        if (LookupTT == TTLookupState.FOUND) {
+            (ttMove, ttScore, ttFlags, ttDepth)
+                = (TTMove, TTScore, TTFlags, TTDepth);
+            
+            ttHit    = true;
+            LookupTT = TTLookupState.NOT_PERFORMED;
+        }
+        
+        // otherwise try to retrieve the data here
+        else if (LookupTT != TTLookupState.DOES_NOT_EXIST)
+            ttHit = TT.TryGetBestMove(board.Hash, ss.Ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
+        
         bool ttMoveExists = ttHit && ttMove != default;
         bool ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
         
@@ -288,7 +303,7 @@ internal static unsafe class PVS {
         short staticEval = board.StaticEval;
         
         // update the static eval in the stack and the improving flag
-        improvStack.UpdateStaticEval(staticEval, ss.Ply, col);
+        //improvStack.UpdateStaticEval(staticEval, ss.Ply, col);
         bool parentImproving = improvStack.IsImproving(ss.Ply, col);
         
         // fairly solid improving ideas
@@ -379,6 +394,9 @@ internal static unsafe class PVS {
             nullChild.IsCheck     = false;
             nullChild.Hash       ^= ZobristHash.WhiteToMove;
             nullChild.Hash       ^= board.EnPassantSq != 64 ? ZobristHash.EnPassant[board.EnPassantSq & 7] : 0UL;
+            
+            // update the improving stack for the null move search
+            improvStack.UpdateStaticEval(nullChild.StaticEval, ss.Ply + 1, 1 - col);
 
             // scale reduction when eval is much over beta
             int delta = staticEval - beta;
@@ -414,6 +432,8 @@ internal static unsafe class PVS {
                 // disable null move pruning early in verification search
                 int temp  = MinNMPPly;
                 MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;
+                
+                improvStack.UpdateStaticEval(staticEval, ss.Ply + 1, col);
 
                 // do the verification search
                 nmpScore = SearchNext<NonPVNode>(
@@ -657,7 +677,7 @@ internal static unsafe class PVS {
                 ss.ExcludedMove = default;
                 
                 // the singular extension search ran at the same ply and may have written
-                // to _pvLen[ss.Ply]. restore it to 0 so the parent's childLen read is clean
+                // to _pvLen[ss.Ply]. restore it to 0, so the parent's childLen read is clean
                 _pvLen[ss.Ply] = 0;
 
                 // the score is below alpha, the tt move is singular, and is extended
@@ -734,7 +754,11 @@ internal static unsafe class PVS {
                 int score = -SearchNext<NonPVNode>(
                     ref child,
                     -alpha - 1, -alpha,
-                    new SearchState((sbyte)(ss.Ply + 1), (sbyte)(ss.Depth - R), ss.PriorReductions, ss.LastMove, ss.ExcludedMove, false),
+                    new SearchState(
+                        (sbyte)(ss.Ply   + 1),
+                        (sbyte)(ss.Depth - R),
+                        ss.PriorReductions, ss.LastMove, ss.ExcludedMove,
+                        false),
                     ignore3Fold, cutNode: true
                 );
                 
@@ -936,6 +960,44 @@ internal static unsafe class PVS {
         }
         
         UCI.Log(info);
+    }
+    
+    internal static void Reset() {
+        CurIterDepth  = 0;
+        AchievedDepth = 0;
+        CurNodes      = 0UL;
+        PVScore       = 0;
+        PV            = [];
+        NextBestMove  = default;
+
+        LookupTT = TTLookupState.NOT_PERFORMED;
+        TTMove   = default;
+        TTScore  = 0;
+        TTFlags  = default;
+        TTDepth  = 0;
+        
+        Array.Clear(_pvLen, 0, _pvLen.Length);
+        for (int i = 0; i < MaxPVDepth; i++)
+            Array.Clear(_pvTable[i], 0, _pvTable[i].Length);
+
+        improvStack.Expand(0);
+
+        Killers.Clear();
+        QuietHistory.Clear();
+        CaptureHistory.Clear();
+        PieceToHistory.Clear();
+        CounterMoveHistory.Clear();
+        ContinuationHistory.Clear();
+        Corrections.Clear();
+        
+        // when playing a full game, storing the SE diff history values helps
+        // moveorder in the next search. we want to age the values a lot, though,
+        // so they don't remain there forever
+        if (!Game.FullGame) StaticEvalDiffHistory.Clear();
+        else                StaticEvalDiffHistory.Age();
+        
+        TT.Clear();
+        if (!Game.FullGame) SETT.Realloc();
     }
 }
 
