@@ -21,7 +21,7 @@ internal static unsafe class SEE {
     // this function takes a list of captures and orders it by SEE from best to
     // worst in-place. captures below the pruning threshold are removed. returns
     // the number of captures that survived pruning
-    internal static int OrderCaptures(in Board board, Span<Move> capts, Span<int> seeScores, int pruneThreshold) {
+    internal static int OrderCaptures(in Board board, Span<Move> capts, Span<int> seeScores, int pruneThreshold, Move ttMove) {
         
         // if the list is empty for some reason
         if (capts.Length == 0) return 0;
@@ -31,10 +31,11 @@ internal static unsafe class SEE {
         for (int i = 0; i < capts.Length; i++) {
             int see = GetMoveScore(in board, board.SideToMove, capts[i]);
 
+            // prune bad SEE moves, and help the score of the ttmove
             if (see >= pruneThreshold) {
                 int hist          = Math.Clamp(CaptureHistory.GetRep(capts[i]) / 10, -50, 50);
                 capts    [good]   = capts[i];
-                seeScores[good++] = see + hist;
+                seeScores[good++] = see + hist + (capts[i] == ttMove ? 80 : 0);
             }
         }
 

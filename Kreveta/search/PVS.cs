@@ -796,7 +796,7 @@ internal static unsafe class PVS {
             // stuff with the move, considering its score to be zero
             skipPVS:
             if (!ignore3Fold) ThreeFold.Remove(child.Hash);
-
+            
             // we somehow still failed low
             if (fullSearchScore <= alpha)
                 StoreMoveHistory(col, ss.LastMove, curMove, isCapture, weight, curDepth);

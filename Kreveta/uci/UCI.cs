@@ -66,8 +66,10 @@ internal static partial class UCI {
                 continue;
 
             // quit should terminate the program as soon as possible
-            if (input is "quit" or "exit")
+            if (input is "quit" or "exit") {
+                StopSearch();
                 return;
+            }
 
 // Normalize strings to uppercase? Why the fuck would I do that??
 #pragma warning disable CA1308

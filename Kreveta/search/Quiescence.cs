@@ -41,10 +41,22 @@ internal static class Quiescence {
         if (ply >= curQSDepth)
             return board.StaticEval;
 
+        // try to retrieve a score and best move from the TT
+        bool ttHit = TT.TryGetBestMove(board.Hash, ply, out Move ttMove, out short ttScore, out var ttFlags, out int ttDepth);
+
+        // cutoff if any tt score exists. we don't care about depth as long as depth
+        // isn't -1, which would signify the entry comes from quiescence search as well
+        if (ttHit && ttDepth >= 3 && (ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
+                                    || ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= beta
+                                    || ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= alpha)) {
+
+            return ttScore;
+        }
+        
         // stand pat is just a fancy word for static eval
         bool  inCheck  = board.IsCheck;
         short standPat = board.StaticEval;
-
+        
         // 1. STAND-PAT PRUNING
         // based on the null move observation, there is always at least one good move
         // in every position. since we're only searching captures, e.g. a subset of all
@@ -53,12 +65,11 @@ internal static class Quiescence {
         // static evaluation and only then search. we cannot do this when in check, as
         // we would be searching all evasions, breaking the initial assumption
         if (!inCheck) {
-            short corr     = Corrections.Get(in board);
-            int   newAlpha = standPat + corr;
+            int corr = Corrections.Get(in board);
             
             // if the stand pat fails high, we can return it.
             // if not, we at least try to use it as the lower bound
-            alpha = Math.Max(alpha, newAlpha);
+            alpha = Math.Max(alpha, standPat + corr);
             
             if (alpha >= beta)
                 return (short)alpha;
@@ -84,8 +95,9 @@ internal static class Quiescence {
         // function takes a threshold, below which all captures are directly skipped.
         int seeThreshold = (ply - PVS.CurIterDepth) / 8;
 
+        // order the captures, and place the potential tt move at the front
         Span<int> seeScores = stackalloc int[count];
-        if (!inCheck) count = SEE.OrderCaptures(in board, moves[..count], seeScores, seeThreshold);
+        if (!inCheck) count = SEE.OrderCaptures(in board, moves[..count], seeScores, seeThreshold, ttMove);
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
