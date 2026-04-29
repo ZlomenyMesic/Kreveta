@@ -10,12 +10,25 @@ using System.Runtime.CompilerServices;
 namespace Kreveta.search.helpers;
 
 internal static class ThreeFold {
-    private static readonly ulong[] _hashes = new ulong[128];
-    private static readonly byte[]  _counts = new byte[128];
-    private static int _size;
+    
+    private static ulong[] _hashes = null!;
+    private static byte[]  _counts = null!;
+    private static int     _size;
+
+    // the stack must fit all positions from the game itself, e.g. positions from
+    // the move list given by "position ... moves ...", and also leave enough room
+    // for all plies searched. the search depth is capped at 100, so 128 should do
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Init(int gamePlies) {
+        int len = gamePlies + 128;
+
+        _hashes = new ulong[len];
+        _counts = new byte[len];
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool AddAndCheck(ulong hash) {
+        
         // scan the stack backwards, and try to find this hash
         for (int i = _size - 1; i >= 0; i--) {
             if (_hashes[i] == hash) {

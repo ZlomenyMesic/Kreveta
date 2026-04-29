@@ -739,16 +739,15 @@ internal static unsafe class PVS {
             // alpha, a deeper, full window re-search is performed
             if (!skipLMP) {
                 
-                // if moveorder score is bad, reduction is larger. the score threshold scales with the current
-                // iteration depth, as history values tend to be larger in deeper searches due to the butterfly
-                // boards being cleared. the reduction is also based on see, whether we are improving and depth
+                // moves with bad history are reduced more
                 int scoreThreshold = -379 - 9 * CurIterDepth - (ttOptimistic ? 12 : 0);
-                int R = 4
-                    + (curScore < scoreThreshold ? 1 : 0)
-                    - (improving  || see > 94    ? 1 : 0)
-                    + (!improving && see < 0     ? 1 : 0)
-                    + (ttCapture                 ? 1 : 0)
-                    + (hangsPiece                ? 1 : 0);
+                int R = 3
+                    + (expandedNodes > moveCount / 3 ? 1 : 0)  // late moves
+                    + (curScore < scoreThreshold     ? 1 : 0)  // bad history moves
+                    - (improving  || see > 94        ? 1 : 0)  // improving or good SEE
+                    + (!improving && see < 0         ? 1 : 0)  // not improving and bad SEE
+                    + (ttCapture                     ? 1 : 0)  // TT move is a capture
+                    + (hangsPiece                    ? 1 : 0); // the move likely hangs a piece
 
                 // once again a reduced depth search
                 int score = -SearchNext<NonPVNode>(
@@ -774,7 +773,7 @@ internal static unsafe class PVS {
                 }
             }
 
-            // if LMP failed, and the move was reduced, the reduction is reverted
+            // if LMP failed, and the move was reduced, some of the reduction is reverted
             if (!skipLMP && curDepth < ss.Depth - 1)
                 curDepth++;
             

@@ -6,7 +6,6 @@
 using Kreveta.movegen;
 
 using System;
-using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
 
@@ -14,7 +13,7 @@ namespace Kreveta.moveorder.history;
 
 // to help move ordering, we use a few different history heuristics.
 // the idea of these is that we save moves that proved to be good
-// or bad in the past, idenependently of the position. for instance,
+// or bad in the past, independently of the position. for instance,
 // if we noticed that sacrificing our rook two moves ago was a terrible
 // move, we can usually be assured that doing the same two pawn pushes
 // later would be the same exact blunder.

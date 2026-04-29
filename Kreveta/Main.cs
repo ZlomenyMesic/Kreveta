@@ -5,7 +5,6 @@
 
 using Kreveta.evaluation;
 using Kreveta.movegen;
-using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 using Kreveta.nnue;
 using Kreveta.nnue.approx;
@@ -19,6 +18,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Kreveta.consts;
+using Kreveta.search.helpers;
 
 namespace Kreveta;
 
@@ -86,6 +86,8 @@ internal static class Program {
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
         Game.Board = Board.CreateStartpos();
+        
+        ThreeFold.Init(0);
 
         UCI.InputLoop();
         return 0;

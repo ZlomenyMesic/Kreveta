@@ -55,7 +55,7 @@ internal static class Game {
         EngineColor = Color.WHITE;
         Ply         = 0;
         
-        ThreeFold.Clear();
+        ThreeFold.Init(0);
         PlayMoves(tokens);
     }
 
@@ -198,6 +198,8 @@ internal static class Game {
         Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);
         Board.Hash       = ZobristHash.GetHash(in Board);
 
+        ThreeFold.Init(0);
+
         // the fen string can be followed by a sequence of moves, which have
         // been played from the position. for example, most GUIs would pass
         // a position like "position startpos moves e2e4 e7e5 g1f3"
@@ -212,7 +214,7 @@ internal static class Game {
             return;
 
         // we save all known previous positions as 3-fold repetition exists
-        ThreeFold.AddAndCheck(Board.Hash);
+        List<ulong> positions = [ Board.Hash ];
 
         // play the sequence of moves
         for (int i = moveSeqStart + 1; i < tokens.Length; i++) {
@@ -232,7 +234,7 @@ internal static class Game {
             }
 
             Board.PlayMove(move, true);
-            ThreeFold.AddAndCheck(Board.Hash);
+            positions.Add(Board.Hash);
 
             Ply++;
 
@@ -241,6 +243,11 @@ internal static class Game {
                 ? Color.BLACK
                 : Color.WHITE;
         }
+
+        // allocate enough size to fit all positions
+        ThreeFold.Init(positions.Count);
+        foreach (var pos in positions)
+            ThreeFold.AddAndCheck(pos);
     }
     
     // sometimes, the user might try to search a position that's either illegal,

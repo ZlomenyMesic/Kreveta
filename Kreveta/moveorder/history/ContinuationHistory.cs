@@ -15,18 +15,18 @@ namespace Kreveta.moveorder.history;
 
 internal static unsafe class ContinuationHistory {
     private const int TableSize = 6 * 64 * 6 * 64;
-    private static readonly short[] Table = new short[TableSize];
+    private static readonly int[] Table = new int[TableSize];
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Clear()
         => Array.Clear(Table, 0, TableSize);
 
     internal static void Age() {
-        fixed (short* ptr = Table) {
+        fixed (int* ptr = Table) {
             int i = 0;
 
             if (Consts.UseAVX2) {
-                int width = Vector256<short>.Count;
+                int width = Vector256<int>.Count;
 
                 for (; i <= TableSize - width; i += width) {
                     var v = Avx.LoadVector256(ptr + i); 
@@ -36,7 +36,7 @@ internal static unsafe class ContinuationHistory {
                 }
             }
             else if (Consts.UseSSE2) {
-                int width = Vector128<short>.Count;
+                int width = Vector128<int>.Count;
 
                 for (; i <= TableSize - width; i += width) {
                     var v = Sse2.LoadVector128(ptr + i);
@@ -58,10 +58,10 @@ internal static unsafe class ContinuationHistory {
         if (weight == 0) return;
         
         int i = Index((int)previous.Piece, previous.End, (int)current.Piece, current.End);
-        Table[i] += (short)(weight * Math.Abs(weight) / 8);
+        Table[i] += weight * Math.Abs(weight) / 8;
     }
 
-    // try to retrieve the continuation
+    // try to retrieve the continuation score
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetScore(Move previous, Move current)
         => Table[Index((int)previous.Piece, previous.End, (int)current.Piece, current.End)];
