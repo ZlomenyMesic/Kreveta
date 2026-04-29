@@ -22,15 +22,11 @@ internal static class Corrections {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Update(in Board board, short score, int depth) {
         if (depth <= 0) return;
-
-        // make both the static eval AND the score white-relative
-        int col = board.SideToMove == Color.WHITE ? 1 : -1;
-        int se  = board.StaticEval * col;
-        score  *= (short)col;
         
-        // get the static eval of the current position and the
-        // absolute difference between it and the search score
-        short diff = (short)(score - se);
+        // get the difference between static eval, and the search
+        // score, while keeping everything white-relative
+        short diff = (short)((score - board.StaticEval)
+                             * (board.SideToMove == Color.WHITE ? 1 : -1));
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference

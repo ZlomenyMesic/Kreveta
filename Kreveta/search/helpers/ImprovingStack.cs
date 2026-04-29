@@ -12,12 +12,16 @@ namespace Kreveta.search.helpers;
 
 internal sealed class ImprovingStack {
     private short[] _stack;
+    private int     _len;
 
     internal ImprovingStack() => _stack = [];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Expand(int depth) 
-        => _stack = new short[depth];
+    internal void Expand(int depth) {
+        // leave some space for potential extensions
+        _len   = depth + 8;
+        _stack = new short[_len];
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void UpdateStaticEval(short se, int ply, Color col) {

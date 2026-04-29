@@ -178,14 +178,10 @@ internal static class SearchControl {
             PrevScore   = PVS.PVScore;
             ScoreDiffs += Math.Min(Math.Abs(diff), 1000);
 
+            // adjust optimism based on whether the score is growing or falling
             if (PVS.CurIterDepth > 1) {
                 Optimism *= 0.9;
-                
-                Optimism += diff switch {
-                    > 0 =>  1 + diff / 50.0, // the score is growing => positive optimism
-                    < 0 => -1 + diff / 50.0, // score is falling => negative optimism
-                    _   =>  0                // score hasn't moved
-                };
+                Optimism += Math.Sign(diff) + diff / 50.0;
             }
             
             // when playing a full game (ucinewgame), and the pv score is
