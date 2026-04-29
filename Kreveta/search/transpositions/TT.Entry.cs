@@ -3,9 +3,11 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.movegen;
 
 using System.Runtime.InteropServices;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.search.transpositions;
@@ -36,7 +38,7 @@ internal static partial class TranspositionTable {
 
         // exact/lowerbound/upperbound score
         [field: FieldOffset(8 + 4 + 2 + 1)]
-        internal ScoreFlags Flags; // 1 byte
+        internal ScoreType Flags; // 1 byte
     }
 
     // size of a single hash entry in bytes

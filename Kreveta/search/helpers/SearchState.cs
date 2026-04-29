@@ -21,9 +21,3 @@ internal ref struct SearchState(sbyte ply, sbyte depth, sbyte priorReductions, M
     internal Move  ExcludedMove    = excludedMove;    // tt move excluded by singular extensions
     internal bool  FollowPV        = followPv;        // are we following the previous principal variation?
 }
-
-internal enum TTLookupState : byte {
-    NOT_PERFORMED  = 0,
-    DOES_NOT_EXIST = 1,
-    FOUND          = 2
-}

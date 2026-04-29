@@ -7,6 +7,7 @@
 namespace Kreveta.uci.options;
 
 internal static partial class Options {
+    
     // the UCI Protocol defines a couple option types (we only
     // implement the ones we want). CHECK is essentially a boolean
     // value. SPIN is an integer value. BUTTON has no value but

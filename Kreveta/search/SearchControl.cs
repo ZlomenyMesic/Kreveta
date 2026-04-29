@@ -50,6 +50,7 @@ internal static class SearchControl {
     private  static double ScoreDiffs; // sum of differences of scores between iterations
     private  static int    PrevScore;
     internal static double LastInstability;
+    private  static double Optimism; // trend of the score - growing or falling
 
     // the result of the previous aspiration search
     private static AspirationFail AspFail;
@@ -111,7 +112,7 @@ internal static class SearchControl {
             ScoreDiffs *= 1.05;
             
             // calculate the instability of the best move, and the score
-            double pvInstability    = PVChanges * PVChanges * PVChanges * 1.46;
+            double pvInstability    = Math.Pow(PVChanges, 3.0) * 1.46;
             double scoreInstability = PVS.CurIterDepth != 0
                 ? ScoreDiffs / PVS.CurIterDepth : 0.0;
 
@@ -126,11 +127,19 @@ internal static class SearchControl {
                 TM.AccountForInstability(totalInstability, PVS.CurIterDepth);
             
             if (PVS.CurIterDepth > 3 && totalInstability <= -2.49) {
-                int delta = 38 - (int)(totalInstability * 0.97)
-                               + Math.Abs(PrevScore) / 52;
+                double avg = PrevScore;
+                int    opt = Math.Clamp(
+                    (int)Math.Log2(Math.Abs(Optimism)) * Math.Sign(Optimism),
+                    -5, 5
+                );
+                
+                int delta = (int)(
+                    39.0 + totalInstability * 0.97
+                         + avg * avg / 2704.0
+                );
 
-                aspirationAlpha = PVS.PVScore - delta;
-                aspirationBeta  = PVS.PVScore + delta;
+                aspirationAlpha = PVS.PVScore - delta + opt;
+                aspirationBeta  = PVS.PVScore + delta + opt;
 
                 // if the previous aspiration search failed outside bounds,
                 // make the respective bound infinite not to repeat such error
@@ -164,9 +173,15 @@ internal static class SearchControl {
 
             // print the results to the console and save the first pv move
             GetResult();
-            
-            ScoreDiffs += Math.Min(1000, Math.Abs(PVS.PVScore - PrevScore));
+
+            int diff    = PVS.PVScore - PrevScore;
             PrevScore   = PVS.PVScore;
+            ScoreDiffs += Math.Min(Math.Abs(diff), 1000);
+            Optimism   += diff switch {
+                > 0 =>  1 + diff / 50.0, // the score is growing => positive optimism
+                < 0 => -1 + diff / 50.0, // score is falling => negative optimism
+                _   =>  0                // score hasn't moved
+            };
 
             // when playing a full game (ucinewgame), and the pv score is
             // mate (doesn't matter whether for us or for the opponent), we
@@ -336,7 +351,7 @@ internal static class SearchControl {
         int depth = pv.Length;
 
         // try going deeper through the transposition table
-        while (TT.TryGetBestMove(board.Hash, depth, out Move ttMove, out _, out _, out _)) {
+        while (TT.TryGetData(board.Hash, depth, out Move ttMove, out _, out _, out _)) {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable

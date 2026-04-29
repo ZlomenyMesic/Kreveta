@@ -79,7 +79,7 @@ internal static unsafe class PVS {
     private static TTLookupState LookupTT;
     private static Move          TTMove;
     private static short         TTScore;
-    private static TT.ScoreFlags TTFlags;
+    private static ScoreType     TTFlags;
     private static int           TTDepth;
 
     // increase the depth and do a re-search
@@ -160,12 +160,12 @@ internal static unsafe class PVS {
         // did we find the position and score?
         // also repeating positions cannot occur under 4 plies
         if (ss.Ply >= 4) {
-            bool ttHit = TT.TryGetBestMove(board.Hash, ss.Ply, out TTMove, out TTScore, out TTFlags, out TTDepth);
+            bool ttHit = TT.TryGetData(board.Hash, ss.Ply, out TTMove, out TTScore, out TTFlags, out TTDepth);
             
             // check whether the TT score is usable
-            if (ttHit && TTDepth >= ss.Depth && (TTFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
-                                              || TTFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && TTScore <= alpha
-                                              || TTFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && TTScore >= beta)) {
+            if (ttHit && TTDepth >= ss.Depth && (TTFlags.HasFlag(ScoreType.SCORE_EXACT)
+                                              || TTFlags.HasFlag(ScoreType.UPPER_BOUND) && TTScore <= alpha
+                                              || TTFlags.HasFlag(ScoreType.LOWER_BOUND) && TTScore >= beta)) {
                 
                 // increase the TT move's history if it cuts beta
                 if (TTMove != default)
@@ -246,11 +246,11 @@ internal static unsafe class PVS {
         }
         
         // data from the transposition table
-        bool          ttHit   = false;
-        Move          ttMove  = default;
-        short         ttScore = 0;
-        TT.ScoreFlags ttFlags = default;
-        int           ttDepth = 0;
+        bool      ttHit   = false;
+        Move      ttMove  = default;
+        short     ttScore = 0;
+        ScoreType ttFlags = default;
+        int       ttDepth = 0;
 
         // if we have retrieved TT data previously, use it
         if (LookupTT == TTLookupState.FOUND) {
@@ -263,15 +263,15 @@ internal static unsafe class PVS {
         
         // otherwise try to retrieve the data here
         else if (LookupTT != TTLookupState.DOES_NOT_EXIST)
-            ttHit = TT.TryGetBestMove(board.Hash, ss.Ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
+            ttHit = TT.TryGetData(board.Hash, ss.Ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
         
         bool ttMoveExists = ttHit && ttMove != default;
         bool ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
         
         // figure out the tt score type
-        bool ttExact      = ttHit && ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT);
-        bool ttLowerBound = ttHit && ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND);
-        bool ttUpperBound = ttHit && ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND);
+        bool ttExact      = ttHit && ttFlags.HasFlag(ScoreType.SCORE_EXACT);
+        bool ttLowerBound = ttHit && ttFlags.HasFlag(ScoreType.LOWER_BOUND);
+        bool ttUpperBound = ttHit && ttFlags.HasFlag(ScoreType.UPPER_BOUND);
         
         // if tt score is reliable enough, it may be used for early cutoffs in
         // non-PV nodes, but only in case it strongly supports the node type
@@ -939,10 +939,10 @@ internal static unsafe class PVS {
             mateScore += Math.Abs(mateScore) % 2 * Math.Sign(mateScore);
             mateScore /= 2;
                     
-            string correctedScore = Score.IsMate(score) 
+            string correctedScore = Score.IsMate(score)
                 ? $"mate {mateScore}"
                 : $"cp {Score.LimitScore(score)}";
-                    
+            
             info += $" score {correctedScore}";
                     
             // add lowerbound/upperbound. this has to be corrected based on engine

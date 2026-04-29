@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using Kreveta.consts;
 using Kreveta.evaluation;
 using Kreveta.movegen;
 using Kreveta.uci.options;
@@ -183,19 +184,19 @@ internal static unsafe partial class TranspositionTable {
             // we don't actually subtract the current ply, we add it. the idea
             // is, however, the same
             entry.Score = (short)(score + Math.Sign(score) * ply);
-            entry.Flags |= ScoreFlags.SCORE_EXACT;
+            entry.Flags |= ScoreType.SCORE_EXACT;
         }
 
         else if (score >= beta) {
-            entry.Flags |= ScoreFlags.LOWER_BOUND;
+            entry.Flags |= ScoreType.LOWER_BOUND;
             entry.Score = (short)beta;
 
         } else if (score <= alpha) {
-            entry.Flags |= ScoreFlags.UPPER_BOUND;
+            entry.Flags |= ScoreType.UPPER_BOUND;
             entry.Score = (short)alpha;
 
         } else {
-            entry.Flags |= ScoreFlags.SCORE_EXACT;
+            entry.Flags |= ScoreType.SCORE_EXACT;
             entry.Score = score;
         }
 
@@ -203,7 +204,7 @@ internal static unsafe partial class TranspositionTable {
         Table[index + overwriteIndex] = entry;
     }
 
-    internal static bool TryGetBestMove(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreFlags ttFlags, out int ttDepth) {
+    internal static bool TryGetData(ulong hash, int ply, out Move ttMove, out short ttScore, out ScoreType ttFlags, out int ttDepth) {
         ttMove  = default;
         ttScore = 0;
         ttFlags = default;

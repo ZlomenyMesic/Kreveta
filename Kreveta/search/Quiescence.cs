@@ -42,13 +42,13 @@ internal static class Quiescence {
             return board.StaticEval;
 
         // try to retrieve a score and best move from the TT
-        bool ttHit = TT.TryGetBestMove(board.Hash, ply, out Move ttMove, out short ttScore, out var ttFlags, out int ttDepth);
+        bool ttHit = TT.TryGetData(board.Hash, ply, out Move ttMove, out short ttScore, out var ttFlags, out int ttDepth);
 
         // cutoff if any tt score exists. we don't care about depth as long as depth
         // isn't -1, which would signify the entry comes from quiescence search as well
-        if (ttHit && ttDepth >= 3 && (ttFlags.HasFlag(TT.ScoreFlags.SCORE_EXACT)
-                                    || ttFlags.HasFlag(TT.ScoreFlags.LOWER_BOUND) && ttScore >= beta
-                                    || ttFlags.HasFlag(TT.ScoreFlags.UPPER_BOUND) && ttScore <= alpha)) {
+        if (ttHit && ttDepth >= 3 && (ttFlags.HasFlag(ScoreType.SCORE_EXACT)
+                                   || ttFlags.HasFlag(ScoreType.LOWER_BOUND) && ttScore >= beta
+                                   || ttFlags.HasFlag(ScoreType.UPPER_BOUND) && ttScore <= alpha)) {
 
             return ttScore;
         }
