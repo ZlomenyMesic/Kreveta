@@ -34,7 +34,7 @@ internal static class Corrections {
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference
-        short shift = (short)Math.Clamp(diff * depth * depth/ 2000, -15, 15);
+        short shift = (short)Math.Clamp(diff * depth * depth / 2000, -15, 15);
 
         // don't bother wasting time with a zero shift
         if (shift == 0) return;
