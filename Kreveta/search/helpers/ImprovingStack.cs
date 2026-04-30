@@ -25,14 +25,14 @@ internal sealed class ImprovingStack {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void UpdateStaticEval(short se, int ply, Color col) {
-        if (ply >= _stack.Length)
+        if (ply >= _len)
             return;
 
         _stack[ply] = (short)(se * (col == Color.WHITE ? 1 : -1));
     }
 
     internal bool IsImproving(int ply, Color col) {
-        if (ply <= 1 || ply >= _stack.Length) 
+        if (ply <= 1 || ply >= _len) 
             return false;
         
         short prevSE = _stack[ply - 2];

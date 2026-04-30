@@ -42,6 +42,10 @@ internal static class LazyMoveOrder {
             // in the span, so they can be later reused in search
             int see = SEE.GetMoveScore(in board, color, move);
             seeScores[i] = see;
+            
+            // continuation history. the conthist values may greatly reach tens
+            // of thousands, so all values must be clamped accordingly
+            int cont = previous != default ? ContinuationHistory.GetScore(previous, move) : 0;
 
             if (!isCapture) {
                 PType movedPiece = move.Piece;
@@ -53,7 +57,6 @@ internal static class LazyMoveOrder {
                 
                 // then quiet and continuation history is applied
                 int qhist = QuietHistory.GetRep(move);
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) : 0;
                 int se    = StaticEvalDiffHistory.Get(move);
                 
                 // punish queen and king moves in the opening or early
@@ -68,8 +71,10 @@ internal static class LazyMoveOrder {
                     PType.KING  => 78,
                     _           => 0
                 };
+
+                cont = Math.Min(cont, 1500);
                 
-                scores[i] = killer + counter + queen + king + prom 
+                scores[i] = killer + counter + queen + king + prom
                           + (95 * qhist + 95 * cont + 74 * se + 16 * see) / 256;
             }
 
@@ -81,7 +86,6 @@ internal static class LazyMoveOrder {
                 // then we have some history heuristics. it is often said that conthist doesn't do well
                 // with captures, but here it does. pieceto history stores data from quiets only, and thus
                 // learns, which squares should be occupied, which can then enhance capture ordering
-                int cont  = previous != default ? ContinuationHistory.GetScore(previous, move) : 0;
                 int chist = CaptureHistory.GetRep(move);
                 int pt    = PieceToHistory.GetRep(color, move);
                 
@@ -94,6 +98,7 @@ internal static class LazyMoveOrder {
                 
                 int totalHist = (165 * cont + 9 * chist + 29 * pt) / 1024;
 
+                // clamp the total history effect not to hurt SEE ordering
                 scores[i] = killer + see + prom
                           + Math.Clamp(totalHist, -50, 50);
             }

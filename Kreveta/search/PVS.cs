@@ -696,7 +696,6 @@ internal static unsafe class PVS {
                 // over the current beta, the node is pruned, as despite not having access to
                 // the best move (tt move), we still failed high
                 else if (!Score.IsMate(singScore) && singScore >= beta) {
-                    
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     return singScore;
                 }
@@ -726,13 +725,16 @@ internal static unsafe class PVS {
             // work here. instead, a few early moves are searched fully, and the rest with a null
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
-            int  maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
-            bool skipLMP     = expandedNodes <= maxExpNodes
-                               || inCheck
-                               || givesCheck
-                               || rootNode
-                               || isLosing
-                               || see >= 100;
+            int maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
+            //maxExpNodes = Math.Max(1, maxExpNodes * (400 + board.GamePhase()) / 470);
+            maxExpNodes = Math.Max(1, maxExpNodes * (70 + moveCount) / 105);
+            
+            bool skipLMP = expandedNodes <= maxExpNodes
+                        || inCheck
+                        || givesCheck
+                        || rootNode
+                        || isLosing
+                        || see >= 100;
 
             // late move pruning and common PVS logic are merged here. expected fail-low moves are
             // searched with a null alpha window at a reduced depth, and only if they somehow raise
@@ -771,11 +773,11 @@ internal static unsafe class PVS {
                     if (!ignore3Fold) ThreeFold.Remove(child.Hash);
                     continue;
                 }
+                
+                // if LMP failed, and the move was reduced, some of the reduction is reverted
+                if (curDepth < ss.Depth - 1)
+                    curDepth++;
             }
-
-            // if LMP failed, and the move was reduced, some of the reduction is reverted
-            if (!skipLMP && curDepth < ss.Depth - 1)
-                curDepth++;
             
             // history weight of the current move
             weight += Math.Max(0, curDepth + (skipLMP ? 1 : 0));
