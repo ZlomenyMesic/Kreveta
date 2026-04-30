@@ -5,20 +5,27 @@
 
 using System;
 using System.Runtime.CompilerServices;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.nnue.approx;
 
 internal static partial class MathApprox {
-    private const int SigmHalfTable = 5 * NNUEEvaluator.QScale;
-    private static short[] SigmTable = null!;
+
+    // the table size is determined by the quantization factor
+    private const  int     SigmHalfTable = 5 * NNUEEvaluator.QScale;
+    private static short[] SigmTable     = null!;
 
     private static void InitSigmTable() {
         SigmTable = new short[SigmHalfTable * 2 + 1];
         for (int i = -SigmHalfTable; i <= SigmHalfTable; i++) {
             
             // 1000 * sigmoid(x / scale)
-            SigmTable[i + SigmHalfTable] = (short)(1000 * (1f / (1f + MathF.Exp((float)-i / NNUEEvaluator.QScale))));
+            SigmTable[i + SigmHalfTable] = (short)(
+                1000 * (1f / (
+                    1f + MathF.Exp((float)-i / NNUEEvaluator.QScale)
+                ))
+            );
         }
     }
     

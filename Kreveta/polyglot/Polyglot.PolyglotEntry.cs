@@ -8,6 +8,10 @@ using System.Runtime.InteropServices;
 namespace Kreveta.polyglot;
 
 internal static partial class Polyglot {
+
+    // yup this is truly one of the sizes in the world
+    private const int EntrySize = 16;
+
     // each of the polyglot entries contains the key (zobrist
     // hash of the position), the best move from that position,
     // and the move's weight (how good it is).

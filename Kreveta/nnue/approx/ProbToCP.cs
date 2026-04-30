@@ -5,11 +5,16 @@
 
 using System;
 using System.Runtime.CompilerServices;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.nnue.approx;
 
 internal static partial class MathApprox {
+
+    // minimum and maximum probabilities. the sigmoid activation of the
+    // output layer rarely exceeds these values, and it is clamped into
+    // this range, so there's no precision loss here
     private const int PtCPMin = 5;
     private const int PtCPMax = 994;
 
@@ -18,10 +23,12 @@ internal static partial class MathApprox {
     private static void InitPtCPTable() {
         PtCPTable = new short[PtCPMax - PtCPMin + 1];
 
+        // now for each probability, we calculate the inverse of the
+        // sigmoid function, which converts it back to centipawn score
         for (short i = PtCPMin; i <= PtCPMax; i++) {
-            float p  = (float)i / 1000;
+            float p  = i / 1000f;
             float o  = p / (1f - p);
-            float cp = MathF.Log(o) * 400;
+            float cp = MathF.Log(o) * 400f;
             
             PtCPTable[i - PtCPMin] = (short)cp;
         }
@@ -33,9 +40,9 @@ internal static partial class MathApprox {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static short FastPtCP(int act) {
         return act switch {
-            <= PtCPMin => -2118,
-            >= PtCPMax => 2044,
-            _          => PtCPTable[act - PtCPMin]
+            <= PtCPMin => -2118, // table[0] - 1
+            >= PtCPMax =>  2044, // table[^1] + 1
+            _          =>  PtCPTable[act - PtCPMin]
         };
     }
 }

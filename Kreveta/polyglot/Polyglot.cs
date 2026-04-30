@@ -22,9 +22,6 @@ namespace Kreveta.polyglot;
 // are composed simply of entries stacked on top of each other
 internal static partial class Polyglot {
 
-    // yup this is truly one of the sizes in the world
-    private const int EntrySize = 16;
-
     // the risk option is supposed to be a percentage
     private static float Risk => (float)Options.PolyglotRisk / 100;
     
@@ -44,12 +41,12 @@ internal static partial class Polyglot {
         if (selection == default)
             return default;
 
-        for (int i = 0; i < possible.Length; i++) {
-            UCI.Log($"info string bookmove {DecodeMove(board, possible[i]).ToLAN()} weight {possible[i].Weight}"
-                  + $"{(possible[i].Move == selection.Move ? " <- selected" : string.Empty)}");
+        foreach (var entry in possible) {
+            UCI.Log($"info string bookmove {DecodeMove(in board, entry).ToLAN()} weight {entry.Weight}"
+                  + $"{(entry.Move == selection.Move ? " <- selected" : string.Empty)}");
         }
         
-        return DecodeMove(board, selection);
+        return DecodeMove(in board, selection);
     }
 
     // taken from:
@@ -66,7 +63,7 @@ internal static partial class Polyglot {
      * all other cases we can directly compare with a Move after having
      * masked out special Move's flags that are not supported by PolyGlot.
      */
-    private static Move DecodeMove(Board board, PolyglotEntry selection) {
+    private static Move DecodeMove(in Board board, PolyglotEntry selection) {
         // extract the values as per the manual
         int end   = selection.Move       & 0x3F;
         int start = selection.Move >> 6  & 0x3F;

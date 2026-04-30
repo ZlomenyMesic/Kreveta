@@ -4,6 +4,7 @@
 //
 
 using Kreveta.consts;
+
 // ReSharper disable InconsistentNaming
 
 namespace Kreveta.polyglot;
@@ -45,14 +46,8 @@ internal static class PolyglotZobristHash {
             hash ^= PGRandomU64[index];
         }
 
-        // castling rights - this chunk of code is disgusting.
-        // i am terribly sorry for anyone having to read this,
-        // it breaks my heart
-        /*if (board.CastRights.GetHasK()) hash ^= PGRandomU64[CastlingRightsOffset];
-        if (board.CastRights.GetHasQ()) hash ^= PGRandomU64[CastlingRightsOffset + 1];
-        if (board.CastRights.GetHask()) hash ^= PGRandomU64[CastlingRightsOffset + 2];
-        if (board.CastRights.GetHasq()) hash ^= PGRandomU64[CastlingRightsOffset + 3];*/
-        
+        // castling rights - this chunk of code is disgusting. i am
+        // terribly sorry for anyone having to read this, it breaks my heart
         if (board.CastRights.HasFlag(CastRights.K)) hash ^= PGRandomU64[CastlingRightsOffset];
         if (board.CastRights.HasFlag(CastRights.Q)) hash ^= PGRandomU64[CastlingRightsOffset + 1];
         if (board.CastRights.HasFlag(CastRights.k)) hash ^= PGRandomU64[CastlingRightsOffset + 2];
@@ -68,15 +63,16 @@ internal static class PolyglotZobristHash {
             // we have the square over which the pawn double pushed. so first,
             // the destination square is calculated and then the two adjacent
             ulong sqMovedTo = eps > 32 ? eps64 >> 8 : eps64 << 8;
-            ulong adjacent = sqMovedTo >> 1 & 0x7F7F7F7F7F7F7F7F  // to the left
-                           | sqMovedTo << 1 & 0xFEFEFEFEFEFEFEFE; // to the right
+            ulong adjacent  = sqMovedTo >> 1 & 0x7F7F7F7F7F7F7F7F  // to the left
+                            | sqMovedTo << 1 & 0xFEFEFEFEFEFEFEFE; // to the right
             
             Color moved = eps > 32 ? Color.WHITE : Color.BLACK;
 
             // check if an opposite color pawn exists on one of the adjacent squares
-            if (moved == Color.WHITE && (board.Pieces[6] & adjacent) != 0UL
-                || moved == Color.BLACK && (board.Pieces[0] & adjacent) != 0UL) {
-                
+            if (((moved == Color.WHITE
+                      ? board.Pieces[6]
+                      : board.Pieces[0]) & adjacent) != 0UL) {
+
                 // also, indexing is done by file rather than square
                 hash ^= PGRandomU64[EnPassantSqOffset + (board.EnPassantSq & 7)];
             }
@@ -93,8 +89,7 @@ internal static class PolyglotZobristHash {
     private const int EnPassantSqOffset    = 772; // 8 bytes
     private const int SideToMoveOffset     = 780; // 1 byte
 
-    // and the cherry on top, polyglot requires
-    // these 781 specific values to be used
+    // and the cherry on top, polyglot requires these 781 specific values to be used
     private static readonly ulong[] PGRandomU64 = [
         0x9D39247E33776D41, 0x2AF7398005AAA5C7, 0x44DB015024623547, 0x9C15F73E62A76AE2,
         0x75834465489C0C89, 0x3290AC3A203001BF, 0x0FBBAD1F61042279, 0xE83A908FF2FB60CA,
