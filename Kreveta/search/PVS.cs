@@ -122,13 +122,14 @@ internal static unsafe class PVS {
             priorReductions: 0,
             lastMove:        default,
             excludedMove:    default,
-            followPv:        true
+            followPv:        true,
+            ignore3fold:     false
         );
 
         LookupTT = TTLookupState.NOT_PERFORMED;
 
         // actual start of the search tree
-        PVScore = Search<RootNode>(ref Game.Board, aspirationAlpha, aspirationBeta, defaultSS, false, false);
+        PVScore = Search<RootNode>(ref Game.Board, aspirationAlpha, aspirationBeta, defaultSS, false);
         PV      = _pvLen[0] > 0 ? _pvTable[0][.. _pvLen[0]] : [];
 
         SearchControl.TotalNodes += CurNodes;
@@ -152,7 +153,7 @@ internal static unsafe class PVS {
 
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
-    private static short SearchNext<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool ignore3Fold, bool cutNode) 
+    private static short SearchNext<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool cutNode) 
         where NodeType : ISearchNodeType {
 
         LookupTT = TTLookupState.NOT_PERFORMED;
@@ -181,7 +182,7 @@ internal static unsafe class PVS {
         }
 
         // in case the position is not yet stored, we fully search it and then store it
-        short score    = Search<NodeType>(ref board, alpha, beta, ss, ignore3Fold, cutNode);
+        short score    = Search<NodeType>(ref board, alpha, beta, ss, cutNode);
         Move  bestMove = _pvLen[ss.Ply] > 0 ? _pvTable[ss.Ply][0] : default;
         
         // store the found score and best move in tt
@@ -206,7 +207,7 @@ internal static unsafe class PVS {
     // of "tree" of possible future positions, and tracks the best possible path to
     // go. computing all positions is impossible, so different pruning and reduction
     // techniques are used to skip likely irrelevant branches
-    private static short Search<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool ignore3Fold, bool cutNode)
+    private static short Search<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool cutNode)
         where NodeType : ISearchNodeType {
         
         bool rootNode = typeof(NodeType) == typeof(RootNode);
@@ -416,10 +417,10 @@ internal static unsafe class PVS {
                     priorReductions: ss.PriorReductions,
                     lastMove:        default,
                     excludedMove:    ss.ExcludedMove,
-                    followPv:        false
+                    followPv:        false,
+                    ignore3fold:     true
                 ),
-                ignore3Fold: true,
-                cutNode:     false
+                cutNode: false
             );
             
             // if we failed high, prune this node
@@ -442,7 +443,7 @@ internal static unsafe class PVS {
                     ss with {
                         Depth = (sbyte)(ss.Depth - R),
                         Ply   = (sbyte)(ss.Ply   + 1),
-                    }, ignore3Fold: false, cutNode: false);
+                    }, cutNode: false);
 
                 MinNMPPly = temp;
 
@@ -564,7 +565,7 @@ internal static unsafe class PVS {
             // check the position for a 3-fold repetition draw. it is very
             // important that we also remove this move from the stack, which
             // must be done anywhere where this loop is exited
-            bool isThreeFold = !ignore3Fold && ThreeFold.AddAndCheck(child.Hash);
+            bool isThreeFold = !ss.Ignore3Fold && ThreeFold.AddAndCheck(child.Hash);
             
             // create some deterministic noise for three-fold repetition
             // draws, which apparently helps avoid weird loops or blindness
@@ -636,7 +637,7 @@ internal static unsafe class PVS {
                 // if we didn't manage to raise alpha, prune this branch
                 if (diff <= 0 && ss.Depth <= 4) {
                     CurNodes++;
-                    if (!ignore3Fold) ThreeFold.Remove(child.Hash);
+                    if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                     
                     continue;
                 }
@@ -667,17 +668,17 @@ internal static unsafe class PVS {
                 // it is important to exclude the tt move, as the following
                 // search is supposed to evaluate the position without it
                 ss.ExcludedMove = ttMove;
-                if (!ignore3Fold) ThreeFold.Remove(child.Hash);
+                if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                 
                 // do the reduced, null-window search
                 short singScore = Search<NonPVNode>(
                     ref board,
                     ttScore - sbOffset - 1, ttScore - sbOffset,
                     ss with { Depth  = (sbyte)(ss.Depth * 2 / 5) },
-                    ignore3Fold, cutNode
+                    cutNode
                 );
                 
-                if (!ignore3Fold) ThreeFold.AddAndCheck(child.Hash);
+                if (!ss.Ignore3Fold) ThreeFold.AddAndCheck(child.Hash);
                 ss.ExcludedMove = default;
                 
                 // the singular extension search ran at the same ply and may have written
@@ -700,7 +701,7 @@ internal static unsafe class PVS {
                 // over the current beta, the node is pruned, as despite not having access to
                 // the best move (tt move), we still failed high
                 else if (!Score.IsMate(singScore) && singScore >= beta) {
-                    if (!ignore3Fold) ThreeFold.Remove(child.Hash);
+                    if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                     return singScore;
                 }
                 
@@ -763,12 +764,12 @@ internal static unsafe class PVS {
                 int score = -SearchNext<NonPVNode>(
                     ref child,
                     -alpha - 1, -alpha,
-                    new SearchState(
-                        (sbyte)(ss.Ply   + 1),
-                        (sbyte)(ss.Depth - R),
-                        ss.PriorReductions, ss.LastMove, ss.ExcludedMove,
-                        false),
-                    ignore3Fold, cutNode: true
+                    ss with {
+                        Ply      = (sbyte)(ss.Ply   + 1),
+                        Depth    = (sbyte)(ss.Depth - R),
+                        FollowPV = false
+                    },
+                    cutNode: true
                 );
                 
                 // the late move indeed failed low as expected
@@ -778,7 +779,7 @@ internal static unsafe class PVS {
                     int lmWeight = weight + Math.Max(0, ss.Depth - R);
                     StoreMoveHistory(col, ss.LastMove, curMove, isCapture, -lmWeight, -ss.Depth + R);
                         
-                    if (!ignore3Fold) ThreeFold.Remove(child.Hash);
+                    if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                     continue;
                 }
                 
@@ -804,8 +805,8 @@ internal static unsafe class PVS {
             // perform the full search. if we are in a pv node, the full search is also pv. in non pv nodes
             // the search is non pv. we can also get here after LMP fails, but even then the rules apply
             fullSearchScore = pvNode
-                ? (short)-SearchNext<PVNode>(   ref child, -beta, -alpha, newSS, ignore3Fold, cutNode: false)
-                : (short)-SearchNext<NonPVNode>(ref child, -beta, -alpha, newSS, ignore3Fold, cutNode: !cutNode);
+                ? (short)-SearchNext<PVNode>(   ref child, -beta, -alpha, newSS, cutNode: false)
+                : (short)-SearchNext<NonPVNode>(ref child, -beta, -alpha, newSS, cutNode: !cutNode);
             
             if (rootNode) {
                 if (Options.PlayWorst) fullSearchScore *= -1;
@@ -828,7 +829,7 @@ internal static unsafe class PVS {
             // and all pruning is skipped to this point, where we do some
             // stuff with the move, considering its score to be zero
             skipPVS:
-            if (!ignore3Fold) ThreeFold.Remove(child.Hash);
+            if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
             
             // we somehow still failed low
             if (fullSearchScore <= alpha)

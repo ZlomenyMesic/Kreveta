@@ -37,14 +37,14 @@ internal static class MajorPieceCorrections {
             int wIndex = (int)(wHash & (TableSize - 1));
             
             WhiteCorrections[wIndex] += shift;
-            WhiteCorrections[wIndex] = (short)Math.Clamp((int)WhiteCorrections[wIndex], -1024, 1024);
+            WhiteCorrections[wIndex]  = (short)Math.Clamp((int)WhiteCorrections[wIndex], -1024, 1024);
         }
 
         if (bHash != 0UL) {
             int bIndex = (int)(bHash & (TableSize - 1));
         
             BlackCorrections[bIndex] += shift;
-            BlackCorrections[bIndex] = (short)Math.Clamp((int)BlackCorrections[bIndex], -1024, 1024);
+            BlackCorrections[bIndex]  = (short)Math.Clamp((int)BlackCorrections[bIndex], -1024, 1024);
         }
     }
 
