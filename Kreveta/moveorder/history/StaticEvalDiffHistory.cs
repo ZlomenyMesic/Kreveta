@@ -9,6 +9,9 @@ using Kreveta.movegen;
 
 namespace Kreveta.moveorder.history;
 
+// this is an interesting type of history, which simply holds the average static
+// evaluation gain/loss of a move. this means the history tables may be updated
+// without a search needed, which wouldn't be possible elsewhere
 internal static class StaticEvalDiffHistory {
     private static readonly short[] Diffs = new short[64 * 64];
     private static readonly short[] Count = new short[64 * 64];
@@ -45,6 +48,7 @@ internal static class StaticEvalDiffHistory {
         int diff  = Diffs[index];
         int count = Count[index];
         
+        // calculate the average
         return diff / (count != 0 ? count : 1);
     }
 }

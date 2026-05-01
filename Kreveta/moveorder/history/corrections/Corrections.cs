@@ -30,7 +30,7 @@ internal static class Corrections {
 
         // compute the shift depending on the depth
         // of the search, and the size of the difference
-        short shift = (short)Math.Clamp(diff * depth * depth / 2000, -15, 15);
+        short shift = (short)Math.Clamp((diff * depth * depth) >> 11, -25, 25);
 
         // don't bother wasting time with a zero shift
         if (shift == 0) return;
@@ -44,9 +44,9 @@ internal static class Corrections {
     internal static short Get(in Board board) {
         
         // these weights show, which corrections are most reliable
-        int pawn  = 73 * PawnCorrections.Get(in board);
-        int minor = 12 * MinorPieceCorrections.Get(in board);
-        int major = 10 * MajorPieceCorrections.Get(in board);
+        int pawn  = 73 * (PawnCorrections.Get(in board)       >> 5);
+        int minor = 12 * (MinorPieceCorrections.Get(in board) >> 5);
+        int major = 10 * (MajorPieceCorrections.Get(in board) >> 5);
         
         // make corrections side-to-move-relative again
         return (short)((pawn + minor + major) / 100

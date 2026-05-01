@@ -3,9 +3,10 @@
 // started 4-3-2025
 //
 
-using System;
 using Kreveta.consts;
 using Kreveta.movegen;
+
+using System;
 
 namespace Kreveta.moveorder.history;
 
@@ -16,7 +17,8 @@ namespace Kreveta.moveorder.history;
 internal static class PieceToHistory {
     private static readonly short[] Table = new short[2 * 6 * 64];
     
-    internal static void Clear() => Array.Clear(Table, 0, Table.Length);
+    internal static void Clear()
+        => Array.Clear(Table, 0, Table.Length);
 
     internal static void Shrink() {
         for (int i = 0; i < Table.Length; i++)

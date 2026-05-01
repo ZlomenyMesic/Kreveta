@@ -24,15 +24,12 @@ internal static unsafe class PawnCorrections {
 
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
-    private const int CorrTableSize   = 131_072;
+    private const int CorrTableSize = 131_072;
 
     // maximum correction that can be stored. this needs
     // to stay in range of "short", as the whole table
     // is a short array
     private const short MaxCorrection = 2048;
-
-    // a scale, which lowers the corrections when retrieving
-    private const short CorrScale     = 128;
 
     // the table itself
     private static short* _whiteCorrections;
@@ -91,7 +88,7 @@ internal static unsafe class PawnCorrections {
     }
 
     // try to retrieve a correction of the static eval of a position
-    internal static short Get(in Board board) {
+    internal static int Get(in Board board) {
 
         // once again the same stuff, hash the pawns
         // and get the indices for both sides
@@ -103,6 +100,6 @@ internal static unsafe class PawnCorrections {
 
         // the resulting correction being the difference instead of sum is
         // just plain wrong. nothing about this makes sense. but it works
-        return (short)((_whiteCorrections[wIndex] + _blackCorrections[bIndex]) / CorrScale);
+        return _whiteCorrections[wIndex] + _blackCorrections[bIndex];
     }
 }

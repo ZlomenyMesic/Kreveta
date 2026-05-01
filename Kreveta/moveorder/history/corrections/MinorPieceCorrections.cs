@@ -46,7 +46,7 @@ internal static class MinorPieceCorrections {
         }
     }
 
-    internal static short Get(in Board board) {
+    internal static int Get(in Board board) {
         ulong wHash = ZobristHash.GetMinorPieceHash(in board, Color.WHITE);
         ulong bHash = ZobristHash.GetMinorPieceHash(in board, Color.BLACK);
         
@@ -55,7 +55,7 @@ internal static class MinorPieceCorrections {
         int wIndex = (int)(wHash & (TableSize - 1));
         int bIndex = (int)(bHash & (TableSize - 1));
         
-        return (short)((WhiteCorrections[wIndex] + BlackCorrections[bIndex]) / 124);
+        return WhiteCorrections[wIndex] + BlackCorrections[bIndex];
     }
 }
 

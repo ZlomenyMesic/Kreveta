@@ -10,12 +10,15 @@ using System.Runtime.CompilerServices;
 
 namespace Kreveta.search.helpers;
 
+// improving stack holds static evaluations indexed by search ply. all evaluations
+// are stored white-relative, which allows us to compare them easily. when the eval
+// has improved for the side to move in the past two plies, search more carefully
 internal sealed class ImprovingStack {
-    private short[] _stack;
+    private short[] _stack = null!;
     private int     _len;
-
-    internal ImprovingStack() => _stack = [];
-
+    
+    // before each new search iteration, the improving stack is expanded
+    // to fit all search tree plies including some potential extensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Expand(int depth) {
         // leave some space for potential extensions
@@ -23,11 +26,13 @@ internal sealed class ImprovingStack {
         _stack = new short[_len];
     }
 
+    // add a static evaluation at the specified ply
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void UpdateStaticEval(short se, int ply, Color col) {
         if (ply >= _len)
             return;
 
+        // store the evaluation white-relative
         _stack[ply] = (short)(se * (col == Color.WHITE ? 1 : -1));
     }
 

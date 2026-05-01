@@ -13,6 +13,10 @@ using System.Runtime.Intrinsics.X86;
 
 namespace Kreveta.moveorder.history;
 
+// continuation history is the largest history table, and it holds information
+// about a move with respect to the previous move. we assume many moves allow
+// a natural response, which this table tries to capture (just as countermoves).
+// both captures and quiets may be stored here, but we try to avoid defaults.
 internal static unsafe class ContinuationHistory {
     private const int TableSize = 6 * 64 * 6 * 64;
     private static readonly int[] Table = new int[TableSize];
@@ -25,9 +29,12 @@ internal static unsafe class ContinuationHistory {
         fixed (int* ptr = Table) {
             int i = 0;
 
+            // the table consists of roughly 150,000 items, and each one of these items has
+            // to be divided by two. in such a large-scale scenario, using SIMD is helpful
             if (Consts.UseAVX2) {
                 int width = Vector256<int>.Count;
 
+                // we simulate the division by performing a right bit-shift
                 for (; i <= TableSize - width; i += width) {
                     var v = Avx.LoadVector256(ptr + i); 
                     v     = Avx2.ShiftRightArithmetic(v, 1);
@@ -35,6 +42,7 @@ internal static unsafe class ContinuationHistory {
                     Avx.Store(ptr + i, v);
                 }
             }
+            // we can still speed it up with SSE2, although twice as slow as AVX2
             else if (Consts.UseSSE2) {
                 int width = Vector128<int>.Count;
 
@@ -45,7 +53,7 @@ internal static unsafe class ContinuationHistory {
                     Sse2.Store(ptr + i, v);
                 }
             }
-
+            
             for (; i < TableSize; i++)
                 ptr[i] >>= 1;
         }

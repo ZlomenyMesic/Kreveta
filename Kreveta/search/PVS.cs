@@ -465,7 +465,8 @@ internal static unsafe class PVS {
         }
         
         // if the tt move is excluded from search
-        if (ttMove == ss.ExcludedMove) ttMoveExists = false;
+        if (ttMove == ss.ExcludedMove)
+            ttMoveExists = false;
         
         // after this move index threshold all quiets are reduced
         int reduceQuietsThreshold = 41 + 3 * ss.Depth * ss.Depth
@@ -479,6 +480,9 @@ internal static unsafe class PVS {
         Span<int>  seeScores      = stackalloc  int[Consts.MoveBufferSize];
         int        moveCount      = 0;
         int        expandedNodes  = 0;
+        
+        // used for LMP move count threshold tuning
+        int gamePhase = board.GamePhase();
 
         // loop through possible moves
         while (true) {
@@ -726,8 +730,12 @@ internal static unsafe class PVS {
             // window. the number of moves searched fully is based on depth, pv and cutnode. if we
             // have a tt move, only it is searched fully
             int maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
-            //maxExpNodes = Math.Max(1, maxExpNodes * (400 + board.GamePhase()) / 470);
-            maxExpNodes = Math.Max(1, maxExpNodes * (70 + moveCount) / 105);
+            
+            // tweak the expanded nodes threshold based on total
+            // legal move count, and the game phase estimate
+            int phase       = maxExpNodes * (380 + gamePhase) / 445;
+            int mcount      = maxExpNodes * (75  + moveCount) / 105;
+            maxExpNodes     = Math.Max(1, (2 * mcount + phase) / 3);
             
             bool skipLMP = expandedNodes <= maxExpNodes
                         || inCheck
@@ -742,7 +750,7 @@ internal static unsafe class PVS {
             if (!skipLMP) {
                 
                 // moves with bad history are reduced more
-                int scoreThreshold = -379 - 9 * CurIterDepth - (ttOptimistic ? 12 : 0);
+                int scoreThreshold = -379 - 9 * CurIterDepth;
                 int R = 3
                     + (expandedNodes > moveCount / 3 ? 1 : 0)  // late moves
                     + (curScore < scoreThreshold     ? 1 : 0)  // bad history moves

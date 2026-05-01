@@ -180,24 +180,23 @@ internal static unsafe partial class TranspositionTable {
         // the current ply to get the actual X plies relative to the position, not root.
         if (Score.IsMate(score)) {
 
-            // since a mate score is a number of plies subtracted from a base,
-            // we don't actually subtract the current ply, we add it. the idea
-            // is, however, the same
-            entry.Score = (short)(score + Math.Sign(score) * ply);
+            // since a mate score is a number of plies subtracted from a base, we don't
+            // actually subtract the current ply, we add it. the idea is, however, the same
+            entry.Score  = (short)(score + Math.Sign(score) * ply);
             entry.Flags |= ScoreType.SCORE_EXACT;
         }
 
         else if (score >= beta) {
             entry.Flags |= ScoreType.LOWER_BOUND;
-            entry.Score = (short)beta;
+            entry.Score  = (short)beta;
 
         } else if (score <= alpha) {
             entry.Flags |= ScoreType.UPPER_BOUND;
-            entry.Score = (short)alpha;
+            entry.Score  = (short)alpha;
 
         } else {
             entry.Flags |= ScoreType.SCORE_EXACT;
-            entry.Score = score;
+            entry.Score  = score;
         }
 
         // store the new entry or overwrite the old one if allowed
