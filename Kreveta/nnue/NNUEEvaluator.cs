@@ -188,7 +188,6 @@ internal unsafe sealed class NNUEEvaluator {
     }
 
     private void RebuildAccumulator(in Board board, Color col) {
-        
         Span<int> whiteFeat = stackalloc int[32];
         Span<int> blackFeat = stackalloc int[32];
         int count = ExtractFeatures(in board, whiteFeat, blackFeat);

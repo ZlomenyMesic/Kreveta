@@ -20,11 +20,10 @@ internal static unsafe class Movegen {
         Span<Move> pseudoBuffer = stackalloc Move[Consts.MoveBufferSize];
         _curPsL = 0;
 
-        if (onlyCaptures)
-            GeneratePseudoLegalCaptures(in board, board.SideToMove, pseudoBuffer);
-        else GeneratePseudoLegalMoves(in board, board.SideToMove, pseudoBuffer);
+        if (onlyCaptures) GeneratePseudoLegalCaptures(in board, board.SideToMove, pseudoBuffer);
+        else              GeneratePseudoLegalMoves(   in board, board.SideToMove, pseudoBuffer);
         
-        ulong kingStar = LookupTables.KingStars[BB.LS1B(board.Pieces[board.SideToMove == Color.WHITE ? 5 : 11])];
+        ulong kingStar = LookupTables.KingStars[BB.LS1B(board.Pieces[5 + (int)board.SideToMove * 6])];
 
         int legalCount = 0;
         for (int i = 0; i < _curPsL; i++) {
@@ -60,25 +59,26 @@ internal static unsafe class Movegen {
         // this includes all king moves, or moves that could potentially block the check. although
         // all moves are still checked for legality, this at least minimizes the performance loss
         if (board.IsCheck)
-            moveDestMask &= LookupTables.KingStars[BB.LS1B(board.Pieces[col == Color.WHITE ? 5 : 11])];
+            moveDestMask &= LookupTables.KingStars[BB.LS1B(board.Pieces[baseIndex + 5])];
 
         // promotion ranks as masks for quick check
         ulong promotionRank = col == Color.WHITE
             ? 0x00000000000000FFUL : 0xFF00000000000000UL;
 
-        // generate per piece type
-        for (int pt = 0; pt < 6; pt++) {
-            ulong pieces = board.Pieces[baseIndex + pt];
-            if (pieces != 0UL)
-                GeneratePieceMoves(in board, pieces, (PType)pt, col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
-        }
+        // generate all moves per piece type. this looks utterly disgusting
+        if (board.Pieces[baseIndex]     != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex],     PType.PAWN,   col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
+        if (board.Pieces[baseIndex + 1] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 1], PType.KNIGHT, col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
+        if (board.Pieces[baseIndex + 2] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 2], PType.BISHOP, col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
+        if (board.Pieces[baseIndex + 3] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 3], PType.ROOK,   col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
+        if (board.Pieces[baseIndex + 4] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 4], PType.QUEEN,  col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
+        if (board.Pieces[baseIndex + 5] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 5], PType.KING,   col, opponentOccupied, occupied, empty, moveDestMask, moveBuffer, promotionRank, onlyCaptures: false);
 
         // castling - to speed up this process, castling isn't even attempted
         // unless the side to move actually has any castling rights. illegal
         // castling out of check is also handled here
-        if ((col == Color.WHITE && (board.CastRights & CastRights.WHITE) != 0UL 
-             || col == Color.BLACK && (board.CastRights & CastRights.BLACK) != 0UL) 
-            && !board.IsCheck) {
+        if (!board.IsCheck && (col == Color.WHITE
+                ? (board.CastRights & CastRights.WHITE) != 0UL
+                : (board.CastRights & CastRights.BLACK) != 0UL)) {
             
             ulong castTargets = King.GetCastlingTargets(in board, col);
             if (castTargets == 0UL)
@@ -93,24 +93,24 @@ internal static unsafe class Movegen {
         int baseIndex = (byte)col * 6;
         
         ulong occupied    = board.Occupied;
-        ulong oppOccupied = col == Color.WHITE 
-            ? board.BOccupied : board.WOccupied;
+        ulong oppOccupied = col == Color.WHITE ? board.BOccupied : board.WOccupied;
         
         // same logic as above is applied. the destination can only be an opposing piece,
         // as we want captures only, and if we are in check, this filters down to even
         // fewer pieces present in the king star
         ulong moveDestMask = oppOccupied;
         if (board.IsCheck)
-            moveDestMask &= LookupTables.KingStars[BB.LS1B(board.Pieces[col == Color.WHITE ? 5 : 11])];
+            moveDestMask &= LookupTables.KingStars[BB.LS1B(board.Pieces[baseIndex + 5])];
         
         ulong promotionRank = col == Color.WHITE 
             ? 0x00000000000000FFUL : 0xFF00000000000000UL;
-
-        for (int pt = 0; pt < 6; pt++) {
-            ulong pieces = board.Pieces[baseIndex + pt];
-            if (pieces != 0UL)
-                GeneratePieceMoves(in board, pieces, (PType)pt, col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
-        }
+        
+        if (board.Pieces[baseIndex]     != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex],     PType.PAWN,   col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
+        if (board.Pieces[baseIndex + 1] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 1], PType.KNIGHT, col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
+        if (board.Pieces[baseIndex + 2] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 2], PType.BISHOP, col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
+        if (board.Pieces[baseIndex + 3] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 3], PType.ROOK,   col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
+        if (board.Pieces[baseIndex + 4] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 4], PType.QUEEN,  col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
+        if (board.Pieces[baseIndex + 5] != 0UL) GeneratePieceMoves(in board, board.Pieces[baseIndex + 5], PType.KING,   col, oppOccupied, occupied, oppOccupied, moveDestMask, moveBuffer, promotionRank, onlyCaptures: true);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -127,7 +127,7 @@ internal static unsafe class Movegen {
         ulong      promotionRankMask,
         bool       onlyCaptures) {
         
-        int oppBase     = col == Color.WHITE ? 6 : 0;
+        int oppBase     = (int)(1 - col) * 6;
         int enPassantSq = board.EnPassantSq;
 
         while (pieces != 0UL) {
@@ -146,7 +146,7 @@ internal static unsafe class Movegen {
             };
 
             while (targets != 0UL) {
-                byte end   = BB.LS1BReset(ref targets);
+                byte  end  = BB.LS1BReset(ref targets);
                 PType capt = PType.NONE;
                 
                 // detect captured piece using bitmask

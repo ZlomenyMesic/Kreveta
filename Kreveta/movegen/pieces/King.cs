@@ -20,6 +20,13 @@ internal static class King {
     private const ulong ooMask  = 0x0000000000000060;
     private const ulong oooMask = 0x000000000000000E;
 
+    // these king moves are used to test the legality of castling,
+    // as the king is not permitted to move through a checked square
+    private static readonly Move KMove = new(60, 61, PType.KING, PType.NONE, PType.NONE);
+    private static readonly Move kMove = new(4,  5,  PType.KING, PType.NONE, PType.NONE);
+    private static readonly Move QMove = new(60, 59, PType.KING, PType.NONE, PType.NONE);
+    private static readonly Move qMove = new(4,  3,  PType.KING, PType.NONE, PType.NONE);
+
     // returns a bitboard of all moves targets (ending squares)
     // of a certain king (does not include castling)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -33,37 +40,26 @@ internal static class King {
 
     // this returns the move targets for castling only
     internal static ulong GetCastlingTargets(in Board board, Color col) {
-        ulong occ = board.Occupied;
-        bool isWhite = col == Color.WHITE;
+        ulong occ     = board.Occupied;
+        bool  isWhite = col == Color.WHITE;
 
-        // first we check whether the side even holds
-        // the required castling rights at all
+        // first we check whether the side holds the required castling rights
         bool kingside  = ((byte)board.CastRights & (isWhite ? 0x1 : 0x4)) != 0; // K : k
         bool queenside = ((byte)board.CastRights & (isWhite ? 0x2 : 0x8)) != 0; // Q : q
 
-        // now we ensure the squares between the king, and the rooks are empty
+        // now ensure the squares between the king, and the rooks are empty
         kingside  &= (occ & (isWhite ? OOMask  : ooMask))  == 0UL;
         queenside &= (occ & (isWhite ? OOOMask : oooMask)) == 0UL;
 
         if (!(kingside || queenside))
             return 0UL;
 
-        // starting squares of kings
-        int start = isWhite ? 60 : 4;
+        // make sure we wouldn't be moving through a check, as that is illegal.
+        // starting and ending in check is handled directly in Movegen
+        if (kingside)  kingside  &= board.IsMoveLegal(isWhite ? KMove : kMove, col);
+        if (queenside) queenside &= board.IsMoveLegal(isWhite ? QMove : qMove, col);
 
-        // make sure we wouldn't be moving through a check,
-        // as that is illegal. starting and ending in check
-        // is handled directly in Movegen
-        if (kingside) kingside &= board.IsMoveLegal(
-            new Move(start, isWhite ? 61 : 5, PType.KING, PType.NONE, PType.NONE),
-            col);
-        
-        if (queenside) queenside &= board.IsMoveLegal(
-            new Move(start, isWhite ? 59 : 3, PType.KING, PType.NONE, PType.NONE),
-            col);
-
-        // for each side return the btiboard containing
-        // the target square of a certain castling move
+        // return the target squares of the king
         return (kingside  ? isWhite 
             ? 0x4000000000000000UL 
             : 0x0000000000000040UL : 0UL)

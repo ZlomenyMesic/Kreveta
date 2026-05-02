@@ -61,10 +61,6 @@ internal static unsafe class PVS {
         for (int i = 0; i < MaxPVDepth; i++)
             _pvTable[i] = new Move[MaxPVDepth];
     }
-    
-    // we store static eval scores from previous plies here, so we can
-    // then check whether we are improving our position or not
-    private static readonly ImprovingStack improvStack = new();
 
     // after this time the engine aborts the search
     private static long AbortTimeThreshold;
@@ -113,8 +109,8 @@ internal static unsafe class PVS {
         StorePVinTT(PV, CurIterDepth);
 
         // increase the number of plies we can hold
-        improvStack.Expand(CurIterDepth);
-        improvStack.UpdateStaticEval(Game.Board.StaticEval, 0, Game.EngineColor);
+        ImprovingStack.Expand(CurIterDepth);
+        ImprovingStack.UpdateStaticEval(Game.Board.StaticEval, 0, Game.EngineColor);
 
         SearchState defaultSS = new(
             ply:             0,
@@ -305,7 +301,7 @@ internal static unsafe class PVS {
         
         // update the static eval in the stack and the improving flag
         //improvStack.UpdateStaticEval(staticEval, ss.Ply, col);
-        bool parentImproving = improvStack.IsImproving(ss.Ply, col);
+        bool parentImproving = ImprovingStack.IsImproving(ss.Ply, col);
         
         // fairly solid improving ideas
         parentImproving |= staticEval >= beta;
@@ -397,7 +393,7 @@ internal static unsafe class PVS {
             nullChild.Hash       ^= board.EnPassantSq != 64 ? ZobristHash.EnPassant[board.EnPassantSq & 7] : 0UL;
             
             // update the improving stack for the null move search
-            improvStack.UpdateStaticEval(nullChild.StaticEval, ss.Ply + 1, 1 - col);
+            ImprovingStack.UpdateStaticEval(nullChild.StaticEval, ss.Ply + 1, 1 - col);
 
             // scale reduction when eval is much over beta
             int delta = staticEval - beta;
@@ -434,7 +430,7 @@ internal static unsafe class PVS {
                 int temp  = MinNMPPly;
                 MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;
                 
-                improvStack.UpdateStaticEval(staticEval, ss.Ply + 1, col);
+                ImprovingStack.UpdateStaticEval(staticEval, ss.Ply + 1, col);
 
                 // do the verification search
                 nmpScore = SearchNext<NonPVNode>(
@@ -588,8 +584,8 @@ internal static unsafe class PVS {
             
             // once again update the static eval in the improving stack,
             // but this time after the move has been already played
-            improvStack.UpdateStaticEval(childStaticEval, ss.Ply + 1, 1 - col);
-            bool improving = improvStack.IsImproving(ss.Ply + 1, col);
+            ImprovingStack.UpdateStaticEval(childStaticEval, ss.Ply + 1, 1 - col);
+            bool improving = ImprovingStack.IsImproving(ss.Ply + 1, col);
             
             improving |= -childStaticEval >= beta;
             improving &= !inCheck;
@@ -734,9 +730,9 @@ internal static unsafe class PVS {
             
             // tweak the expanded nodes threshold based on total
             // legal move count, and the game phase estimate
-            int phase       = maxExpNodes * (380 + gamePhase) / 445;
-            int mcount      = maxExpNodes * (75  + moveCount) / 105;
-            maxExpNodes     = Math.Max(1, (2 * mcount + phase) / 3);
+            int phase   = maxExpNodes * (380 + gamePhase) / 445;
+            int mcount  = maxExpNodes * (75  + moveCount) / 105;
+            maxExpNodes = Math.Max(1, (2 * mcount + phase) / 3);
             
             bool skipLMP = expandedNodes <= maxExpNodes
                         || inCheck
@@ -990,7 +986,7 @@ internal static unsafe class PVS {
         for (int i = 0; i < MaxPVDepth; i++)
             Array.Clear(_pvTable[i], 0, _pvTable[i].Length);
 
-        improvStack.Expand(0);
+        ImprovingStack.Expand(0);
 
         Killers.Clear();
         QuietHistory.Clear();

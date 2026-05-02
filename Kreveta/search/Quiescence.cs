@@ -76,7 +76,7 @@ internal static class Quiescence {
         }
 
         // if we aren't in check we only generate captures
-        Span<Move> moves = stackalloc Move[Consts.MoveBufferSize];
+        Span<Move> moves = stackalloc Move[Consts.MoveBufferSize / 4];
         int count = Movegen.GetLegalMoves(ref board, moves, !inCheck);
 
         // no moves have been generated
@@ -101,10 +101,11 @@ internal static class Quiescence {
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
+            Move curMove = moves[i];
             
             // 3. MOVECOUNT PRUNING
             // late captures are simply skipped, unless being a recapture
-            if (!inCheck && i > 3 && ply >= PVS.CurIterDepth + 4 && moves[i].End != prevSq && !Score.IsMate(alpha)) {
+            if (!inCheck && i > 3 && ply >= PVS.CurIterDepth + 4 && curMove.End != prevSq && !Score.IsMate(alpha)) {
                 PVS.CurNodes++;
                 continue;
             }
@@ -114,7 +115,7 @@ internal static class Quiescence {
             // captured piece (or SEE score to be exact), which is added to the stand pat with
             // a margin, and if the eval still doesn't raise alpha, we prune this branch
             if (!inCheck && ply >= PVS.CurIterDepth + 4) {
-                int captured    = EvalTables.PieceValues[(int)moves[i].Capture];
+                int captured    = EvalTables.PieceValues[(int)curMove.Capture];
                 int captureTerm = (2 * seeScores[i] + captured) / 3;
 
                 // the delta base is multiplied by depth, but the depth must be calculated
@@ -129,10 +130,10 @@ internal static class Quiescence {
             }
             
             Board child = board.Clone(ply + 1);
-            child.PlayMove(moves[i], true);
+            child.PlayMove(curMove, true);
 
             // full child search
-            var score = (short)-Search(ref child, ply + 1, -beta, -alpha, curQSDepth, moves[i].End);
+            var score = (short)-Search(ref child, ply + 1, -beta, -alpha, curQSDepth, curMove.End);
             
             // raise alpha if new score is higher than previous alpha
             alpha = Math.Max(alpha, score);
@@ -143,11 +144,9 @@ internal static class Quiescence {
                 // we want to store this in the tt not to retrieve the score,
                 // but to retrieve the best move for better move ordering
                 if (ply <= PVS.CurIterDepth + 2)
-                    TT.Store(board.Hash, -1, ply, alpha, beta, score, moves[i]);
+                    TT.Store(board.Hash, -1, ply, alpha, beta, score, curMove);
                 
-                CaptureHistory.ChangeRep(moves[i], weight: 1);
-
-                // exit the loop
+                CaptureHistory.ChangeRep(curMove, weight: 1);
                 break;
             }
         }
