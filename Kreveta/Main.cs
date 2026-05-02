@@ -83,12 +83,12 @@ internal static class Program {
         // pre-allocate PV tables
         PVS.Init();
         
+        ThreeFold.Init(0);
+        
         // the default position is startpos to prevent crashes when
         // the user types go or perft without setting a position
         Game.Board = Board.CreateStartpos();
         
-        ThreeFold.Init(0);
-
         UCI.InputLoop();
         return 0;
         
@@ -98,7 +98,7 @@ internal static class Program {
             TT.Clear();
             SETT.Clear();
             PerftTT.Clear();
-            PawnCorrections.Clear();
+            Corrections.Free();
             LookupTables.Clear();
             ZobristHash.Clear();
         }
