@@ -11,7 +11,10 @@ using System.Runtime.InteropServices;
 
 namespace Kreveta.moveorder.history.corrections;
 
-internal unsafe class CorrectionTable {
+// this correction table is reused across all correction history types
+// used here. refer to Corrections.cs for more detailed information
+internal unsafe sealed class CorrectionTable {
+    
     // size of the hash table; MUST be a power of 2
     // in order to allow & instead of modulo indexing
     private readonly ulong _tableSize;
@@ -54,32 +57,31 @@ internal unsafe class CorrectionTable {
         NativeMemory.AlignedFree(_blackCorrections);
     }
     
+    // store the evaluation inconsistency with the provided board features
     internal void Update(ulong wHash, ulong bHash, short shift) {
         if (wHash != 0UL) {
             int wIndex = (int)(wHash & _tableSize - 1);
             
             _whiteCorrections[wIndex] += shift;
-            _whiteCorrections[wIndex]  = (short)Math.Clamp(
-                _whiteCorrections[wIndex], -_maxAmplitude, _maxAmplitude
-            );
+            _whiteCorrections[wIndex]  = (short)Math.Clamp(_whiteCorrections[wIndex], -_maxAmplitude, _maxAmplitude);
         }
         if (bHash != 0UL) {
             int bIndex = (int)(bHash & _tableSize - 1);
-            
+
             _blackCorrections[bIndex] += shift;
-            _blackCorrections[bIndex]  = (short)Math.Clamp(
-                _blackCorrections[bIndex], -_maxAmplitude, _maxAmplitude
-            );
+            _blackCorrections[bIndex]  = (short)Math.Clamp(_blackCorrections[bIndex], -_maxAmplitude, _maxAmplitude);
         }
     }
 
+    // based on the provided hashes of some board features, try
+    // to retrieve a correction value from the internal tables
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal int Get(ulong wHash, ulong bHash) {
-        if (wHash == 0UL || bHash == 0UL) return 0;
-
         int wIndex = (int)(wHash & _tableSize - 1);
         int bIndex = (int)(bHash & _tableSize - 1);
-        
+
+        // now, either of the hashes can indeed be zero, but the slot at the zeroeth
+        // index is never actually updated, which means we can skip the checks here
         return _whiteCorrections[wIndex] + _blackCorrections[bIndex];
     }
 }
