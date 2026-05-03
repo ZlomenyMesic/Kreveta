@@ -72,11 +72,11 @@ internal static unsafe class PVS {
 
     // when a TT lookup is successful, but we for some reason cannot cut
     // off, the entry information is stored here not to repeat the lookup
-    private static TTLookupState LookupTT;
-    private static Move          TTMove;
-    private static short         TTScore;
-    private static ScoreType     TTFlags;
-    private static int           TTDepth;
+    internal static TTLookupState LookupTT;
+    internal static Move          TTMove;
+    internal static short         TTScore;
+    internal static ScoreType     TTFlags;
+    internal static int           TTDepth;
 
     // increase the depth and do a re-search
     internal static void SearchDeeper(int aspirationAlpha, int aspirationBeta) {
@@ -138,9 +138,9 @@ internal static unsafe class PVS {
 
         // loop all pv-nodes
         for (int i = 0; i < pv.Length; i++) {
-            // store the pv-node
+            // store each pv move
             int score = PVScore * (i % 2 == 0 ? 1 : -1);
-            TT.Store(board.Hash, (sbyte)depth--, i, short.MinValue, short.MaxValue, (short)score, pv[i]);
+            TT.Store(board.Hash, (sbyte)--depth, i, short.MinValue, short.MaxValue, (short)score, pv[i]);
 
             // play along the pv to store correct positions as well
             board.PlayMove(pv[i], false);
@@ -219,9 +219,10 @@ internal static unsafe class PVS {
         
         // we reached depth zero or lower => evaluate the leaf node though qsearch
         if (ss.Depth <= 0) {
-            LookupTT = TTLookupState.NOT_PERFORMED;
+            short q =  Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64);
             
-            return Quiescence.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
+            LookupTT = TTLookupState.NOT_PERFORMED;
+            return q;
         }
         
         // increase the nodes searched counter
@@ -237,7 +238,6 @@ internal static unsafe class PVS {
             int matePly = Math.Abs(Score.GetMateInX(alpha));
             if (ss.Ply >= matePly) {
                 LookupTT = TTLookupState.NOT_PERFORMED;
-                
                 return 0;
             }
         }
@@ -254,13 +254,14 @@ internal static unsafe class PVS {
             (ttMove, ttScore, ttFlags, ttDepth)
                 = (TTMove, TTScore, TTFlags, TTDepth);
             
-            ttHit    = true;
-            LookupTT = TTLookupState.NOT_PERFORMED;
+            ttHit = true;
         }
         
         // otherwise try to retrieve the data here
         else if (LookupTT != TTLookupState.DOES_NOT_EXIST)
             ttHit = TT.TryGetData(board.Hash, ss.Ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
+        
+        LookupTT = TTLookupState.NOT_PERFORMED;
         
         bool ttMoveExists = ttHit && ttMove != default;
         bool ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
@@ -270,6 +271,7 @@ internal static unsafe class PVS {
         bool ttLowerBound = ttHit && ttFlags.HasFlag(ScoreType.LOWER_BOUND);
         bool ttUpperBound = ttHit && ttFlags.HasFlag(ScoreType.UPPER_BOUND);
         
+        // 2. ADDITIONAL TT CUTOFFS
         // if tt score is reliable enough, it may be used for early cutoffs in
         // non-PV nodes, but only in case it strongly supports the node type
         int  cm = 26 + 18 * ss.Depth;
@@ -320,7 +322,7 @@ internal static unsafe class PVS {
         } 
         else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
-        // 2. RAZORING
+        // 3. RAZORING
         // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
         // returned instead. this cannot be done when in check, and the qsearch score must be validated
         if (!ss.FollowPV && !inCheck && (ss.Depth <= 3 || !ttCapture)) {
@@ -334,12 +336,12 @@ internal static unsafe class PVS {
             if (staticEval + margin < alpha) {
                 
                 // perform the quiescence search and ensure it actually fails low
-                int qEval = Quiescence.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
+                int qEval = Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64);
                 if (qEval <= alpha) return (short)qEval;
             }
         }
         
-        // 3. STATIC NULL MOVE PRUNING
+        // 4. STATIC NULL MOVE PRUNING
         // also called reverse futility pruning; if the static eval at close-to-leaf
         // nodes fails high despite subtracting a margin, prune this branch
         if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
@@ -350,7 +352,7 @@ internal static unsafe class PVS {
                 return (short)((2 * beta + staticEval) / 3);
         }
         
-        // 4. SMALL PROBCUT IDEA
+        // 5. SMALL PROBCUT IDEA
         // inspired by Stockfish, but modified quite a bit. if the tt score isn't reliable enough
         // to cause the search to be skipped completely, we drop into quiescence search
         int probcutMargin = 523 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
@@ -359,12 +361,12 @@ internal static unsafe class PVS {
         // make sure the tt score is the correct bound
         if (ttHit && ttDepth >= ss.Depth - 4 && ss.Depth >= 3 && cutNode && !Score.IsMate(ttScore)
             && (ttLowerBound || ttExact) && ttScore >= probcutBeta) {
-
+            
             // drop into quiescence search
-            return Quiescence.Search(ref board, ss.Ply, alpha, beta, CurIterDepth + 12, 64);
+            return Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64);
         }
         
-        // 5. NULL MOVE PRUNING
+        // 6. NULL MOVE PRUNING
         // we assume that in every position there is at least one move that improves it. first,
         // we play a null move (only switching sides), and then perform a reduced search with
         // a null window around beta. if the returned score fails high, we expect that not
@@ -382,13 +384,13 @@ internal static unsafe class PVS {
             // child with a move skipped
             var nullChild = board.Clone() with {
                 EnPassantSq = 64,
-                SideToMove  = (Color)((int)col ^ 1)
+                SideToMove  = (Color)((int)col ^ 1),
+                IsCheck     = false
             };
             
             // somewhat mimic the eval difference from switching sides.
             // this helps a lot, as recomputing static eval wastes time
             nullChild.StaticEval  = (short)(-nullChild.StaticEval + 12);
-            nullChild.IsCheck     = false;
             nullChild.Hash       ^= ZobristHash.WhiteToMove;
             nullChild.Hash       ^= board.EnPassantSq != 64 ? ZobristHash.EnPassant[board.EnPassantSq & 7] : 0UL;
             
@@ -449,7 +451,7 @@ internal static unsafe class PVS {
             }
         }
         
-        // 6. INTERNAL ITERATIVE REDUCTIONS
+        // 7. INTERNAL ITERATIVE REDUCTIONS
         // if the node we are in doesn't have a stored best move in TT, we reduce the depth
         // in hopes of finishing the search faster and populating the TT for next iterations
         // or occurences. the depth and ply conditions are important, as reducing too much in
@@ -685,18 +687,18 @@ internal static unsafe class PVS {
                 if (singScore <= ttScore - sbOffset - 1) {
 
                     weight += 2;
-                    curDepth++;
+                    reduction--;
                     
                     // double extension if tt move seems to be a good capture
                     if (ttCapture && ttBetaCutoff && ttDepth >= ss.Depth - 2)
-                        curDepth++;
+                        reduction--;
                 }
                 
                 // 12. MULTI-CUT PRUNING
                 // an additional idea to singular extensions - if the search score failed high
                 // over the current beta, the node is pruned, as despite not having access to
                 // the best move (tt move), we still failed high
-                else if (!Score.IsMate(singScore) && singScore >= beta) {
+                else if (singScore >= beta && !Score.IsMate(singScore)) {
                     if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                     return singScore;
                 }
@@ -717,8 +719,7 @@ internal static unsafe class PVS {
                        + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
-            // apply the reduction, make sure we don't extend more than one ply
-            reduction = Math.Max(reduction, 0);
+            // apply the reduction
             curDepth -= reduction;
 
             // 15. LATE MOVE PRUNING/REDUCTIONS

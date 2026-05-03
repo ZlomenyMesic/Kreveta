@@ -35,27 +35,57 @@ internal static class Quiescence {
         // this stores the highest achieved search depth in this
         // iteration. if we surpassed it, store it as the new one
         if (ply > PVS.AchievedDepth)
-            PVS.AchievedDepth = ply;
+            PVS.AchievedDepth = ply + 1;
+        
+        // stand pat is just a fancy word for static eval
+        bool  inCheck   = board.IsCheck;
+        short standPat  = board.StaticEval;
+        int   fullDepth = curQSDepth - 12;
 
         // we reached the maximum allowed depth, return the static eval
         if (ply >= curQSDepth)
-            return board.StaticEval;
+            return standPat;
+        
+        // 1. EARLY DELTA PRUNING
+        // check if any move at all could pass delta pruning. by adding the maximum
+        // possible per-move gain (value of a queen), we can safely cut off sooner
+        int queenValue = EvalTables.PieceValues[(int)PType.QUEEN];
+        if (!inCheck && ply >= fullDepth + 4
+                     && standPat + (curQSDepth - ply) * 77 + queenValue <= alpha)
+            return (short)alpha;
+        
+        // some TT data we try to retrieve
+        bool      ttHit   = false;
+        Move      ttMove  = default;
+        short     ttScore = 0;
+        ScoreType ttFlags = default;
+        int       ttDepth = 0;
 
-        // try to retrieve a score and best move from the TT
-        bool ttHit = TT.TryGetData(board.Hash, ply, out Move ttMove, out short ttScore, out var ttFlags, out int ttDepth);
-
+        // if we have retrieved TT data previously, use it
+        if (PVS.LookupTT == TTLookupState.FOUND) {
+            (ttMove, ttScore, ttFlags, ttDepth)
+                = (PVS.TTMove, PVS.TTScore, PVS.TTFlags, PVS.TTDepth);
+            
+            ttHit = true;
+        }
+        
+        // otherwise try to retrieve the data here
+        else if (PVS.LookupTT != TTLookupState.DOES_NOT_EXIST)
+            ttHit = TT.TryGetData(board.Hash, ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
+        
         // cutoff if any tt score exists. we don't care about depth as long as depth
         // isn't -1, which would signify the entry comes from quiescence search as well
         if (ttHit && ttDepth >= 3 && (ttFlags.HasFlag(ScoreType.SCORE_EXACT)
                                    || ttFlags.HasFlag(ScoreType.LOWER_BOUND) && ttScore >= beta
                                    || ttFlags.HasFlag(ScoreType.UPPER_BOUND) && ttScore <= alpha)) {
 
+            //if (ttScore >= beta)
+            //    CaptureHistory.ChangeRep(ttMove, weight: 1);
+            
             return ttScore;
         }
         
-        // stand pat is just a fancy word for static eval
-        bool  inCheck  = board.IsCheck;
-        short standPat = board.StaticEval;
+        PVS.LookupTT = TTLookupState.NOT_PERFORMED;
         
         // 1. STAND-PAT PRUNING
         // based on the null move observation, there is always at least one good move
@@ -93,7 +123,7 @@ internal static class Quiescence {
         // 2. SEE PRUNING
         // when not in check, only captures are generated. the capture ordering
         // function takes a threshold, below which all captures are directly skipped.
-        int seeThreshold = (ply - PVS.CurIterDepth) / 8;
+        int seeThreshold = (ply - fullDepth) / 8;
 
         // order the captures, and place the potential tt move at the front
         Span<int> seeScores = stackalloc int[count];
@@ -103,18 +133,19 @@ internal static class Quiescence {
         for (int i = 0; i < count; ++i) {
             Move curMove = moves[i];
             
-            // 3. MOVECOUNT PRUNING
-            // late captures are simply skipped, unless being a recapture
-            if (!inCheck && i > 3 && ply >= PVS.CurIterDepth + 4 && curMove.End != prevSq && !Score.IsMate(alpha)) {
-                PVS.CurNodes++;
-                continue;
-            }
-            
-            // 4. DELTA PRUNING
-            // very similar to futility pruning but makes use of the value of the currently
-            // captured piece (or SEE score to be exact), which is added to the stand pat with
-            // a margin, and if the eval still doesn't raise alpha, we prune this branch
-            if (!inCheck && ply >= PVS.CurIterDepth + 4) {
+            if (!inCheck && ply >= fullDepth + 4) {
+                
+                // 3. MOVECOUNT PRUNING
+                // late captures are simply skipped, unless being a recapture
+                if (i > 3 && curMove.End != prevSq && !Score.IsMate(alpha)) {
+                    PVS.CurNodes++;
+                    continue;
+                }
+                
+                // 4. DELTA PRUNING
+                // very similar to futility pruning but makes use of the value of the currently
+                // captured piece (or SEE score to be exact), which is added to the stand pat with
+                // a margin, and if the eval still doesn't raise alpha, we prune this branch
                 int captured    = EvalTables.PieceValues[(int)curMove.Capture];
                 int captureTerm = (2 * seeScores[i] + captured) / 3;
 
