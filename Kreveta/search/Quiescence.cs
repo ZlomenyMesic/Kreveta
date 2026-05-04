@@ -11,6 +11,7 @@ using Kreveta.moveorder.history;
 using Kreveta.moveorder.history.corrections;
 
 using System;
+using Kreveta.search.helpers;
 
 // ReSharper disable InconsistentNaming
 
@@ -23,7 +24,7 @@ internal static class Quiescence {
     // search tree, we return a qsearch eval. qsearch is essentially just an extension
     // to the main search, but only expands captures or checks. this prevents falsely
     // evaluating positions where there's for instancea hanging queen (horizon effect)
-    internal static short Search(ref Board board, int ply, int alpha, int beta, int curQSDepth, int prevSq) {
+    internal static short Search(ref Board board, int ply, int alpha, int beta, int curQSDepth, int prevSq, bool ignore3fold) {
         
         // exit the search if we should abort
         if (PVS.Abort && PVS.CurIterDepth > 1)
@@ -37,13 +38,26 @@ internal static class Quiescence {
         if (ply > PVS.AchievedDepth)
             PVS.AchievedDepth = ply + 1;
         
+        // check for 50-move rule draw
+        if (board.HalfMoveClock >= 100)
+            return 0;
+        
+        // same as in the main search function; check whether there is a known
+        // move from this position that would cause a 3-fold repetition draw
+        if (!ignore3fold && alpha < 0 && PVS.IsUpcomingRepetitionDraw(board.Hash)) {
+            alpha = Score.GetNoisyDrawScore(PVS.CurNodes);
+
+            if (alpha >= beta)
+                return (short)alpha;
+        }
+        
         // stand pat is just a fancy word for static eval
         bool  inCheck   = board.IsCheck;
         short standPat  = board.StaticEval;
         int   fullDepth = curQSDepth - 12;
 
         // we reached the maximum allowed depth, return the static eval
-        if (ply >= curQSDepth)
+        if (ply >= Math.Min(curQSDepth, 128))
             return standPat;
         
         // 1. EARLY DELTA PRUNING
@@ -78,9 +92,6 @@ internal static class Quiescence {
         if (ttHit && ttDepth >= 3 && (ttFlags.HasFlag(ScoreType.SCORE_EXACT)
                                    || ttFlags.HasFlag(ScoreType.LOWER_BOUND) && ttScore >= beta
                                    || ttFlags.HasFlag(ScoreType.UPPER_BOUND) && ttScore <= alpha)) {
-
-            //if (ttScore >= beta)
-            //    CaptureHistory.ChangeRep(ttMove, weight: 1);
             
             return ttScore;
         }
@@ -117,7 +128,7 @@ internal static class Quiescence {
             // but such cases shouldn't hurt the evaluation
             return !inCheck 
                 ? standPat
-                : Score.CreateMateScore(ply);
+                : Score.GetMateScore(ply);
         }
 
         // 2. SEE PRUNING
@@ -131,8 +142,11 @@ internal static class Quiescence {
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
-            Move curMove = moves[i];
+            Move  curMove   = moves[i];
+            PType capture   = curMove.Capture;
+            PType promotion = curMove.Promotion;
             
+            // no pruning should be attempted when in check
             if (!inCheck && ply >= fullDepth + 4) {
                 
                 // 3. MOVECOUNT PRUNING
@@ -141,17 +155,20 @@ internal static class Quiescence {
                     PVS.CurNodes++;
                     continue;
                 }
-                
+
                 // 4. DELTA PRUNING
                 // very similar to futility pruning but makes use of the value of the currently
-                // captured piece (or SEE score to be exact), which is added to the stand pat with
-                // a margin, and if the eval still doesn't raise alpha, we prune this branch
-                int captured    = EvalTables.PieceValues[(int)curMove.Capture];
-                int captureTerm = (2 * seeScores[i] + captured) / 3;
+                // captured piece (or SEE score to be exact), which is added to the stand pat
+                // with a margin, and if the eval still doesn't raise alpha, we prune this branch. 
+                // although en passant is labeled as a pawn promotion, it doesn't really matter
+                // here, as the final result should still be quite similar
+                int captValue    = EvalTables.PieceValues[(int)capture];
+                int promValue    = EvalTables.PieceValues[(int)promotion];
+                int materialGain = (2 * seeScores[i] + captValue) / 3 + promValue;
 
                 // the delta base is multiplied by depth, but the depth must be calculated
                 // in a bit more difficult way (maximum qsearch depth - current ply)
-                int delta = (curQSDepth - ply) * 77 + captureTerm;
+                int delta = (curQSDepth - ply) * 77 + materialGain;
 
                 // did we fail low?
                 if (standPat + delta <= alpha) {
@@ -160,11 +177,34 @@ internal static class Quiescence {
                 }
             }
             
+            // the move passed pruning; clone the board, and play the move
             Board child = board.Clone(ply + 1);
             child.PlayMove(curMove, true);
 
-            // full child search
-            var score = (short)-Search(ref child, ply + 1, -beta, -alpha, curQSDepth, curMove.End);
+            short score = 0;
+            
+            // add the child's hash to the threefold stack
+            if (!inCheck && !ignore3fold && ThreeFold.AddAndCheck(child.Hash)) {
+                score = Score.GetNoisyDrawScore(PVS.CurNodes);
+                goto skipSearch;
+            }
+
+            if (capture != PType.NONE || promotion == PType.PAWN) {
+                ulong pieceCount = ulong.PopCount(child.Occupied);
+                
+                // if the current move is a capture, and there are fewer than 5 pieces
+                // on the new board, check for insufficient mating material draw
+                if (pieceCount <= 4 && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount))
+                    goto skipSearch;
+            }
+
+            // if no draw is found, perform a full search
+            score = (short)-Search(ref child, ply + 1, -beta, -alpha, curQSDepth, curMove.End, ignore3fold);
+            skipSearch:
+            
+            // make sure to also remove the child's hash
+            if (!inCheck && !ignore3fold)
+                ThreeFold.Remove(child.Hash);
             
             // raise alpha if new score is higher than previous alpha
             alpha = Math.Max(alpha, score);

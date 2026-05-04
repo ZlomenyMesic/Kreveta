@@ -147,6 +147,17 @@ internal static unsafe class PVS {
         }
     }
 
+    // given a hash, find possible upcoming hashes present in ThreeFold. if any
+    // of the two hashes are already there twice, we know there exists a drawing
+    // move. this can allow us to cut off early, when draw >= beta
+    internal static bool IsUpcomingRepetitionDraw(ulong hash) {
+        var (a, b) = ThreeFold.GetUpcomingHashes(hash);
+
+        // check whether either of the hashes is in the table twice already
+        return a != 0UL && ThreeFold.WouldBeDraw(a)
+            || b != 0UL && ThreeFold.WouldBeDraw(b);
+    }
+
     // during the search, first check the transposition table for the score, if it's not there
     // just continue the search as usual. parameters need to be the same as in the search method itself
     private static short SearchNext<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool cutNode) 
@@ -192,7 +203,7 @@ internal static unsafe class PVS {
         // update this position's score in pawncorrhist. bounds have to be checked,
         // as a bound score is certainly not reliable enough to correct the eval
         if (score > alpha && score < beta)
-            Corrections.Update(board, score, ss.Depth);
+            Corrections.Update(board, score, ss.Depth, bestMove != default);
 
         return score;
     }
@@ -219,7 +230,7 @@ internal static unsafe class PVS {
         
         // we reached depth zero or lower => evaluate the leaf node though qsearch
         if (ss.Depth <= 0) {
-            short q =  Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64);
+            short q =  Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64, ss.Ignore3Fold);
             
             LookupTT = TTLookupState.NOT_PERFORMED;
             return q;
@@ -227,6 +238,15 @@ internal static unsafe class PVS {
         
         // increase the nodes searched counter
         CurNodes++;
+
+        // prior to searching any moves, check whether the current position has a known
+        // repetition drawing move. if so, update alpha accordingly, and try to cut off
+        if (!rootNode && !ss.Ignore3Fold && alpha < 0 && IsUpcomingRepetitionDraw(board.Hash)) {
+            alpha = Score.GetNoisyDrawScore(CurNodes);
+
+            if (alpha >= beta)
+                return (short)alpha;
+        }
 
         // just to simplify who's turn it is
         Color col = board.SideToMove;
@@ -236,6 +256,7 @@ internal static unsafe class PVS {
         // past the mate ply. this is applied to both winning and losing mates
         if (Score.IsMate(alpha) && alpha > 0) {
             int matePly = Math.Abs(Score.GetMateInX(alpha));
+            
             if (ss.Ply >= matePly) {
                 LookupTT = TTLookupState.NOT_PERFORMED;
                 return 0;
@@ -278,6 +299,7 @@ internal static unsafe class PVS {
         bool canCutoff = allNode && ttScore + cm <= alpha
                       || cutNode && ttScore - cm >= beta;
         
+        // now also check whether the tt bound fits the situation
         if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact
                 || ttUpperBound && ttScore <= alpha
                 || ttLowerBound && ttScore >= beta)) {
@@ -336,7 +358,7 @@ internal static unsafe class PVS {
             if (staticEval + margin < alpha) {
                 
                 // perform the quiescence search and ensure it actually fails low
-                int qEval = Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64);
+                int qEval = Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64, ss.Ignore3Fold);
                 if (qEval <= alpha) return (short)qEval;
             }
         }
@@ -363,7 +385,7 @@ internal static unsafe class PVS {
             && (ttLowerBound || ttExact) && ttScore >= probcutBeta) {
             
             // drop into quiescence search
-            return Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64);
+            return Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64, ss.Ignore3Fold);
         }
         
         // 6. NULL MOVE PRUNING
@@ -430,7 +452,7 @@ internal static unsafe class PVS {
 
                 // disable null move pruning early in verification search
                 int temp  = MinNMPPly;
-                MinNMPPly = ss.Ply + 3 * (ss.Depth - R) / 4;
+                MinNMPPly = ss.Ply + (ss.Depth - R) * 3 / 4;
                 
                 ImprovingStack.UpdateStaticEval(staticEval, ss.Ply + 1, col);
 
@@ -560,21 +582,21 @@ internal static unsafe class PVS {
             short fullSearchScore = 0;
             int   curDepth        = ss.Depth;
             
-            // check the position for a 3-fold repetition draw. it is very
-            // important that we also remove this move from the stack, which
-            // must be done anywhere where this loop is exited
+            // check the position for a 3-fold repetition draw. it is very important
+            // that we also remove this move from the stack, which must be done anywhere
+            // where this loop is exited
             bool isThreeFold = !ss.Ignore3Fold && ThreeFold.AddAndCheck(child.Hash);
             
-            // create some deterministic noise for three-fold repetition
-            // draws, which apparently helps avoid weird loops or blindness
-            if (isThreeFold) fullSearchScore = (short)(-1 + (int)(CurNodes & 0x2));
+            // create some deterministic noise for three-fold repetition draws, which
+            // apparently helps avoid weird loops or blindness
+            if (isThreeFold)
+                fullSearchScore = Score.GetNoisyDrawScore(CurNodes);
             
-            // if there is a known draw according to chess rules
-            // (either 50 move rule or insufficient mating material),
-            // all pruning and reductions are skipped
+            // if there is a known draw according to chess rules (either 50 move rule
+            // or insufficient mating material), all pruning and reductions are skipped
             if (isThreeFold
-                || child.HalfMoveClock >= 100
-                || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount)) {
+             || child.HalfMoveClock >= 100
+             || pieceCount <= 4 && isCapture && Eval.IsInsufficientMaterialDraw(child.Pieces, pieceCount)) {
 
                 _pvLen[ss.Ply + 1] = 0;
                 goto skipPVS;
@@ -881,7 +903,7 @@ internal static unsafe class PVS {
             
             return inCheck
                 // if we are checked this means we got mated
-                ? Score.CreateMateScore(ss.Ply)
+                ? Score.GetMateScore(ss.Ply)
 
                 // if we aren't checked, we return draw (stalemate)
                 : (short)0;

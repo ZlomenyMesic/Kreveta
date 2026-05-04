@@ -27,13 +27,14 @@ internal static class Corrections {
     private static readonly CorrectionTable MajorCorrHist = new(16_384,  1024);
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Update(in Board board, short score, int depth) {
+    internal static void Update(in Board board, short score, int depth, bool bestMove) {
         if (depth <= 0) return;
         
-        // get the difference between static eval, and the search
-        // score, while keeping everything white-relative
+        // get the difference between static eval, and the search score, while keeping
+        // everything white-relative. the shift is also increased if the best move exists
         short diff = (short)((score - board.StaticEval)
-                           * (board.SideToMove == Color.WHITE ? 1 : -1));
+                           * (board.SideToMove == Color.WHITE ? 1  : -1)
+                           * (bestMove                        ? 17 : 12) / 15);
 
         // the same exact shift is applied uniformly to all tables. it is calculated
         // based on the depth of the search, and the amount of evaluation inconsistency

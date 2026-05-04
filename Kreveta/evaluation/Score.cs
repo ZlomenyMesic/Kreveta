@@ -21,7 +21,7 @@ internal static class Score {
 
     // creates a new mate score relative to the number of plies
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short CreateMateScore(int ply)
+    internal static short GetMateScore(int ply)
         => (short)(-MateScoreDefault + ply);
 
     // checks whether the score falls above the mate score threshold
@@ -36,6 +36,13 @@ internal static class Score {
         int x = MateScoreDefault - Math.Abs(score);
         return x * Math.Sign(score);
     }
+    
+    // to avoid weird loops and cycles when evaluating drawing shuffling
+    // positions, the draw score for 3-fold repetition is deterministically
+    // altered to be a bit more noisy, and break these cycles
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static short GetNoisyDrawScore(ulong nodes)
+        => (short)(-1 + (int)(nodes & 0x2));
 
     // maximum non-mate score that can be achieved (in centipawns)
     private const int NonMateScoreLimit = 1000;

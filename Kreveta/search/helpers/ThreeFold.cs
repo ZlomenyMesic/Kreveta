@@ -25,6 +25,11 @@ internal static class ThreeFold {
         _hashes = new ulong[len];
         _counts = new byte[len];
     }
+    
+    // clear the stack when a new position is set
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Clear()
+        => _size = 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool AddAndCheck(ulong hash) {
@@ -62,9 +67,45 @@ internal static class ThreeFold {
             }
         }
     }
-
-    // clear the stack when a new position is set
+    
+    // to simplify draw detection without having to search any moves, we can look up
+    // a certain hash, and find its occurences in the past. we collect the at most
+    // 2 upcoming position hashes, to which we can transition from the given hash
+    // (there may not be more than two, as that would already be a draw). for each
+    // found upcoming hash, we then check whether it is present two times already,
+    // which would mean that in the given position exists a drawing move
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Clear()
-        => _size = 0;
+    internal static (ulong, ulong) GetUpcomingHashes(ulong hash) {
+        ulong first  = 0UL;
+        ulong second = 0UL;
+
+        for (int i = 0; i < _size - 1; i++) {
+            if (_hashes[i] == hash) {
+                ulong next = _hashes[i + 1];
+
+                // choose one of the two slots for the new hash
+                if      (first == 0UL)  first  = next;
+                else if (first != next) second = next;
+
+                // early exit if we already have two
+                if (second != 0UL)
+                    break;
+            }
+        }
+
+        return (first, second);
+    }
+    
+    // counts whether a certain hash is already present twice in
+    // the table, which means adding it again would result in a draw 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool WouldBeDraw(ulong hash) {
+        
+        // scan backwards to find the latest occurrence
+        for (int i = _size - 1; i >= 0; i--)
+            if (_hashes[i] == hash)
+                return _counts[i] >= 2;
+
+        return false;
+    }
 }
