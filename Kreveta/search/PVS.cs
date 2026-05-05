@@ -134,14 +134,21 @@ internal static unsafe class PVS {
     // stores the pv in the transposition table.
     // needs the starting depth in order to store trustworthy entries
     private static void StorePVinTT(Move[] pv, int depth) {
-        Board board = Game.Board.CloneNoNNUE();
+        Board board  = Game.Board.CloneNoNNUE();
+        int   weight = pv.Length + 3;
 
         // loop all pv-nodes
         for (int i = 0; i < pv.Length; i++) {
-            // store each pv move
-            int score = PVScore * (i % 2 == 0 ? 1 : -1);
+            int  score = PVScore * ((i & 0x1) == 0 ? 1 : -1);
+            bool capt  = pv[i].Capture   != PType.NONE
+                      || pv[i].Promotion == PType.PAWN;
+            
+            // store each pv move in TT
             TT.Store(board.Hash, (sbyte)--depth, i, short.MinValue, short.MaxValue, (short)score, pv[i]);
-
+            
+            // update histories for all moves, with progressively smaller bonuses
+            StoreMoveHistory(board.SideToMove, i > 0 ? pv[i - 1] : default, pv[i], capt, weight - i, weight - i - 1);
+            
             // play along the pv to store correct positions as well
             board.PlayMove(pv[i], false);
         }
@@ -202,18 +209,20 @@ internal static unsafe class PVS {
         
         // update this position's score in pawncorrhist. bounds have to be checked,
         // as a bound score is certainly not reliable enough to correct the eval
-        if (score > alpha && score < beta)
+        if (!board.IsCheck && score > alpha && score < beta)
             Corrections.Update(board, score, ss.Depth, bestMove != default);
 
         return score;
     }
     
-    // finally the actual PVS algorithm:
-    // ply starts at zero and increases over time, while depth starts at the highest
-    // value and decreases. the function recursively calls itself to generate a sort
-    // of "tree" of possible future positions, and tracks the best possible path to
-    // go. computing all positions is impossible, so different pruning and reduction
-    // techniques are used to skip likely irrelevant branches
+    /*
+     * PRINCIPAL VARIATION SEARCH (NEGAMAX FRAMEWORK):
+     * ply starts at zero and increases over time, while depth starts at the highest
+     * value and decreases. the function recursively calls itself to generate a sort
+     * of "tree" of possible future positions, and tracks the best possible path to
+     * go. computing all positions is impossible, so different pruning and reduction
+     * techniques are used to skip likely irrelevant branches
+     */
     private static short Search<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool cutNode)
         where NodeType : ISearchNodeType {
         
@@ -248,12 +257,11 @@ internal static unsafe class PVS {
                 return (short)alpha;
         }
 
-        // just to simplify who's turn it is
-        Color col = board.SideToMove;
-
-        // 1. MATE DISTANCE PRUNING (~0 Elo)
-        // if there's already an ensured mate found, we don't have to search
-        // past the mate ply. this is applied to both winning and losing mates
+        /*
+         * 1. MATE DISTANCE PRUNING (~0 Elo)
+         * if there's already an ensured mate found, we don't have to search
+         * past the mate ply. this is applied to both winning and losing mates
+         */
         if (Score.IsMate(alpha) && alpha > 0) {
             int matePly = Math.Abs(Score.GetMateInX(alpha));
             
@@ -262,58 +270,72 @@ internal static unsafe class PVS {
                 return 0;
             }
         }
+
+        // just to simplify who's turn it is
+        Color col          = board.SideToMove;
+        bool  excludedMove = ss.ExcludedMove != default;
         
         // data from the transposition table
-        bool      ttHit   = false;
+        bool      ttHit = false, ttMoveExists = false, ttCapture = false;
+        bool      ttExact = false, ttLowerBound = false, ttUpperBound = false;
+        bool      ttOptimistic = false, ttBetaCutoff = false;
         Move      ttMove  = default;
         short     ttScore = 0;
         ScoreType ttFlags = default;
         int       ttDepth = 0;
 
-        // if we have retrieved TT data previously, use it
-        if (LookupTT == TTLookupState.FOUND) {
-            (ttMove, ttScore, ttFlags, ttDepth)
-                = (TTMove, TTScore, TTFlags, TTDepth);
+        // when in singular search, the TT move is excluded, therefore
+        // we don't care about anything related to TT in any sense at all
+        if (!excludedMove) {
             
-            ttHit = true;
-        }
-        
-        // otherwise try to retrieve the data here
-        else if (LookupTT != TTLookupState.DOES_NOT_EXIST)
-            ttHit = TT.TryGetData(board.Hash, ss.Ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
-        
-        LookupTT = TTLookupState.NOT_PERFORMED;
-        
-        bool ttMoveExists = ttHit && ttMove != default;
-        bool ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
-        
-        // figure out the tt score type
-        bool ttExact      = ttHit && ttFlags.HasFlag(ScoreType.SCORE_EXACT);
-        bool ttLowerBound = ttHit && ttFlags.HasFlag(ScoreType.LOWER_BOUND);
-        bool ttUpperBound = ttHit && ttFlags.HasFlag(ScoreType.UPPER_BOUND);
-        
-        // 2. ADDITIONAL TT CUTOFFS
-        // if tt score is reliable enough, it may be used for early cutoffs in
-        // non-PV nodes, but only in case it strongly supports the node type
-        int  cm = 26 + 18 * ss.Depth;
-        bool canCutoff = allNode && ttScore + cm <= alpha
-                      || cutNode && ttScore - cm >= beta;
-        
-        // now also check whether the tt bound fits the situation
-        if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact
-                || ttUpperBound && ttScore <= alpha
-                || ttLowerBound && ttScore >= beta)) {
+            // if we have retrieved TT data previously, use it
+            if (LookupTT == TTLookupState.FOUND) {
+                (ttMove, ttScore, ttFlags, ttDepth)
+                    = (TTMove, TTScore, TTFlags, TTDepth); 
+                
+                ttHit = true;
+            }
             
-            // we know from the previous conditions that beta is only cut in allnodes
-            if (cutNode && ttMoveExists)
-                StoreTTMoveHistory(col, ss.LastMove, ttMove, ss.Depth, false, ttScore, beta);
+            // otherwise try to retrieve the data here
+            else if (LookupTT != TTLookupState.DOES_NOT_EXIST)
+                ttHit = TT.TryGetData(board.Hash, ss.Ply, out ttMove, out ttScore, out ttFlags, out ttDepth);
+            
+            ttMoveExists = ttHit && ttMove != default;
+            ttCapture    = ttMoveExists && (ttMove.Capture != PType.NONE || ttMove.Promotion == PType.PAWN);
+            
+            // figure out the tt score type
+            ttExact      = ttHit             && ttFlags.HasFlag(ScoreType.SCORE_EXACT);
+            ttLowerBound = ttHit && !ttExact && ttFlags.HasFlag(ScoreType.LOWER_BOUND);
+            ttUpperBound = ttHit && !ttExact && !ttLowerBound;
+            
+            /*
+             * 2. ADDITIONAL TT CUTOFFS
+             * if tt score is reliable enough, it may be used for early cutoffs in
+             * non-PV nodes, but only in case it strongly supports the node type
+             */
+            int  cm = 26 + 18 * ss.Depth;
+            bool canCutoff = allNode && ttScore + cm <= alpha
+                          || cutNode && ttScore - cm >= beta;
+        
+            // now also check whether the tt bound fits the situation
+            if (ttHit && ttDepth >= ss.Depth - 2 && canCutoff && (ttExact
+                    || ttUpperBound && ttScore <= alpha
+                    || ttLowerBound && ttScore >= beta)) {
+            
+                // we know from the previous conditions that beta is only cut in allnodes
+                if (cutNode && ttMoveExists)
+                    StoreTTMoveHistory(col, ss.LastMove, ttMove, ss.Depth, false, ttScore, beta);
 
-            return ttScore;
+                return ttScore;
+            }
+        
+            // is the tt score optimistic that we can raise alpha or cause a beta cutoff
+            ttOptimistic = ttHit && (ttLowerBound || ttExact) && ttScore > alpha;
+            ttBetaCutoff = ttOptimistic && ttDepth >= ss.Depth - 2 && (ttLowerBound || ttExact) && ttScore >= beta;
         }
         
-        // is the tt score optimistic that we can raise alpha or cause a beta cutoff
-        bool ttOptimistic = ttHit && (ttLowerBound || ttExact) && ttScore > alpha;
-        bool ttBetaCutoff = ttOptimistic && ttDepth >= ss.Depth - 2 && (ttLowerBound || ttExact) && ttScore >= beta;
+        // make sure we reset this, even if we didn't use it
+        LookupTT = TTLookupState.NOT_PERFORMED;
         
         // check whether we are still following the previous principal variation
         ss.FollowPV = ss.FollowPV && (rootNode || ss.Ply - 1 < PV.Length && PV[ss.Ply - 1] == ss.LastMove);
@@ -344,16 +366,20 @@ internal static unsafe class PVS {
         } 
         else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
-        // 3. RAZORING
-        // if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
-        // returned instead. this cannot be done when in check, and the qsearch score must be validated
-        if (!ss.FollowPV && !inCheck && (ss.Depth <= 3 || !ttCapture)) {
-            int margin = 539 + 375 * ss.Depth * ss.Depth;
+        /*
+         * 3. RAZORING
+         * if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
+         * returned instead. this cannot be done when in check, and the qsearch score must be validated
+         */
+        if (!inCheck && (ss.Depth <= 3 || !ttCapture) && !ss.FollowPV) {
+            int margin = 539 + 375 * ss.Depth * ss.Depth
+                + (parentImproving ? 33 : 0)
+                - (allNode         ? 27 : 0);
 
-            // some additional margin tuning
-            if (parentImproving) margin += 33;
-            if (allNode)         margin -= 27;
-            if (ttScoreAdjusted) margin  = margin * 19 / 20;
+            // if the static eval was adjusted using a tt score, we assume
+            // it's more precise, and therefore we can lower the margin
+            if (ttScoreAdjusted)
+                margin = margin * 19 / 20;
 
             if (staticEval + margin < alpha) {
                 
@@ -363,10 +389,12 @@ internal static unsafe class PVS {
             }
         }
         
-        // 4. STATIC NULL MOVE PRUNING
-        // also called reverse futility pruning; if the static eval at close-to-leaf
-        // nodes fails high despite subtracting a margin, prune this branch
-        if (!ss.FollowPV && !inCheck && parentImproving && (allNode || cutNode)) {
+        /*
+         * 4. STATIC NULL MOVE PRUNING
+         * also called reverse futility pruning; if the static eval at close-to-leaf
+         * nodes fails high despite subtracting a margin, prune this branch
+         */
+        if (!inCheck && parentImproving && (allNode || cutNode) && !ss.FollowPV) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
             if (ttScoreAdjusted) margin = margin * 15 / 16;
 
@@ -374,9 +402,11 @@ internal static unsafe class PVS {
                 return (short)((2 * beta + staticEval) / 3);
         }
         
-        // 5. SMALL PROBCUT IDEA
-        // inspired by Stockfish, but modified quite a bit. if the tt score isn't reliable enough
-        // to cause the search to be skipped completely, we drop into quiescence search
+        /*
+         * 5. SMALL PROBCUT IDEA
+         * inspired by Stockfish, but modified quite a bit. if the tt score isn't reliable enough
+         * to cause the search to be skipped completely, we drop into quiescence search
+         */
         int probcutMargin = 523 + 27 * (ss.Depth - ttDepth) + 3 * ss.Depth;
         int probcutBeta   = beta + probcutMargin;
         
@@ -388,11 +418,13 @@ internal static unsafe class PVS {
             return Quiescence.Search(ref board, ss.Ply, alpha, beta, ss.Ply + 12, 64, ss.Ignore3Fold);
         }
         
-        // 6. NULL MOVE PRUNING
-        // we assume that in every position there is at least one move that improves it. first,
-        // we play a null move (only switching sides), and then perform a reduced search with
-        // a null window around beta. if the returned score fails high, we expect that not
-        // skipping our move would "fail even higher", and thus can prune this node
+        /*
+         * 6. NULL MOVE PRUNING
+         * we assume that in every position there is at least one move that improves it. first,
+         * we play a null move (only switching sides), and then perform a reduced search with
+         * a null window around beta. if the returned score fails high, we expect that not
+         * skipping our move would "fail even higher", and thus can prune this node
+         */
         int nmpEvalMargin = 3 * ss.Depth + (parentImproving ? 3 : 0);
         
         if (ss.Ply >= MinNMPPly // minimum ply for nmp
@@ -473,21 +505,19 @@ internal static unsafe class PVS {
             }
         }
         
-        // 7. INTERNAL ITERATIVE REDUCTIONS
-        // if the node we are in doesn't have a stored best move in TT, we reduce the depth
-        // in hopes of finishing the search faster and populating the TT for next iterations
-        // or occurences. the depth and ply conditions are important, as reducing too much in
-        // the early iterations produces very wrong outputs
-        if (!ttMoveExists && !inCheck && alpha + 1 < beta
+        /*
+         * 7. INTERNAL ITERATIVE REDUCTIONS
+         * if the node we are in doesn't have a stored best move in TT, we reduce the depth
+         * in hopes of finishing the search faster and populating the TT for next iterations
+         * or occurences. the depth and ply conditions are important, as reducing too much in
+         * the early iterations produces very wrong outputs
+         */
+        if (!excludedMove && !ttMoveExists && !inCheck && alpha + 1 < beta
             && !ss.FollowPV && (pvNode && ss.Depth >= 5 || cutNode && ss.Depth >= 7) && ss.Ply >= 3) {
 
             ss.PriorReductions++;
             ss.Depth--;
         }
-        
-        // if the tt move is excluded from search
-        if (ttMove == ss.ExcludedMove)
-            ttMoveExists = false;
         
         // after this move index threshold all quiets are reduced
         int reduceQuietsThreshold = 41 + 3 * ss.Depth * ss.Depth
@@ -496,14 +526,19 @@ internal static unsafe class PVS {
         
         // was moveorder score assigning already performed?
         bool       scoresAssigned = false;
+        int        moveCount      = 0;
         Span<Move> legalMoves     = stackalloc Move[Consts.MoveBufferSize];
         Span<int>  moveScores     = stackalloc  int[Consts.MoveBufferSize];
         Span<int>  seeScores      = stackalloc  int[Consts.MoveBufferSize];
-        int        moveCount      = 0;
-        int        expandedNodes  = 0;
+        
+        // information about what we've already searched
+        int   expandedNodes = 0;
+        Move  bestMove      = default;
+        short bestScore     = short.MinValue;
         
         // used for LMP move count threshold tuning
         int gamePhase = board.GamePhase();
+        int initAlpha = alpha;
 
         // loop through possible moves
         while (true) {
@@ -561,18 +596,52 @@ internal static unsafe class PVS {
                 allNode = true;
             }
             
+            bool isCapture = curMove.Capture   != PType.NONE 
+                          || curMove.Promotion == PType.PAWN;
+            
+            /*
+             * 8. PREMATURE FUTILITY PRUNING FOR CAPTURES
+             * before cloning the board and playing the move, we can safely eliminate some
+             * captures by adding the achievable material gain to the parent's static eval,
+             * and if we don't raise alpha, the capture is too bad
+             */
+            if (isCapture && ss.Ply >= 4 && ss.Depth < 7) {
+                int captValue = EvalTables.PieceValues[(int)curMove.Capture];
+                int promValue = EvalTables.PieceValues[(int)curMove.Promotion];
+                
+                // the margin is kind of similar to what we use in delta pruning
+                int futilityMargin = 145 + (80 + see / 50) * ss.Depth
+                                     + captValue + promValue;
+
+                if (staticEval + futilityMargin <= alpha) {
+                    CurNodes++;
+                    continue;
+                }
+            }
+            
+            /*
+             * 9. SEE PRUNING FOR QUIETS
+             * quiet moves can never have positive see. negative see of a quiet means it almost
+             * certainly hangs a piece. here we try to prune such moves, as they shouldn't matter
+             */
+            if (!isCapture && see < -25 * ss.Depth * ss.Depth) {
+                CurNodes++;
+                continue;
+            }
+            
             // use the pool slot unless we are in a singular extension search
             Board child = board.Clone(ss.ExcludedMove != default ? -1 : ss.Ply + 1);
             child.PlayMove(curMove, updateStaticEval: true);
             
             ulong pieceCount      = ulong.PopCount(child.Occupied);
             short childStaticEval = child.StaticEval;
-            bool  isCapture       = curMove.Capture != PType.NONE || curMove.Promotion == PType.PAWN;
             bool  givesCheck      = child.IsCheck;
             int   weight          = pvNode ? 1 : 0;
 
-            // update this move's static eval difference history
-            if (!isCapture) {
+            // update this move's static eval difference history. captures are too noisy,
+            // so they cannot be used. also, when in check, static eval isn't computed,
+            // so storing anything would just pollute the actual data
+            if (!isCapture && !(inCheck || givesCheck)) {
                 int seDiff = -childStaticEval - staticEval;
                 StaticEvalDiffHistory.Add(curMove, seDiff);
             }
@@ -602,8 +671,8 @@ internal static unsafe class PVS {
                 goto skipPVS;
             }
             
-            // apply the correction to the static eval
-            int childCorr    = Corrections.Get(in child);
+            // apply the correction to the static eval (no correction when in check)
+            int childCorr    = inCheck ? 0 : Corrections.Get(in child);
             childStaticEval += (short)Math.Clamp(childCorr, -5, 5);
             
             // once again update the static eval in the improving stack,
@@ -613,77 +682,68 @@ internal static unsafe class PVS {
             
             improving |= -childStaticEval >= beta;
             improving &= !inCheck;
-
-            // is the current alpha bound a losing mate score?
-            bool isLosing = Score.IsMate(alpha) && alpha < 0;
-
-            // uninteresting quiet moves that probably hang a piece
+            
+            bool isLosing   = Score.IsLoss(alpha);
             bool hangsPiece = !isCapture && !givesCheck && curScore < -125 && see < 0;
             
             // base reduction for this move, can be turned into an extension
             int reduction = 1;
-
-            // futility pruning is avoided for moves that give check, and for any first move in
-            // a node any nodes where the side to move is in check, or that follow the previous
-            // principal variation also have FP disabled
-            bool skipFP = expandedNodes == 1
-                          || ss.FollowPV && !hangsPiece
-                          || inCheck
-                          || givesCheck
-                          || isLosing
-                          || !nonPawnMat;
             
-            // 8. FUTILITY PRUNING
-            // we try to discard moves near the leaves, which have no potential of raising alpha.
-            // futility margin represents the largest possible score gain through a single move.
-            // if we add this margin to the static eval of the position and still don't raise
-            // alpha, we can prune this branch
-            if (!skipFP && ss.Ply >= 4 && ss.Depth <= 5 + (allNode ? 1 : 0)) {
-                
-                // as taken from CPW:
-                // "If at depth 1 the margin does not exceed the value of a minor piece, at
-                // depth 2 it should be more like the value of a rook."
-                // we don't really follow this exactly, but our approach is kind of similar
-                int margin = 100 + 92 * ss.Depth 
-                    + (improving ? 0 : -23) // not improving nodes => prune more
-                    + see / 65              // tweak the margin based on SEE
-                    + Math.Abs(childCorr);  // a measure of uncertainty
-                
-                // find the difference between alpha and static eval + margin
-                int diff = -childStaticEval + margin - alpha;
-
-                weight++;
+            /*
+             * 10. FUTILITY PRUNING
+             * we try to discard moves near the leaves, which have no potential of raising alpha. futility
+             * margin represents the largest possible score gain through a single move. if we add this margin
+             * to the static eval of the position and still don't raise alpha, we can prune this branch
+             */
+            if (!inCheck && !givesCheck && !isLosing && nonPawnMat && (!ss.FollowPV || hangsPiece)
+                && expandedNodes > 1 && ss.Ply >= 4 && ss.Depth <= 5 + (allNode ? 1 : 0)) {
+                /*
+                 * As taken from CPW:
+                 * "If at depth 1 the margin does not exceed the value of a minor piece, at
+                 *  depth 2 it should be more like the value of a rook."
+                 */
+                int futilityMargin = 77 + 92 * ss.Depth + (improving ? 23 : 0)
+                                   + see / 65 + Math.Abs(childCorr); // a measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
-                if (diff <= 0 && ss.Depth <= 4) {
+                if (ss.Depth <= 4 && -childStaticEval + futilityMargin <= alpha) {
                     CurNodes++;
                     if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                     
                     continue;
                 }
                 
-                // 9. FUTILITY REDUCTIONS
-                // a very small idea i had, helps only a little bit. if the move
-                // didn't fail low, but was very close to it, it is at least reduced
-                if (diff <= 7 && ss.PriorReductions <= 4 && !improving && allNode)
+                /*
+                 * 11. FUTILITY REDUCTIONS
+                 * a very small idea i had, helps only a little bit. if the move
+                 * didn't fail low, but was very close to it, it is at least reduced
+                 */
+                if (allNode && !improving && -childStaticEval + futilityMargin <= alpha + 7 && ss.PriorReductions <= 4)
                     reduction++;
+                
+                weight++;
             }
             
-            // 10. QUIET REDUCTIONS
-            // at very low depths, when there are way too many moves, and we aren't
-            // optimistic about raising alpha, some of the late quiets are reduced
+            /*
+             * 12. QUIET REDUCTIONS
+             * at very low depths, when there are way too many moves, and we aren't
+             * optimistic about raising alpha, some of the late quiets are reduced
+             */
             if (!isCapture && !givesCheck && !improving && expandedNodes >= reduceQuietsThreshold)
                 reduction++;
             
-            // 11. SINGULAR EXTENSIONS
-            // based on the tt score we set the singular beta bound, and perform a reduced search that
-            // doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
-            // e.g. the only reasonable move, and it is extended
+            /*
+             * 13. SINGULAR EXTENSIONS
+             * based on the tt score we set the singular beta bound, and perform a reduced search that
+             * doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
+             * e.g. the only reasonable move, and it is extended
+             */
             if (expandedNodes == 1 && (pvNode || cutNode) && ttMoveExists && ss.Depth >= 6
                 && ttDepth >= ss.Depth - 3 && ttLowerBound && !Score.IsMate(ttScore)) {
 
                 // the singular beta is the tt score minus a small margin
-                int sbOffset = 47 + (ss.Depth - ttDepth);
+                int offset = 47 + (ss.Depth - ttDepth);
+                int sAlpha = ttScore - offset - 1;
                 
                 // it is important to exclude the tt move, as the following
                 // search is supposed to evaluate the position without it
@@ -693,7 +753,7 @@ internal static unsafe class PVS {
                 // do the reduced, null-window search
                 short singScore = Search<NonPVNode>(
                     ref board,
-                    ttScore - sbOffset - 1, ttScore - sbOffset,
+                    sAlpha, sAlpha + 1,
                     ss with { Depth  = (sbyte)(ss.Depth * 2 / 5) },
                     cutNode
                 );
@@ -706,7 +766,7 @@ internal static unsafe class PVS {
                 _pvLen[ss.Ply] = 0;
 
                 // the score is below alpha, the tt move is singular, and is extended
-                if (singScore <= ttScore - sbOffset - 1) {
+                if (singScore <= sAlpha) {
 
                     weight += 2;
                     reduction--;
@@ -716,24 +776,30 @@ internal static unsafe class PVS {
                         reduction--;
                 }
                 
-                // 12. MULTI-CUT PRUNING
-                // an additional idea to singular extensions - if the search score failed high
-                // over the current beta, the node is pruned, as despite not having access to
-                // the best move (tt move), we still failed high
+                /*
+                 * 14. MULTI-CUT PRUNING
+                 * an additional idea to singular extensions - if the search score failed high
+                 * over the current beta, the node is pruned, as despite not having access to
+                 * the best move (tt move), we still failed high
+                 */
                 else if (singScore >= beta && !Score.IsMate(singScore)) {
                     if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
                     return singScore;
                 }
                 
-                // 13. NEGATIVE EXTENSIONS
-                // if the tt move isn't singular, and we cannot apply multi-cut, the tt move is
-                // reduced to allow spending more time searching other moves, as they may be good
+                /*
+                 * 15. NEGATIVE EXTENSIONS
+                 * if the tt move isn't singular, and we cannot apply multi-cut, the tt move is
+                 * reduced to allow spending more time searching other moves, as they may be good
+                 */
                 else reduction++;
             }
             
-            // 14. OTHER REDUCTIONS/EXTENSIONS
-            // the search depth of the current move is lowered or raised
-            // based on how interesting or important the move seems to be
+            /*
+             * 16. OTHER REDUCTIONS/EXTENSIONS
+             * the search depth of the current move is lowered or raised
+             * based on how interesting or important the move seems to be
+             */
             bool lateRootMove = rootNode && expandedNodes >=
                 4 + (int)SearchControl.LastInstability / 2 + Math.Max(3 - CurIterDepth, 0);
             
@@ -744,11 +810,13 @@ internal static unsafe class PVS {
             // apply the reduction
             curDepth -= reduction;
 
-            // 15. LATE MOVE PRUNING/REDUCTIONS
-            // despite the fact that PVS searches only the first move with a full window, it didn't
-            // work here. instead, a few early moves are searched fully, and the rest with a null
-            // window. the number of moves searched fully is based on depth, pv and cutnode. if we
-            // have a tt move, only it is searched fully
+            /*
+             * 17. LATE MOVE REDUCTIONS
+             * despite the fact that PVS searches only the first move with a full window, it didn't
+             * work here. instead, a few early moves are searched fully, and the rest with a null
+             * window. the number of moves searched fully is based on depth, pv and cutnode. if we
+             * have a tt move, only it is searched fully
+             */
             int maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
             
             // tweak the expanded nodes threshold based on total
@@ -757,23 +825,23 @@ internal static unsafe class PVS {
             int mcount  = maxExpNodes * (75  + moveCount) / 105;
             maxExpNodes = Math.Max(1, (2 * mcount + phase) / 3);
             
-            bool skipLMP = expandedNodes <= maxExpNodes
+            bool skipLMR = expandedNodes <= maxExpNodes
                         || inCheck
                         || givesCheck
                         || rootNode
                         || isLosing
                         || see >= 100;
 
-            // late move pruning and common PVS logic are merged here. expected fail-low moves are
-            // searched with a null alpha window at a reduced depth, and only if they somehow raise
-            // alpha, a deeper, full window re-search is performed
-            if (!skipLMP) {
+            // late move reductions and common PVS logic are merged here. expected fail-low moves
+            // are searched with a null alpha window at a reduced depth, and only if they somehow
+            // raise alpha, a deeper, full window re-search is performed
+            if (!skipLMR) {
                 
                 // moves with bad history are reduced more
-                int scoreThreshold = -379 - 9 * CurIterDepth;
+                int badHistory = -379 - 9 * CurIterDepth;
                 int R = 3
                     + (expandedNodes > moveCount / 3 ? 1 : 0)  // late moves
-                    + (curScore < scoreThreshold     ? 1 : 0)  // bad history moves
+                    + (curScore < badHistory         ? 1 : 0)  // bad history moves
                     - (improving  || see > 94        ? 1 : 0)  // improving or good SEE
                     + (!improving && see < 0         ? 1 : 0)  // not improving and bad SEE
                     + (ttCapture                     ? 1 : 0)  // TT move is a capture
@@ -802,13 +870,13 @@ internal static unsafe class PVS {
                     continue;
                 }
                 
-                // if LMP failed, and the move was reduced, some of the reduction is reverted
+                // if LMR failed, and the move had been reduced, some of the reduction is reverted
                 if (curDepth < ss.Depth - 1)
                     curDepth++;
             }
             
             // history weight of the current move
-            weight += Math.Max(0, curDepth + (skipLMP ? 1 : 0));
+            weight += Math.Max(0, curDepth + (skipLMR ? 1 : 0));
 
             // the new search state for the child node
             var newSS = ss with {
@@ -822,7 +890,7 @@ internal static unsafe class PVS {
             _pvLen[ss.Ply + 1] = 0;
             
             // perform the full search. if we are in a pv node, the full search is also pv. in non pv nodes
-            // the search is non pv. we can also get here after LMP fails, but even then the rules apply
+            // the search is non pv. we can also get here after LMR fails, but even then the rules apply
             fullSearchScore = pvNode
                 ? (short)-SearchNext<PVNode>(   ref child, -beta, -alpha, newSS, cutNode: false)
                 : (short)-SearchNext<NonPVNode>(ref child, -beta, -alpha, newSS, cutNode: !cutNode);
@@ -844,9 +912,8 @@ internal static unsafe class PVS {
                 }
             }
             
-            // if the position turned out to be a draw earlier, the search
-            // and all pruning is skipped to this point, where we do some
-            // stuff with the move, considering its score to be zero
+            // if the position turned out to be a draw earlier, the search and all pruning is skipped
+            // to this point, where we do some stuff with the move, considering its score to be zero
             skipPVS:
             if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
             
@@ -857,11 +924,12 @@ internal static unsafe class PVS {
             // we went through all the pruning and didn't fail low
             // (this is the current best move for this position)
             else {
+                
                 // when using iterative deepening, the PV move from the previous
                 // iteration is searched first. that means, even if our time runs
                 // out, we may have still found a move better than the current one
                 if (rootNode && !Abort)
-                    NextBestMove = curMove; 
+                    NextBestMove = curMove;
                 
                 // place the current move in front of the received pv to build a new pv
                 int childLen = _pvLen[ss.Ply + 1];
@@ -870,17 +938,14 @@ internal static unsafe class PVS {
                 Array.Copy(_pvTable[ss.Ply + 1], 0, _pvTable[ss.Ply], 1, childLen);
                 _pvLen[ss.Ply] = childLen + 1;
                 
+                // update only the continuation history for this move
                 if (ss.LastMove != default)
                     ContinuationHistory.Add(ss.LastMove, curMove, ss.Depth / 2);
-                
-                // raise alpha, as the current score is higher than the previous alpha.
-                // we've already filtered away fail-lows in the previous if-statement
-                alpha = fullSearchScore;
                 
                 // beta cutoff (see alpha-beta pruning); alpha is larger than beta, so we
                 // can stop searching this branch, because the other side wouldn't allow
                 // us to get here at all
-                if (alpha >= beta) {
+                if (fullSearchScore >= beta) {
                     StoreMoveHistory(col, ss.LastMove, curMove, isCapture, 2 * weight, ss.Depth);
                     
                     // there are both quiet and capture killer tables,
@@ -890,6 +955,23 @@ internal static unsafe class PVS {
                     // quit searching other moves and return this score
                     return fullSearchScore;
                 }
+                
+                // update new best move and best score
+                bestMove  = curMove;
+                bestScore = fullSearchScore;
+
+                /*
+                 * 18. ADDITIONAL REDUCTIONS
+                 * once we have found at least one move that raises the initial alpha,
+                 * we reduce all following moves by 1 ply. this action shouldn't be
+                 * repeated, it only applies to the first such move
+                 */
+                if (alpha == initAlpha && ss.Depth is > 2 and < 14)
+                    ss.Depth--;
+                
+                // raise alpha, as the current score is higher than the previous alpha.
+                // we've already filtered away fail-lows in the previous if-statement
+                alpha = fullSearchScore;
             }
         }
         

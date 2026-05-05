@@ -8,8 +8,9 @@ using Kreveta.consts;
 namespace Kreveta.movegen.pieces;
 
 internal static class Pawn {
-    // returns a bitboard of possible move end squares
-    internal static ulong GetPawnPushTargets(byte sq, Color col, ulong empty) {
+    
+    // returns a bitboard of possible landing squares of single and double pushes
+    internal static ulong GetPushTargets(byte sq, Color col, ulong empty) {
         ulong pawn = 1UL << sq;
 
         // chess speaks for itself
@@ -26,7 +27,7 @@ internal static class Pawn {
     }
 
     // returns a bitboard of possible capture end squares
-    internal static unsafe ulong GetPawnCaptureTargets(byte sq, int enPassantSq, Color col, ulong occupiedOpp) {
+    internal static unsafe ulong GetCaptureTargets(byte sq, int enPassantSq, Color col, ulong occupiedOpp) {
         ulong targets = LookupTables.PawnCaptTargets[sq + (int)col * 64];
 
         // must be validated - otherwise illegal a8 promotions

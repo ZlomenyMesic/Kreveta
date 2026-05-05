@@ -25,7 +25,7 @@ internal static class Check {
             return true;
 
         // pawn check - also pretty fast
-        if ((Pawn.GetPawnCaptureTargets(kingSq, 64, kingCol, oppOccupied) & board.Pieces[oppBase]) != 0UL)
+        if ((Pawn.GetCaptureTargets(kingSq, 64, kingCol, oppOccupied) & board.Pieces[oppBase]) != 0UL)
             return true;
 
         // bishop check

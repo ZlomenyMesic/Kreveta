@@ -134,8 +134,8 @@ internal static unsafe class Movegen {
             byte start = BB.LS1BReset(ref pieces);
 
             ulong targets = pieceType switch {
-                PType.PAWN   => (onlyCaptures ? 0UL : Pawn.GetPawnPushTargets(start, col, empty))
-                              | Pawn.GetPawnCaptureTargets(start, enPassantSq, col, opponentOccupied),
+                PType.PAWN   => (onlyCaptures ? 0UL : Pawn.GetPushTargets(start, col, empty))
+                              | Pawn.GetCaptureTargets(start, enPassantSq, col, opponentOccupied),
                 PType.KNIGHT => Knight.GetKnightTargets(   start, destMask),
                 PType.BISHOP => Pext.GetBishopTargets(     start, destMask, occupied),
                 PType.ROOK   => Pext.GetRookTargets(       start, destMask, occupied),

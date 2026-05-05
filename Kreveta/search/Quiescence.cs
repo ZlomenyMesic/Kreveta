@@ -19,11 +19,13 @@ namespace Kreveta.search;
 
 internal static class Quiescence {
 
-    // QUIESCENCE SEARCH:
-    // instead of immediately returning the static eval of leaf nodes in the main
-    // search tree, we return a qsearch eval. qsearch is essentially just an extension
-    // to the main search, but only expands captures or checks. this prevents falsely
-    // evaluating positions where there's for instancea hanging queen (horizon effect)
+    /*
+     * QUIESCENCE SEARCH:
+     * instead of immediately returning the static eval of leaf nodes in the main
+     * search tree, we return a qsearch eval. qsearch is essentially just an extension
+     * to the main search, but only expands captures or checks. this prevents falsely
+     * evaluating positions where there's for instancea hanging queen (horizon effect)
+     */
     internal static short Search(ref Board board, int ply, int alpha, int beta, int curQSDepth, int prevSq, bool ignore3fold) {
         
         // exit the search if we should abort
@@ -35,7 +37,7 @@ internal static class Quiescence {
 
         // this stores the highest achieved search depth in this
         // iteration. if we surpassed it, store it as the new one
-        if (ply > PVS.AchievedDepth)
+        if (ply + 1 > PVS.AchievedDepth)
             PVS.AchievedDepth = ply + 1;
         
         // check for 50-move rule draw
@@ -54,7 +56,7 @@ internal static class Quiescence {
         // stand pat is just a fancy word for static eval
         bool  inCheck   = board.IsCheck;
         short standPat  = board.StaticEval;
-        int   fullDepth = curQSDepth - 12;
+        int   fullDepth = curQSDepth - 12; // the depth from which qsearch was called
 
         // we reached the maximum allowed depth, return the static eval
         if (ply >= Math.Min(curQSDepth, 128))
@@ -92,19 +94,19 @@ internal static class Quiescence {
         if (ttHit && ttDepth >= 3 && (ttFlags.HasFlag(ScoreType.SCORE_EXACT)
                                    || ttFlags.HasFlag(ScoreType.LOWER_BOUND) && ttScore >= beta
                                    || ttFlags.HasFlag(ScoreType.UPPER_BOUND) && ttScore <= alpha)) {
-            
             return ttScore;
         }
         
         PVS.LookupTT = TTLookupState.NOT_PERFORMED;
         
-        // 1. STAND-PAT PRUNING
-        // based on the null move observation, there is always at least one good move
-        // in every position. since we're only searching captures, e.g. a subset of all
-        // legal moves, we cannot return a bad score if we don't find a good move. so,
-        // to combat that, we assume there is a good move, try to cut off using the
-        // static evaluation and only then search. we cannot do this when in check, as
-        // we would be searching all evasions, breaking the initial assumption
+        /*
+         * 1. STAND-PAT PRUNING
+         * based on the null move observation, there is always at least one good move in every position.
+         * since we're only searching captures, e.g. a subset of all legal moves, we cannot return a bad
+         * score if we don't find a good move. so, to combat that, we assume there is a good move, try
+         * to cut off using the static evaluation and only then search. we cannot do this when in check,
+         * as we would be searching all evasions, breaking the initial assumption
+         */
         if (!inCheck) {
             int corr = Corrections.Get(in board);
             
@@ -123,17 +125,32 @@ internal static class Quiescence {
         // no moves have been generated
         if (count == 0) {
 
-            // if we aren't checked, it means there simply aren't any more
-            // captures in the position. however, we might be stalemated,
-            // but such cases shouldn't hurt the evaluation
-            return !inCheck 
-                ? standPat
-                : Score.GetMateScore(ply);
+            // when in check, all legal moves are generated, therefore we must be mated
+            if (inCheck)
+                return Score.GetMateScore(ply);
+
+            Color s = board.SideToMove;
+            ulong p = board.Pieces[(int)s * 6];
+            
+            // if we can't push any pawns, and don't have any minor/major
+            // pieces, generate all legal moves, and check for stalemate
+            if (((s == Color.WHITE ? p >> 8 : p << 8) & ~board.Occupied) == 0UL
+                && !board.HasNonPawnMaterial(s)) {
+                
+                // generate all moves, not just captures
+                return Movegen.GetLegalMoves(ref board, moves) == 0
+                    ? (short)0 : standPat;
+            }
+            
+            // if we're neither mated nor stalemated, return stand pat
+            return standPat;
         }
 
-        // 2. SEE PRUNING
-        // when not in check, only captures are generated. the capture ordering
-        // function takes a threshold, below which all captures are directly skipped.
+        /*
+         * 2. SEE PRUNING
+         * when not in check, only captures are generated. the capture ordering
+         * function takes a threshold, below which all captures are directly skipped.
+         */
         int seeThreshold = (ply - fullDepth) / 8;
 
         // order the captures, and place the potential tt move at the front
@@ -149,19 +166,23 @@ internal static class Quiescence {
             // no pruning should be attempted when in check
             if (!inCheck && ply >= fullDepth + 4) {
                 
-                // 3. MOVECOUNT PRUNING
-                // late captures are simply skipped, unless being a recapture
+                /*
+                 * 3. MOVECOUNT PRUNING
+                 * late captures are simply skipped, unless they are a recapture
+                 */
                 if (i > 3 && curMove.End != prevSq && !Score.IsMate(alpha)) {
                     PVS.CurNodes++;
                     continue;
                 }
 
-                // 4. DELTA PRUNING
-                // very similar to futility pruning but makes use of the value of the currently
-                // captured piece (or SEE score to be exact), which is added to the stand pat
-                // with a margin, and if the eval still doesn't raise alpha, we prune this branch. 
-                // although en passant is labeled as a pawn promotion, it doesn't really matter
-                // here, as the final result should still be quite similar
+                /*
+                 * 4. DELTA PRUNING
+                 * very similar to futility pruning but makes use of the value of the currently
+                 * captured piece (or SEE score to be exact), which is added to the stand pat
+                 * with a margin, and if the eval still doesn't raise alpha, we prune this branch. 
+                 * although en passant is labeled as a pawn promotion, it doesn't really matter
+                 * here, as the final result should still be quite similar
+                 */
                 int captValue    = EvalTables.PieceValues[(int)capture];
                 int promValue    = EvalTables.PieceValues[(int)promotion];
                 int materialGain = (2 * seeScores[i] + captValue) / 3 + promValue;

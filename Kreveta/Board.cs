@@ -280,20 +280,33 @@ internal unsafe struct Board {
 
         Hash ^= ZobristHash.Castling[(int)CastRights];
         
-        // these things are used in Perft as well, so no harm is done
+        // the check flag is used in perft as well, so no harm is done
         IsCheck = Check.IsKingChecked(in this, colOpp);
         
         // in some cases, such as Perft, the static eval is useless, and
         // would only slow the engine down.
         if (updateStaticEval) {
-            bool foundEval = SETT.TryGetEval(Hash, out short eval);
-            NNUEEval.Update(in this, move, col, !foundEval);
             
-            StaticEval = foundEval 
-                ? eval : Eval.StaticEval(in this);
+            // don't compute or look up any static evaluation when in check
+            if (IsCheck) {
+                NNUEEval.Update(in this, move, col, false);
+                StaticEval *= -1;
+            }
             
-            if (!foundEval)
-                SETT.Store(Hash, StaticEval);
+            // otherwise update the accumulators as usual, and compute static evaluation.
+            // we also use SETT as a transposition table solely for static evals. if the
+            // position is found, we skip evaluation, and use the stored score
+            else {
+                bool foundEval = SETT.TryGetEval(Hash, out short eval);
+                NNUEEval.Update(in this, move, col, !foundEval);
+            
+                StaticEval = foundEval 
+                    ? eval : Eval.StaticEval(in this);
+            
+                // if not yet stored, store it
+                if (!foundEval)
+                    SETT.Store(Hash, StaticEval);
+            }
         }
     }
 

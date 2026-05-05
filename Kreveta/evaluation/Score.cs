@@ -21,13 +21,12 @@ internal static class Score {
 
     // creates a new mate score relative to the number of plies
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetMateScore(int ply)
-        => (short)(-MateScoreDefault + ply);
+    internal static short GetMateScore(int ply) => (short)(-MateScoreDefault + ply);
 
     // checks whether the score falls above the mate score threshold
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsMate(int score)
-        => Math.Abs(score) > MateScoreThreshold;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] internal static bool IsMate(int score) => Math.Abs(score) > MateScoreThreshold;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] internal static bool IsWin(int score)  => score > MateScoreThreshold;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] internal static bool IsLoss(int score) => score < -MateScoreThreshold;
 
     // when printing a mate score, we prefer the "mate in x" format,
     // so we convert the score to the number of plies until mate
@@ -41,8 +40,7 @@ internal static class Score {
     // positions, the draw score for 3-fold repetition is deterministically
     // altered to be a bit more noisy, and break these cycles
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static short GetNoisyDrawScore(ulong nodes)
-        => (short)(-1 + (int)(nodes & 0x2));
+    internal static short GetNoisyDrawScore(ulong nodes) => (short)(-1 + (int)(nodes & 0x2));
 
     // maximum non-mate score that can be achieved (in centipawns)
     private const int NonMateScoreLimit = 1000;

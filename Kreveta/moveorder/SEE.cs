@@ -150,7 +150,7 @@ internal static unsafe class SEE {
 
         // go from the least valuable to most valuable piece type, and check
         // whether we have such a piece that attacks the current target square
-        ulong pawns = Pawn.GetPawnCaptureTargets(targetSq, 64, 1 - col, pieces[colBase]);
+        ulong pawns = Pawn.GetCaptureTargets(targetSq, 64, 1 - col, pieces[colBase]);
         if (pawns != 0UL) return (BB.LS1B(pawns), PType.PAWN);
 
         ulong knights = Knight.GetKnightTargets(targetSq, pieces[colBase + 1]);
