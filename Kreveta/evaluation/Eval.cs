@@ -20,7 +20,6 @@ namespace Kreveta.evaluation;
 internal static class Eval {
     
     private const int Tempo        = 6;
-    private const int KingInCheck  = -31;
     private const int BishopPair   = 7;
     private const int KPDistance   = 16;
 
@@ -100,13 +99,10 @@ internal static class Eval {
     private static short Classical(in Board board) {
         ulong wOccupied = board.WOccupied;
         ulong bOccupied = board.BOccupied;
-
-        //byte pieceCount = (byte)ulong.PopCount(wOccupied | bOccupied);
-        byte phase      = (byte)board.GamePhase();
+        byte  phase     = (byte)board.GamePhase();
+        short wEval = 0, bEval = 0;
         
         ReadOnlySpan<ulong> pieces = board.Pieces;
-        
-        short wEval = 0, bEval = 0;
         
         // loop over all piece types
         for (byte i = 0; i < 6; i++) {
@@ -137,7 +133,6 @@ internal static class Eval {
                        - PawnEval(pieces[6], pieces[0], Color.BLACK, bOccupied, phase)) / 10);
 
         // king safety
-        eval += (short)(board.IsCheck ? board.SideToMove == Color.WHITE ? KingInCheck : -KingInCheck : 0);
         eval += KingEval(pieces, wOccupied, bOccupied);
         
         // bishops
@@ -152,15 +147,16 @@ internal static class Eval {
     // calls this function twice, once for each color, and handles proper signs.
     // this means we don't need to evaluate color-relative here
     private static short PawnEval(ulong pawns, ulong enemyPawns, Color col, ulong friendlyPieces, int phase) {
-        int eval = 0;
-        int forw = col == Color.WHITE ? -8 : 8;
+        bool isWhite = col == Color.WHITE;
+        int  eval    = 0;
+        int  forw    = isWhite ? -8 : 8;
         
         ulong copy = pawns;
         while (copy != 0UL) {
             byte  sq      = BB.LS1BReset(ref copy);
             int   file_i  = sq & 7;
             ulong file    = Consts.RelevantFileMask[file_i];
-            int   relRank = col == Color.BLACK ? sq >> 3 : 8 - (sq >> 3);
+            int   relRank = !isWhite ? sq >> 3 : 8 - (sq >> 3);
             
             bool supported  = Pawn.GetCaptureTargets(sq, 64, 1 - col, pawns)                 != 0UL;
             bool canAdvance = Pawn.GetCaptureTargets((byte)(sq + forw), 64, col, enemyPawns) == 0UL;
@@ -200,7 +196,7 @@ internal static class Eval {
                 int minRank = 8;
                 while (adj != 0UL) {
                     int nsq  = BB.LS1BReset(ref adj);
-                    int rank = col == Color.WHITE ? 8 - (nsq >> 3) : nsq >> 3;
+                    int rank = isWhite ? 8 - (nsq >> 3) : nsq >> 3;
                     minRank  = Math.Min(minRank, rank);
                 }
 
@@ -306,10 +302,15 @@ internal static class Eval {
     // optimized and more readable way
     internal static void Trace(in Board board) {
         UCI.Log($"info string NNUE evaluation using {Program.Network}");
-        UCI.Log( "info string all scores are white-relative");
+        UCI.Log( "info string all components are white-relative");
+
+        // never calculate static evaluations when in check
+        if (board.IsCheck) {
+            UCI.Log("\nNo evaluation may be computed, as the side to move is in check");
+            return;
+        }
         
-        //int pcount = (int)ulong.PopCount(board.Occupied);
-        int phase  = board.GamePhase();
+        int phase = board.GamePhase();
         
         // first calculate the material part using piece-square tables
         int material = 0;
@@ -327,8 +328,7 @@ internal static class Eval {
                    - PawnEval(board.Pieces[6], board.Pieces[0], Color.BLACK, board.BOccupied, phase)) / 10;
 
         // king safety evaluation
-        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied)
-                    + (board.IsCheck ? KingInCheck * (board.SideToMove == Color.WHITE ? 1 : -1) : 0);
+        int kings = KingEval(board.Pieces, board.WOccupied, board.BOccupied);
 
         // other factors
         int other = (board.SideToMove == Color.WHITE ? Tempo : -Tempo)

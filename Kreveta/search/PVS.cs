@@ -110,7 +110,7 @@ internal static unsafe class PVS {
 
         // increase the number of plies we can hold
         ImprovingStack.Expand(CurIterDepth);
-        ImprovingStack.UpdateStaticEval(Game.Board.StaticEval, 0, Game.EngineColor);
+        ImprovingStack.UpdateStaticEval(Game.Board.StaticEval, ply: 0, Game.EngineColor);
 
         SearchState defaultSS = new(
             ply:             0,
@@ -346,12 +346,10 @@ internal static unsafe class PVS {
         short staticEval = board.StaticEval;
         
         // update the static eval in the stack and the improving flag
-        //improvStack.UpdateStaticEval(staticEval, ss.Ply, col);
-        bool parentImproving = ImprovingStack.IsImproving(ss.Ply, col);
+        bool improving = !inCheck && ImprovingStack.IsImproving2Ply(ss.Ply, col);
         
-        // fairly solid improving ideas
-        parentImproving |= staticEval >= beta;
-        parentImproving &= !inCheck;
+        // a fairly solid improving idea
+        improving |= staticEval >= beta;
 
         bool ttScoreAdjusted = false;
         
@@ -373,8 +371,8 @@ internal static unsafe class PVS {
          */
         if (!inCheck && (ss.Depth <= 3 || !ttCapture) && !ss.FollowPV) {
             int margin = 539 + 375 * ss.Depth * ss.Depth
-                + (parentImproving ? 33 : 0)
-                - (allNode         ? 27 : 0);
+                + (improving ? 33 : 0)
+                - (allNode   ? 27 : 0);
 
             // if the static eval was adjusted using a tt score, we assume
             // it's more precise, and therefore we can lower the margin
@@ -394,7 +392,7 @@ internal static unsafe class PVS {
          * also called reverse futility pruning; if the static eval at close-to-leaf
          * nodes fails high despite subtracting a margin, prune this branch
          */
-        if (!inCheck && parentImproving && (allNode || cutNode) && !ss.FollowPV) {
+        if (!inCheck && improving && (allNode || cutNode) && !ss.FollowPV) {
             int margin = 208 + 282 * ss.Depth * ss.Depth;
             if (ttScoreAdjusted) margin = margin * 15 / 16;
 
@@ -425,7 +423,7 @@ internal static unsafe class PVS {
          * a null window around beta. if the returned score fails high, we expect that not
          * skipping our move would "fail even higher", and thus can prune this node
          */
-        int nmpEvalMargin = 3 * ss.Depth + (parentImproving ? 3 : 0);
+        int nmpEvalMargin = 3 * (ss.Depth + (improving ? 1 : 0));
         
         if (ss.Ply >= MinNMPPly // minimum ply for nmp
             && !inCheck         // don't prune when in check
@@ -486,16 +484,13 @@ internal static unsafe class PVS {
                 int temp  = MinNMPPly;
                 MinNMPPly = ss.Ply + (ss.Depth - R) * 3 / 4;
                 
-                ImprovingStack.UpdateStaticEval(staticEval, ss.Ply + 1, col);
-
                 // do the verification search
                 nmpScore = SearchNext<NonPVNode>(
                     ref board,
                     beta - 1, beta,
-                    ss with {
-                        Depth = (sbyte)(ss.Depth - R),
-                        Ply   = (sbyte)(ss.Ply   + 1),
-                    }, cutNode: false);
+                    ss with { Depth = (sbyte)(ss.Depth - R) },
+                    cutNode: false
+                );
 
                 MinNMPPly = temp;
 
@@ -521,8 +516,8 @@ internal static unsafe class PVS {
         
         // after this move index threshold all quiets are reduced
         int reduceQuietsThreshold = 41 + 3 * ss.Depth * ss.Depth
-            + (inCheck      || !allNode        ? 1000 : 0)
-            + (ttOptimistic || parentImproving ? 5    : 0);
+            + (inCheck      || !allNode  ? 1000 : 0)
+            + (ttOptimistic || improving ? 5    : 0);
         
         // was moveorder score assigning already performed?
         bool       scoresAssigned = false;
@@ -555,10 +550,15 @@ internal static unsafe class PVS {
             // otherwise use regular moveorder
             else {
                 if (!scoresAssigned) {
-                    moveCount = Movegen.GetLegalMoves(ref board, legalMoves);
-                    
-                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, seeScores, moveCount);
                     scoresAssigned = true;
+                    moveCount      = Movegen.GetLegalMoves(ref board, legalMoves);
+                    
+                    LazyMoveOrder.AssignScores(in board, ss.Depth, ss.LastMove, legalMoves, moveScores, seeScores, moveCount,
+                        // we know for a fact that quiets with SEE under this value would be pruned either way,
+                        // so we can save some computation time by pruning them immediately, and not wastingly
+                        // retrieving their various history values
+                        seePruneQuiet: -25 * ss.Depth * ss.Depth
+                    );
 
                     // very important - if we've already checked a tt move, it
                     // has to be removed from the move list to not be played again
@@ -678,10 +678,9 @@ internal static unsafe class PVS {
             // once again update the static eval in the improving stack,
             // but this time after the move has been already played
             ImprovingStack.UpdateStaticEval(childStaticEval, ss.Ply + 1, 1 - col);
-            bool improving = ImprovingStack.IsImproving(ss.Ply + 1, col);
             
+            improving  = !inCheck && ImprovingStack.IsImproving2Ply(ss.Ply + 1, col);
             improving |= -childStaticEval >= beta;
-            improving &= !inCheck;
             
             bool isLosing   = Score.IsLoss(alpha);
             bool hangsPiece = !isCapture && !givesCheck && curScore < -125 && see < 0;

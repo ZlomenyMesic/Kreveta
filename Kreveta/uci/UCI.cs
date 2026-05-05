@@ -151,7 +151,7 @@ internal static partial class UCI {
                     Log($"FEN:           {Game.Board.FEN()}");
                     Log($"TT hash:       {Game.Board.Hash}");
                     Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}");
-                    Log($"Is check:      {Game.Board.IsCheck.ToString().ToLower(null)}\n");
+                    Log($"Is check:      {Game.Board.IsCheck}\n");
                     break;
                 
                 // stop any running searches

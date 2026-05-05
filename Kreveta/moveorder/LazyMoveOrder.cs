@@ -17,7 +17,7 @@ internal static class LazyMoveOrder {
     // move ordering is used, where first all moves are assigned different scores,
     // and only during the move expansion is each next move selected. this fails when
     // a cutoff happens late or doesn't happen at all, but in most cases it's helpful
-    internal static void AssignScores(in Board board, int depth, Move previous, ReadOnlySpan<Move> moves, Span<int> scores, Span<int> seeScores, int count) {
+    internal static void AssignScores(in Board board, int depth, Move previous, Span<Move> moves, Span<int> scores, Span<int> seeScores, int count, int seePruneQuiet) {
         Color color     = board.SideToMove;
         int   earlyGame = Math.Max(0, board.GamePhase() - 51);
         
@@ -27,23 +27,31 @@ internal static class LazyMoveOrder {
         var c  = depth <= 2 ? CounterMoveHistory.Get(color, previous) : default;
         
         for (int i = 0; i < count; i++) {
-            Move move = moves[i];
-            
-            // some stuff for evaluating more easily
+            Move  move      = moves[i];
             PType promPiece = move.Promotion;
             bool  isCapture = move.Capture != PType.NONE || promPiece == PType.PAWN;
-            bool  isCounter = c == move;
-            bool  isKiller  = isCapture // we could use .Contains(), but this is faster
-                ? ck[0] == move || ck[1] == move || ck[2] == move || ck[3] == move || ck[4] == move || ck[5] == move || ck[6] == move
-                : qk[0] == move || qk[1] == move || qk[2] == move || qk[3] == move || qk[4] == move || qk[5] == move || qk[6] == move;
-
+            
             // Static Exchange Evaluation (SEE) has the most effect on captures, as it is
             // quite reliable, but is used for quiets as well. all SEE scores are stored
             // in the span, so they can be later reused in search
             int see = SEE.GetMoveScore(in board, color, move);
+
+            // prematurely discard quiet moves with bad SEE scores
+            if (!isCapture && see < seePruneQuiet) {
+                seeScores[i] = 0;
+                moves    [i] = default;
+
+                continue;
+            }
             seeScores[i] = see;
             
-            // continuation history. the conthist values may greatly reach tens
+            // some stuff for evaluating more easily
+            bool  isCounter = c == move;
+            bool  isKiller  = isCapture // we could use .Contains(), but this is faster
+                ? ck[0] == move || ck[1] == move || ck[2] == move || ck[3] == move || ck[4] == move || ck[5] == move || ck[6] == move
+                : qk[0] == move || qk[1] == move || qk[2] == move || qk[3] == move || qk[4] == move || qk[5] == move || qk[6] == move;
+            
+            // continuation history. the conthist values may easily reach tens
             // of thousands, so all values must be clamped accordingly
             int cont = previous != default ? ContinuationHistory.GetScore(previous, move) : 0;
 

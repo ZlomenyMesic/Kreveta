@@ -472,6 +472,7 @@ internal unsafe struct Board {
         
         // next actually print the characters to console
         for (int i = 0; i < 64; i++) {
+            
             // newline character at the end of each rank
             if ((i & 7) == 0)
                 UCI.Output.Write("\n  ");

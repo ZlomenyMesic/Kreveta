@@ -24,7 +24,8 @@ internal static unsafe class SEE {
     internal static int OrderCaptures(in Board board, Span<Move> capts, Span<int> seeScores, int pruneThreshold, Move ttMove) {
         
         // if the list is empty for some reason
-        if (capts.Length == 0) return 0;
+        if (capts.Length == 0)
+            return 0;
 
         // compute SEE scores and compact - bad captures are overwritten in-place
         int good = 0;

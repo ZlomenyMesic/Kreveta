@@ -132,9 +132,14 @@ internal static class MoveExtenstions {
     // converts a move back to the long algebraic notation
     // format, see the next method for more information
     internal static string ToLAN(this Move move) {
-        int start  = move.Start;
-        int end    = move.End;
-        PType prom = move.Promotion;
+        
+        // this is the standard notation for a null move
+        if (move == default)
+            return "0000";
+        
+        int   start = move.Start;
+        int   end   = move.End;
+        PType prom  = move.Promotion;
 
         // convert starting and ending squares to the standard format, e.g. "e4"
         string s = $"{Consts.Files[start & 7]}{8 - (start >> 3)}";
