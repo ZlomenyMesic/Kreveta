@@ -97,7 +97,7 @@ internal static class SearchControl {
         );
 
         // we still have time and are allowed to search deeper
-        while (PVS.CurIterDepth            < CurMaxDepth
+        while (PVS.RootDepth            < CurMaxDepth
                && Stopwatch.ElapsedMilliseconds < TM.TimeBudget
                && TotalNodes                    < CurNodesLimit) {
 
@@ -113,8 +113,8 @@ internal static class SearchControl {
             
             // calculate the instability of the best move, and the score
             double pvInstability    = Math.Pow(PVChanges, 3.0) * 1.46;
-            double scoreInstability = PVS.CurIterDepth != 0
-                ? ScoreDiffs / PVS.CurIterDepth : 0.0;
+            double scoreInstability = PVS.RootDepth != 0
+                ? ScoreDiffs / PVS.RootDepth : 0.0;
 
             // somehow combine the two into a total search instability metric.
             // it starts negative, as when the search is stable, the time budget
@@ -123,10 +123,10 @@ internal static class SearchControl {
             LastInstability         = totalInstability;
             
             // try to reduce or increase the time budget based on instability
-            if (PVS.CurIterDepth > 3 && totalInstability != 0.0) 
-                TM.AccountForInstability(totalInstability, PVS.CurIterDepth);
+            if (PVS.RootDepth > 3 && totalInstability != 0.0) 
+                TM.AccountForInstability(totalInstability, PVS.RootDepth);
             
-            if (PVS.CurIterDepth > 3 && totalInstability <= -2.49) {
+            if (PVS.RootDepth > 3 && totalInstability <= -2.49) {
                 double avg = PrevScore;
                 int    opt = Math.Clamp(
                     (int)Math.Log2(Math.Abs(Optimism)) * Math.Sign(Optimism),
@@ -179,7 +179,7 @@ internal static class SearchControl {
             ScoreDiffs += Math.Min(Math.Abs(diff), 1000);
 
             // adjust optimism based on whether the score is growing or falling
-            if (PVS.CurIterDepth > 1) {
+            if (PVS.RootDepth > 1) {
                 Optimism *= 0.9;
                 Optimism += Math.Sign(diff) + diff / 50.0;
             }
@@ -266,7 +266,7 @@ internal static class SearchControl {
         
         // check if we expect the opponent to capture one of
         // our pieces, and have an immediate obvious recapture
-        Game.TryStoreRecapture(PVS.PV, PVS.CurIterDepth);
+        Game.TryStoreRecapture(PVS.PV, PVS.RootDepth);
 
         // now there's a bit of magic with mate scores. our "mate in X" function
         // returns the number of plies until mate, but the conventional way to
@@ -298,7 +298,7 @@ internal static class SearchControl {
         string info = "info " +
 
                       // full search depth
-                      $"depth {PVS.CurIterDepth} " +
+                      $"depth {PVS.RootDepth} " +
 
                       // selective search depth - full search + qsearch
                       $"seldepth {PVS.AchievedDepth} " +
@@ -356,7 +356,7 @@ internal static class SearchControl {
                 
             // we don't want to expand the pv beyond the searched
             // depth, because the results might get too unreliable
-            if (depth++ > PVS.CurIterDepth || ttMove == default)
+            if (depth++ > PVS.RootDepth || ttMove == default)
                 goto clearThreeFold;
                 
             board.PlayMove(ttMove, false);

@@ -29,7 +29,7 @@ internal static class Quiescence {
     internal static short Search(ref Board board, int ply, int alpha, int beta, int curQSDepth, int prevSq, bool ignore3fold) {
         
         // exit the search if we should abort
-        if (PVS.Abort && PVS.CurIterDepth > 1)
+        if (PVS.Abort && PVS.RootDepth > 1)
             return 0;
 
         // increment the node counter
@@ -235,7 +235,7 @@ internal static class Quiescence {
                 
                 // we want to store this in the tt not to retrieve the score,
                 // but to retrieve the best move for better move ordering
-                if (ply <= PVS.CurIterDepth + 2)
+                if (ply <= PVS.RootDepth + 2)
                     TT.Store(board.Hash, -1, ply, alpha, beta, score, curMove);
                 
                 CaptureHistory.ChangeRep(curMove, weight: 1);

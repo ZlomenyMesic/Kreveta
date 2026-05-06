@@ -52,16 +52,4 @@ internal static class ImprovingStack {
         return col == Color.WHITE
             ? cur > prev : cur < prev;
     }
-    
-    // same as above, but measures improvements just over the last move
-    internal static bool IsImproving1Ply(int ply) {
-        if (ply == 0 || ply >= _len) 
-            return false;
-        
-        short prev = _stack[ply - 1];
-        short cur  = _stack[ply    ];
-        
-        // the negamax framework requires us to negate the previous score
-        return cur > -prev;
-    }
 }

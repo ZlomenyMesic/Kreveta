@@ -99,12 +99,6 @@ internal unsafe struct Board {
         // we shouldn't ever get here
         return PType.NONE;
     }
-
-    // does this side have any pieces except pawns and the king?
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [Pure] internal bool HasNonPawnMaterial(Color col)
-        => ((col == Color.WHITE ? WOccupied : BOccupied) 
-            ^ (Pieces[(int)col * 6] | Pieces[5 + (int)col * 6])) != 0UL;
     
     // performs a move on the board
     internal void PlayMove(Move move, bool updateStaticEval) {
@@ -395,42 +389,6 @@ internal unsafe struct Board {
         
         return isLegal;
     }
-    
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal Board Clone(int childPly = -1) {
-        
-        var newPieces = new ulong[12];
-        Unsafe.CopyBlockUnaligned(
-            destination: ref Unsafe.As<ulong, byte>(ref newPieces[0]),
-            source:      ref Unsafe.As<ulong, byte>(ref Pieces[0]),
-            byteCount:   96);
-        
-        return this with {
-            Pieces   = newPieces,
-            NNUEEval = childPly >= 0
-                // try to get pre-allocated accumulators from the pool
-                ? NNUEEvaluator.GetFromPool(in NNUEEval, childPly)
-                : new NNUEEvaluator(in NNUEEval)
-        };
-    }
-    
-    // used for Perft, clones the board the same way as the method
-    // above, but leaves out accumulator copies and pool lookups
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal Board CloneNoNNUE() {
-        var newPieces = new ulong[12];
-        Unsafe.CopyBlockUnaligned(
-            destination: ref Unsafe.As<ulong, byte>(ref newPieces[0]),
-            source:      ref Unsafe.As<ulong, byte>(ref Pieces[0]),
-            byteCount:   96);
-        
-        return this with {
-            Pieces   = newPieces,
-            NNUEEval = null!
-        };
-    }
 
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -444,6 +402,63 @@ internal unsafe struct Board {
                 + 9 * ulong.PopCount(Pieces[4] | Pieces[10]);
 
         return Math.Max(0, (int)phase - 8);
+    }
+    
+    // does this side have any pieces except pawns and the king?
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Pure] internal bool HasNonPawnMaterial(Color col)
+        => ((col == Color.WHITE ? WOccupied : BOccupied) 
+            ^ (Pieces[    (int)col * 6] // exclude pawns
+             | Pieces[5 + (int)col * 6] // exclude the king
+           )) != 0UL;
+    
+    // does this side have any pieces that are able to pin another piece
+    // to the opposite king? this includes bishops, rooks, and queens
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Pure] internal bool HasPinningMaterial(Color col)
+        => (Pieces[2 + (int)col * 6] // bishops
+          | Pieces[3 + (int)col * 6] // rooks
+          | Pieces[4 + (int)col * 6] // queens
+           ) != 0UL;
+    
+    // clone the board; when searching, we always clone the current board, play available moves
+    // on these "children", and pass them down the tree. commonly, this is handled by implementing
+    // an "undo move" method, allowing us to work with just a single board copy, but i had to be
+    // different. furthermore, to ensure we don't have to allocate new memory for NNUE accumulators,
+    // it is good to pass the current ply as well, so the memory pool can be accessed
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Pure] internal Board Clone(int childPly = -1) {
+        
+        var newPieces = new ulong[12];
+        Unsafe.CopyBlockUnaligned(
+            destination: ref Unsafe.As<ulong, byte>(ref newPieces[0]),
+            source:      ref Unsafe.As<ulong, byte>(ref Pieces[0]),
+            byteCount:   96); // 12 * sizeof(ulong)
+        
+        return this with {
+            Pieces   = newPieces,
+            NNUEEval = childPly >= 0
+            
+                // try to get pre-allocated accumulators from the pool
+                ? NNUEEvaluator.GetFromPool(in NNUEEval, childPly)
+                : new NNUEEvaluator(in NNUEEval)
+        };
+    }
+    
+    // used for Perft, clones the board the same way as the method
+    // above, but leaves out accumulator copies and pool lookups
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Pure] internal Board CloneNoNNUE() {
+        var newPieces = new ulong[12];
+        Unsafe.CopyBlockUnaligned(
+            destination: ref Unsafe.As<ulong, byte>(ref newPieces[0]),
+            source:      ref Unsafe.As<ulong, byte>(ref Pieces[0]),
+            byteCount:   96);
+        
+        return this with {
+            Pieces   = newPieces,
+            NNUEEval = null!
+        };
     }
 
     internal void Print() {
@@ -492,31 +507,42 @@ internal unsafe struct Board {
         Console.ResetColor();
     }
 
+    // returns the FEN (Forsyth-Edward's Notation) of this position, as can probably
+    // be infered from the method's name. the FEN is a superior notation, allowing
+    // us to encode any position quite easily. for a more detailed explanation, take
+    // a look into Game.cs, where FEN strings are described in-depth
     internal string FEN() {
         var fen = new StringBuilder();
-        
-        int curEmpty = 0;
+
+        int   curEmpty = 0;
         for (int i = 0; i < 64; i++) {
-            if (i % 8 == 0 && i != 0) {
+            PType piece;
+            
+            // all ranks must be separated with a slash '/'
+            if ((i & 7) == 0 && i != 0) {
+                
+                // ensure we don't miss the previous empty squares
                 if (curEmpty != 0) {
                     fen.Append(curEmpty);
                     curEmpty = 0;
                 }
                 fen.Append('/');
             }
-            
-            PType piece = PieceAt(i);
 
-            if (piece != PType.NONE) {
+            if ((piece = PieceAt(i)) != PType.NONE) {
                 char p = Consts.Pieces[(int)piece];
+                
+                // piece characters must be uppercase for white
                 if ((WOccupied & 1UL << i) != 0UL)
                     p = char.ToUpper(p);
 
+                // if we're following a number of empty squares, add them
                 if (curEmpty != 0) {
                     fen.Append(curEmpty);
                     curEmpty = 0;
                 }
                 
+                // only after that actually add the piece
                 fen.Append(p);
             }
             
@@ -534,19 +560,21 @@ internal unsafe struct Board {
             fen.Append('-');
         else {
             int cr = (int)CastRights;
-            if ((cr & 1) != 0) fen.Append('K');
-            if ((cr & 2) != 0) fen.Append('Q');
-            if ((cr & 4) != 0) fen.Append('k');
-            if ((cr & 8) != 0) fen.Append('q');
+            if ((cr & 1) != 0) fen.Append('K'); // white kingside
+            if ((cr & 2) != 0) fen.Append('Q'); // white queenside
+            if ((cr & 4) != 0) fen.Append('k'); // black kingside
+            if ((cr & 8) != 0) fen.Append('q'); // black queenside
         }
 
+        // en passant square; the square must be written in the common "e4" notation.
+        // however, since our board indexing is reversed, the rank must be reversed, too
         if (EnPassantSq != 64)
             fen.Append(" " + Consts.Files[EnPassantSq & 7] + (8 - (EnPassantSq >> 3)));
         else fen.Append(" -");
         
         // halfmove and fullmove clock
-        fen.Append(' ' + HalfMoveClock.ToString());
-        fen.Append(' ' + Game.Ply.ToString());
+        fen.Append($" {HalfMoveClock}");
+        fen.Append($" {Game.Ply}");
         
         return fen.ToString();
     }

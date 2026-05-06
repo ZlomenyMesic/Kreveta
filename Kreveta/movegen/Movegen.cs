@@ -18,15 +18,27 @@ internal static unsafe class Movegen {
     
     internal static int GetLegalMoves(ref Board board, Span<Move> legalBuffer, bool onlyCaptures = false) {
         Span<Move> pseudoBuffer = stackalloc Move[Consts.MoveBufferSize];
-        _curPsL = 0;
+        _curPsL        = 0;
+        int legalCount = 0;
 
+        // generate all pseudolegal moves, and store them in the buffer
         if (onlyCaptures) GeneratePseudoLegalCaptures(in board, board.SideToMove, pseudoBuffer);
         else              GeneratePseudoLegalMoves(   in board, board.SideToMove, pseudoBuffer);
         
+        bool  kingOnly = !board.HasPinningMaterial(1 - board.SideToMove);
         ulong kingStar = LookupTables.KingStars[BB.LS1B(board.Pieces[5 + (int)board.SideToMove * 6])];
-
-        int legalCount = 0;
+        
+        // now go through every pseudolegal move, and test its legality
         for (int i = 0; i < _curPsL; i++) {
+
+            // if the opposite side has no sliders (pieces that can pin), we don't need to check
+            // the legality of non-king moves. a non-king move can only be illegal, if it reveals
+            // a check, which isn't possible with the absence of any potential pinners
+            if (kingOnly && !board.IsCheck && pseudoBuffer[i].Piece != PType.KING) {
+                legalBuffer[legalCount++] = pseudoBuffer[i];
+                continue;
+            }
+            
             // similar king star logic is applied here. if we aren't in check, a move that
             // doesn't start in the king star cannot possibly be illegal. illegal moves are
             // either king moves or moves that reveal a check, and those are in the king star
@@ -35,6 +47,7 @@ internal static unsafe class Movegen {
                 continue;
             }
             
+            // otherwise actually mimic playing the move, and ensure the king isn't checked
             if (board.IsMoveLegal(pseudoBuffer[i], board.SideToMove))
                 legalBuffer[legalCount++] = pseudoBuffer[i];
         }

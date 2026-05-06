@@ -65,14 +65,20 @@ internal static unsafe class ContinuationHistory {
     internal static void Add(Move previous, Move current, int weight) {
         if (weight == 0) return;
         
-        int i = Index((int)previous.Piece, previous.End, (int)current.Piece, current.End);
+        int i = Index(
+            (int)previous.Piece, previous.End,
+            (int)current.Piece,  current.End
+        );
         Table[i] += weight * Math.Abs(weight) / 8;
     }
 
     // try to retrieve the continuation score
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int GetScore(Move previous, Move current)
-        => Table[Index((int)previous.Piece, previous.End, (int)current.Piece, current.End)];
+        => Table[Index(
+            (int)previous.Piece, previous.End,
+            (int)current.Piece,  current.End
+           )];
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Index(int p1, int to1, int p2, int to2)
