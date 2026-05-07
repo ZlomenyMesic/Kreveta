@@ -50,6 +50,9 @@ internal static class Bench {
 
         var sw = Stopwatch.StartNew();
         
+        // go through every position, and search it at the specified depth. we start the
+        // searches simply by simulating UCI commands. although this approach is quite
+        // dirty, it's probably the most compact way of writing this
         for (int i = 0; i < FENs.Length; i++) {
             UCI.Log($"\nPosition {i + 1}/{FENs.Length}: FEN {FENs[i]}");
             
@@ -57,18 +60,23 @@ internal static class Bench {
             Game.SetPosFEN($"position fen {FENs[i]}".Split(' '));
             UCI.CmdGo($"go depth {depth}".Split(' '), bench: true);
             
+            // this approach is disgusting, but it works
             while (!Finished) { }
             Finished = false;
         }
         
         sw.Stop();
-        long time = sw.ElapsedMilliseconds == 0 ? 1 : sw.ElapsedMilliseconds;
 
+        // make sure we're not dividing by zero
+        long time = Math.Max(1, sw.ElapsedMilliseconds);
+        long nps  = (long)Math.Round((decimal)Nodes / time * 1000, 0);
+
+        // print the final bench results (total nodes, spent time, and NPS)
         UCI.Log(string.Empty);
-        UCI.LogStats(forcePrint: true,             
+        UCI.LogStats(forcePrint: true, header: true,
             ("Nodes Searched", Nodes),
             ("Time Spent",     sw.Elapsed),
-            ("Average NPS",    (int)Math.Round((decimal)Nodes / time * 1000, 0))
+            ("Average NPS",    nps)
         );
     }
 }

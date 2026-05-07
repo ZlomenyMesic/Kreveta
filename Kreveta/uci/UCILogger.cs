@@ -29,7 +29,7 @@ internal static partial class UCI {
         }
     }
 
-    internal static void LogStats(bool forcePrint, params ReadOnlySpan<(string Name, object Data)> stats) {
+    internal static void LogStats(bool forcePrint, bool header, params ReadOnlySpan<(string Name, object Data)> stats) {
         const string STATS_HEADER = "---STATS-------------------------------";
         const string STATS_AFTER  = "---------------------------------------";
         
@@ -42,7 +42,7 @@ internal static partial class UCI {
         if (!Options.PrintStats && !forcePrint)
             return;
 
-        Log(STATS_HEADER);
+        if (header) Log(STATS_HEADER);
 
         foreach ((string Name, object Data) stat in stats) {
             string  name = stat.Name + new string(' ', dataOffset - stat.Name.Length);
@@ -62,6 +62,6 @@ internal static partial class UCI {
             Log($"{name}{data}");
         }
 
-        Log(STATS_AFTER);
+        if (header) Log(STATS_AFTER);
     }
 }

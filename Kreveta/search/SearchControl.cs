@@ -204,7 +204,7 @@ internal static class SearchControl {
         long time = Stopwatch.ElapsedMilliseconds == 0 ? 1 : Stopwatch.ElapsedMilliseconds;
         
         // statistics can be turned off via the "PrintStats" option
-        UCI.LogStats(forcePrint: false,
+        UCI.LogStats(forcePrint: false, header: true,
             ("Nodes Searched", TotalNodes),
             ("Time Spent",     Stopwatch.Elapsed),
             ("Average NPS",    (int)Math.Round((decimal)TotalNodes / time * 1000, 0)),

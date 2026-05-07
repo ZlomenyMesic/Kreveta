@@ -97,7 +97,7 @@ internal static class Program {
         static void FreeMemory(object? sender, EventArgs e) {
             TT.Clear();
             SETT.Clear();
-            PerftTT.Clear();
+            PerftHashTable.Clear();
             Corrections.Free();
             LookupTables.Clear();
             ZobristHash.Clear();

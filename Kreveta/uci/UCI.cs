@@ -221,11 +221,11 @@ internal static partial class UCI {
         }
     }
 
-    // "perft" starts a perft test at a specfied depth. perft
-    // (performance test) counts the number of nodes at a certain
-    // depth legally achievable from a position. this is important
-    // to measure the speed and correctness of movegen
+    // "perft" starts a perft test at a specfied depth. perft (performance test) counts
+    // the number of nodes at a certain depth legally achievable from a position. this
+    // is important to measure the speed and correctness of move generation
     private static void CmdPerft(ReadOnlySpan<string> tokens) {
+
         // first stop the potential already running search
         StopSearch(verbose: false);
 
@@ -235,24 +235,37 @@ internal static partial class UCI {
             return;
         }
 
-        if (tokens.Length == 2) {
-            if (!int.TryParse(tokens[1], out int depth))
-                goto invalid_syntax;
+        // if no depth is specified, run the default perft suite
+        if (tokens.Length == 1) {
 
-            if (depth < 1) {
-                Log("Depth must be greater than or equal to 1");
-                return;
-            }
-
-            // we launch a separate thread for this to allow "stop" command
-            // and anything else. i don't know, it's just better
-            SearchThread = new Thread(() => Perft.Run(depth)) {
+            // launch a separate thread for this to allow "stop" command
+            SearchThread = new Thread(Perft.RunDefault) {
                 Name     = $"{Program.Name}-{Program.Version}_Perft",
                 Priority = ThreadPriority.Highest
             };
 
             SearchThread.Start();
+            return;
+        }
 
+        // if depth is specified, run perft on the current position
+        if (tokens.Length == 2) {
+            if (!int.TryParse(tokens[1], out int depth))
+                goto invalid_syntax;
+
+            // perft at depth zero or negative doesn't make much sense
+            if (depth < 1) {
+                Log("Depth must be greater than or equal to 1");
+                return;
+            }
+
+            // once again, launch a separate thread for this
+            SearchThread = new Thread(() => Perft.RunAtDepth(depth)) {
+                Name     = $"{Program.Name}-{Program.Version}_Perft",
+                Priority = ThreadPriority.Highest
+            };
+
+            SearchThread.Start();
             return;
         }
 

@@ -30,13 +30,6 @@ internal static class Consts {
     // ranks are indexed (sq / 8) or (sq >> 3)
     internal const string Files  = "abcdefgh";
     internal const string Pieces = "pnbrqk";
-    
-    // chessboard files excluding edge squares
-    internal static readonly ulong[] RelevantFileMask = [
-        0x0001010101010100, 0x0002020202020200, 0x0004040404040400, 
-        0x0008080808080800, 0x0010101010101000, 0x0020202020202000, 
-        0x0040404040404000, 0x0080808080808000
-    ];
 
     internal const string License
           = "MIT License" 

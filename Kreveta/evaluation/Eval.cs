@@ -30,7 +30,14 @@ internal static class Eval {
     private const int PassedPawn   = 73;
     private const int BlockedPawn  = -67;
     private const int BackwardPawn = -42;
-    
+
+    // chessboard files excluding edge squares
+    internal static readonly ulong[] RelevantFileMask = [
+        0x0001010101010100, 0x0002020202020200, 0x0004040404040400,
+        0x0008080808080800, 0x0010101010101000, 0x0020202020202000,
+        0x0040404040404000, 0x0080808080808000
+    ];
+
     private static readonly ulong[] AdjFiles = new ulong[8];
     private static readonly byte[]  Distance = new byte[64 * 64];
 
@@ -40,9 +47,9 @@ internal static class Eval {
     internal static void Init() {
         // adjacent files for isolated pawn eval
         for (int i = 0; i < 8; i++) {
-            AdjFiles[i] = Consts.RelevantFileMask[i]
-              | (i != 0 ? Consts.RelevantFileMask[i - 1] : 0UL)
-              | (i != 7 ? Consts.RelevantFileMask[i + 1] : 0UL);
+            AdjFiles[i] = RelevantFileMask[i]
+              | (i != 0 ? RelevantFileMask[i - 1] : 0UL)
+              | (i != 7 ? RelevantFileMask[i + 1] : 0UL);
         }
         
         // compute the chebyshev distance between any two squares
@@ -155,9 +162,12 @@ internal static class Eval {
         while (copy != 0UL) {
             byte  sq      = BB.LS1BReset(ref copy);
             int   file_i  = sq & 7;
-            ulong file    = Consts.RelevantFileMask[file_i];
+            ulong file    = RelevantFileMask[file_i];
             int   relRank = !isWhite ? sq >> 3 : 8 - (sq >> 3);
-            
+
+            // find out some properties of the pawn. is it supported by a friendly pawn? can it advance without
+            // being captured? does it have a friendly pawn adjacent to it, forming a phalanx? is it opposed by
+            // an enemy pawn on the same file, potentially preventing it from advancing?
             bool supported  = Pawn.GetCaptureTargets(sq, 64, 1 - col, pawns)                 != 0UL;
             bool canAdvance = Pawn.GetCaptureTargets((byte)(sq + forw), 64, col, enemyPawns) == 0UL;
             bool phalanx    = Pawn.GetCaptureTargets((byte)(sq - forw), 64, col, pawns)      != 0UL;
@@ -179,8 +189,8 @@ internal static class Eval {
             // the pawn is passed, and a bonus is added, scaled by rank
             eval += (short)(fileOcc   != adjOcc ? 0 : IsolatedPawn);
             eval += (short)(oppAdjOcc != 0      ? 0 : PassedPawn
-                * relRank                      // bonus scales with rank
-                * (supported ? 16 : 10) / 10); // increase bonus if the pawn is protected
+                * relRank                   // bonus scales with rank
+                * (supported ? 8 : 5) / 5); // increase bonus if the pawn is protected
 
             // also check if there's a friendly piece blocking the pawn
             if (((1UL << (sq + forw)) & friendlyPieces) != 0UL)
@@ -200,6 +210,7 @@ internal static class Eval {
                     minRank  = Math.Min(minRank, rank);
                 }
 
+                // if the pawn is at least two squares behind other pawns?
                 if (relRank + 1 < minRank)
                     eval += BackwardPawn;
             }

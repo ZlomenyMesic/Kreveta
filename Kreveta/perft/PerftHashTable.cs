@@ -20,7 +20,7 @@ namespace Kreveta.perft;
 // just to prove my point, from the starting position, up until depth 7, the
 // number of nodes found with perfttt is absolutely precise, and at depth 7
 // the calculation is three times faster than without perftt
-internal static unsafe partial class PerftTT {
+internal static unsafe partial class PerftHashTable {
 
     // size of a single entry in bytes
     private const int EntrySize = 16;
