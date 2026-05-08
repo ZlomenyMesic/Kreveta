@@ -22,6 +22,7 @@ using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Kreveta.polyglot;
 
 // ReSharper disable InconsistentNaming
 
@@ -462,10 +463,14 @@ internal unsafe struct Board {
     }
 
     internal void Print() {
-
-        // empty squares are simply dashes
         char[] chars = new char[64];
-        Array.Fill(chars, '.');
+        Array.Fill(chars, ' ');
+        
+        // first, draw the file letters (a-h) at the top. rank numbers are
+        // also printed, though that happens during the actual main loop
+        UCI.Output.Write("\n " + RGB.Blue + "+ ");
+        foreach (char file in Consts.Files)
+            UCI.Output.Write($"{file} ");
 
         // loop all piece types
         for (int i = 0; i < 6; i++) {
@@ -486,25 +491,41 @@ internal unsafe struct Board {
         }
         
         // next actually print the characters to console
-        for (int i = 0; i < 64; i++) {
+        for (int i = 0; i <= 64; i++) {
+            int rank = i >> 3;
             
-            // newline character at the end of each rank
-            if ((i & 7) == 0)
-                UCI.Output.Write("\n  ");
+            if ((i & 7) == 0) {
+                UCI.Output.Write(RGB.Reset);
+                    
+                if      (rank == 5) UCI.Output.Write($"  FEN string:     {Game.Board.FEN()}");
+                else if (rank == 6) UCI.Output.Write($"  TT hash:        {Game.Board.Hash}");
+                else if (rank == 7) UCI.Output.Write($"  Polyglot hash:  {PolyglotZobristHash.Hash(in Game.Board)}");
+                else if (rank == 8) UCI.Output.Write($"  Is check:       {(Game.Board.IsCheck ? RGB.Green : RGB.Red)}{Game.Board.IsCheck}{RGB.Reset}");
+
+                if (rank == 8) break;
+                
+                // newline character at the end of each rank, and rank numbers
+                UCI.Output.Write($"\n {RGB.Blue}{8 - rank}{RGB.Reset} ");
+            }
             
-            // to make things more pretty, white and black pieces get different
-            // shades of gray to differentiate from the default gray forecolor
-            Console.ForegroundColor = char.IsAsciiLetterUpper(chars[i]) 
-                ? ConsoleColor.White 
-                : char.IsAsciiLetterLower(chars[i]) 
-                    ? ConsoleColor.DarkGray 
-                    : ConsoleColor.Gray;
+            // add color to the squares themselves
+            UCI.Output.Write(
+                (i & 1) == ((i >> 3) & 1)
+                ? RGB.BGLight : RGB.BGDark
+            );
             
-            Console.Write($"{chars[i]} ");
+            // to make things more pretty, the pieces have color too
+            UCI.Output.Write(chars[i] switch {
+                var c when char.IsAsciiLetterUpper(c) => RGB.White,
+                var c when char.IsAsciiLetterLower(c) => RGB.Black,
+                _                                     => string.Empty
+            });
+            
+            UCI.Output.Write($"\e[1m{chars[i]} {RGB.Reset}");
         }
         
-        Console.WriteLine('\n');
-        Console.ResetColor();
+        // make sure we reset all color at the end
+        UCI.Output.WriteLine($"\n{RGB.Reset}");
     }
 
     // returns the FEN (Forsyth-Edward's Notation) of this position, as can probably

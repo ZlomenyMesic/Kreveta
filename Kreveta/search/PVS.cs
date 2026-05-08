@@ -115,13 +115,13 @@ internal static unsafe class PVS {
         ImprovingStack.UpdateStaticEval(Game.Board.StaticEval, ply: 0, Game.EngineColor);
 
         SearchState defaultSS = new(
-            ply:             0,
-            depth:           (sbyte)RootDepth,
-            priorReductions: 0,
-            lastMove:        default,
-            excludedMove:    default,
-            followPv:        true,
-            ignore3fold:     false
+            ply:            0,
+            depth:          RootDepth,
+            priorReduction: 0,
+            lastMove:       default,
+            excludedMove:   default,
+            followPv:       true,
+            ignore3fold:    false
         );
 
         LookupTT = TTLookupState.NOT_PERFORMED;
@@ -146,7 +146,7 @@ internal static unsafe class PVS {
                       || pv[i].Promotion == PType.PAWN;
             
             // store each pv move in TT
-            TT.Store(board.Hash, (sbyte)--depth, i, short.MinValue, short.MaxValue, (short)score, pv[i]);
+            TT.Store(board.Hash, --depth, i, short.MinValue, short.MaxValue, (short)score, pv[i]);
             
             // update histories for all moves, with progressively smaller bonuses
             StoreMoveHistory(board.SideToMove, i > 0 ? pv[i - 1] : default, pv[i], capt, weight - i, weight - i - 1);
@@ -464,13 +464,13 @@ internal static unsafe class PVS {
                 ref nullChild,
                 -beta, -beta + 1,
                 new SearchState(
-                    ply:             (sbyte)(ss.Ply   + 1),
-                    depth:           (sbyte)(ss.Depth - R),
-                    priorReductions: ss.PriorReductions,
-                    lastMove:        default,
-                    excludedMove:    ss.ExcludedMove,
-                    followPv:        false,
-                    ignore3fold:     true
+                    ply:            ss.Ply   + 1,
+                    depth:          ss.Depth - R,
+                    priorReduction: R,
+                    lastMove:       default,
+                    excludedMove:   ss.ExcludedMove,
+                    followPv:       false,
+                    ignore3fold:    true
                 ),
                 cutNode: false
             );
@@ -490,7 +490,7 @@ internal static unsafe class PVS {
                 nmpScore = SearchNext<NonPVNode>(
                     ref board,
                     beta - 1, beta,
-                    ss with { Depth = (sbyte)(ss.Depth - R) },
+                    ss with { Depth = ss.Depth - R },
                     cutNode: false
                 );
 
@@ -511,8 +511,7 @@ internal static unsafe class PVS {
          */
         if (!excludedMove && !ttMoveExists && !inCheck && alpha + 1 < beta
             && !ss.FollowPV && (pvNode && ss.Depth >= 5 || cutNode && ss.Depth >= 7) && ss.Ply >= 3) {
-
-            ss.PriorReductions++;
+            
             ss.Depth--;
         }
         
@@ -559,7 +558,7 @@ internal static unsafe class PVS {
                         // we know for a fact that quiets with SEE under this value would be pruned either way,
                         // so we can save some computation time by pruning them immediately, and not wastingly
                         // retrieving their various history values
-                        seePruneQuiet: -25 * (ss.Depth - 1) * (ss.Depth - 1) - (inCheck ? 5000 : 0)
+                        seePruneQuiet: -24 * (ss.Depth - 1) * (ss.Depth - 1) - (inCheck ? 5000 : 0)
                     );
 
                     // very important - if we've already checked a tt move, it
@@ -577,7 +576,7 @@ internal static unsafe class PVS {
                 
                 curMove = LazyMoveOrder.NextMove(legalMoves, moveScores, seeScores, moveCount, out curScore, out see);
 
-                // when moveorder returns default, there aren't any moves left
+                // once moveorder returns default, there aren't any moves left
                 if (curMove == default) break;
             }
 
@@ -626,7 +625,7 @@ internal static unsafe class PVS {
              * quiet moves can never have positive see. negative see of a quiet means it almost
              * certainly hangs a piece. here we try to prune such moves, as they shouldn't matter
              */
-            if (!inCheck && !isCapture && see < -25 * (ss.Depth - 1) * (ss.Depth - 1)) {
+            if (!inCheck && !isCapture && see < -24 * (ss.Depth - 1) * (ss.Depth - 1)) {
                 CurNodes++;
                 continue;
             }
@@ -713,19 +712,11 @@ internal static unsafe class PVS {
                     continue;
                 }
                 
-                /*
-                 * 11. FUTILITY REDUCTIONS
-                 * a very small idea i had, helps only a little bit. if the move
-                 * didn't fail low, but was very close to it, it is at least reduced
-                 */
-                if (allNode && !improving && -childStaticEval + futilityMargin <= alpha + 7 && ss.PriorReductions <= 4)
-                    reduction++;
-                
                 weight++;
             }
             
             /*
-             * 12. QUIET REDUCTIONS
+             * 11. QUIET REDUCTIONS
              * at very low depths, when there are way too many moves, and we aren't
              * optimistic about raising alpha, some of the late quiets are reduced
              */
@@ -733,7 +724,7 @@ internal static unsafe class PVS {
                 reduction++;
             
             /*
-             * 13. SINGULAR EXTENSIONS
+             * 12. SINGULAR EXTENSIONS
              * based on the tt score we set the singular beta bound, and perform a reduced search that
              * doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
              * e.g. the only reasonable move, and it is extended
@@ -749,12 +740,17 @@ internal static unsafe class PVS {
                 // search is supposed to evaluate the position without it
                 ss.ExcludedMove = ttMove;
                 if (!ss.Ignore3Fold) ThreeFold.Remove(child.Hash);
+
+                int depth = ss.Depth * 2 / 5;
                 
                 // do the reduced, null-window search
                 short singScore = Search<NonPVNode>(
                     ref board,
                     sAlpha, sAlpha + 1,
-                    ss with { Depth  = (sbyte)(ss.Depth * 2 / 5) },
+                    ss with {
+                        Depth          = depth,
+                        PriorReduction = ss.Depth - depth
+                    },
                     cutNode
                 );
                 
@@ -771,21 +767,13 @@ internal static unsafe class PVS {
                     
                     // further extensions if tt move seems to be good and other moves terrible
                     bool extend1 = ttCapture && ttBetaCutoff && ttDepth >= ss.Depth - 2;
-                    bool extend2 = singScore < sAlpha - 70 - 5 * (ss.Depth - ttDepth);
-
-                    /*int node  = pvNode ? 1 : 0;
-                    int move  = (ttCapture ? 1 : 0) + (ttMove.Promotion == PType.QUEEN ? 1 : 0);
-                    int score = (ttOptimistic ? 1 : 0) + (ttBetaCutoff ? 3 : 0);
-                    int depth = (ss.Depth - ttDepth) / (ss.Ply >= RootDepth ? 2 : 1);
-
-                    bool extend1 = singScore < sAlpha - 30 - 45 * node + 60 * move + 15 * score - 5 * depth;
-                    bool extend2 = singScore < sAlpha - 80 - 70 * node + 35 * move + 10 * score - 5 * depth;*/
+                    bool extend2 = singScore < sAlpha - 70 - 5 * (ss.Depth - ttDepth) + (ttBetaCutoff ? 10 : -10) + (ttCapture ? 15 : -15);
                     
                     reduction -= 1 + (extend1 ? 1 : 0) + (extend2 ? 1 : 0);
                 }
                 
                 /*
-                 * 14. MULTI-CUT PRUNING
+                 * 13. MULTI-CUT PRUNING
                  * an additional idea to singular extensions - if the search score failed high
                  * over the current beta, the node is pruned, as despite not having access to
                  * the best move (tt move), we still failed high
@@ -796,7 +784,7 @@ internal static unsafe class PVS {
                 }
                 
                 /*
-                 * 15. NEGATIVE EXTENSIONS
+                 * 14. NEGATIVE EXTENSIONS
                  * if the tt move isn't singular, and we cannot apply multi-cut, the tt move is
                  * reduced to allow spending more time searching other moves, as they may be good
                  */
@@ -804,22 +792,22 @@ internal static unsafe class PVS {
             }
             
             /*
-             * 16. OTHER REDUCTIONS/EXTENSIONS
+             * 15. OTHER REDUCTIONS/EXTENSIONS
              * the search depth of the current move is lowered or raised
              * based on how interesting or important the move seems to be
              */
             bool lateRootMove = rootNode && expandedNodes >=
                 4 + (int)SearchControl.LastInstability / 2 + Math.Max(3 - RootDepth, 0);
             
-            reduction += (lateRootMove                           ? 1 : 0)  // first few root moves are extended
-                       + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // bad captures are reduced
+            reduction += (lateRootMove                           ? 1 : 0)  // late root moves are reduced
+                       + (!inCheck && !givesCheck && see <= -100 ? 1 : 0)  // moves losing material are reduced
                        - (!ttMoveExists && moveCount == 1        ? 1 : 0); // single evasion extensions
             
             // apply the reduction
             curDepth -= reduction;
 
             /*
-             * 17. LATE MOVE REDUCTIONS
+             * 16. LATE MOVE REDUCTIONS
              * despite the fact that PVS searches only the first move with a full window, it didn't
              * work here. instead, a few early moves are searched fully, and the rest with a null
              * window. the number of moves searched fully is based on depth, pv and cutnode. if we
@@ -833,7 +821,7 @@ internal static unsafe class PVS {
             maxExpNodes = Math.Max(1, (2 * mcount + phase) / 3);
             
             // under these conditions, LMR is skipped
-            bool skipLMR = rootNode || expandedNodes <= maxExpNodes
+            bool skipLMR = rootNode || expandedNodes <= maxExpNodes || ss.Depth <= 2
                         || inCheck || givesCheck || isLosing
                         || see >= 100;
 
@@ -844,22 +832,23 @@ internal static unsafe class PVS {
                 
                 // moves with bad history are reduced more
                 int badHistory = -379 - 9 * RootDepth;
-                int R = 3
-                    + (expandedNodes > moveCount / 3 ? 1 : 0)  // late moves
-                    + (curScore < badHistory         ? 1 : 0)  // bad history moves
-                    - (improving  || see > 94        ? 1 : 0)  // improving or good SEE
-                    + (!improving && see < 0         ? 1 : 0)  // not improving and bad SEE
-                    + (ttCapture                     ? 1 : 0)  // TT move is a capture
-                    + (hangsPiece                    ? 1 : 0); // the move likely hangs a piece
+                int R = 3 + (expandedNodes > moveCount / 3 ? 1 : 0)  // late moves
+                          + (curScore < badHistory         ? 1 : 0)  // bad history moves
+                          - (improving  || see > 94        ? 1 : 0)  // improving or good SEE
+                          + (!improving && see < 0         ? 1 : 0)  // not improving and bad SEE
+                          + (ttCapture                     ? 1 : 0)  // TT move is a capture
+                          + (hangsPiece                    ? 1 : 0); // the move likely hangs a piece
 
                 // once again a reduced depth search
                 int score = -SearchNext<NonPVNode>(
                     ref child,
                     -alpha - 1, -alpha,
                     ss with {
-                        Ply      = (sbyte)(ss.Ply   + 1),
-                        Depth    = (sbyte)(ss.Depth - R),
-                        FollowPV = false
+                        Ply            = ss.Ply   + 1,
+                        Depth          = ss.Depth - R,
+                        PriorReduction = R,
+                        LastMove       = curMove,
+                        FollowPV       = false
                     },
                     cutNode: true
                 );
@@ -876,16 +865,18 @@ internal static unsafe class PVS {
                 }
                 
                 // if LMR failed, and the move had been reduced, some of the reduction is reverted
-                if (curDepth < ss.Depth - 1)
+                if (curDepth < ss.Depth - 1) {
+                    reduction--;
                     curDepth++;
+                }
             }
             
             // the new search state for the child node
             var childSearchState = ss with {
-                Ply             = (sbyte)(ss.Ply + 1),
-                Depth           = (sbyte)curDepth,
-                PriorReductions = (sbyte)(ss.PriorReductions + reduction - 1),
-                LastMove        = curMove
+                Ply            = ss.Ply + 1,
+                Depth          = curDepth,
+                PriorReduction = reduction - 1,
+                LastMove       = curMove
             };
 
             // reset the child pv
@@ -970,7 +961,7 @@ internal static unsafe class PVS {
                 bestScore = (short)searchScore;
 
                 /*
-                 * 18. ADDITIONAL REDUCTIONS
+                 * 17. ADDITIONAL REDUCTIONS
                  * once we have found at least one move that raises the initial alpha,
                  * we reduce all following moves by 1 ply. this action shouldn't be
                  * repeated, it only applies to the first such move

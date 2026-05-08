@@ -8,6 +8,7 @@ using Kreveta.uci.options;
 using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+
 // ReSharper disable UnusedMember.Global
 // ReSharper disable InconsistentNaming
 

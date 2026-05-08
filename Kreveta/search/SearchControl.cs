@@ -235,7 +235,7 @@ internal static class SearchControl {
             Game.PreviousScore = PVS.PVScore;
 
         // bench needs the node count
-        if (bench) Bench.Nodes += TotalNodes;
+        if (bench) Benchmark.Nodes += TotalNodes;
         
         Stopwatch.Stop();
         
@@ -251,7 +251,7 @@ internal static class SearchControl {
         AspFail    = AspirationFail.NONE;
 
         // let bench know the search is finished
-        if (bench) Bench.Finished = true;
+        if (bench) Benchmark.Finished = true;
     }
 
     private static void GetResult() {

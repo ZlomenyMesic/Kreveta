@@ -7,6 +7,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using Kreveta.consts;
 
 namespace Kreveta.evaluation;
 
@@ -60,12 +61,12 @@ internal static class Score {
         string sign = score > 0 ? "+" : score < 0 ? "" : " ";
         
         // make negative scores red and positive scores green
-        return $"{score switch {
-                    < 0 => "\e[91m",   // red
-                      0 => "",         // default (grayish/white)
-                    > 0 => "\e[92m"}}" // green
+        return score switch {
+                    < 0 => RGB.Red,   // red
+                      0 => "",        // default (grayish/white)
+                    > 0 => RGB.Green} // green
              + $"{sign}{MathF.Round(score / 100f, 2):F2}"
-             + $"\e[0m";
+             + RGB.Reset;
     }
 }
 

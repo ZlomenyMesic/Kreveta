@@ -141,17 +141,12 @@ internal static partial class UCI {
                 
                 // run bench
                 case "bench":
-                    Bench.Run(tokens);
+                    Benchmark.Run(tokens);
                     break;
                 
                 // print the current position
                 case "d" or "draw" or "display":
                     Game.Board.Print();
-                    
-                    Log($"FEN:           {Game.Board.FEN()}");
-                    Log($"TT hash:       {Game.Board.Hash}");
-                    Log($"Polyglot hash: {PolyglotZobristHash.Hash(in Game.Board)}");
-                    Log($"Is check:      {Game.Board.IsCheck}\n");
                     break;
                 
                 // stop any running searches

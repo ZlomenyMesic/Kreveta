@@ -94,7 +94,7 @@ internal static unsafe partial class TranspositionTable {
     }
 
     // store a position in the table. the best move doesn't have to be specified
-    internal static void Store(ulong hash, sbyte depth, int ply, int alpha, int beta, short score, Move bestMove) {
+    internal static void Store(ulong hash, int depth, int ply, int alpha, int beta, short score, Move bestMove) {
         
         // the UCI option Clear Hash is supposed to clear the TT. since the engine
         // runs on two threads, instead of clearing it just sets this flag, and
@@ -170,7 +170,7 @@ internal static unsafe partial class TranspositionTable {
         indexSelected:
         var entry = new Entry {
             Hash     = hash,
-            Depth    = depth,
+            Depth    = (sbyte)depth,
             Flags    = 0,
             BestMove = bestMove
         };

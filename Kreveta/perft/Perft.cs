@@ -9,8 +9,6 @@ using Kreveta.uci;
 using Kreveta.uci.options;
 using System;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace Kreveta.perft;
 
@@ -49,7 +47,7 @@ internal static class Perft {
             var (fen, depth, expected) = Suite[i];
 
             // print the current FEN string
-            UCI.Log($"\nPosition {i + 1}/{Suite.Length}: FEN {fen}");
+            UCI.Log($"\n{RGB.Yellow}Position {i + 1}/{Suite.Length}{RGB.Reset}: FEN {fen}");
             Game.SetPosFEN(["position", "fen", ..fen.Split(' ')]);
 
             // reset the perft hash table before each position
@@ -77,9 +75,9 @@ internal static class Perft {
         }
 
         // print the final result overviewing all positions
-        UCI.Log(correct == Suite.Length ? "\e[92m" : "\e[91m", nl: false);
-        UCI.Log($"\n{correct}/{Suite.Length} ",                nl: false);
-        UCI.Log("\e[0m",                                       nl: false);
+        UCI.Log("\nResult: ",                                  nl: false);
+        UCI.Log(correct == Suite.Length ? RGB.Green : RGB.Red, nl: false);
+        UCI.Log($"{correct}/{Suite.Length}{RGB.Reset} ",       nl: false);
         UCI.Log("positions matched the expected node count!");
 
 

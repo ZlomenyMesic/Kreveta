@@ -69,11 +69,10 @@ internal static class Program {
             .First(a => a.Key == "BuildTimestamp").Value ?? "";
         
         // header text when launching the engine
-        Console.ForegroundColor = ConsoleColor.Red;
-        UCI.Log($"{Name}-{Version} ", nl: false);
-        Console.ResetColor();
+        UCI.Log($"{RGB.Peach}{Name}-{Version}{RGB.Reset}", nl: false);
+
         
-        UCI.Log($"by {Author} (built {buildTime})");
+        UCI.Log($" by {Author} (built {buildTime})");
         
         // load the embedded nnue weights and pre-allocate the accumulator pool
         NNUEWeights.Load();
