@@ -3,6 +3,7 @@
 // started 4-3-2025
 //
 
+using System;
 using System.Runtime.CompilerServices;
 using Kreveta.consts;
 
@@ -51,5 +52,23 @@ internal static class ImprovingStack {
         // the previous evaluation with always be correct.
         return col == Color.WHITE
             ? cur > prev : cur < prev;
+    }
+    
+    internal static bool IsImproving1Ply(int ply, Color col) {
+        if (ply < 1 || ply >= _len) 
+            return false;
+
+        return col == Color.WHITE
+            ? _stack[ply] > _stack[ply - 1]
+            : _stack[ply] < _stack[ply - 1];
+    }
+
+    internal static int Delta(int ply0, int ply1, Color col) {
+        if (Math.Max(ply0, ply1) >= _len)
+            return 0;
+        
+        return col == Color.WHITE
+            ? _stack[ply1] - _stack[ply0]
+            : _stack[ply0] - _stack[ply1];
     }
 }

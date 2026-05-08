@@ -18,7 +18,6 @@ using Kreveta.search.helpers;
 namespace Kreveta.search;
 
 internal static class Quiescence {
-
     /*
      * QUIESCENCE SEARCH:
      * instead of immediately returning the static eval of leaf nodes in the main
@@ -155,7 +154,10 @@ internal static class Quiescence {
 
         // order the captures, and place the potential tt move at the front
         Span<int> seeScores = stackalloc int[count];
-        if (!inCheck) count = SEE.OrderCaptures(in board, moves[..count], seeScores, seeThreshold, ttMove);
+        if (!inCheck) {
+            count = SEE.OrderCaptures(in board, moves[..count], seeScores, seeThreshold, ttMove);
+            if (count == 0) return (short)alpha;
+        }
 
         // loop the generated moves
         for (int i = 0; i < count; ++i) {
@@ -165,7 +167,6 @@ internal static class Quiescence {
             
             // no pruning should be attempted when in check
             if (!inCheck && ply >= fullDepth + 4) {
-                
                 /*
                  * 3. MOVECOUNT PRUNING
                  * late captures are simply skipped, unless they are a recapture

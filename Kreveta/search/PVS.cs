@@ -69,8 +69,8 @@ internal static unsafe class PVS {
     
     internal static bool Abort 
         => UCI.ShouldAbortSearch
-           || SearchControl.Stopwatch.ElapsedMilliseconds >= AbortTimeThreshold
-           || SearchControl.TotalNodes + CurNodes >= SearchControl.CurNodesLimit;
+        || SearchControl.Stopwatch.ElapsedMilliseconds >= AbortTimeThreshold
+        || SearchControl.TotalNodes + CurNodes         >= SearchControl.CurNodesLimit;
 
     // when a TT lookup is successful, but we for any reason cannot cut
     // off, the entry information is stored here not to repeat the lookup
@@ -114,7 +114,7 @@ internal static unsafe class PVS {
         ImprovingStack.Expand(RootDepth);
         ImprovingStack.UpdateStaticEval(Game.Board.StaticEval, ply: 0, Game.EngineColor);
 
-        SearchState defaultSS = new(
+        SearchState initialSearchState = new(
             ply:            0,
             depth:          RootDepth,
             priorReduction: 0,
@@ -127,7 +127,7 @@ internal static unsafe class PVS {
         LookupTT = TTLookupState.NOT_PERFORMED;
 
         // actual start of the search tree
-        PVScore = Search<RootNode>(ref Game.Board, aspirationAlpha, aspirationBeta, defaultSS, false);
+        PVScore = Search<RootNode>(ref Game.Board, aspirationAlpha, aspirationBeta, initialSearchState, false);
         PV      = _pvLen[0] > 0 ? _pvTable[0][.. _pvLen[0]] : [];
 
         SearchControl.TotalNodes += CurNodes;
@@ -219,11 +219,10 @@ internal static unsafe class PVS {
     
     /*
      * PRINCIPAL VARIATION SEARCH (NEGAMAX FRAMEWORK):
-     * ply starts at zero and increases over time, while depth starts at the highest
-     * value and decreases. the function recursively calls itself to generate a sort
-     * of "tree" of possible future positions, and tracks the best possible path to
-     * go. computing all positions is impossible, so different pruning and reduction
-     * techniques are used to skip likely irrelevant branches
+     * ply starts at zero and increases over time, while depth starts at the highest value and decreases.
+     * the function recursively calls itself to generate a sort of "tree" of possible future positions,
+     * and tracks the best possible path to go. computing all positions is impossible, so different pruning
+     * and reduction techniques are used to skip likely irrelevant branches
      */
     private static short Search<NodeType>(ref Board board, int alpha, int beta, SearchState ss, bool cutNode)
         where NodeType : ISearchNodeType {
@@ -324,7 +323,7 @@ internal static unsafe class PVS {
                     || ttUpperBound && ttScore <= alpha
                     || ttLowerBound && ttScore >= beta)) {
             
-                // we know from the previous conditions that beta is only cut in allnodes
+                // we know from the previous conditions that beta is only cut in cutnodes
                 if (cutNode && ttMoveExists)
                     StoreTTMoveHistory(col, ss.LastMove, ttMove, ss.Depth, false, ttScore, beta);
 
@@ -347,9 +346,25 @@ internal static unsafe class PVS {
         bool  nonPawnMat = board.HasNonPawnMaterial(col);
         short staticEval = board.StaticEval;
         
-        // update the static eval in the stack and the improving flag
-        bool improving = !inCheck && ImprovingStack.IsImproving2Ply(ss.Ply, col);
-        
+        // update both improving flags
+        bool improving    = !inCheck && ImprovingStack.IsImproving2Ply(ss.Ply, col);
+        //bool oppWorsening = !inCheck && ImprovingStack.IsImproving1Ply(ss.Ply, col);
+
+        if (!rootNode) {
+            int evalDelta = ImprovingStack.Delta(ss.Ply - 1, ss.Ply, col);
+
+            // if the previous move is reduced a lot, it means we thought it was bad for the previous
+            // side to move. however, if the static eval difference over the last move is improving
+            // a lot for the opposite side, we revert some of the reduction
+            if (ss.PriorReduction >= 3 && evalDelta < -85)
+                ss.Depth++;
+
+            // on the other hand, if a move wasn't reduced that much, but it is improving even more for
+            // us, then it was probably bad, and it should have been reduced more, which is fixed here
+            if (ss.PriorReduction < 3 && ss.Depth >= 2 && evalDelta > 195)
+                ss.Depth--;
+        }
+
         // a fairly solid improving idea
         improving |= staticEval >= beta;
 
@@ -466,7 +481,7 @@ internal static unsafe class PVS {
                 new SearchState(
                     ply:            ss.Ply   + 1,
                     depth:          ss.Depth - R,
-                    priorReduction: R,
+                    priorReduction: 0,
                     lastMove:       default,
                     excludedMove:   ss.ExcludedMove,
                     followPv:       false,
@@ -501,6 +516,8 @@ internal static unsafe class PVS {
                     return nmpScore;
             }
         }
+
+        int globalReduction = 0;
         
         /*
          * 7. INTERNAL ITERATIVE REDUCTIONS
@@ -511,7 +528,8 @@ internal static unsafe class PVS {
          */
         if (!excludedMove && !ttMoveExists && !inCheck && alpha + 1 < beta
             && !ss.FollowPV && (pvNode && ss.Depth >= 5 || cutNode && ss.Depth >= 7) && ss.Ply >= 3) {
-            
+
+            globalReduction++;
             ss.Depth--;
         }
         
@@ -528,9 +546,7 @@ internal static unsafe class PVS {
         Span<int>  seeScores      = stackalloc  int[Consts.MoveBufferSize];
         
         // information about what we've already searched
-        int   expandedNodes = 0;
-        Move  bestMove      = default;
-        short bestScore     = short.MinValue;
+        int expandedNodes = 0;
         
         // used for LMP move count threshold tuning
         int gamePhase = board.GamePhase();
@@ -749,7 +765,7 @@ internal static unsafe class PVS {
                     sAlpha, sAlpha + 1,
                     ss with {
                         Depth          = depth,
-                        PriorReduction = ss.Depth - depth
+                        PriorReduction = ss.Depth - depth + globalReduction
                     },
                     cutNode
                 );
@@ -846,7 +862,7 @@ internal static unsafe class PVS {
                     ss with {
                         Ply            = ss.Ply   + 1,
                         Depth          = ss.Depth - R,
-                        PriorReduction = R,
+                        PriorReduction = R - 1 + globalReduction,
                         LastMove       = curMove,
                         FollowPV       = false
                     },
@@ -875,7 +891,7 @@ internal static unsafe class PVS {
             var childSearchState = ss with {
                 Ply            = ss.Ply + 1,
                 Depth          = curDepth,
-                PriorReduction = reduction - 1,
+                PriorReduction = reduction - 1 + globalReduction,
                 LastMove       = curMove
             };
 
@@ -956,18 +972,16 @@ internal static unsafe class PVS {
                     return (short)searchScore;
                 }
                 
-                // update new best move and best score
-                bestMove  = curMove;
-                bestScore = (short)searchScore;
-
                 /*
                  * 17. ADDITIONAL REDUCTIONS
                  * once we have found at least one move that raises the initial alpha,
                  * we reduce all following moves by 1 ply. this action shouldn't be
                  * repeated, it only applies to the first such move
                  */
-                if (alpha == initAlpha && ss.Depth is > 2 and < 14)
+                if (alpha == initAlpha && ss.Depth is > 2 and < 14) {
+                    globalReduction++;
                     ss.Depth--;
+                }
                 
                 // raise alpha, as the current score is higher than the previous alpha.
                 // we've already filtered away fail-lows in the previous if-statement
