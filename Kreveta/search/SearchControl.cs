@@ -45,12 +45,14 @@ internal static class SearchControl {
     // this gets incremented simultaneously with PVSearch.CurNodes
     internal static ulong TotalNodes;
 
-    // some stuff we measure for aspiration windows
-    private  static double PVChanges;  // number of changes of the best move
-    private  static double ScoreDiffs; // sum of differences of scores between iterations
-    private  static int    PrevScore;
-    internal static double LastInstability;
-    private  static double Optimism; // trend of the score - growing or falling
+    // some stuff we measure for aspiration windows and time management
+    private  static double PVChanges;          // number of changes of the best move
+    private  static double ScoreDiffs;         // sum of differences of scores between iterations
+    private  static int    PrevScore;          // the score of the previous iteration
+    internal static double LastInstability;    // used to reduce root moves more or less aggressively
+    private  static double Optimism;           // trend of the score - growing or falling
+    private static  int    LastBestMoveChange; // the last iteration depth at which the best move changed
+    private static  double LastBestMoveEffort; // percentage of nodes spent just for the best move
 
     // the result of the previous aspiration search
     private static AspirationFail AspFail;
@@ -73,9 +75,9 @@ internal static class SearchControl {
     // previoud iterations are stored in the tt, killers, and history, which
     // makes new iterations not take too much time.
     private static void IterativeDeepeningLoop(bool bench = false) {
-        PrevElapsed     = 0L;
+        PrevElapsed     = LastBestMoveChange = 0;
+        LastInstability = LastBestMoveEffort = 0.0;
         Stopwatch       = Stopwatch.StartNew();
-        LastInstability = 0.0;
             
         // we have to call tt clear here, because the user
         // might have changed the hash size settings, so we
@@ -97,15 +99,14 @@ internal static class SearchControl {
         );
 
         // we still have time and are allowed to search deeper
-        while (PVS.RootDepth            < CurMaxDepth
-               && Stopwatch.ElapsedMilliseconds < TM.TimeBudget
-               && TotalNodes                    < CurNodesLimit) {
+        while (PVS.RootDepth                 < CurMaxDepth
+            && Stopwatch.ElapsedMilliseconds < TM.TimeBudget
+            && TotalNodes                    < CurNodesLimit) {
 
             PVS.NextBestMove = default;
 
-            int  aspirationAlpha = short.MinValue;
-            int  aspirationBeta  = short.MaxValue;
-            bool useAspiration   = false;
+            var  (aspirationAlpha, aspirationBeta) = (-32_768, 32_767);
+            bool useAspiration                     = false;
             
             // these have to be aged out to allow new information to be considered
             PVChanges  *= 0.69;
@@ -115,17 +116,32 @@ internal static class SearchControl {
             double pvInstability    = Math.Pow(PVChanges, 3.0) * 1.46;
             double scoreInstability = PVS.RootDepth != 0
                 ? ScoreDiffs / PVS.RootDepth : 0.0;
+            
+            // number of iterations done since the last best move change
+            int    depthLapse = PVS.RootDepth - LastBestMoveChange;
+            double lbme       = LastBestMoveEffort / 100.0;
 
-            // somehow combine the two into a total search instability metric.
-            // it starts negative, as when the search is stable, the time budget
-            // and aspiration window deltas have to be reduced
-            double totalInstability = -5.42 + 0.96 * scoreInstability + 0.99 * pvInstability;
-            LastInstability         = totalInstability;
+            // somehow combine the two into a total search instability metric. it starts negative, since
+            // when the search is stable, the time budget and aspiration window deltas have to be reduced
+            double totalInstability = -5.42 + 0.96 * scoreInstability
+                                            + 0.99 * pvInstability;
+                                            
+            LastInstability = totalInstability;
+            
+            // the instability used for time management is further adjusted. if the last best move change
+            // happened a long time ago, we try to reduce the time budget. also, we count which portion
+            // of the total nodes searched were spent on the best move. if this number is high, we once
+            // again try to reduce time. on the other hand, if the nodes are distributed more evenly, we
+            // try to spend more time searching, as the best move might not be that stable
+            double timeInstability = totalInstability
+                - 0.18 * Math.Clamp(depthLapse - 4.0, -2.5, 16.5)
+                + Math.Min(lbme - 0.74, 0.0) - Math.Max(lbme - 0.84, 0.0);
             
             // try to reduce or increase the time budget based on instability
-            if (PVS.RootDepth > 3 && totalInstability != 0.0) 
-                TM.AccountForInstability(totalInstability, PVS.RootDepth);
+            if (PVS.RootDepth > 3 && timeInstability != 0.0)
+                TM.AccountForInstability(timeInstability, PVS.RootDepth);
             
+            // don't use aspiration windows in unstable searches, or at very low depths
             if (PVS.RootDepth > 3 && totalInstability <= -2.49) {
                 double avg = PrevScore;
                 int    opt = Math.Clamp(
@@ -156,6 +172,9 @@ internal static class SearchControl {
 
             // search aborted - don't print current iteration result
             if (PVS.Abort) break;
+            
+            // calculate nodes effort of the best move as a percentage
+            LastBestMoveEffort = 100.0 * PVS.BestMoveEffort / Math.Max(1.0, PVS.CurNodes);
                 
             CurElapsed = Stopwatch.ElapsedMilliseconds - PrevElapsed;
             AspFail    = AspirationFail.NONE;
@@ -257,8 +276,10 @@ internal static class SearchControl {
     private static void GetResult() {
 
         // save the first pv node as the current best move
-        if (BestMove != default && PVS.PV.Length != 0 && BestMove != PVS.PV[0])
+        if (BestMove != default && PVS.PV.Length != 0 && BestMove != PVS.PV[0]) {
             PVChanges++;
+            LastBestMoveChange = PVS.RootDepth;
+        }
         
         // PV becomes unreliable when aborting the search
         if (!PVS.Abort && PVS.PV.Length != 0)

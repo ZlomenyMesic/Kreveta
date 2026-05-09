@@ -55,7 +55,6 @@ internal static class Game {
         EngineColor = Color.WHITE;
         Ply         = 0;
         
-        ThreeFold.Init(0);
         PlayMoves(tokens);
     }
 
@@ -73,7 +72,6 @@ internal static class Game {
         // clear the board from previous game/search
         Board = new Board();
         Ply   = 0;
-        ThreeFold.Clear();
         
         // the first token is the actual position. all ranks are separated by a "/". between the
         // slashes, pieces may be denoted with the simple "pnbrqk" or the uppercase variants for
@@ -197,8 +195,6 @@ internal static class Game {
         Board.StaticEval = Eval.StaticEval(in Board);
         Board.IsCheck    = Check.IsKingChecked(in Board, EngineColor);
         Board.Hash       = ZobristHash.GetHash(in Board);
-
-        ThreeFold.Init(0);
 
         // the fen string can be followed by a sequence of moves, which have
         // been played from the position. for example, most GUIs would pass

@@ -12,8 +12,7 @@ namespace Kreveta;
 
 internal static class TimeManager {
 
-    // when time arguments are missing or incomplete,
-    // we can go with these default values
+    // when time arguments are missing or incomplete, we can go with these default values
     private const long DefaultTimeBudget = 8000;
 
     // the total time left on each side's clocks
@@ -27,16 +26,13 @@ internal static class TimeManager {
     // the number of moves left until a time reset/addition
     private static int _movesToGo;
 
-    // if movetime is set, it means we either received 
-    // the "movetime" argument or should perform an infinite
-    // search. when this is set, we should avoid using book
-    // moves or ending the search early, since we have the
-    // exact amount of time we must spend on the search
+    // if movetime is set, it means we either received  the "movetime" argument or should perform
+    // an infinite search. when this is set, we should avoid using book moves or ending the search
+    // early, since we have the exact amount of time we must spend on the search
     internal static long MoveTime;
     
-    // this is used when movetime isn't set. time budget
-    // sets a boundary when the search should be aborted,
-    // but it can be ended prematurely
+    // this is used when movetime isn't set. time budget sets a boundary when the search should
+    // be aborted, but it can be ended prematurely
     internal static long TimeBudget;
     internal static bool TimeBudgetIsDefault;
 
@@ -44,9 +40,9 @@ internal static class TimeManager {
         TimeBudget = _whiteTime = _blackTime = _whiteInc = _blackInc = MoveTime = _movesToGo = 0;
         TimeBudgetIsDefault = false;
 
-        // tokens aren't filtered before being passed to this method, so they might
-        // contain anything. for this reason we don't print any errors when we receive
-        // an unknown token, we just use the default time budget
+        // tokens aren't filtered before being passed to this method, so they might contain anything.
+        // for this reason we don't print any errors when we receive an unknown token, we just use
+        // the default time budget
         for (int i = 1; i < tokens.Length; i++) {
             switch (tokens[i]) {
                 
@@ -102,7 +98,9 @@ internal static class TimeManager {
         }
 
         // if we haven't received time arguments, or failed to parse them, default time budget is used
-        if (MoveTime == 0 && (Game.EngineColor == Color.WHITE ? _whiteTime == 0 : _blackTime == 0)) {
+        if (MoveTime == 0 && (Game.EngineColor == Color.WHITE
+                ? _whiteTime == 0 : _blackTime == 0)) {
+            
             TimeBudgetIsDefault = true;
             TimeBudget          = DefaultTimeBudget;
             MoveTime            = DefaultTimeBudget;
@@ -117,9 +115,7 @@ internal static class TimeManager {
     private static void CalculateTimeBudget() {
         const int moveOverhead = 30;
         
-        // we have a strictly set time for our search,
-        // or are in an infinite search, so we don't
-        // care abount setting a time budget
+        // we have a strictly set time for our search, or are in an infinite search
         if (MoveTime != 0L) {
             TimeBudget = MoveTime;
             return;
@@ -164,7 +160,8 @@ internal static class TimeManager {
         double ply      = Math.Max(13.1, (150.0 - Game.Ply) / 5.0);
         double expected = (5.0 * material + 3.0 * ply) / 8.0;
         
-        /* add layers of complexity into the result:
+        /*
+         * add layers of complexity into the result:
          *  1. pawns can promote and prolong the game (add)
          *  2. larger scores generally mean the game will end soon (add)
          *  3. when there are many legal moves, search deeper (mult)
@@ -182,9 +179,8 @@ internal static class TimeManager {
         return Math.Clamp(result, 11.0, 45.0);
     }
 
-    // depending on whether the position seems to be stable or unstable,
-    // the time budget may be altered. instability is based on score
-    // differences and best move changes between iterations
+    // depending on whether the position seems to be stable or unstable, the time budget may be altered.
+    // instability is based on score differences and best move changes between iterations
     internal static void AccountForInstability(double instability, int depth) {
         // don't touch the user-set budgets
         if (MoveTime != 0) return;
@@ -194,9 +190,8 @@ internal static class TimeManager {
 
         if (timeLeft < 247) return;
 
-        // for some reason it works well to have the shifts assymmetric.
-        // if the instability is negative, we want to terminate the search
-        // sooner, but if it's positive, we want to make the search longer
+        // for some reason it works well to have the shifts assymmetric. if the instability is negative,
+        // we want to terminate the search sooner, but if it's positive, we want to make the search longer
         long bonus = (long)(instability < 0
             ? instability * depth / 3.2d
             : instability * depth / 8.9d);

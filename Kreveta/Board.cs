@@ -628,7 +628,7 @@ internal unsafe struct Board {
         };
         
         board.Hash       = ZobristHash.GetHash(in board);
-        board.IsCheck    = Check.IsKingChecked(in board, board.SideToMove);
+        board.IsCheck    = false;
         board.NNUEEval   = new NNUEEvaluator(in board);
         board.StaticEval = Eval.StaticEval(in board);
         

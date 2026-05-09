@@ -20,6 +20,7 @@ internal static class ThreeFold {
     // for all plies searched. the search depth is capped at 100, so 128 should do
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Init(int gamePlies) {
+        Clear();
         int len = gamePlies + 128;
 
         _hashes = new ulong[len];

@@ -56,6 +56,9 @@ internal static unsafe class PVS {
     // evaluated final score of the principal variation
     internal static short PVScore;
 
+    // how many nodes did the best move's search take?
+    internal static ulong BestMoveEffort = 0UL;
+
     internal static void Init() {
         _pvLen   = new int[MaxPVDepth];
         _pvTable = new Move[MaxPVDepth][];
@@ -350,7 +353,13 @@ internal static unsafe class PVS {
         bool improving    = !inCheck && ImprovingStack.IsImproving2Ply(ss.Ply, col);
         //bool oppWorsening = !inCheck && ImprovingStack.IsImproving1Ply(ss.Ply, col);
 
-        if (!rootNode) {
+        /*
+         * 3. HINDSIGHT REDUCTIONS/EXTENSIONS
+         * the point is to take a "look back" at how much the previous move was reduced or extended.
+         * based on the static evaluation difference over the last move, we evaluate whether the
+         * previous reduction/extension was adequate, and if it wasn't, we partially revert it here
+         */
+        if (!rootNode && !excludedMove) {
             int evalDelta = ImprovingStack.Delta(ss.Ply - 1, ss.Ply, col);
 
             // if the previous move is reduced a lot, it means we thought it was bad for the previous
@@ -372,7 +381,7 @@ internal static unsafe class PVS {
         
         // if tt score is reliable, adjust the static eval used for pruning
         if (ttHit && (ttExact
-                      || ttScore > staticEval && ttLowerBound 
+                      || ttScore > staticEval && ttLowerBound
                       || ttScore < staticEval && ttUpperBound)
                   && !Score.IsMate(ttScore)) {
 
@@ -382,7 +391,7 @@ internal static unsafe class PVS {
         else staticEval += (short)Math.Clamp((int)Corrections.Get(in board), -5, 5);
 
         /*
-         * 3. RAZORING
+         * 4. RAZORING
          * if the static evaluation is very bad, the move expansion is skipped, and the qsearch score is
          * returned instead. this cannot be done when in check, and the qsearch score must be validated
          */
@@ -405,7 +414,7 @@ internal static unsafe class PVS {
         }
         
         /*
-         * 4. STATIC NULL MOVE PRUNING
+         * 5. STATIC NULL MOVE PRUNING
          * also called reverse futility pruning; if the static eval at close-to-leaf
          * nodes fails high despite subtracting a margin, prune this branch
          */
@@ -418,7 +427,7 @@ internal static unsafe class PVS {
         }
         
         /*
-         * 5. SMALL PROBCUT IDEA
+         * 6. SMALL PROBCUT IDEA
          * inspired by Stockfish, but modified quite a bit. if the tt score isn't reliable enough
          * to cause the search to be skipped completely, we drop into quiescence search
          */
@@ -434,7 +443,7 @@ internal static unsafe class PVS {
         }
         
         /*
-         * 6. NULL MOVE PRUNING
+         * 7. NULL MOVE PRUNING
          * we assume that in every position there is at least one move that improves it. first,
          * we play a null move (only switching sides), and then perform a reduced search with
          * a null window around beta. if the returned score fails high, we expect that not
@@ -517,10 +526,12 @@ internal static unsafe class PVS {
             }
         }
 
-        int globalReduction = 0;
+        // global reductions are applied to all expanded moves
+        int   globalReduction = 0;
+        ulong lastNodes       = 0UL;
         
         /*
-         * 7. INTERNAL ITERATIVE REDUCTIONS
+         * 8. INTERNAL ITERATIVE REDUCTIONS
          * if the node we are in doesn't have a stored best move in TT, we reduce the depth
          * in hopes of finishing the search faster and populating the TT for next iterations
          * or occurences. the depth and ply conditions are important, as reducing too much in
@@ -617,7 +628,7 @@ internal static unsafe class PVS {
                           || curMove.Promotion == PType.PAWN;
             
             /*
-             * 8. PREMATURE FUTILITY PRUNING FOR CAPTURES
+             * 9. PREMATURE FUTILITY PRUNING FOR CAPTURES
              * before cloning the board and playing the move, we can safely eliminate some
              * captures by adding the achievable material gain to the parent's static eval,
              * and if we don't raise alpha, the capture is too bad
@@ -637,7 +648,7 @@ internal static unsafe class PVS {
             }
             
             /*
-             * 9. SEE PRUNING FOR QUIETS
+             * 10. SEE PRUNING FOR QUIETS
              * quiet moves can never have positive see. negative see of a quiet means it almost
              * certainly hangs a piece. here we try to prune such moves, as they shouldn't matter
              */
@@ -705,7 +716,7 @@ internal static unsafe class PVS {
             int reduction = 1;
             
             /*
-             * 10. FUTILITY PRUNING
+             * 11. FUTILITY PRUNING
              * we try to discard moves near the leaves, which have no potential of raising alpha. futility
              * margin represents the largest possible score gain through a single move. if we add this margin
              * to the static eval of the position and still don't raise alpha, we can prune this branch
@@ -717,7 +728,7 @@ internal static unsafe class PVS {
                  * "If at depth 1 the margin does not exceed the value of a minor piece, at
                  *  depth 2 it should be more like the value of a rook."
                  */
-                int futilityMargin = 77 + 92 * ss.Depth + (improving ? 23 : 0)
+                int futilityMargin = 81 + 92 * ss.Depth + (improving ? 23 : 0)
                                    + see / 65 + Math.Abs(childCorr); // a measure of uncertainty
                 
                 // if we didn't manage to raise alpha, prune this branch
@@ -732,7 +743,7 @@ internal static unsafe class PVS {
             }
             
             /*
-             * 11. QUIET REDUCTIONS
+             * 12. QUIET REDUCTIONS
              * at very low depths, when there are way too many moves, and we aren't
              * optimistic about raising alpha, some of the late quiets are reduced
              */
@@ -740,7 +751,7 @@ internal static unsafe class PVS {
                 reduction++;
             
             /*
-             * 12. SINGULAR EXTENSIONS
+             * 13. SINGULAR EXTENSIONS
              * based on the tt score we set the singular beta bound, and perform a reduced search that
              * doesn't include the tt move. if this search fails low, we expect the tt move to be singular,
              * e.g. the only reasonable move, and it is extended
@@ -789,7 +800,7 @@ internal static unsafe class PVS {
                 }
                 
                 /*
-                 * 13. MULTI-CUT PRUNING
+                 * 14. MULTI-CUT PRUNING
                  * an additional idea to singular extensions - if the search score failed high
                  * over the current beta, the node is pruned, as despite not having access to
                  * the best move (tt move), we still failed high
@@ -800,7 +811,7 @@ internal static unsafe class PVS {
                 }
                 
                 /*
-                 * 14. NEGATIVE EXTENSIONS
+                 * 15. NEGATIVE EXTENSIONS
                  * if the tt move isn't singular, and we cannot apply multi-cut, the tt move is
                  * reduced to allow spending more time searching other moves, as they may be good
                  */
@@ -808,7 +819,7 @@ internal static unsafe class PVS {
             }
             
             /*
-             * 15. OTHER REDUCTIONS/EXTENSIONS
+             * 16. OTHER REDUCTIONS/EXTENSIONS
              * the search depth of the current move is lowered or raised
              * based on how interesting or important the move seems to be
              */
@@ -823,11 +834,10 @@ internal static unsafe class PVS {
             curDepth -= reduction;
 
             /*
-             * 16. LATE MOVE REDUCTIONS
-             * despite the fact that PVS searches only the first move with a full window, it didn't
-             * work here. instead, a few early moves are searched fully, and the rest with a null
-             * window. the number of moves searched fully is based on depth, pv and cutnode. if we
-             * have a tt move, only it is searched fully
+             * 17. LATE MOVE REDUCTIONS
+             * despite the fact that PVS searches only the first move with a full window, it didn't work here. instead,
+             * a few early moves are searched fully, and the rest with a null window. the number of moves searched fully
+             * is based on depth, pv and cutnode. if we have a tt move, only it is searched fully
              */
             int maxExpNodes = (ttMoveExists ? 1 : 3) + (pvNode ? 4 : 0);
             
@@ -838,7 +848,7 @@ internal static unsafe class PVS {
             
             // under these conditions, LMR is skipped
             bool skipLMR = rootNode || expandedNodes <= maxExpNodes || ss.Depth <= 2
-                        || inCheck || givesCheck || isLosing
+                        || inCheck  || givesCheck                   || isLosing
                         || see >= 100;
 
             // now, if we don't want to skip LMR on this move, we perform the LMR search here.
@@ -904,9 +914,6 @@ internal static unsafe class PVS {
                 ? -SearchNext<PVNode>(   ref child, -beta, -alpha, childSearchState, cutNode: false)
                 : -SearchNext<NonPVNode>(ref child, -beta, -alpha, childSearchState, cutNode: !cutNode);
             
-            // history weight of the current move
-            weight += Math.Max(0, curDepth + (skipLMR ? 1 : 0));
-            
             if (rootNode) {
                 
                 // this UCI option makes the engine play the worst possible moves, which is
@@ -926,7 +933,18 @@ internal static unsafe class PVS {
                     if (x > Math.Max(3, 10 - (2000 - Options.UCI_Elo) / 100))
                         searchScore = Consts.RNG.Next(-1000, 1000);
                 }
+
+                // how many nodes did we spend on the current move?
+                ulong nodesEffort = CurNodes - lastNodes;
+                lastNodes         = CurNodes;
+
+                // keep track of the effort for the best move yet
+                if (searchScore > alpha)
+                    BestMoveEffort = nodesEffort;
             }
+            
+            // history weight of the current move
+            weight += Math.Max(0, curDepth + (skipLMR ? 1 : 0));
             
             // if the position turned out to be a draw earlier, the search and all pruning is skipped
             // to this point, where we do some stuff with the move, considering its score to be zero
@@ -973,7 +991,7 @@ internal static unsafe class PVS {
                 }
                 
                 /*
-                 * 17. ADDITIONAL REDUCTIONS
+                 * 18. ADDITIONAL REDUCTIONS
                  * once we have found at least one move that raises the initial alpha,
                  * we reduce all following moves by 1 ply. this action shouldn't be
                  * repeated, it only applies to the first such move
