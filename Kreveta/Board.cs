@@ -104,6 +104,14 @@ internal unsafe struct Board {
     // performs a move on the board
     internal void PlayMove(Move move, bool updateStaticEval) {
         
+        // assert that the position makes sense
+        Assert.True(ulong.PopCount(Pieces[5] | Pieces[11]) == 2, "invalid number of kings on the board");
+        Assert.True(ulong.PopCount(Occupied) <= 32, "more than 32 pieces on the board");
+        
+        // the move must also make sense on this board
+        Assert.True(PieceAt(move.Start) == move.Piece, "moved piece isn't on the board");
+        Assert.True(PieceAt(move.End)   == move.Capture, "captured piece isn't on the board");
+        
         // the zobrist hash is not recomputed each move. since the changes
         // are small, all differences are applied directly in this method
         Hash ^= EnPassantSq != 64 ? ZobristHash.EnPassant[EnPassantSq & 7] : 0UL;

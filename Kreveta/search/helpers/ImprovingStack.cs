@@ -23,7 +23,7 @@ internal static class ImprovingStack {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Expand(int depth) {
         // leave some space for potential extensions
-        _len   = depth + 8;
+        _len   = depth + 16;
         _stack = new short[_len];
     }
 

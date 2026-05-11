@@ -252,8 +252,8 @@ internal static class Game {
 
         // either of the kings is missing (this needs to be evaluated first, because
         // everything else stands on top of the assumption that both kings are present)
-        byte wKings = (byte)ulong.PopCount(Board.Pieces[(byte)PType.KING]);
-        byte bKings = (byte)ulong.PopCount(Board.Pieces[6 + (byte)PType.KING]);
+        int wKings = (int)ulong.PopCount(Board.Pieces[    (int)PType.KING]);
+        int bKings = (int)ulong.PopCount(Board.Pieces[6 + (int)PType.KING]);
         
         if (wKings != 1) {
             error = $"{wKings} white kings on the board";
@@ -282,7 +282,7 @@ internal static class Game {
         // if the opposite side is in check, even though it's our turn to play,
         // the position is obviously illegal. as much as i would love to allow
         // capturing the king, in certain positions the engine crashes :(
-        if (Check.IsKingChecked(Board, EngineColor == Color.WHITE ? Color.BLACK : Color.WHITE)) {
+        if (Check.IsKingChecked(Board, 1 - EngineColor)) {
             error = "the opponent is in check";
             return true;
         }

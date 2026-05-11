@@ -22,6 +22,10 @@ internal static class Consts {
     internal static readonly bool UseSSE2 = Sse2.IsSupported;
     internal static readonly bool UseAVX2 = Avx2.IsSupported;
     internal static readonly bool UseBMI2 = Bmi2.IsSupported;
+    
+    // minimum and maximum score/evaluation
+    internal const int MinValue = -30_000;
+    internal const int MaxValue =  30_000;
 
     // capacity of the buffer in movegen. also used in MoveOrder and Perft
     internal const int MoveBufferSize = 128;

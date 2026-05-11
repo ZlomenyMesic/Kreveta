@@ -105,7 +105,7 @@ internal static class SearchControl {
 
             PVS.NextBestMove = default;
 
-            var  (aspirationAlpha, aspirationBeta) = (-32_768, 32_767);
+            var  (aspirationAlpha, aspirationBeta) = (Consts.MinValue, Consts.MaxValue);
             bool useAspiration                     = false;
             
             // these have to be aged out to allow new information to be considered
@@ -125,17 +125,24 @@ internal static class SearchControl {
             // when the search is stable, the time budget and aspiration window deltas have to be reduced
             double totalInstability = -5.42 + 0.96 * scoreInstability
                                             + 0.99 * pvInstability;
-                                            
-            LastInstability = totalInstability;
             
             // the instability used for time management is further adjusted. if the last best move change
             // happened a long time ago, we try to reduce the time budget. also, we count which portion
             // of the total nodes searched were spent on the best move. if this number is high, we once
             // again try to reduce time. on the other hand, if the nodes are distributed more evenly, we
             // try to spend more time searching, as the best move might not be that stable
+            
+            /*double timeInstability = totalInstability
+                - 0.18 * Math.Clamp(depthLapse - 4.0, -2.5, 16.5)
+                + PVS.RootDepth * (0.05 * Math.Min(lbme - 0.56, 0.0)   // low effort - increase time
+                                 - 0.11 * Math.Max(lbme - 0.78, 0.0)); // high effort - reduce time*/
+            
+            
             double timeInstability = totalInstability
                 - 0.18 * Math.Clamp(depthLapse - 4.0, -2.5, 16.5)
                 + Math.Min(lbme - 0.74, 0.0) - Math.Max(lbme - 0.84, 0.0);
+            
+            LastInstability = totalInstability;
             
             // try to reduce or increase the time budget based on instability
             if (PVS.RootDepth > 3 && timeInstability != 0.0)
@@ -144,27 +151,34 @@ internal static class SearchControl {
             // don't use aspiration windows in unstable searches, or at very low depths
             if (PVS.RootDepth > 3 && totalInstability <= -2.49) {
                 double avg = PrevScore;
-                int    opt = Math.Clamp(
+                
+                // optimism measures the trend of the score (rising or falling over several iterations)
+                int opt = Math.Clamp(
                     (int)Math.Log2(Math.Abs(Optimism)) * Math.Sign(Optimism),
                     -5, 5
                 );
                 
+                // we use a fairly high delta, but lower values don't work very well here
                 int delta = (int)(
                     39.0 + totalInstability * 0.97
                          + avg * avg / 2704.0
                 );
 
+                // the aspiration bounds are simply the previous score +/- some delta. we also move
+                // both bounds up or down depending on optimism, as we don't want to be too surprised
                 aspirationAlpha = PVS.PVScore - delta + opt;
                 aspirationBeta  = PVS.PVScore + delta + opt;
 
                 // if the previous aspiration search failed outside bounds,
                 // make the respective bound infinite not to repeat such error
                 switch (AspFail) {
-                    case AspirationFail.FAIL_LOW:  aspirationAlpha = short.MinValue; break;
-                    case AspirationFail.FAIL_HIGH: aspirationBeta  = short.MaxValue; break;
+                    case AspirationFail.FAIL_LOW:  aspirationAlpha = Consts.MinValue; break;
+                    case AspirationFail.FAIL_HIGH: aspirationBeta  = Consts.MaxValue; break;
                 }
 
                 useAspiration = true;
+                
+                Assert.WindowCorrect(aspirationAlpha, aspirationBeta);
             }
             
             // search at a larger depth
@@ -197,30 +211,28 @@ internal static class SearchControl {
             PrevScore   = PVS.PVScore;
             ScoreDiffs += Math.Min(Math.Abs(diff), 1000);
 
-            // adjust optimism based on whether the score is growing or falling
+            // adjust optimism based on whether the score is rising or falling
             if (PVS.RootDepth > 1) {
                 Optimism *= 0.9;
                 Optimism += Math.Sign(diff) + diff / 50.0;
             }
             
-            // when playing a full game (ucinewgame), and the pv score is
-            // mate (doesn't matter whether for us or for the opponent), we
-            // can stop the search to avoid wasting time
+            // when playing a full game (ucinewgame), and the pv score is mate (doesn't matter
+            // whether for us or for the opponent), we can stop the search to avoid wasting time
             if (Game.FullGame && Score.IsMate(PVS.PVScore))
                 break;
             
             PrevElapsed = Stopwatch.ElapsedMilliseconds;
         }
 
-        // fastchess wants us to print last info when force-stopping a search
+        // fastchess wants us to print last info when force-stopping a search. if we managed to
+        // search at least one move, the score should be okay, otherwise we use the previous one
         if (PVS.Abort) {
-            if (PVS.PVScore == 0)
-                PVS.PVScore = (short)PrevScore;
-            
+            PVS.PVScore = (short)PVS.NextBestScore;
             GetResult();
         }
        
-        long time = Stopwatch.ElapsedMilliseconds == 0 ? 1 : Stopwatch.ElapsedMilliseconds;
+        long time = Math.Max(1, Stopwatch.ElapsedMilliseconds);
         
         // statistics can be turned off via the "PrintStats" option
         UCI.LogStats(forcePrint: false, header: true,
@@ -235,9 +247,8 @@ internal static class SearchControl {
         if (PVS.NextBestMove != default && AspFail == AspirationFail.NONE)
             BestMove = PVS.NextBestMove;
 
-        // in very rare cases if the search is so short that not even a depth
-        // 1 iteration could be finished (such as 'go nodes 1' on startpos),
-        // the resulting move is selected randomly to not use on illegal play
+        // in very rare cases if the search is so short that not even a depth 1 iteration could be finished
+        // (such as 'go nodes 1' on startpos), the resulting move is selected randomly not cause illegal play
         if (BestMove == default) {
             Span<Move> buffer = stackalloc Move[Consts.MoveBufferSize];
             _ = Movegen.GetLegalMoves(ref Game.Board, buffer);
@@ -245,7 +256,9 @@ internal static class SearchControl {
             BestMove = buffer[0];
             UCI.Log("info string best move selected randomly");
         }
-
+        
+        Assert.True(BestMove != default, "missing best move");
+        
         // the final response of the engine to the GUI
         UCI.Log($"bestmove {BestMove.ToLAN()}");
         
@@ -382,10 +395,9 @@ internal static class SearchControl {
                 
             board.PlayMove(ttMove, false);
             
-            // picking up moves from TT sometimes creates infinite loops, that would
-            // actually end in a draw. ThreeFold is used here to make sure the PV is
-            // actually legal, so if a draw is encountered, the PV is ended. we must
-            // make sure to actually remove the hashes from ThreeFold, too.
+            // picking up moves from TT sometimes creates infinite loops, that would actually end in a draw.
+            // ThreeFold is used here to make sure the PV is actually legal, so if a draw is encountered,
+            // the PV is ended. we must make sure to actually remove the hashes from ThreeFold, too.
             remove.Add(board.Hash);
             if (ThreeFold.AddAndCheck(board.Hash))
                 goto clearThreeFold;
