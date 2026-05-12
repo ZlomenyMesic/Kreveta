@@ -31,16 +31,18 @@ internal static class Program {
 
     internal static int Main(string[] args) {
 
-        // although this can make the engine a bit unstable,
-        // it seems to bring quite nice performance benefits.
-        // we wrap this in a try-catch as it might fail on some systems
+        // according to some LLMs, this may make the engine quite unstable. however, from my experience,
+        // it doesn't make anything unstable at all, and even helps provide nice performance benefits.
+        // we also wrap the whole in a try-catch statement, as it might fail on some systems
         try {
-            using var cur     = Process.GetCurrentProcess();
+            using var cur = Process.GetCurrentProcess();
             cur.PriorityClass = ProcessPriorityClass.High;
         }
 
 #pragma warning disable CA1031
-        catch { UCI.Log("Unable to set process priority to High. Continuing with Normal priority."); }
+        catch {
+            UCI.Log("Unable to set process priority to High. Continuing with Normal priority.");
+        }
 #pragma warning restore CA1031
 
         // free manually allocated memory before exiting
@@ -54,16 +56,18 @@ internal static class Program {
         if (!Consts.UseAVX2 || !Consts.UseBMI2)
             UCI.Log("AVX2 or BMI2 instruction sets not supported. Fallbacks will be used, but performance may be significantly degraded.");
 
+        // generate pseudo-random zobrist keys
         ZobristHash.Init();
 
         // pre-compute move lookup tables
         PextLookupTables.Init();
         LookupTables.Init();
         
-        // adjacent files
+        // compute adjacent file bitboards, and the static evaluation hash table
         Eval.Init();
         SETT.Realloc();
         
+        // the build time is embedded into the executable
         string buildTime = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .First(a => a.Key == "BuildTimestamp").Value ?? "";
@@ -82,15 +86,14 @@ internal static class Program {
         
         ThreeFold.Init(0);
         
-        // the default position is startpos to prevent crashes when
-        // the user types go or perft without setting a position
+        // make startpos the default position to prevent crashes when the user
+        // forgets to set a position, and tries to run a search or evaluation
         Game.Board = Board.CreateStartpos();
         
         UCI.InputLoop();
         return 0;
         
-        // manually allocated memory is spread throughout the whole
-        // codebase, so different freeing methods are being called
+        // manually allocated memory is spread throughout the whole codebase
         static void FreeMemory(object? sender, EventArgs e) {
             TT.Clear();
             SETT.Clear();

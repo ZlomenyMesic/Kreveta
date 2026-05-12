@@ -153,8 +153,8 @@ internal static class TimeManager {
         double m = Movegen.GetLegalMoves(ref board, stackalloc Move[Consts.MoveBufferSize]);
         
         // smooth base expected moves interpolation
-        double material =        p  * 37.2  // middlegame
-                        + (1.0 - p) * 11.8; // endgame
+        double material = p  * 37.2  // middlegame
+                 + (1.0 - p) * 11.8; // endgame
         
         // use the game ply to further approximate remaining moves
         double ply      = Math.Max(13.1, (150.0 - Game.Ply) / 5.0);

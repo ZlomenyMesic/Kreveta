@@ -27,9 +27,11 @@ internal static class Perft {
         ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",                 6, 119_060_324), // startpos
         ("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",     5, 193_690_690), // known as Kiwipete by Peter McKenzie
         ("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",                                7, 178_633_661), // an endgame position
-        ("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",         5,  15_833_292), // a middlegame position
+        ("r3k2r/Pppp1ppp/1b3nbN/nP2p3/1BP1P3/5N2/Pp1P2PP/R2B1RK1 w kq - 0 1",        6, 312_323_367), // side to move in check, available castling
         ("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",                5,  89_941_194), // this position is often buggy for engines
-        ("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 5, 164_075_551) // another middlegame position
+        ("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 5, 164_075_551), // another middlegame position
+        ("8/3k4/6p1/5n2/3P4/2PK4/8/8 b - - 0 1",                                     8, 126_824_321), // a custom, very late endgame position
+        ("k4r2/8/1Q6/2K1p3/2B1PpP1/5P2/8/8 b - - 0 1",                               7, 173_145_096)  // stalemate position
     ];
 
     /*
