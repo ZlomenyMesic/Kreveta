@@ -25,7 +25,7 @@ namespace Kreveta;
 internal static class Program {
     
     internal const string Name    = "Kreveta";
-    internal const string Version = "2.3.0";
+    internal const string Version = "2.3.1";
     internal const string Author  = "ZlomenyMesic";
     internal const string Network = "nnue-128-16-16-v4.bin";
 
@@ -70,8 +70,6 @@ internal static class Program {
         
         // header text when launching the engine
         UCI.Log($"{RGB.Peach}{Name}-{Version}{RGB.Reset}", nl: false);
-
-        
         UCI.Log($" by {Author} (built {buildTime})");
         
         // load the embedded nnue weights and pre-allocate the accumulator pool

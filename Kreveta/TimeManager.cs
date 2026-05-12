@@ -190,7 +190,7 @@ internal static class TimeManager {
 
         if (timeLeft < 247) return;
 
-        // for some reason it works well to have the shifts assymmetric. if the instability is negative,
+        // for some reason it works well to have the shifts asymmetric. if the instability is negative,
         // we want to terminate the search sooner, but if it's positive, we want to make the search longer
         long bonus = (long)(instability < 0
             ? instability * depth / 3.2d
