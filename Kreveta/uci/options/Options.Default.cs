@@ -4,6 +4,7 @@
 //
 
 // ReSharper disable InconsistentNaming
+
 namespace Kreveta.uci.options;
 
 internal static partial class Options {

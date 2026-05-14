@@ -40,7 +40,7 @@ internal static partial class UCI {
     internal static readonly TextWriter Output;
 
     // the search thread is shared between both regular search and perft
-    private static Thread?        SearchThread;
+    private  static Thread?       SearchThread;
     internal static volatile bool ShouldAbortSearch;
     
     private static readonly Action<string> CannotStartSearchCallback = delegate(string context) {
@@ -55,6 +55,7 @@ internal static partial class UCI {
         Output = Console.Out;
     }
 
+    // an infinite input loop that reads and processes UCI commands
     internal static void InputLoop() {
         while (true) {
             // since we use a custom StreamReader, this should be able to
@@ -79,21 +80,23 @@ internal static partial class UCI {
                 .ToList();
 #pragma warning restore CA1308
             
+            // according to UCI documentation, the engine should be able to handle an arbitrary
+            // number of white spaces between individual tokens. since we've split the array at
+            // spaces, we must now remove all empty strings that were between them
             semiProcessed.RemoveAll(string.IsNullOrWhiteSpace);
             ReadOnlySpan<string> tokens = semiProcessed.ToArray();
 
             // the first token is obviously the command itself
             switch (tokens[0].ToLower(null)) {
                 
-                // the GUI sends the "ucinewgame" command to inform the engine
-                // that it will be playing a whole game, instead of just maybe
-                // analyzing a single position. although we don't alter anything
-                // yet, it's nice to have the option to do so implemented
+                // the GUI sends the "ucinewgame" command to inform the engine that the next position will
+                // be from a different game than the previous one. practically, it just means the engine
+                // will be playing a whole game, rather than just analyzing some positions
                 case "ucinewgame":
                     Game.FullGame      = true;
                     Game.PreviousScore = 0;
                     
-                    // this resets the potentially stored recapture
+                    // this resets the potentially stored recapture from the last game
                     Game.TryStoreRecapture([], 0);
                     StaticEvalDiffHistory.Clear();
                     
@@ -196,9 +199,8 @@ internal static partial class UCI {
         }
     }
 
-    // "position ..." command sets the current position, which the
-    // engine probably will be searching in the future. this doesn't
-    // start the search itself, though
+    // the "position ..." command sets a position, which the engine will be searching
+    // soon or anytime in the future. it by now means starts the search itself, though
     private static void CmdPosition(ReadOnlySpan<string> tokens) {
         if (tokens.Length <= 1) {
             Log("Missing arguments - startpos/fen must be specified");

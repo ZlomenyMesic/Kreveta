@@ -16,20 +16,14 @@ namespace Kreveta.uci;
 
 internal static partial class UCI {
     
+    // log something to the console
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Log(string? msg, bool nl = true)
         => Output.Write(msg + (nl ? '\n' : string.Empty));
 
-    // had to use this crazy syntax just because it exists
-    internal static void LogMultiple(__arglist) {
-        var iter = new ArgIterator(__arglist);
-
-        while (iter.GetRemainingCount() > 0) {
-            var obj = TypedReference.ToObject(iter.GetNextArg());
-            Log(obj.ToString());
-        }
-    }
-
+    // log a set of statistics to the console in a nice format. each statistic consists of a name,
+    // and any value that can be turned into a string. furthermore, certain integral types are
+    // formatted with a group separator to make them more readable
     internal static void LogStats(bool forcePrint, bool header, params ReadOnlySpan<(string Name, object Data)> stats) {
         const string STATS_HEADER = "---STATS-------------------------------";
         const string STATS_AFTER  = "---------------------------------------";
@@ -37,9 +31,8 @@ internal static partial class UCI {
         // this sadly cannot be const in case we modify the strings above
         int dataOffset = STATS_HEADER.Length - 16;
 
-        // printing statistics can be toggled via the PrintStats option.
-        // printing can, however, be forced when we are, for example,
-        // printing perft results (or else perft would be meaningless)
+        // printing statistics can be toggled via the PrintStats option. printing can, however, be
+        // forced when we are, for example, printing perft results (or else perft would be meaningless)
         if (!Options.PrintStats && !forcePrint)
             return;
 
