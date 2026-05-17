@@ -343,23 +343,23 @@
         using <a href="https://cutechess.com/">Cutechess-cli</a>.
         <br/>
         <br/>
-        Older tests utilized a custom, equal opening book. However, this book comprised a very limited
-        number of unique opening lines, making rating precision not scale well with larger tests.
-        For this reason, since version 2.2.5, the opening book
+        Older tests utilized a custom, small opening suite comprising few equally evaluated lines. However, due
+        to the strongly limited number of unique openings, rating precision didn't scale well with larger tests.
+        To combat this issue, since Kreveta 2.2.5, the opening book
         <a href="https://github.com/official-stockfish/books/blob/master/UHO_4060_v4.epd.zip">UHO_4060_v4.epd</a>
         at depth = 16 is used, featuring some highly unbalanced positions. All openings are played in pairs,
         ensuring random noise is minimal, though ratings may now be squashed due to strongly biased positions
         being present.
         <br/>
         <br/>
-        No draw adjudications are used, and resign adjudications are set to reasonable evaluation
-        thresholds not to stop games prematurely (usually, a winning score of at least 500 cp is required).
+        No draw adjudications are used, and resign adjudications are set to reasonable score
+        thresholds not to stop games prematurely (usually, a winning evaluation of at least 500 cp is required).
       </p>
 
-      <!-- KREVETA 2.3.1 -->
+      <!-- KREVETA 2.3.2 -->
       <div class="tests-version">
         <div class="tests-header">
-          <h2>Kreveta 2.3.1</h2>
+          <h2>Kreveta 2.3.2</h2>
           <span class="version-badge prerelease">PRE-RELEASE</span>
         </div>
 
@@ -378,11 +378,36 @@ no tests carried out yet
         </div>
       </div>
 
+      <!-- KREVETA 2.3.1 -->
+      <div class="tests-version">
+        <div class="tests-header">
+          <h2>Kreveta 2.3.1</h2>
+          <span class="version-badge latest">LATEST</span>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">STC 8+0.15s</div>
+          <pre class="test-code"><code>
+Elo   | 87.1 +/- 6.1
+Games | total: 10000, W: 5041, L: 2586, D: 2373
+Score | 0.623, LOS: 100.0 %, draw ratio: 23.7 %
+          </code></pre>
+        </div>
+
+        <div class="test-block">
+          <div class="test-title">LTC 45+0.45s</div>
+          <pre class="test-code"><code>
+Elo   | 95.4 +/- 8.3
+Games | total: 5000, W: 2435, L: 1095, D: 1470
+Score | 0.634, LOS: 100.0 %, draw ratio: 29.4 %
+        </code></pre>
+        </div>
+      </div>
+
       <!-- KREVETA 2.3.0 -->
       <div class="tests-version">
         <div class="tests-header">
           <h2>Kreveta 2.3.0</h2>
-          <span class="version-badge latest">LATEST</span>
         </div>
 
         <div class="test-block">

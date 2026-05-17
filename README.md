@@ -126,18 +126,18 @@ Exits the program as soon as possible. Closing the program this way is recommend
 
 Allows changing internal engine configuration. Supported options are:
 
-- **PolyglotUseBook** (check): enables/disables retrieving and playing moves from the specified PolyGlot book
-- **PolyglotBook** (string): sets the path to the PolyGlot book
-- **PolyglotRisk** (spin): decides how risky the engine acts when choosing from multiple differently weighted moves in the PolyGlot book
-- **Hash** (spin): size of the TT in MiB (other tables are not affected)
-- **Clear Hash** (button): clears the TT during search
-- **UsePerftHash** (check): enables/disables usage of a secondary TT for perft
-- **UCI_Elo** (spin): sets an Elo rating at which the engine should perform
-- **UCI_LimitStrength** (check): enables/disables the Elo limit. Must be set to true to actually allow playing strength restrictions
-- **UCI_AnalyseMode** (check): enables/disables analysis mode
-- **UCI_EngineAbout** (string): just some short info
-- **PrintStats** (check): enables/disables prints of additional statistics at the end of search
-- **PlayWorst** (check): forces playing the worst possible moves
+- `PolyglotUseBook` (check): enables/disables retrieving and playing moves from the specified PolyGlot book
+- `PolyglotBook` (string): sets the path to the PolyGlot book
+- `PolyglotRisk` (spin): decides how risky the engine acts when choosing from multiple differently weighted moves in the PolyGlot book
+- `Hash` (spin): size of the TT in MiB (other tables are not affected)
+- `Clear Hash` (button): clears the TT during search
+- `UsePerftHash` (check): enables/disables usage of a secondary TT for perft
+- `UCI_Elo` (spin): sets an Elo rating at which the engine should perform
+- `UCI_LimitStrength` (check): enables/disables the Elo limit. Must be set to true to actually allow playing strength restrictions
+- `UCI_AnalyseMode` (check): enables/disables analysis mode
+- `UCI_EngineAbout` (string): just some short info
+- `PrintStats` (check): enables/disables prints of additional statistics at the end of search
+- `PlayWorst` (check): forces playing the worst possible moves
 
 Apart from the `button` option type, all `setoption` commands must include the new value. As already mentioned, the complete list of supported options, along with their default values and allowed value ranges, may be printed using the `uci` command.
 
@@ -185,9 +185,9 @@ Redirects you here.
 
 ## Build & Run
 
-All stable recent releases of Kreveta are available on the [Releases](https://github.com/ZlomenyMesic/Kreveta/releases) page. Download the latest executable, import it into your GUI of choice, and you're good to go. Kreveta is able to make use of the BMI2 and AVX2 instruction sets for better performance, which most present-day processors support. Fallbacks for older hardware are of course implemented as well, although performance may be significantly degraded.
+All stable recent releases of Kreveta are available on the [Releases](https://github.com/ZlomenyMesic/Kreveta/releases) page. Download the latest executable, import it into your GUI of choice, and you're good to go. Kreveta is able to make use of the BMI2 and AVX2 instruction sets for performance reasons, which most present-day processors support. Fallbacks for older hardware are of course implemented as well, although performance may be significantly degraded.
 
 To build Kreveta yourself, .NET SDK 9.0 or 10.0 is recommended. Clone the repository using <br><br>
 `git clone https://github.com/ZlomenyMesic/Kreveta` <br><br>
-or download the source code .zip file directly. A single, self-contained executable with all optimizations and trimming may be built using <br><br>
+or download the .zip source code file directly. A single, self-contained executable, with all optimizations and trimming enabled, may be built using <br><br>
 `dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true`
